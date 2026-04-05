@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "agent-browser": {
+      "source": "vercel-labs/agent-browser",
+      "sourceType": "github",
+      "computedHash": "9757e62a964103e0b5659ccae7aab3ee893957e2c7f2a9a872851773d06efe7e"
+    },
+    "dogfood": {
+      "source": "vercel-labs/agent-browser",
+      "sourceType": "github",
+      "computedHash": "df1c342a55d5e6a37276efd32a46984270a764563ff2445527f380860596bcc4"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "10eb4ec94577b79ae98c63ce3e7f35f8a6a06436a4011bff083b397de6960eeb"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "184db86b99c0c5204247f497605b0e5be9f3b31b4a062a81244668d3ae98f32b"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#050508" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>agentchan</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Lexend:wght@300;400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet" />
+  </head>
+  <body>
+    <style>html:not(.fonts-ready) #root { opacity: 0; } html.fonts-ready #root { opacity: 1; transition: opacity 0.15s ease; }</style>
+    <script>
+      // Prevent flash of wrong theme before React hydrates
+      (function() {
+        var p = 'system';
+        try { p = localStorage.getItem('agentchan-theme') || 'system'; } catch(e) {}
+        var t = p;
+        if (p === 'system') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+        if (t === 'light') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f4f4f8');
+        // Prevent FOUT — reveal UI after fonts load (or 2s fallback)
+        var show = function() { document.documentElement.classList.add('fonts-ready'); };
+        document.fonts.ready.then(show);
+        setTimeout(show, 2000);
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/client/main.tsx"></script>
+  </body>
+</html>

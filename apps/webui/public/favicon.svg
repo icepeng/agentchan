@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Wings (behind body) -->
+  <path d="M12 34Q8 44 12 52" stroke="#1e1e30" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M52 34Q56 44 52 52" stroke="#1e1e30" stroke-width="7" stroke-linecap="round" fill="none"/>
+
+  <!-- Body -->
+  <ellipse cx="32" cy="42" rx="18" ry="20" fill="#1e1e30"/>
+
+  <!-- Belly -->
+  <ellipse cx="32" cy="44" rx="12" ry="15" fill="#eaeaef"/>
+
+  <!-- Head -->
+  <circle cx="32" cy="22" r="17" fill="#1e1e30"/>
+
+  <!-- Face -->
+  <ellipse cx="32" cy="25" rx="12" ry="10" fill="#eaeaef"/>
+
+  <!-- Eyes -->
+  <ellipse cx="26" cy="23" rx="2.5" ry="3" fill="#0a0a14"/>
+  <ellipse cx="38" cy="23" rx="2.5" ry="3" fill="#0a0a14"/>
+  <circle cx="27.2" cy="21.5" r="1.2" fill="white"/>
+  <circle cx="39.2" cy="21.5" r="1.2" fill="white"/>
+
+  <!-- Beak -->
+  <path d="M29 30L32 35L35 30Z" fill="#fbbf24"/>
+
+  <!-- Blush -->
+  <ellipse cx="22" cy="29" rx="3.5" ry="2" fill="#fca5a5" opacity="0.35"/>
+  <ellipse cx="42" cy="29" rx="3.5" ry="2" fill="#fca5a5" opacity="0.35"/>
+
+  <!-- Feet -->
+  <ellipse cx="26" cy="61" rx="7" ry="2.5" fill="#fbbf24"/>
+  <ellipse cx="38" cy="61" rx="7" ry="2.5" fill="#fbbf24"/>
+</svg>

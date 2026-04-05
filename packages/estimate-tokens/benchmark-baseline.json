@@ -1,0 +1,8 @@
+{
+  "geminiAvgAbsError": 4.622276729398046,
+  "geminiTotalError": 0.6697334596130429,
+  "openaiAvgAbsError": 5.1373972068807685,
+  "openaiTotalError": -1.7496368678198864,
+  "combinedAvg": 4.879836968139408,
+  "timestamp": "2026-04-05T13:10:53.297Z"
+}

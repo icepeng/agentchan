@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@theme {
+  /* Depth layers — darkest to lightest */
+  --color-void: #050508;
+  --color-base: #0a0a10;
+  --color-surface: #111118;
+  --color-elevated: #1a1a24;
+  --color-raised: #222230;
+
+  /* Accent */
+  --color-accent: #2dd4bf;
+  --color-warm: #fbbf24;
+  --color-danger: #ef4444;
+
+  /* Foreground */
+  --color-fg: #e4e4e7;
+  --color-fg-2: #a1a1aa;
+  --color-fg-3: #8a8a94;
+  --color-fg-4: #6a6a75;
+
+  /* Edge — base color for subtle borders (used with opacity: border-edge/6) */
+  --color-edge: #ffffff;
+
+  /* Typography */
+  --font-family-display: 'Pretendard Variable', 'Syne', system-ui, sans-serif;
+  --font-family-body: 'Pretendard Variable', 'Lexend', system-ui, sans-serif;
+  --font-family-mono: 'Fira Code', ui-monospace, monospace;
+
+  /* Animations */
+  --animate-fade-slide: fade-slide 0.35s ease-out both;
+  --animate-fade: fade 0.25s ease-out both;
+  --animate-blink: blink 1s step-end infinite;
+  --animate-glow: glow-pulse 2s ease-in-out infinite;
+  --animate-shake: shake 0.3s ease-in-out;
+}
+
+/* ── Keyframes ─────────────────────────────── */
+
+@keyframes fade-slide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-3px); }
+  40%      { transform: translateX(3px); }
+  60%      { transform: translateX(-2px); }
+  80%      { transform: translateX(2px); }
+}
+
+/* ── Light theme overrides ────────────────── */
+
+[data-theme="light"] {
+  --color-void: #f4f4f8;
+  --color-base: #eaeaf0;
+  --color-surface: #ffffff;
+  --color-elevated: #f0f0f5;
+  --color-raised: #e2e2ea;
+
+  --color-accent: #0d9488;
+  --color-warm: #b45309;
+  --color-danger: #dc2626;
+
+  --color-fg: #1a1a2e;
+  --color-fg-2: #4a4a5e;
+  --color-fg-3: #6e6e82;
+  --color-fg-4: #8a8a9e;
+
+  --color-edge: #1a1a2e;
+
+  color-scheme: light;
+}
+
+/* ── Base ──────────────────────────────────── */
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--color-void);
+  font-family: var(--font-family-body);
+  color: var(--color-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  isolation: isolate;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-accent);
+}
+
+/* ── Scrollbar ─────────────────────────────── */
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-fg-4);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fg-3);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--color-fg-4);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-fg-3);
+}
+
+/* ── Select / Option (browser-limited) ───── */
+
+select option {
+  background: var(--color-elevated);
+  color: var(--color-fg);
+}
+
+/* ── Utilities ─────────────────────────────── */
+
+.input-glow:focus-within {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 1px var(--color-accent),
+              0 0 24px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}

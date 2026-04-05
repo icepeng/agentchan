@@ -1,0 +1,32 @@
+{
+  "name": "@agentchan/creative-agent",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsdown",
+    "test": "bun test --filter tests/tools/",
+    "eval": "bun test tests/eval/",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@agentchan/estimate-tokens": "workspace:*",
+    "@agentchan/grep": "workspace:*",
+    "@mariozechner/pi-ai": "^0.64.0",
+    "@mariozechner/pi-agent-core": "^0.64.0",
+    "@sinclair/typebox": "^0.34.0",
+    "nanoid": "^5.1.0",
+    "picocolors": "^1.1.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "tsdown": "^0.21.7"
+  }
+}
