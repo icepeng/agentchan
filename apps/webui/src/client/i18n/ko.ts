@@ -156,6 +156,19 @@ export const translations: Record<TranslationKey, string> = {
   "globalSettings.activeProvider": "활성 프로바이더 및 모델",
   "globalSettings.activeProviderDesc": "대화에 사용할 프로바이더와 모델을 선택하세요",
 
+  // Custom Providers
+  "customApi.providers": "커스텀 프로바이더",
+  "customApi.providersDesc": "자체 엔드포인트로 커스텀 API 프로바이더를 추가합니다.",
+  "customApi.addProvider": "프로바이더 추가",
+  "customApi.providerName": "프로바이더 이름",
+  "customApi.providerNamePlaceholder": "my-provider",
+  "customApi.url": "API URL",
+  "customApi.urlPlaceholder": "https://api.example.com/v1",
+  "customApi.requestModel": "모델 ID",
+  "customApi.requestModelPlaceholder": "gpt-4o",
+  "customApi.format": "API 포맷",
+  "customApi.tokenizer": "토크나이저",
+
   // Parameters
   "params.label": "파라미터",
   "params.temperature": "온도",

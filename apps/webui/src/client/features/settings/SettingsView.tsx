@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
 import type { PageRoute } from "@/client/app/context/UIContext.js";
-import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey } from "@/client/entities/config/index.js";
-import type { ApiKeyStatus } from "@/client/entities/config/index.js";
+import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS, TOKENIZER_OPTIONS } from "@/client/entities/config/index.js";
+import type { ApiKeyStatus, CustomApiFormat, CustomApiTokenizer, CustomProviderDef } from "@/client/entities/config/index.js";
 import { useI18n, type LanguagePreference } from "@/client/i18n/index.js";
-import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid } from "@/client/shared/ui/index.js";
+import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput } from "@/client/shared/ui/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
 
 type SettingsTab = "appearance" | "api-keys";
@@ -117,6 +117,14 @@ function ApiKeysTab() {
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
 
+  // "Add provider" form state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newUrl, setNewUrl] = useState("");
+  const [newModel, setNewModel] = useState("");
+  const [newFormat, setNewFormat] = useState<CustomApiFormat>("openai-completions");
+  const [newTokenizer, setNewTokenizer] = useState<CustomApiTokenizer>("cl100k");
+
   useEffect(() => {
     void fetchApiKeys().then(setKeys);
   }, []);
@@ -149,7 +157,37 @@ function ApiKeysTab() {
     configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
   };
 
+  const refreshProviders = async () => {
+    const providers = await fetchProviders();
+    configDispatch({ type: "SET_PROVIDERS", providers });
+  };
+
+  const handleAddProvider = async () => {
+    if (!newName.trim() || !newUrl.trim() || !newModel.trim()) return;
+    const def: CustomProviderDef = {
+      name: newName.trim(),
+      url: newUrl.trim(),
+      format: newFormat,
+      tokenizer: newTokenizer,
+      models: [{ id: newModel.trim(), name: newModel.trim() }],
+    };
+    await saveCustomProvider(def);
+    await refreshProviders();
+    setShowAddForm(false);
+    setNewName("");
+    setNewUrl("");
+    setNewModel("");
+    setNewFormat("openai-completions");
+    setNewTokenizer("cl100k");
+  };
+
+  const handleDeleteProvider = async (name: string) => {
+    await deleteCustomProvider(name);
+    await refreshProviders();
+  };
+
   const currentProvider = config.providers.find((p) => p.name === config.provider);
+  const isCustom = currentProvider?.isCustom ?? false;
 
   return (
     <div className="max-w-2xl mx-auto px-8 py-10 space-y-10 animate-fade-slide">
@@ -173,6 +211,86 @@ function ApiKeysTab() {
               size="md"
             />
           </FormField>
+        </div>
+        {isCustom && currentProvider && (
+          <div className="text-xs text-fg-3 font-mono px-1">
+            {currentProvider.url} · {currentProvider.format}
+          </div>
+        )}
+      </section>
+
+      {/* Custom Providers */}
+      <section className="space-y-4">
+        <SectionHeader title={t("customApi.providers")} description={t("customApi.providersDesc")} />
+        <div className="space-y-3">
+          {config.providers.filter((p) => p.isCustom).map((p) => (
+            <div key={p.name} className="p-4 rounded-xl border border-edge/8 bg-elevated/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-fg">{p.name}</span>
+                  <span className="text-xs text-fg-4 font-mono">{p.format}</span>
+                </div>
+                <Button variant="danger" size="md" onClick={() => handleDeleteProvider(p.name)}>
+                  {t("globalSettings.removeKey")}
+                </Button>
+              </div>
+              <div className="text-xs text-fg-3 font-mono truncate">{p.url}</div>
+              <div className="text-xs text-fg-4">
+                {p.models.map((m) => m.name).join(", ")}
+              </div>
+            </div>
+          ))}
+
+          {showAddForm ? (
+            <div className="p-4 rounded-xl border border-accent/20 bg-elevated/30 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <FormField label={t("customApi.providerName")}>
+                  <TextInput
+                    size="md"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder={t("customApi.providerNamePlaceholder")}
+                  />
+                </FormField>
+                <FormField label={t("customApi.url")}>
+                  <TextInput
+                    mono
+                    size="md"
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    placeholder={t("customApi.urlPlaceholder")}
+                  />
+                </FormField>
+                <FormField label={t("customApi.requestModel")}>
+                  <TextInput
+                    mono
+                    size="md"
+                    value={newModel}
+                    onChange={(e) => setNewModel(e.target.value)}
+                    placeholder={t("customApi.requestModelPlaceholder")}
+                  />
+                </FormField>
+                <FormField label={t("customApi.format")}>
+                  <Select value={newFormat} onChange={(v) => setNewFormat(v as CustomApiFormat)} options={FORMAT_OPTIONS} size="md" />
+                </FormField>
+                <FormField label={t("customApi.tokenizer")}>
+                  <Select value={newTokenizer} onChange={(v) => setNewTokenizer(v as CustomApiTokenizer)} options={TOKENIZER_OPTIONS} size="md" />
+                </FormField>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="ghost" size="md" onClick={() => setShowAddForm(false)}>
+                  {t("common.cancel")}
+                </Button>
+                <Button variant="accent" size="md" onClick={() => void handleAddProvider()} disabled={!newName.trim() || !newUrl.trim() || !newModel.trim()}>
+                  {t("common.create")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="ghost" size="md" onClick={() => setShowAddForm(true)}>
+              + {t("customApi.addProvider")}
+            </Button>
+          )}
         </div>
       </section>
 

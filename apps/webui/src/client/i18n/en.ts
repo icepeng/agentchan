@@ -154,6 +154,19 @@ export const translations = {
   "globalSettings.activeProvider": "Active Provider & Model",
   "globalSettings.activeProviderDesc": "Select which provider and model to use for conversations",
 
+  // Custom Providers
+  "customApi.providers": "Custom Providers",
+  "customApi.providersDesc": "Add custom API providers with your own endpoints.",
+  "customApi.addProvider": "Add Provider",
+  "customApi.providerName": "Provider Name",
+  "customApi.providerNamePlaceholder": "my-provider",
+  "customApi.url": "API URL",
+  "customApi.urlPlaceholder": "https://api.example.com/v1",
+  "customApi.requestModel": "Model ID",
+  "customApi.requestModelPlaceholder": "gpt-4o",
+  "customApi.format": "API Format",
+  "customApi.tokenizer": "Tokenizer",
+
   // Parameters
   "params.label": "Parameters",
   "params.temperature": "Temperature",

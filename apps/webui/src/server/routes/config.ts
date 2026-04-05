@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import type { ServerConfig, ProviderInfo } from "../types.js";
+import type { ServerConfig, ProviderInfo, CustomProviderDef } from "../types.js";
 import { getProviders, getModels } from "@agentchan/creative-agent";
 import { getAllApiKeys, setApiKey, deleteApiKey, getAppSetting, setAppSetting } from "../services/settings-db.js";
 
-const ALLOWED_PROVIDERS = new Set(["google", "google-vertex", "openai", "anthropic"]);
+const BUILTIN_PROVIDERS = new Set(["google", "google-vertex", "openai", "anthropic"]);
 
 const ALLOWED_MODELS = new Set([
   // Anthropic
@@ -23,9 +23,21 @@ const ALLOWED_MODELS = new Set([
   "o3-mini",
 ]);
 
+// --- Custom providers persistence ---
+
+function loadCustomProviders(): CustomProviderDef[] {
+  const raw = getAppSetting("custom-providers");
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+function saveCustomProviders(providers: CustomProviderDef[]): void {
+  setAppSetting("custom-providers", JSON.stringify(providers));
+}
+
 function buildProviderList(): ProviderInfo[] {
-  return getProviders()
-    .filter((name) => ALLOWED_PROVIDERS.has(name))
+  const builtIn: ProviderInfo[] = getProviders()
+    .filter((name) => BUILTIN_PROVIDERS.has(name))
     .map((name) => {
       const models = getModels(name)
         .filter((m) => ALLOWED_MODELS.has(m.id))
@@ -40,6 +52,18 @@ function buildProviderList(): ProviderInfo[] {
         models,
       };
     });
+
+  const custom: ProviderInfo[] = loadCustomProviders().map((p) => ({
+    name: p.name,
+    defaultModel: p.models[0]?.id ?? "",
+    models: p.models.map((m) => ({ id: m.id, name: m.name, reasoning: false })),
+    isCustom: true,
+    url: p.url,
+    format: p.format,
+    tokenizer: p.tokenizer,
+  }));
+
+  return [...builtIn, ...custom];
 }
 
 let providerListCache: ProviderInfo[] | null = null;
@@ -48,14 +72,30 @@ function getProviderList(): ProviderInfo[] {
   return providerListCache;
 }
 
+/** Look up a provider by name. Returns the ProviderInfo if found. */
+export function findProvider(name: string): ProviderInfo | undefined {
+  return getProviderList().find((p) => p.name === name);
+}
+
 const DEFAULT_PROVIDER = "google";
+
+function isKnownProvider(name: string): boolean {
+  return getProviderList().some((p) => p.name === name);
+}
 
 function loadConfig(): ServerConfig {
   const savedProvider = getAppSetting("config.provider");
   const savedModel = getAppSetting("config.model");
-  const provider = savedProvider && ALLOWED_PROVIDERS.has(savedProvider) ? savedProvider : DEFAULT_PROVIDER;
+  const provider = savedProvider && isKnownProvider(savedProvider) ? savedProvider : DEFAULT_PROVIDER;
   const providerInfo = getProviderList().find((p) => p.name === provider);
-  const model = savedModel && ALLOWED_MODELS.has(savedModel) ? savedModel : (providerInfo?.defaultModel ?? "");
+
+  let model: string;
+  if (providerInfo?.isCustom) {
+    // Custom providers: accept any saved model, fallback to default
+    model = savedModel ?? (providerInfo.defaultModel ?? "");
+  } else {
+    model = savedModel && ALLOWED_MODELS.has(savedModel) ? savedModel : (providerInfo?.defaultModel ?? "");
+  }
   return { provider, model };
 }
 
@@ -106,6 +146,42 @@ app.put("/", async (c) => {
 
 app.get("/providers", (c) => {
   return c.json(getProviderList());
+});
+
+// --- Custom Providers ---
+
+app.get("/custom-providers", (c) => {
+  return c.json(loadCustomProviders());
+});
+
+app.put("/custom-providers", async (c) => {
+  const provider = await c.req.json<CustomProviderDef>();
+  const providers = loadCustomProviders();
+  const idx = providers.findIndex((p) => p.name === provider.name);
+  if (idx >= 0) {
+    providers[idx] = provider;
+  } else {
+    providers.push(provider);
+  }
+  saveCustomProviders(providers);
+  providerListCache = null;
+  return c.json(providers);
+});
+
+app.delete("/custom-providers/:name", (c) => {
+  const name = c.req.param("name");
+  const providers = loadCustomProviders().filter((p) => p.name !== name);
+  saveCustomProviders(providers);
+  providerListCache = null;
+  // If active provider was deleted, reset to default
+  if (currentConfig.provider === name) {
+    currentConfig.provider = DEFAULT_PROVIDER;
+    const providerInfo = getProviderList().find((p) => p.name === DEFAULT_PROVIDER);
+    currentConfig.model = providerInfo?.defaultModel ?? "";
+    setAppSetting("config.provider", currentConfig.provider);
+    setAppSetting("config.model", currentConfig.model);
+  }
+  return c.json(providers);
 });
 
 // --- API Keys ---

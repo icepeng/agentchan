@@ -22,7 +22,7 @@ import {
   type ToolCall,
 } from "@agentchan/creative-agent";
 import { sessionStorage } from "../services/storage.js";
-import { getConfig } from "./config.js";
+import { getConfig, findProvider } from "./config.js";
 import { getApiKey } from "../services/settings-db.js";
 import { PROJECTS_DIR } from "../paths.js";
 
@@ -143,6 +143,7 @@ async function streamAgentAndPersist(
   }
 
   try {
+    const providerInfo = findProvider(config.provider);
     const { agent, historyLength } = await setupCreativeAgent(
       {
         provider: config.provider, model: config.model, projectDir,
@@ -150,6 +151,7 @@ async function streamAgentAndPersist(
         temperature: config.temperature,
         maxTokens: config.maxTokens, contextWindow: config.contextWindow,
         thinkingLevel: config.thinkingLevel,
+        ...(providerInfo?.url && { baseUrl: providerInfo.url, apiFormat: providerInfo.format }),
       },
       flattenPathToMessages(tree, historyPath),
       conversationId,
@@ -340,7 +342,14 @@ app.post("/:id/compact", async (c) => {
 
   let result;
   try {
-    result = await fullCompact({ messages: piMessages, model: resolveModel(config.provider, config.model), apiKey });
+    const compactProvider = findProvider(config.provider);
+    result = await fullCompact({
+      messages: piMessages,
+      model: resolveModel(config.provider, config.model,
+        compactProvider?.url ? { baseUrl: compactProvider.url, apiFormat: compactProvider.format } : undefined,
+      ),
+      apiKey,
+    });
   } catch (e) {
     return c.json({ error: `Compact failed: ${e instanceof Error ? e.message : String(e)}` }, 500);
   }
