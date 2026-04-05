@@ -1,8 +1,6 @@
 name: Build & Publish Release
 
 on:
-  release:
-    types: [created]
   workflow_dispatch:
     inputs:
       tag:
@@ -43,20 +41,11 @@ jobs:
           cd apps/webui/dist/exe
           tar czf ../../../../agentchan-darwin-arm64.tar.gz .
 
-      - name: Determine tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ steps.tag.outputs.tag }}" \
+          gh release upload "${{ github.event.inputs.tag }}" \
             agentchan-windows-x64.zip \
             agentchan-linux-x64.tar.gz \
             agentchan-darwin-arm64.tar.gz \
