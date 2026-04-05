@@ -12,7 +12,9 @@
 
 ## 다운로드
 
-Releases에서 운영체제에 맞는 파일을 다운받아 시작할 수 있습니다.
+[Releases](https://github.com/icepeng/agentchan/releases)에서 운영체제에 맞는 최신 버전을 다운받은 다음, 압축을 풀고 agentchan.exe를 실행합니다.
+
+실행이 완료되면 localhost:3000으로 브라우저 탭이 열립니다.
 
 ## 개발
 
