@@ -26,8 +26,9 @@ await $`cd ${WEBUI_ROOT} && bunx vite build`;
 console.log("[2/3] Compiling server binary...");
 const targetArgs = target ? ["--target", target] : [];
 const iconPath = join(WEBUI_ROOT, "assets/icon.ico");
-const iconArgs = isWindows && existsSync(iconPath) ? ["--icon", iconPath] : [];
-const entrypoint = join(WEBUI_ROOT, "src/server/index.ts");
+const iconArgs =
+  isWindows && existsSync(iconPath) ? ["--windows-icon", iconPath] : [];
+const entrypoint = join(WEBUI_ROOT, "src/server/entry-exe.ts");
 const outfile = join(DIST_DIR, exeName);
 await $`bun build --compile ${targetArgs} ${iconArgs} --outfile ${outfile} ${entrypoint}`;
 
