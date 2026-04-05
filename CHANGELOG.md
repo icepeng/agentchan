@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/icepeng/agentchan/compare/v0.1.1...v0.1.2) (2026-04-05)
+
+
+### Bug Fixes
+
+* use correct --windows-icon flag for exe build ([1d85bb2](https://github.com/icepeng/agentchan/commit/1d85bb2fb22384e3642a038a1d7a2b620021dfc0))
+
 ## [0.1.1](https://github.com/icepeng/agentchan/compare/v0.1.0...v0.1.1) (2026-04-05)
 
 
