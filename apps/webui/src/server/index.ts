@@ -41,6 +41,13 @@ await ensureLibrary();
 await ensureInitialProject();
 
 const url = `http://localhost:${port}`;
+
+Bun.serve({
+  port,
+  fetch: app.fetch,
+  idleTimeout: 255, // seconds — SSE streams can be long-lived during agent tool execution
+});
+
 console.log(`agentchan webui server running on ${url}`);
 
 if (!isDev) {
@@ -52,9 +59,3 @@ if (!isDev) {
         : ["xdg-open", url];
   Bun.spawn(cmd, { stdio: ["ignore", "ignore", "ignore"] });
 }
-
-export default {
-  port,
-  fetch: app.fetch,
-  idleTimeout: 255, // seconds — SSE streams can be long-lived during agent tool execution
-};
