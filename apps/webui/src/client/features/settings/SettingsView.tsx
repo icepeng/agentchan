@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
 import type { PageRoute } from "@/client/app/context/UIContext.js";
-import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS, TOKENIZER_OPTIONS } from "@/client/entities/config/index.js";
-import type { ApiKeyStatus, CustomApiFormat, CustomApiTokenizer, CustomProviderDef } from "@/client/entities/config/index.js";
+import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
+import type { ApiKeyStatus, CustomApiFormat, CustomProviderDef } from "@/client/entities/config/index.js";
 import { useI18n, type LanguagePreference } from "@/client/i18n/index.js";
 import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput } from "@/client/shared/ui/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
@@ -123,7 +123,6 @@ function ApiKeysTab() {
   const [newUrl, setNewUrl] = useState("");
   const [newModel, setNewModel] = useState("");
   const [newFormat, setNewFormat] = useState<CustomApiFormat>("openai-completions");
-  const [newTokenizer, setNewTokenizer] = useState<CustomApiTokenizer>("cl100k");
 
   useEffect(() => {
     void fetchApiKeys().then(setKeys);
@@ -168,7 +167,6 @@ function ApiKeysTab() {
       name: newName.trim(),
       url: newUrl.trim(),
       format: newFormat,
-      tokenizer: newTokenizer,
       models: [{ id: newModel.trim(), name: newModel.trim() }],
     };
     await saveCustomProvider(def);
@@ -178,7 +176,6 @@ function ApiKeysTab() {
     setNewUrl("");
     setNewModel("");
     setNewFormat("openai-completions");
-    setNewTokenizer("cl100k");
   };
 
   const handleDeleteProvider = async (name: string) => {
@@ -272,9 +269,6 @@ function ApiKeysTab() {
                 </FormField>
                 <FormField label={t("customApi.format")}>
                   <Select value={newFormat} onChange={(v) => setNewFormat(v as CustomApiFormat)} options={FORMAT_OPTIONS} size="md" />
-                </FormField>
-                <FormField label={t("customApi.tokenizer")}>
-                  <Select value={newTokenizer} onChange={(v) => setNewTokenizer(v as CustomApiTokenizer)} options={TOKENIZER_OPTIONS} size="md" />
                 </FormField>
               </div>
               <div className="flex gap-2 justify-end">

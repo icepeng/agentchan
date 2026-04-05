@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useConfigState, useConfigDispatch } from "@/client/entities/config/index.js";
-import type { ThinkingLevel, CustomApiFormat, CustomApiTokenizer } from "@/client/entities/config/index.js";
+import type { ThinkingLevel, CustomApiFormat } from "@/client/entities/config/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { updateConfig, saveCustomProvider, fetchProviders, FORMAT_OPTIONS, TOKENIZER_OPTIONS } from "@/client/entities/config/index.js";
+import { updateConfig, saveCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
 import { Badge, CollapsiblePanel, Select, FormField, SegmentedControl, TextInput } from "@/client/shared/ui/index.js";
 
 const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
@@ -42,14 +42,12 @@ export function ModelBar() {
 
   const [customUrl, setCustomUrl] = useState(currentProvider?.url ?? "");
   const [customFormat, setCustomFormat] = useState<CustomApiFormat>(currentProvider?.format ?? "openai-completions");
-  const [customTokenizer, setCustomTokenizer] = useState<CustomApiTokenizer>(currentProvider?.tokenizer ?? "cl100k");
   const [prevProvider, setPrevProvider] = useState(config.provider);
 
   if (config.provider !== prevProvider) {
     setPrevProvider(config.provider);
     setCustomUrl(currentProvider?.url ?? "");
     setCustomFormat(currentProvider?.format ?? "openai-completions");
-    setCustomTokenizer(currentProvider?.tokenizer ?? "cl100k");
   }
 
   const dispatchConfig = (result: {
@@ -115,13 +113,12 @@ export function ModelBar() {
     dispatchConfig(result);
   };
 
-  const submitCustomProvider = async (overrides?: { url?: string; format?: CustomApiFormat; tokenizer?: CustomApiTokenizer }) => {
+  const submitCustomProvider = async (overrides?: { url?: string; format?: CustomApiFormat }) => {
     if (!currentProvider?.isCustom) return;
     await saveCustomProvider({
       name: currentProvider.name,
       url: overrides?.url ?? customUrl,
       format: overrides?.format ?? customFormat,
-      tokenizer: overrides?.tokenizer ?? customTokenizer,
       models: currentProvider.models.map((m) => ({ id: m.id, name: m.name })),
     });
     const providers = await fetchProviders();
@@ -224,13 +221,6 @@ export function ModelBar() {
                   value={customFormat}
                   onChange={(v) => { setCustomFormat(v as CustomApiFormat); void submitCustomProvider({ format: v as CustomApiFormat }); }}
                   options={FORMAT_OPTIONS}
-                />
-              </FormField>
-              <FormField label={t("customApi.tokenizer")}>
-                <Select
-                  value={customTokenizer}
-                  onChange={(v) => { setCustomTokenizer(v as CustomApiTokenizer); void submitCustomProvider({ tokenizer: v as CustomApiTokenizer }); }}
-                  options={TOKENIZER_OPTIONS}
                 />
               </FormField>
             </>

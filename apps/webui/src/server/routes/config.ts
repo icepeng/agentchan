@@ -60,7 +60,6 @@ function buildProviderList(): ProviderInfo[] {
     isCustom: true,
     url: p.url,
     format: p.format,
-    tokenizer: p.tokenizer,
   }));
 
   return [...builtIn, ...custom];

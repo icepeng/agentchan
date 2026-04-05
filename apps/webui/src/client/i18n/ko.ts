@@ -167,7 +167,6 @@ export const translations: Record<TranslationKey, string> = {
   "customApi.requestModel": "모델 ID",
   "customApi.requestModelPlaceholder": "gpt-4o",
   "customApi.format": "API 포맷",
-  "customApi.tokenizer": "토크나이저",
 
   // Parameters
   "params.label": "파라미터",

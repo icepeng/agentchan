@@ -165,7 +165,6 @@ export const translations = {
   "customApi.requestModel": "Model ID",
   "customApi.requestModelPlaceholder": "gpt-4o",
   "customApi.format": "API Format",
-  "customApi.tokenizer": "Tokenizer",
 
   // Parameters
   "params.label": "Parameters",

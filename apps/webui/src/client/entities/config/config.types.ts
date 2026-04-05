@@ -11,8 +11,6 @@ export type CustomApiFormat =
   | "openai-responses"
   | "mistral-conversations";
 
-export type CustomApiTokenizer = "cl100k" | "o200k" | "claude" | "llama3" | "unknown";
-
 export interface ProviderInfo {
   name: string;
   defaultModel: string;
@@ -21,14 +19,12 @@ export interface ProviderInfo {
   isCustom?: boolean;
   url?: string;
   format?: CustomApiFormat;
-  tokenizer?: CustomApiTokenizer;
 }
 
 export interface CustomProviderDef {
   name: string;
   url: string;
   format: CustomApiFormat;
-  tokenizer: CustomApiTokenizer;
   models: { id: string; name: string }[];
 }
 
