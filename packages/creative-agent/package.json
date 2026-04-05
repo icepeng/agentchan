@@ -19,6 +19,7 @@
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/grep": "workspace:*",
+    "@google/genai": "^1.48.0",
     "@mariozechner/pi-ai": "^0.64.0",
     "@mariozechner/pi-agent-core": "^0.64.0",
     "@sinclair/typebox": "^0.34.0",
