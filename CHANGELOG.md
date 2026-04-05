@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/icepeng/agentchan/compare/v0.1.0...v0.1.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* use explicit Bun.serve() for compiled exe to stay alive ([8d82dbf](https://github.com/icepeng/agentchan/commit/8d82dbf3bf1b5bf74bd13e3a324f690eda2bd8ac))
+
 ## [0.1.0](https://github.com/icepeng/agentchan/compare/v0.0.1...v0.1.0) (2026-04-05)
 
 
