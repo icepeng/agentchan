@@ -65,8 +65,8 @@ export const translations: Record<TranslationKey, string> = {
   "project.confirmDelete": "삭제 확인",
   "project.cancelDelete": "취소",
   "project.deleteFailed": "프로젝트 삭제 실패: {{error}}",
-  "project.duplicate": "복제",
-  "project.duplicateNamePlaceholder": "새 프로젝트 이름...",
+  "project.duplicateSettings": "새 프로젝트에 설정 복사",
+  "project.duplicateSettingsNamePlaceholder": "새 프로젝트 이름...",
 
   // Project settings
   "settings.back": "뒤로",

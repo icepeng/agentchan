@@ -256,7 +256,7 @@ export function ProjectTabs() {
                     onClick={() => modeDispatch({ type: "START_DUPLICATE", sourceSlug: project.slug })}
                     className="px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10 data-[highlighted]:text-accent"
                   >
-                    {t("project.duplicate")}
+                    {t("project.duplicateSettings")}
                   </ContextMenu.Item>
                 </ContextMenu.Popup>
               </ContextMenu.Positioner>
@@ -278,7 +278,7 @@ export function ProjectTabs() {
             if (mode.type === "duplicating" && !mode.value.trim()) modeDispatch({ type: "RESET" });
             else void handleDuplicate();
           }}
-          placeholder={t("project.duplicateNamePlaceholder")}
+          placeholder={t("project.duplicateSettingsNamePlaceholder")}
           className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
         />
       )}

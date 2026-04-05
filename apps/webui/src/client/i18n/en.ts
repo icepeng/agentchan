@@ -63,8 +63,8 @@ export const translations = {
   "project.confirmDelete": "Confirm delete",
   "project.cancelDelete": "Cancel",
   "project.deleteFailed": "Failed to delete project: {{error}}",
-  "project.duplicate": "Duplicate",
-  "project.duplicateNamePlaceholder": "New project name...",
+  "project.duplicateSettings": "Copy settings to new project",
+  "project.duplicateSettingsNamePlaceholder": "New project name...",
 
   // Project settings
   "settings.back": "Back",
