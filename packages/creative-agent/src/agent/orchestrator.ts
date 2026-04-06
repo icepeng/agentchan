@@ -94,7 +94,7 @@ export function resolveModel(
       api: overrides.apiFormat as any,
       provider,
       baseUrl: overrides.baseUrl,
-      reasoning: false,
+      reasoning: true,
       input: ["text"] as ("text" | "image")[],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: 128_000,

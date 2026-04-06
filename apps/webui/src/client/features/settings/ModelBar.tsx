@@ -126,7 +126,7 @@ export function ModelBar() {
   };
 
   const currentModel = currentProvider?.models.find((m) => m.id === config.model);
-  const showThinking = !isCustom && (currentModel?.reasoning ?? false);
+  const showThinking = isCustom || (currentModel?.reasoning ?? false);
 
   // Build compact param tags for collapsed view
   const paramTags: { label: string; key: string }[] = [];
