@@ -81,14 +81,12 @@ function parseWithFrontmatter(
 
   if (!raw || typeof raw !== "object") return null;
 
-  const description = raw.description as string;
-  if (!description) {
-    log.warn("skills", `${location}: missing description, skipping`);
-    return null;
-  }
-
   const dirName = basename(dirname(location));
   const skillName = validateSkillName(raw.name as string | undefined, dirName, location);
+  const description = typeof raw.description === "string" ? raw.description : "";
+  if (!description) {
+    log.warn("skills", `${location}: missing description`);
+  }
 
   return {
     meta: {
