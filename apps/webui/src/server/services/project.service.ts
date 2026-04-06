@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 
 export function createProjectService(projectRepo: ProjectRepo, projectsDir: string) {
@@ -14,10 +13,8 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       return projectRepo.update(slug, updates);
     },
     async delete(slug: string) {
-      // Lightweight count: readdir + filter directories, no file reads
-      const entries = await readdir(projectsDir, { withFileTypes: true });
-      const count = entries.filter((e) => e.isDirectory()).length;
-      if (count <= 1) throw new Error("Cannot delete the last project");
+      const projects = await projectRepo.list();
+      if (projects.length <= 1) throw new Error("Cannot delete the last project");
       return projectRepo.delete(slug);
     },
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
@@ -49,11 +46,12 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       await Bun.write(rendererPath, source);
     },
 
-    resolveProjectFilePath(slug: string, filePath: string): string {
-      return join(projectsDir, slug, filePath);
+    serveProjectFile(slug: string, filePath: string): { fullPath: string } | null {
+      const projectsBase = resolve(projectsDir);
+      const fullPath = resolve(projectsDir, slug, filePath);
+      if (!fullPath.startsWith(projectsBase + sep)) return null;
+      return { fullPath };
     },
-
-    get projectsDir() { return projectsDir; },
   };
 }
 

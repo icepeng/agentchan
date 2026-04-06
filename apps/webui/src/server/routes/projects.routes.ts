@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { resolve, sep } from "node:path";
 import type { AppEnv } from "../types.js";
 import { createConversationRoutes } from "./conversations.routes.js";
 import { createSkillRoutes } from "./skills.routes.js";
@@ -95,18 +94,14 @@ export function createProjectRoutes() {
     const filePath = c.req.param("path");
     if (!filePath) return c.json({ error: "Invalid path" }, 400);
 
-    const projectsDir = c.get("projectService").projectsDir;
-    const projectsBase = resolve(projectsDir);
-    const fullPath = resolve(projectsDir, slug, filePath);
-    if (!fullPath.startsWith(projectsBase + sep)) {
-      return c.json({ error: "Invalid path" }, 400);
-    }
+    const resolved = c.get("projectService").serveProjectFile(slug, filePath);
+    if (!resolved) return c.json({ error: "Invalid path" }, 400);
 
-    const file = Bun.file(fullPath);
+    const file = Bun.file(resolved.fullPath);
     if (await file.exists()) return new Response(file);
 
     for (const ext of IMAGE_EXTS) {
-      const probe = Bun.file(`${fullPath}.${ext}`);
+      const probe = Bun.file(`${resolved.fullPath}.${ext}`);
       if (await probe.exists()) {
         c.header("Cache-Control", "public, max-age=3600");
         return new Response(probe);
