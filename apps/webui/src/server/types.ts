@@ -68,8 +68,5 @@ export interface ProviderInfo {
   name: string;
   defaultModel: string;
   models: ModelInfo[];
-  // Custom provider fields (only present for user-defined providers)
-  isCustom?: boolean;
-  url?: string;
-  format?: CustomApiFormat;
+  custom?: { url: string; format: CustomApiFormat };
 }

@@ -57,9 +57,7 @@ function buildProviderList(): ProviderInfo[] {
     name: p.name,
     defaultModel: p.models[0]?.id ?? "",
     models: p.models.map((m) => ({ id: m.id, name: m.name, reasoning: false })),
-    isCustom: true,
-    url: p.url,
-    format: p.format,
+    custom: { url: p.url, format: p.format },
   }));
 
   return [...builtIn, ...custom];
@@ -89,7 +87,7 @@ function loadConfig(): ServerConfig {
   const providerInfo = getProviderList().find((p) => p.name === provider);
 
   let model: string;
-  if (providerInfo?.isCustom) {
+  if (providerInfo?.custom) {
     // Custom providers: accept any saved model, fallback to default
     model = savedModel ?? (providerInfo.defaultModel ?? "");
   } else {

@@ -164,8 +164,8 @@ export const translations: Record<TranslationKey, string> = {
   "customApi.providerNamePlaceholder": "my-provider",
   "customApi.url": "API URL",
   "customApi.urlPlaceholder": "https://api.example.com/v1",
-  "customApi.requestModel": "모델 ID",
-  "customApi.requestModelPlaceholder": "gpt-4o",
+  "customApi.requestModel": "모델 ID (쉼표로 구분)",
+  "customApi.requestModelPlaceholder": "gpt-4o, gpt-4o-mini",
   "customApi.format": "API 포맷",
 
   // Parameters
@@ -189,6 +189,7 @@ export const translations: Record<TranslationKey, string> = {
   // Common
   "common.cancel": "취소",
   "common.create": "생성",
+  "common.save": "저장",
   "common.newSkillTitle": "새 스킬",
   "common.skillNamePlaceholder": "스킬-이름 (소문자, 하이픈)",
 };

@@ -162,8 +162,8 @@ export const translations = {
   "customApi.providerNamePlaceholder": "my-provider",
   "customApi.url": "API URL",
   "customApi.urlPlaceholder": "https://api.example.com/v1",
-  "customApi.requestModel": "Model ID",
-  "customApi.requestModelPlaceholder": "gpt-4o",
+  "customApi.requestModel": "Model IDs (comma-separated)",
+  "customApi.requestModelPlaceholder": "gpt-4o, gpt-4o-mini",
   "customApi.format": "API Format",
 
   // Parameters
@@ -187,6 +187,7 @@ export const translations = {
   // Common (shared across settings and library new-skill forms)
   "common.cancel": "Cancel",
   "common.create": "Create",
+  "common.save": "Save",
   "common.newSkillTitle": "New Skill",
   "common.skillNamePlaceholder": "skill-name (lowercase, hyphens)",
 } as const satisfies Record<string, string>;

@@ -38,16 +38,16 @@ export function ModelBar() {
   }
 
   const currentProvider = config.providers.find((p) => p.name === config.provider);
-  const isCustom = currentProvider?.isCustom ?? false;
+  const isCustom = !!currentProvider?.custom;
 
-  const [customUrl, setCustomUrl] = useState(currentProvider?.url ?? "");
-  const [customFormat, setCustomFormat] = useState<CustomApiFormat>(currentProvider?.format ?? "openai-completions");
+  const [customUrl, setCustomUrl] = useState(currentProvider?.custom?.url ?? "");
+  const [customFormat, setCustomFormat] = useState<CustomApiFormat>(currentProvider?.custom?.format ?? "openai-completions");
   const [prevProvider, setPrevProvider] = useState(config.provider);
 
   if (config.provider !== prevProvider) {
     setPrevProvider(config.provider);
-    setCustomUrl(currentProvider?.url ?? "");
-    setCustomFormat(currentProvider?.format ?? "openai-completions");
+    setCustomUrl(currentProvider?.custom?.url ?? "");
+    setCustomFormat(currentProvider?.custom?.format ?? "openai-completions");
   }
 
   const dispatchConfig = (result: {
@@ -114,7 +114,7 @@ export function ModelBar() {
   };
 
   const submitCustomProvider = async (overrides?: { url?: string; format?: CustomApiFormat }) => {
-    if (!currentProvider?.isCustom) return;
+    if (!currentProvider?.custom) return;
     await saveCustomProvider({
       name: currentProvider.name,
       url: overrides?.url ?? customUrl,

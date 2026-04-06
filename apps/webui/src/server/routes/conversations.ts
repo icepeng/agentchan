@@ -151,7 +151,7 @@ async function streamAgentAndPersist(
         temperature: config.temperature,
         maxTokens: config.maxTokens, contextWindow: config.contextWindow,
         thinkingLevel: config.thinkingLevel,
-        ...(providerInfo?.url && { baseUrl: providerInfo.url, apiFormat: providerInfo.format }),
+        ...(providerInfo?.custom && { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }),
       },
       flattenPathToMessages(tree, historyPath),
       conversationId,
@@ -346,7 +346,7 @@ app.post("/:id/compact", async (c) => {
     result = await fullCompact({
       messages: piMessages,
       model: resolveModel(config.provider, config.model,
-        compactProvider?.url ? { baseUrl: compactProvider.url, apiFormat: compactProvider.format } : undefined,
+        compactProvider?.custom ? { baseUrl: compactProvider.custom.url, apiFormat: compactProvider.custom.format } : undefined,
       ),
       apiKey,
     });
