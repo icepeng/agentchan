@@ -1,7 +1,12 @@
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
 import { AgentPanel, BottomInput, useConversation } from "@/client/features/chat/index.js";
+
+const DEFAULT_PANEL_WIDTH = 420;
+const MIN_PANEL_WIDTH = 280;
+const MAX_PANEL_RATIO = 0.6;
 
 interface ProjectPageProps {
   agentPanelOpen: boolean;
@@ -12,6 +17,40 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   const project = useProjectState();
   const { t } = useI18n();
   const { create } = useConversation();
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const panelWidthRef = useRef(DEFAULT_PANEL_WIDTH);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  panelWidthRef.current = panelWidth;
+
+  useEffect(() => () => cleanupRef.current?.(), []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = panelWidthRef.current;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const maxWidth = container.getBoundingClientRect().width * MAX_PANEL_RATIO;
+      setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, startWidth + (startX - ev.clientX))));
+    };
+
+    const cleanup = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", cleanup);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      cleanupRef.current = null;
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", cleanup);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    cleanupRef.current = cleanup;
+  }, []);
 
   return (
     <>
@@ -25,9 +64,9 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
       />
 
       {/* Top area: split pane */}
-      <div className="flex-1 flex min-h-0 relative z-10">
+      <div ref={containerRef} className="flex-1 flex min-h-0 relative z-10">
         {/* Left: Rendered View */}
-        <div className={`flex-1 flex flex-col min-w-0 border-r border-edge/6 ${agentPanelOpen ? "" : "border-r-0"}`}>
+        <div className={`flex-1 flex flex-col min-w-0 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
           {project.activeProjectSlug ? (
             <RenderedView />
           ) : (
@@ -38,9 +77,22 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
           )}
         </div>
 
+        {/* Resize handle */}
+        {agentPanelOpen && (
+          <div
+            onMouseDown={handleResizeStart}
+            className="hidden lg:block flex-shrink-0 w-px bg-edge/6 cursor-col-resize relative z-20"
+          >
+            <div className="absolute inset-y-0 -left-[3px] -right-[3px] hover:bg-accent/12 active:bg-accent/20 transition-colors duration-150" />
+          </div>
+        )}
+
         {/* Right: Agent Panel (collapsible) */}
         {agentPanelOpen ? (
-          <div className="w-[420px] flex-shrink-0 flex flex-col border-l border-edge/6 bg-base/40 hidden lg:flex">
+          <div
+            style={{ width: panelWidth }}
+            className="flex-shrink-0 flex flex-col bg-base/40 hidden lg:flex"
+          >
             <AgentPanel />
           </div>
         ) : (
