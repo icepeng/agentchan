@@ -8,6 +8,25 @@ export type {
   Conversation,
 } from "@agentchan/creative-agent";
 
+// Service types (type-only — no runtime circular deps)
+import type { ConfigService } from "./services/config.service.js";
+import type { ProjectService } from "./services/project.service.js";
+import type { ConversationService } from "./services/conversation.service.js";
+import type { AgentService } from "./services/agent.service.js";
+import type { LibraryService } from "./services/library.service.js";
+import type { SkillService } from "./services/skill.service.js";
+
+export type AppEnv = {
+  Variables: {
+    configService: ConfigService;
+    projectService: ProjectService;
+    conversationService: ConversationService;
+    agentService: AgentService;
+    libraryService: LibraryService;
+    skillService: SkillService;
+  };
+};
+
 // --- Project (folder) - webui-specific ---
 
 export interface Project {
