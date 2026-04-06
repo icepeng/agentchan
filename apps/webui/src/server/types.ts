@@ -46,6 +46,22 @@ export interface OutputFile {
   modifiedAt: number;  // Last modified timestamp
 }
 
+// --- Custom provider ---
+
+export type CustomApiFormat =
+  | "openai-completions"
+  | "anthropic-messages"
+  | "google-generative-ai"
+  | "openai-responses"
+  | "mistral-conversations";
+
+export interface CustomProviderDef {
+  name: string;
+  url: string;
+  format: CustomApiFormat;
+  models: { id: string; name: string }[];
+}
+
 // --- Server config state ---
 
 export type ThinkingLevel = "off" | "low" | "medium" | "high";
@@ -71,4 +87,5 @@ export interface ProviderInfo {
   name: string;
   defaultModel: string;
   models: ModelInfo[];
+  custom?: { url: string; format: CustomApiFormat };
 }

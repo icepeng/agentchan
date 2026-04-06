@@ -1,5 +1,5 @@
 import { json } from "@/client/shared/api.js";
-import type { ProviderInfo, ThinkingLevel } from "./config.types.js";
+import type { ProviderInfo, ThinkingLevel, CustomProviderDef } from "./config.types.js";
 
 export interface ConfigResponse {
   provider: string;
@@ -31,6 +31,22 @@ export function updateConfig(config: {
 
 export function fetchProviders(): Promise<ProviderInfo[]> {
   return json("/config/providers");
+}
+
+// --- Custom Providers ---
+
+export function saveCustomProvider(provider: CustomProviderDef): Promise<CustomProviderDef[]> {
+  return json("/config/custom-providers", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(provider),
+  });
+}
+
+export function deleteCustomProvider(name: string): Promise<CustomProviderDef[]> {
+  return json(`/config/custom-providers/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
 }
 
 // --- API Keys ---

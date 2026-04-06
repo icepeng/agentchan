@@ -37,6 +37,8 @@ export function ModelBar() {
     setContextWindowInput(config.contextWindow?.toString() ?? "");
   }
 
+  const currentProvider = config.providers.find((p) => p.name === config.provider);
+
   const dispatchConfig = (result: {
     provider: string;
     model: string;
@@ -100,9 +102,8 @@ export function ModelBar() {
     dispatchConfig(result);
   };
 
-  const currentProvider = config.providers.find((p) => p.name === config.provider);
   const currentModel = currentProvider?.models.find((m) => m.id === config.model);
-  const showThinking = currentModel?.reasoning ?? false;
+  const showThinking = !!currentProvider?.custom || (currentModel?.reasoning ?? false);
 
   // Build compact param tags for collapsed view
   const paramTags: { label: string; key: string }[] = [];
@@ -138,7 +139,7 @@ export function ModelBar() {
                     {config.provider.slice(0, 3)}
                   </span>
                   <span className="text-[13px] text-fg-2 font-mono truncate">
-                    {config.model}
+                    {config.model || "not configured"}
                   </span>
                 </div>
               </div>

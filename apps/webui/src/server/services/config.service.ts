@@ -1,8 +1,8 @@
 import { getProviders, getModels } from "@agentchan/creative-agent";
-import type { ServerConfig, ProviderInfo } from "../types.js";
+import type { ServerConfig, ProviderInfo, CustomProviderDef } from "../types.js";
 import type { SettingsRepo } from "../repositories/settings.repo.js";
 
-const ALLOWED_PROVIDERS = new Set(["google", "google-vertex", "openai", "anthropic"]);
+const BUILTIN_PROVIDERS = new Set(["google", "google-vertex", "openai", "anthropic"]);
 
 const ALLOWED_MODELS = new Set([
   // Anthropic
@@ -25,9 +25,21 @@ const ALLOWED_MODELS = new Set([
 const DEFAULT_PROVIDER = "google";
 
 export function createConfigService(settingsRepo: SettingsRepo) {
+  // --- Custom providers persistence ---
+
+  function loadCustomProviders(): CustomProviderDef[] {
+    const raw = settingsRepo.getAppSetting("custom-providers");
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch { return []; }
+  }
+
+  function saveCustomProviders(providers: CustomProviderDef[]): void {
+    settingsRepo.setAppSetting("custom-providers", JSON.stringify(providers));
+  }
+
   function buildProviderList(): ProviderInfo[] {
-    return getProviders()
-      .filter((name) => ALLOWED_PROVIDERS.has(name))
+    const builtIn: ProviderInfo[] = getProviders()
+      .filter((name) => BUILTIN_PROVIDERS.has(name))
       .map((name) => {
         const models = getModels(name)
           .filter((m) => ALLOWED_MODELS.has(m.id))
@@ -42,6 +54,15 @@ export function createConfigService(settingsRepo: SettingsRepo) {
           models,
         };
       });
+
+    const custom: ProviderInfo[] = loadCustomProviders().map((p) => ({
+      name: p.name,
+      defaultModel: p.models[0]?.id ?? "",
+      models: p.models.map((m) => ({ id: m.id, name: m.name, reasoning: false })),
+      custom: { url: p.url, format: p.format },
+    }));
+
+    return [...builtIn, ...custom];
   }
 
   let providerListCache: ProviderInfo[] | null = null;
@@ -50,12 +71,31 @@ export function createConfigService(settingsRepo: SettingsRepo) {
     return providerListCache;
   }
 
+  function invalidateProviderCache(): void {
+    providerListCache = null;
+  }
+
+  function findProvider(name: string): ProviderInfo | undefined {
+    return getProviderList().find((p) => p.name === name);
+  }
+
+  function isKnownProvider(name: string): boolean {
+    return getProviderList().some((p) => p.name === name);
+  }
+
   function loadConfig(): ServerConfig {
     const savedProvider = settingsRepo.getAppSetting("config.provider");
     const savedModel = settingsRepo.getAppSetting("config.model");
-    const provider = savedProvider && ALLOWED_PROVIDERS.has(savedProvider) ? savedProvider : DEFAULT_PROVIDER;
+    const provider = savedProvider && isKnownProvider(savedProvider) ? savedProvider : DEFAULT_PROVIDER;
     const providerInfo = getProviderList().find((p) => p.name === provider);
-    const model = savedModel && ALLOWED_MODELS.has(savedModel) ? savedModel : (providerInfo?.defaultModel ?? "");
+
+    let model: string;
+    if (providerInfo?.custom) {
+      // Custom providers: accept any saved model, fallback to default
+      model = savedModel ?? (providerInfo.defaultModel ?? "");
+    } else {
+      model = savedModel && ALLOWED_MODELS.has(savedModel) ? savedModel : (providerInfo?.defaultModel ?? "");
+    }
     return { provider, model };
   }
 
@@ -97,6 +137,44 @@ export function createConfigService(settingsRepo: SettingsRepo) {
     },
 
     getProviderList,
+
+    findProvider,
+
+    // --- Custom Providers ---
+
+    getCustomProviders(): CustomProviderDef[] {
+      return loadCustomProviders();
+    },
+
+    saveCustomProvider(provider: CustomProviderDef): CustomProviderDef[] {
+      const providers = loadCustomProviders();
+      const idx = providers.findIndex((p) => p.name === provider.name);
+      if (idx >= 0) {
+        providers[idx] = provider;
+      } else {
+        providers.push(provider);
+      }
+      saveCustomProviders(providers);
+      invalidateProviderCache();
+      return providers;
+    },
+
+    deleteCustomProvider(name: string): CustomProviderDef[] {
+      const providers = loadCustomProviders().filter((p) => p.name !== name);
+      saveCustomProviders(providers);
+      invalidateProviderCache();
+      // If active provider was deleted, reset to default
+      if (currentConfig.provider === name) {
+        currentConfig.provider = DEFAULT_PROVIDER;
+        const providerInfo = getProviderList().find((p) => p.name === DEFAULT_PROVIDER);
+        currentConfig.model = providerInfo?.defaultModel ?? "";
+        settingsRepo.setAppSetting("config.provider", currentConfig.provider);
+        settingsRepo.setAppSetting("config.model", currentConfig.model);
+      }
+      return providers;
+    },
+
+    // --- API Keys ---
 
     getApiKey(provider: string): string | null {
       return settingsRepo.getApiKey(provider);

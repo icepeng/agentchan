@@ -76,6 +76,7 @@ export function createAgentService(
     }
 
     try {
+      const providerInfo = configService.findProvider(config.provider);
       const { agent, historyLength } = await setupCreativeAgent(
         {
           provider: config.provider, model: config.model, projectDir,
@@ -83,6 +84,7 @@ export function createAgentService(
           temperature: config.temperature,
           maxTokens: config.maxTokens, contextWindow: config.contextWindow,
           thinkingLevel: config.thinkingLevel,
+          ...(providerInfo?.custom && { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }),
         },
         flattenPathToMessages(tree, historyPath),
         conversationId,

@@ -154,6 +154,18 @@ export const translations = {
   "globalSettings.activeProvider": "Active Provider & Model",
   "globalSettings.activeProviderDesc": "Select which provider and model to use for conversations",
 
+  // Custom Providers
+  "customApi.providers": "Custom Providers",
+  "customApi.providersDesc": "Add custom API providers with your own endpoints.",
+  "customApi.addProvider": "Add Provider",
+  "customApi.providerName": "Provider Name",
+  "customApi.providerNamePlaceholder": "my-provider",
+  "customApi.url": "API URL",
+  "customApi.urlPlaceholder": "https://api.example.com/v1",
+  "customApi.requestModel": "Model IDs (comma-separated)",
+  "customApi.requestModelPlaceholder": "gpt-4o, gpt-4o-mini",
+  "customApi.format": "API Format",
+
   // Parameters
   "params.label": "Parameters",
   "params.temperature": "Temperature",
@@ -175,6 +187,7 @@ export const translations = {
   // Common (shared across settings and library new-skill forms)
   "common.cancel": "Cancel",
   "common.create": "Create",
+  "common.save": "Save",
   "common.newSkillTitle": "New Skill",
   "common.skillNamePlaceholder": "skill-name (lowercase, hyphens)",
 } as const satisfies Record<string, string>;

@@ -81,7 +81,14 @@ export function createConversationService(
         throw new Error(`API key not configured for provider: ${config.provider}`);
       }
 
-      const result = await fullCompact({ messages: piMessages, model: resolveModel(config.provider, config.model), apiKey });
+      const compactProvider = configService.findProvider(config.provider);
+      const result = await fullCompact({
+        messages: piMessages,
+        model: resolveModel(config.provider, config.model,
+          compactProvider?.custom ? { baseUrl: compactProvider.custom.url, apiFormat: compactProvider.custom.format } : undefined,
+        ),
+        apiKey,
+      });
 
       // Re-inject activated skill content for continuity
       const activatedSkills = new Set<string>();
