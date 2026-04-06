@@ -3,6 +3,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, Badge, Button } from "@/client/shared/ui/index.js";
 import { fetchLibrarySkills, copyLibrarySkillToProject } from "@/client/entities/skill/index.js";
 import type { SkillMetadata } from "@/client/entities/skill/index.js";
+import { ProjectTypeTags } from "./ProjectTypeTags.js";
 
 interface LibraryBrowserProps {
   projectSlug: string;
@@ -58,6 +59,7 @@ export function LibraryBrowser({ projectSlug, existingSkills, onCopied, onClose 
                   {s.description && (
                     <div className="text-xs text-fg-3 mt-0.5 truncate">{s.description}</div>
                   )}
+                  <ProjectTypeTags metadata={s.metadata} />
                 </div>
                 {isAdded ? (
                   <Badge variant="accent">{t("libraryBrowser.added")}</Badge>

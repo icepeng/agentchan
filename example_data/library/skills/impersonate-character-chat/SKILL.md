@@ -5,6 +5,7 @@ metadata:
   author: agentchan
   version: "1.0"
   recommended-renderer: chat
+  project-type: "chat"
 ---
 
 # Impersonate 캐릭터 채팅 스킬

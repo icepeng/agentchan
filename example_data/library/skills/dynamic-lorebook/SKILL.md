@@ -5,6 +5,7 @@ metadata:
   author: agentchan
   version: "1.0"
   type: framework
+  project-type: "chat, novel"
 ---
 
 # Dynamic Lorebook Skill

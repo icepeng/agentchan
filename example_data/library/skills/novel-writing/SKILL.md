@@ -8,6 +8,7 @@ metadata:
   author: agentchan
   version: "1.0"
   recommended-renderer: novel
+  project-type: "novel"
 ---
 
 # 소설 집필 스킬

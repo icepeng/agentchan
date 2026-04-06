@@ -5,6 +5,7 @@ metadata:
   type: style
   display-name: Hidden Spoiler
   color: "#6366f1"
+  project-type: "novel, chat"
 ---
 
 # 히든 스포일러 시스템

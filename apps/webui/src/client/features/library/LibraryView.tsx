@@ -3,6 +3,7 @@ import { useUIDispatch } from "@/client/app/context/UIContext.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, TabBar } from "@/client/shared/ui/index.js";
 import { LibraryEditorView, type LibraryEditorConfig } from "./LibraryEditorView.js";
+import { ProjectTypeTags } from "./ProjectTypeTags.js";
 import {
   fetchLibrarySkills,
   fetchLibrarySkill,
@@ -21,6 +22,7 @@ type Tab = "skills" | "renderers";
 interface SkillItem {
   name: string;
   description: string;
+  metadata?: Record<string, string>;
 }
 
 interface RendererItem {
@@ -85,6 +87,7 @@ function SkillsView() {
           {skill.description && (
             <div className="text-xs text-fg-3 mt-0.5 truncate">{skill.description}</div>
           )}
+          <ProjectTypeTags metadata={skill.metadata} />
         </>
       )}
     />
