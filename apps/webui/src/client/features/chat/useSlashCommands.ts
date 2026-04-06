@@ -1,21 +1,39 @@
 import { useState, useMemo, useCallback } from "react";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
+import { useSkillState } from "@/client/entities/skill/index.js";
 import { useConversation } from "./useConversation.js";
 import { COMMANDS, type SlashCommand } from "./commands.js";
 
-export function useSlashCommands(text: string, setText: (s: string) => void) {
+export function useSlashCommands(
+  text: string,
+  setText: (s: string) => void,
+  onSendText?: (text: string) => Promise<void>,
+) {
   const configDispatch = useConfigDispatch();
   const { create, compact } = useConversation();
+  const { skills } = useSkillState();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const query = text.startsWith("/") ? text.slice(1) : "";
   const isOpen = text.startsWith("/") && !query.includes(" ");
 
+  const skillCommands = useMemo<SlashCommand[]>(
+    () =>
+      skills.map((s) => ({
+        name: s.name,
+        description: s.description,
+        needsArg: false,
+        kind: "skill" as const,
+      })),
+    [skills],
+  );
+
   const filteredCommands = useMemo(() => {
     if (!isOpen) return [];
-    if (query === "") return COMMANDS;
-    return COMMANDS.filter((cmd) => cmd.name.startsWith(query.toLowerCase()));
-  }, [isOpen, query]);
+    const all = [...COMMANDS, ...skillCommands];
+    if (query === "") return all;
+    return all.filter((cmd) => cmd.name.toLowerCase().startsWith(query.toLowerCase()));
+  }, [isOpen, query, skillCommands]);
 
   // Clamp selectedIndex when filtered list changes
   const clampedIndex = Math.min(selectedIndex, Math.max(filteredCommands.length - 1, 0));
@@ -52,6 +70,11 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
 
   const selectCommand = useCallback(
     (cmd: SlashCommand) => {
+      if (cmd.kind === "skill") {
+        void onSendText?.("/" + cmd.name);
+        setSelectedIndex(0);
+        return;
+      }
       if (cmd.needsArg) {
         setText("/" + cmd.name + " ");
       } else {
@@ -59,7 +82,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
       }
       setSelectedIndex(0);
     },
-    [executeCommand, setText],
+    [executeCommand, setText, onSendText],
   );
 
   const tryExecuteCommand = useCallback(

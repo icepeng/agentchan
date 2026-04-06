@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useConfigState } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
@@ -19,7 +19,18 @@ export function BottomInput() {
   const { create } = useConversation();
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const slash = useSlashCommands(text, setText);
+
+  const sendText = useCallback(async (message: string) => {
+    if (!session.activeConversationId) {
+      await create();
+      setText(message);
+      return;
+    }
+    setText("");
+    await send(message);
+  }, [session.activeConversationId, create, send]);
+
+  const slash = useSlashCommands(text, setText, sendText);
 
   const contextTokens = session.sessionUsage.contextTokens;
   const contextWindow = config.contextWindow ?? 128_000;
@@ -44,19 +55,8 @@ export function BottomInput() {
   const handleSubmit = async () => {
     const trimmed = text.trim();
     if (!trimmed || isStreaming) return;
-
-    // Check slash command first
     if (slash.tryExecuteCommand(trimmed)) return;
-
-    // Auto-create conversation if none active
-    if (!session.activeConversationId) {
-      await create();
-      setText(trimmed);
-      return;
-    }
-
-    setText("");
-    await send(trimmed);
+    await sendText(trimmed);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
