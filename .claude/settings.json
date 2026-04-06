@@ -19,8 +19,5 @@
     "claude-md-management@claude-plugins-official": true,
     "claude-code-setup@claude-plugins-official": true,
     "playground@claude-plugins-official": true
-  },
-  "permissions": {
-    "defaultMode": "auto"
   }
 }
