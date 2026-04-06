@@ -133,7 +133,7 @@ function parseLine(raw: string): ChatLine | null {
     };
 
   // Fallback: Name: "text" or Name: *text* (without ** markers)
-  const charFallback = rest.match(/^([^\s:][^:]{0,40}):\s*(["*\u201c].*)$/);
+  const charFallback = rest.match(/^([^\s:*][^:]{0,40}):\s*(["*\u201c].*)$/);
   if (charFallback)
     return {
       type: "character",
