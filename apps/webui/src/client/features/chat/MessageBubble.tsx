@@ -154,7 +154,7 @@ export function MessageBubble({
     node.role === "user" &&
     node.content.length === 1 &&
     node.content[0].type === "text" &&
-    node.content[0].text.startsWith("<skill_content")
+    (node.content[0].text.startsWith("<skill_activated") || node.content[0].text.startsWith("<skill_content"))
   ) {
     const nameMatch = node.content[0].text.match(/name="([^"]+)"/);
     const skillName = nameMatch?.[1] ?? "unknown";

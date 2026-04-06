@@ -14,6 +14,7 @@ import { discoverProjectSkills } from "../skills/discovery.js";
 import { SkillManager } from "../skills/manager.js";
 import { generateCatalog } from "../skills/catalog.js";
 import { RESTRICTED_TOOLS, collectGrantedRestrictedTools, type SkillMetadata } from "../skills/types.js";
+import { buildSkillContent, extractSkillReferenceName } from "../skills/content.js";
 import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
 import { analyzeContext } from "./context-analysis.js";
@@ -149,6 +150,17 @@ export async function setupCreativeAgent(
   let systemPrompt = DEFAULT_SYSTEM_PROMPT;
   if (skills.size > 0) {
     systemPrompt += "\n\n" + generateCatalog([...skills.values()]);
+  }
+
+  // Substitute skill references in history with current disk content
+  for (const msg of history) {
+    if (msg.role !== "user" || msg.content.length !== 1 || msg.content[0].type !== "text") continue;
+    const name = extractSkillReferenceName(msg.content[0].text);
+    if (!name) continue;
+    const skill = skills.get(name);
+    if (skill) {
+      msg.content = [{ type: "text" as const, text: buildSkillContent(name, skill, options.projectDir) }];
+    }
   }
 
   // Convert history

@@ -16,6 +16,7 @@ import {
   fullCompact,
   resolveModel,
   discoverProjectSkills,
+  buildSkillReference,
   type AgentEvent,
   type AssistantMessage,
   type Message,
@@ -209,14 +210,24 @@ async function streamAgentAndPersist(
     // The first message is the user prompt, already persisted by the route handler — skip it.
     const storedNew = storedNewAll[0]?.role === "user" ? storedNewAll.slice(1) : storedNewAll;
 
-    // Convert to TreeNodes
+    // Convert to TreeNodes (compact skill content to references for storage)
     const newNodes: TreeNode[] = [];
     let lastNodeId = parentNodeId;
     for (const msg of storedNew) {
+      let content = msg.content;
+      let meta: string | undefined;
+      if (msg.role === "user" && msg.content.length === 1 && msg.content[0].type === "text") {
+        const nameMatch = msg.content[0].text.match(/^<skill_content\s+name="([^"]+)">/);
+        if (nameMatch) {
+          content = [{ type: "text", text: buildSkillReference(nameMatch[1]) }];
+          meta = "skill-activation";
+        }
+      }
       const node: TreeNode = {
         id: nanoid(12), parentId: lastNodeId,
-        role: msg.role, content: msg.content, createdAt: Date.now(),
+        role: msg.role, content, createdAt: Date.now(),
         ...(msg.role === "assistant" ? { provider: config.provider, model: config.model } : {}),
+        ...(meta ? { meta } : {}),
       };
       newNodes.push(node);
       lastNodeId = node.id;

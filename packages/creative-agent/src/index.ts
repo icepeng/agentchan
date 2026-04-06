@@ -12,6 +12,7 @@ export { createProjectTools } from "./tools/index.js";
 export { discoverSkills, discoverProjectSkills } from "./skills/discovery.js";
 export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
+export { buildSkillContent, buildSkillReference, extractSkillReferenceName } from "./skills/content.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
 export { RESTRICTED_TOOLS, collectGrantedRestrictedTools } from "./skills/types.js";
 
