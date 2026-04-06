@@ -27,7 +27,7 @@
 ```
 
 ## Web UI Architecture
-- **Server**: Hono.js routes in `src/server/routes/`, services in `src/server/services/`
+- **Server**: 3-layer architecture — Route → Service → Repository. Hono Context DI (`c.get()`)로 서비스 주입
 - **Client**: Feature-Sliced Design 기반 — `app/ → pages/ → features/ → entities/ → shared/` 레이어 계층
 - **Storage**: File-based JSONL in `apps/webui/data/` (gitignored), split into `data/library/` and `data/projects/`
 - **Streaming**: SSE (Server-Sent Events) for agent responses
@@ -35,6 +35,19 @@
 - **Layout**: Split-pane — left: rendered output, right: agent chat (collapsible), bottom: input
 - **Routing**: State-based via `currentPage` in `app/context/UIContext.tsx` (no react-router). Pages: main, library, project-settings, settings
 - **Renderer system**: Per-project `renderer.ts` — server에서 TS→JS transpile, client에서 Blob URL dynamic import로 실행. Library renderers in `data/library/renderers/`
+
+## Server Layer Architecture (Route → Service → Repository)
+```
+routes/              ← HTTP 관심사만: 파싱, 검증, 응답. `new Hono<AppEnv>()` + `c.get("xxxService")`
+services/            ← 비즈니스 로직. 팩토리 함수(`createXxxService`)로 의존성 주입, 클로저로 상태 캡슐화
+repositories/        ← 순수 데이터 접근 (fs, SQLite, creative-agent). 팩토리 함수(`createXxxRepo`)
+index.ts             ← Composition root: repo → service → DI middleware → route 조립
+```
+- **의존 규칙**: 하향만 (routes→services→repositories). 라우트 간 직접 import 금지
+- **DI**: Hono Context (`c.set()`/`c.get()`)로 route에 주입, 팩토리 파라미터로 service↔repo 간 주입
+- **타입 패턴**: `export type XxxService = ReturnType<typeof createXxxService>` — 인터페이스 대신 팩토리 반환 타입
+- **AppEnv**: `types.ts`에 정의. 모든 서비스 타입을 `type-only import`로 참조 (런타임 순환 없음)
+- **네이밍**: `*.routes.ts`, `*.service.ts`, `*.repo.ts` 접미사
 
 ## Client Layer Architecture (FSD-inspired)
 ```
@@ -101,7 +114,7 @@ apps/webui/data/
 ## Code Conventions
 - Server/client 양쪽에서 쓰는 순수 유틸리티는 별도 패키지로 분리 (예: `packages/estimate-tokens`). `.mjs` + `.d.ts`만으로 구성, 빌드 스텝 없음
 - Server types in `src/server/types.ts`, client types in `src/client/entities/*/` (entity별 .types.ts)
-- Hono sub-routers mounted via `app.route()` in `src/server/index.ts`
+- Route 팩토리(`createXxxRoutes()`) → `app.route()`으로 마운트. 라우트는 `PROJECTS_DIR` 등 경로 상수 직접 import 금지 — 서비스를 통해 접근
 - Slug-based project folder names (Korean preserved, spaces to hyphens, lowercase ASCII)
 - All new type fields should be optional for backward compatibility with existing data
 - `updateProject` takes a partial updates object, not positional args

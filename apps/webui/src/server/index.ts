@@ -3,15 +3,50 @@ import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
-import { CLIENT_DIR, isDev } from "./paths.js";
+import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, isDev } from "./paths.js";
+import type { AppEnv } from "./types.js";
 
-import { ensureInitialProject } from "./services/storage.js";
-import { ensureLibrary } from "./services/library.js";
-import projectsRoutes from "./routes/projects.js";
-import configRoutes from "./routes/config.js";
-import libraryRoutes from "./routes/library.js";
+// --- Repositories ---
+import { createSettingsRepo } from "./repositories/settings.repo.js";
+import { createProjectRepo } from "./repositories/project.repo.js";
+import { createConversationRepo } from "./repositories/conversation.repo.js";
+import { createLibraryRepo } from "./repositories/library.repo.js";
+import { createProjectSkillRepo } from "./repositories/project-skill.repo.js";
 
-const app = new Hono();
+// --- Services ---
+import { createConfigService } from "./services/config.service.js";
+import { createProjectService } from "./services/project.service.js";
+import { createConversationService } from "./services/conversation.service.js";
+import { createAgentService } from "./services/agent.service.js";
+import { createLibraryService } from "./services/library.service.js";
+import { createSkillService } from "./services/skill.service.js";
+
+// --- Routes ---
+import { createConfigRoutes } from "./routes/config.routes.js";
+import { createProjectRoutes } from "./routes/projects.routes.js";
+import { createLibraryRoutes } from "./routes/library.routes.js";
+
+// ===== 1. Repositories =====
+const settingsRepo = createSettingsRepo(DATA_DIR);
+const projectRepo = createProjectRepo(PROJECTS_DIR);
+const conversationRepo = createConversationRepo(PROJECTS_DIR);
+const libraryRepo = createLibraryRepo(LIBRARY_DIR);
+const projectSkillRepo = createProjectSkillRepo(PROJECTS_DIR);
+
+// ===== 2. Services =====
+const configService = createConfigService(settingsRepo);
+const projectService = createProjectService(projectRepo, PROJECTS_DIR);
+const conversationService = createConversationService(conversationRepo, configService, PROJECTS_DIR);
+const agentService = createAgentService(configService, conversationRepo, PROJECTS_DIR);
+const libraryService = createLibraryService(libraryRepo);
+const skillService = createSkillService(projectSkillRepo, libraryRepo, PROJECTS_DIR);
+
+// ===== 3. Bootstrap =====
+await libraryRepo.ensureLibrary();
+await projectService.ensureInitialProject();
+
+// ===== 4. Hono App =====
+const app = new Hono<AppEnv>();
 
 // Global error handler — log full stack traces to console
 app.onError((err, c) => {
@@ -22,10 +57,21 @@ app.onError((err, c) => {
 // CORS for development (Vite dev server on different port)
 app.use("/api/*", cors());
 
-// API routes
-app.route("/api/projects", projectsRoutes);
-app.route("/api/config", configRoutes);
-app.route("/api/library", libraryRoutes);
+// DI middleware — inject services into Hono context
+app.use("/api/*", async (c, next) => {
+  c.set("configService", configService);
+  c.set("projectService", projectService);
+  c.set("conversationService", conversationService);
+  c.set("agentService", agentService);
+  c.set("libraryService", libraryService);
+  c.set("skillService", skillService);
+  await next();
+});
+
+// ===== 5. Routes =====
+app.route("/api/projects", createProjectRoutes());
+app.route("/api/config", createConfigRoutes());
+app.route("/api/library", createLibraryRoutes());
 
 // Serve static files in production
 if (existsSync(CLIENT_DIR)) {
@@ -34,11 +80,8 @@ if (existsSync(CLIENT_DIR)) {
   app.get("*", serveStatic({ path: join(CLIENT_DIR, "index.html") }));
 }
 
-// Initialize agent, projects, and start server
+// ===== 6. Start Server =====
 const port = Number(process.env.PORT ?? 3000);
-
-await ensureLibrary();
-await ensureInitialProject();
 
 const url = `http://localhost:${port}`;
 
