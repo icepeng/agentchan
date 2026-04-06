@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useConfigState, useConfigDispatch } from "@/client/entities/config/index.js";
-import type { ThinkingLevel, CustomApiFormat } from "@/client/entities/config/index.js";
+import type { ThinkingLevel } from "@/client/entities/config/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { updateConfig, saveCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
+import { updateConfig } from "@/client/entities/config/index.js";
 import { Badge, CollapsiblePanel, Select, FormField, SegmentedControl, TextInput } from "@/client/shared/ui/index.js";
 
 const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
@@ -38,17 +38,6 @@ export function ModelBar() {
   }
 
   const currentProvider = config.providers.find((p) => p.name === config.provider);
-  const isCustom = !!currentProvider?.custom;
-
-  const [customUrl, setCustomUrl] = useState(currentProvider?.custom?.url ?? "");
-  const [customFormat, setCustomFormat] = useState<CustomApiFormat>(currentProvider?.custom?.format ?? "openai-completions");
-  const [prevProvider, setPrevProvider] = useState(config.provider);
-
-  if (config.provider !== prevProvider) {
-    setPrevProvider(config.provider);
-    setCustomUrl(currentProvider?.custom?.url ?? "");
-    setCustomFormat(currentProvider?.custom?.format ?? "openai-completions");
-  }
 
   const dispatchConfig = (result: {
     provider: string;
@@ -113,20 +102,8 @@ export function ModelBar() {
     dispatchConfig(result);
   };
 
-  const submitCustomProvider = async (overrides?: { url?: string; format?: CustomApiFormat }) => {
-    if (!currentProvider?.custom) return;
-    await saveCustomProvider({
-      name: currentProvider.name,
-      url: overrides?.url ?? customUrl,
-      format: overrides?.format ?? customFormat,
-      models: currentProvider.models.map((m) => ({ id: m.id, name: m.name })),
-    });
-    const providers = await fetchProviders();
-    configDispatch({ type: "SET_PROVIDERS", providers });
-  };
-
   const currentModel = currentProvider?.models.find((m) => m.id === config.model);
-  const showThinking = isCustom || (currentModel?.reasoning ?? false);
+  const showThinking = !!currentProvider?.custom || (currentModel?.reasoning ?? false);
 
   // Build compact param tags for collapsed view
   const paramTags: { label: string; key: string }[] = [];
@@ -196,43 +173,13 @@ export function ModelBar() {
             />
           </FormField>
 
-          {isCustom ? (
-            <>
-              <FormField label={t("customApi.url")}>
-                <TextInput
-                  mono
-                  type="text"
-                  value={customUrl}
-                  onChange={(e) => setCustomUrl(e.target.value)}
-                  onBlur={() => submitCustomProvider()}
-                  onKeyDown={(e) => e.key === "Enter" && submitCustomProvider()}
-                  placeholder={t("customApi.urlPlaceholder")}
-                />
-              </FormField>
-              <FormField label={t("model.label")}>
-                <Select
-                  value={config.model}
-                  onChange={handleModelChange}
-                  options={currentProvider?.models.map((m) => ({ value: m.id, label: m.name })) ?? []}
-                />
-              </FormField>
-              <FormField label={t("customApi.format")}>
-                <Select
-                  value={customFormat}
-                  onChange={(v) => { setCustomFormat(v as CustomApiFormat); void submitCustomProvider({ format: v as CustomApiFormat }); }}
-                  options={FORMAT_OPTIONS}
-                />
-              </FormField>
-            </>
-          ) : (
-            <FormField label={t("model.label")}>
-              <Select
-                value={config.model}
-                onChange={handleModelChange}
-                options={currentProvider?.models.map((m) => ({ value: m.id, label: m.name })) ?? []}
-              />
-            </FormField>
-          )}
+          <FormField label={t("model.label")}>
+            <Select
+              value={config.model}
+              onChange={handleModelChange}
+              options={currentProvider?.models.map((m) => ({ value: m.id, label: m.name })) ?? []}
+            />
+          </FormField>
 
           <div className="h-px bg-edge/4" />
 
