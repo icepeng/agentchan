@@ -1,10 +1,15 @@
+import { Suspense, lazy } from "react";
 import { useUIState, useUIDispatch } from "./context/UIContext.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
-import { LibraryPage } from "@/client/pages/LibraryPage.js";
 import { ProjectSettingsPage } from "@/client/pages/ProjectSettingsPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/features/onboarding/index.js";
+
+// Library page is lazy-loaded to keep CodeMirror out of the main bundle.
+const LibraryPage = lazy(() =>
+  import("@/client/pages/LibraryPage.js").then((m) => ({ default: m.LibraryPage })),
+);
 
 function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
   page: string;
@@ -62,11 +67,13 @@ export function AppShell() {
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <PageContent
-          page={ui.currentPage.page}
-          agentPanelOpen={ui.agentPanelOpen}
-          onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
-        />
+        <Suspense fallback={<div className="flex-1" />}>
+          <PageContent
+            page={ui.currentPage.page}
+            agentPanelOpen={ui.agentPanelOpen}
+            onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
+          />
+        </Suspense>
       </div>
 
       <OnboardingWizard />

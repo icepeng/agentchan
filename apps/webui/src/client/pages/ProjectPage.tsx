@@ -21,7 +21,10 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   const containerRef = useRef<HTMLDivElement>(null);
   const panelWidthRef = useRef(DEFAULT_PANEL_WIDTH);
   const cleanupRef = useRef<(() => void) | null>(null);
-  panelWidthRef.current = panelWidth;
+
+  useEffect(() => {
+    panelWidthRef.current = panelWidth;
+  }, [panelWidth]);
 
   useEffect(() => () => cleanupRef.current?.(), []);
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useI18n, type TranslationKey } from "@/client/i18n/index.js";
-import { Button, TextInput, type EditorLanguage } from "@/client/shared/ui/index.js";
+import { Button, TextInput } from "@/client/shared/ui/index.js";
+import { type EditorLanguage } from "@/client/shared/ui/TextEditor.js";
 import { SkillEditor } from "./SkillEditor.js";
 
 export interface LibraryEditorConfig<T> {

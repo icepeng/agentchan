@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { TextEditor, type EditorLanguage } from "@/client/shared/ui/index.js";
+import { TextEditor, type EditorLanguage } from "@/client/shared/ui/TextEditor.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
 
