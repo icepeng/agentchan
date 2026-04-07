@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { SkillManager } from "../skills/manager.js";
-import { generateCatalog } from "../skills/catalog.js";
+import { generateCatalog, generatePersistentSkillsBlock } from "../skills/catalog.js";
 import { type SkillMetadata } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
@@ -165,12 +165,22 @@ export async function setupCreativeAgent(
 
   // Build tools
   const tools: any[] = createProjectTools(options.projectDir);
-  if (skills.size > 0) tools.push(manager.createTool());
+  // Only register activate_skill tool if there's at least one model-invocable skill
+  const skillList = [...skills.values()];
+  const hasInvocableSkill = skillList.some(
+    (s) => !s.meta.alwaysActive && !s.meta.disableModelInvocation,
+  );
+  if (hasInvocableSkill) tools.push(manager.createTool());
 
   // Build system prompt
   let systemPrompt = DEFAULT_SYSTEM_PROMPT;
-  if (skills.size > 0) {
-    systemPrompt += "\n\n" + generateCatalog([...skills.values()]);
+  const persistentBlock = generatePersistentSkillsBlock(skillList, options.projectDir);
+  if (persistentBlock) {
+    systemPrompt += "\n\n" + persistentBlock;
+  }
+  const catalog = generateCatalog(skillList);
+  if (catalog) {
+    systemPrompt += "\n\n" + catalog;
   }
 
   // Convert history

@@ -348,7 +348,7 @@ function RendererTab({ slug }: { slug: string }) {
     const set = new Set<string>();
     for (const s of skillState.skills) {
       const rec = s.metadata?.["recommended-renderer"];
-      if (rec) set.add(rec);
+      if (typeof rec === "string") set.add(rec);
     }
     return set;
   }, [skillState.skills]);

@@ -2,7 +2,11 @@ export interface SkillMetadata {
   name: string;
   description: string;
   license?: string;
-  metadata?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+  /** When true, the skill body is auto-injected as the first user message of every new session. */
+  alwaysActive?: boolean;
+  /** When true, the skill is hidden from the model's catalog (no autonomous activate_skill). Slash invocation still works. */
+  disableModelInvocation?: boolean;
 }
 
 export interface SkillRecord {

@@ -18,7 +18,7 @@ export interface RenderContext {
   skills: {
     name: string;
     description: string;
-    metadata?: Record<string, string>;
+    metadata?: Record<string, unknown>;
   }[];
   baseUrl: string;
 }

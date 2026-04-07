@@ -55,6 +55,18 @@ Important:
           ));
         }
 
+        if (skill.meta.alwaysActive) {
+          return Promise.resolve(textResult(
+            `Skill "${params.name}" is always active and already loaded in the system prompt. No action needed.`,
+          ));
+        }
+
+        if (skill.meta.disableModelInvocation) {
+          return Promise.resolve(textResult(
+            `Skill "${params.name}" is not available for model invocation. It can only be triggered explicitly by the user.`,
+          ));
+        }
+
         const content = this.buildSkillContent(params.name, skill);
 
         if (this.onSteer) {

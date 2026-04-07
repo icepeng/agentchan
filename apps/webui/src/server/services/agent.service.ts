@@ -8,6 +8,10 @@ import {
   extractUsage,
   flattenPathToMessages,
   pathToNode,
+  discoverProjectSkills,
+  parseSlashCommand,
+  findSlashInvocableSkill,
+  buildSlashSkillContent,
   type AgentEvent,
   type AssistantMessage,
   type Message,
@@ -203,6 +207,32 @@ export function createAgentService(
     await stream.writeSSE({ event: "done", data: "" });
   }
 
+  /**
+   * If `text` matches a slash command for an invocable skill, expand it into the
+   * skill body. Returns the expanded text plus the original raw input as
+   * `displayText` (so the UI can show "/skillname" while the model receives the
+   * full body). Returns null if the text is not a recognized slash command.
+   *
+   * Always-active skills are intentionally not matched: they are already in the
+   * system prompt, and slash autocomplete hides them. Unknown skills also return
+   * null, in which case the text is sent as-is (the model sees the literal "/foo").
+   */
+  async function tryExpandSlashCommand(
+    slug: string,
+    text: string,
+  ): Promise<{ expanded: string; displayText: string } | null> {
+    const parsed = parseSlashCommand(text);
+    if (!parsed) return null;
+
+    const projectDir = join(projectsDir, slug);
+    const skills = await discoverProjectSkills(join(projectDir, "skills"));
+    const skill = findSlashInvocableSkill(skills, parsed.name);
+    if (!skill) return null;
+
+    const expanded = buildSlashSkillContent(skill, projectDir, parsed.args);
+    return { expanded, displayText: text };
+  }
+
   return {
     async sendMessage(
       stream: SSEStreamingApi,
@@ -211,9 +241,15 @@ export function createAgentService(
       parentNodeId: string | null,
       text: string,
     ) {
+      const expansion = await tryExpandSlashCommand(slug, text);
+      const llmText = expansion?.expanded ?? text;
+      const textBlock: { type: "text"; text: string; displayText?: string } = expansion
+        ? { type: "text", text: expansion.expanded, displayText: expansion.displayText }
+        : { type: "text", text };
+
       const userNode: TreeNode = {
         id: nanoid(12), parentId: parentNodeId,
-        role: "user", content: [{ type: "text", text }], createdAt: Date.now(),
+        role: "user", content: [textBlock], createdAt: Date.now(),
       };
       await conversationRepo.appendNode(slug, conversationId, userNode);
 
@@ -227,7 +263,7 @@ export function createAgentService(
       const historyPath = parentNodeId ? pathToNode(tree, parentNodeId) : [];
 
       await stream.writeSSE({ event: "user_node", data: JSON.stringify(userNode) });
-      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, text, historyPath, tree);
+      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, llmText, historyPath, tree);
     },
 
     async regenerate(

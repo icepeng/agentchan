@@ -10,6 +10,7 @@ import {
   fullCompact,
   resolveModel,
   discoverProjectSkills,
+  parseSlashCommand,
 } from "@agentchan/creative-agent";
 import type { ConversationRepo } from "../repositories/conversation.repo.js";
 import type { ConfigService } from "./config.service.js";
@@ -91,14 +92,29 @@ export function createConversationService(
         apiKey: apiKey ?? "",
       });
 
-      // Re-inject activated skill content for continuity
+      // Re-inject previously activated skill content for continuity.
+      //
+      // We track two activation channels:
+      //   1. Model-invoked via the activate_skill tool (assistant tool_use blocks)
+      //   2. User-invoked via slash command (user text blocks with displayText)
+      //
+      // Always-active skills are excluded — their body is automatically present
+      // in the system prompt of the new session via generatePersistentSkillsBlock.
       const activatedSkills = new Set<string>();
       for (const msg of history) {
-        if (msg.role !== "assistant") continue;
-        for (const block of msg.content) {
-          if (block.type === "tool_use" && block.name === "activate_skill") {
-            const name = block.input.name;
-            if (typeof name === "string") activatedSkills.add(name);
+        if (msg.role === "assistant") {
+          for (const block of msg.content) {
+            if (block.type === "tool_use" && block.name === "activate_skill") {
+              const name = block.input.name;
+              if (typeof name === "string") activatedSkills.add(name);
+            }
+          }
+        } else if (msg.role === "user") {
+          for (const block of msg.content) {
+            if (block.type !== "text") continue;
+            if (!block.displayText) continue;
+            const parsed = parseSlashCommand(block.displayText);
+            if (parsed) activatedSkills.add(parsed.name);
           }
         }
       }
@@ -109,7 +125,10 @@ export function createConversationService(
         const parts: string[] = [];
         for (const name of activatedSkills) {
           const skill = skills.get(name);
-          if (skill) parts.push(`<skill_content name="${name}">\n${skill.body}\n</skill_content>`);
+          if (!skill) continue;
+          // Always-active skills are already in the system prompt — skip.
+          if (skill.meta.alwaysActive) continue;
+          parts.push(`<skill_content name="${name}">\n${skill.body}\n</skill_content>`);
         }
         if (parts.length > 0) {
           skillSection = "\n\nThe following skills were active in the previous session and are re-injected for continuity:\n\n" + parts.join("\n\n");
