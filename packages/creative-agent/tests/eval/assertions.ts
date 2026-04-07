@@ -10,6 +10,13 @@ export interface CollectedToolCall {
   args: Record<string, any>;
   result?: any;
   isError?: boolean;
+  /**
+   * The assistant-message turn number this tool call belongs to. Two calls
+   * with the same value were emitted in the same LLM response (the LLM
+   * thought of both at once). Used by `expectSameAssistantTurn` for
+   * eager-capture verification.
+   */
+  assistantTurn?: number;
 }
 
 /**
@@ -152,6 +159,80 @@ export function expectNoWriteDuplication(
         `\n\nAssistant text length: ${fullText.length} chars`,
     );
   }
+}
+
+/**
+ * Spec for matching a single tool call by name + optional arg patterns.
+ * Used by `expectSameAssistantTurn` and similar pairing assertions.
+ */
+export interface ToolCallSpec {
+  toolName: string;
+  argMatchers?: Record<string, string | RegExp>;
+}
+
+function matchesToolCall(tc: CollectedToolCall, spec: ToolCallSpec): boolean {
+  if (tc.toolName !== spec.toolName) return false;
+  if (!spec.argMatchers) return true;
+  return Object.entries(spec.argMatchers).every(([key, pattern]) => {
+    const value = tc.args?.[key];
+    if (value === undefined) return false;
+    const strValue = typeof value === "string" ? value : JSON.stringify(value);
+    if (pattern instanceof RegExp) return pattern.test(strValue);
+    return strValue.includes(pattern);
+  });
+}
+
+function describeSpec(spec: ToolCallSpec): string {
+  if (!spec.argMatchers) return spec.toolName;
+  const args = Object.entries(spec.argMatchers)
+    .map(([k, v]) => `${k}=${v instanceof RegExp ? v.toString() : JSON.stringify(v)}`)
+    .join(", ");
+  return `${spec.toolName}(${args})`;
+}
+
+/**
+ * Assert that there exists at least one pair of tool calls — one matching
+ * `specA`, one matching `specB` — that share the same `assistantTurn`,
+ * meaning the LLM emitted both tool_use blocks in a single response.
+ *
+ * Used to verify the long-term-memory skill's eager-capture rule: when an
+ * event happens, journal append and MEMORY.md edit must be in the same turn.
+ */
+export function expectSameAssistantTurn(
+  toolCalls: CollectedToolCall[],
+  specA: ToolCallSpec,
+  specB: ToolCallSpec,
+): void {
+  const callsA = toolCalls.filter((tc) => matchesToolCall(tc, specA));
+  const callsB = toolCalls.filter((tc) => matchesToolCall(tc, specB));
+
+  if (callsA.length === 0 || callsB.length === 0) {
+    const missing = [
+      callsA.length === 0 ? describeSpec(specA) : null,
+      callsB.length === 0 ? describeSpec(specB) : null,
+    ].filter(Boolean).join(" and ");
+    throw new Error(
+      `expectSameAssistantTurn: no calls matched ${missing}.\n` +
+      `Tools called: [${[...new Set(toolCalls.map((tc) => tc.toolName))].join(", ")}]`,
+    );
+  }
+
+  for (const a of callsA) {
+    for (const b of callsB) {
+      if (a.assistantTurn !== undefined && a.assistantTurn === b.assistantTurn) {
+        return;
+      }
+    }
+  }
+
+  const turnsA = [...new Set(callsA.map((tc) => tc.assistantTurn))].join(", ");
+  const turnsB = [...new Set(callsB.map((tc) => tc.assistantTurn))].join(", ");
+  throw new Error(
+    `expectSameAssistantTurn: ${describeSpec(specA)} and ${describeSpec(specB)} were never emitted in the same LLM response.\n` +
+    `  ${describeSpec(specA)} appeared in turns: [${turnsA}]\n` +
+    `  ${describeSpec(specB)} appeared in turns: [${turnsB}]\n` +
+    `This likely means the eager-capture rule was violated — the model split journal append and MEMORY.md edit across separate turns.`,
+  );
 }
 
 /**

@@ -5,20 +5,31 @@ import { tmpdir } from "node:os";
 export interface FixtureOptions {
   skillNames?: string[];
   prePopulate?: Record<string, string>;
+  /**
+   * Reuse an existing project directory instead of creating a new tmpdir.
+   * When set, skill copy and `output/` creation are skipped — the caller is
+   * responsible for the dir's contents. `prePopulate` still applies on top.
+   * Used for cross-session eval scenarios where session 2 must see what
+   * session 1 left behind.
+   */
+  projectDir?: string;
 }
 
 const MONOREPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
 export async function createFixture(options: FixtureOptions): Promise<string> {
-  const projectDir = await mkdtemp(join(tmpdir(), "eval-"));
+  const reusing = options.projectDir !== undefined;
+  const projectDir = reusing ? options.projectDir! : await mkdtemp(join(tmpdir(), "eval-"));
 
-  const names = options.skillNames ?? [];
-  for (const name of names) {
-    const skillSrc = join(MONOREPO_ROOT, "example_data", "library", "skills", name);
-    const skillDst = join(projectDir, "skills", name);
-    await cp(skillSrc, skillDst, { recursive: true });
+  if (!reusing) {
+    const names = options.skillNames ?? [];
+    for (const name of names) {
+      const skillSrc = join(MONOREPO_ROOT, "example_data", "library", "skills", name);
+      const skillDst = join(projectDir, "skills", name);
+      await cp(skillSrc, skillDst, { recursive: true });
+    }
+    await mkdir(join(projectDir, "output"), { recursive: true });
   }
-  await mkdir(join(projectDir, "output"), { recursive: true });
 
   if (options.prePopulate) {
     for (const [relPath, content] of Object.entries(options.prePopulate)) {
@@ -31,7 +42,8 @@ export async function createFixture(options: FixtureOptions): Promise<string> {
   return projectDir;
 }
 
-export async function cleanupFixture(projectDir: string): Promise<void> {
+export async function cleanupFixture(projectDir: string, options?: { keep?: boolean }): Promise<void> {
+  if (options?.keep) return;
   await rm(projectDir, { recursive: true, force: true });
 }
 

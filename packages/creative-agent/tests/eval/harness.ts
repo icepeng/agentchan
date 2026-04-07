@@ -5,7 +5,7 @@ import { createFixture, cleanupFixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
 export type { CollectedToolCall } from "./assertions.js";
-export { expectToolCall, expectToolCallAny, expectNoToolCall, expectBashCall, expectNoWriteDuplication, expectAppendNewlineSeparation } from "./assertions.js";
+export { expectToolCall, expectToolCallAny, expectNoToolCall, expectBashCall, expectNoWriteDuplication, expectAppendNewlineSeparation, expectSameAssistantTurn } from "./assertions.js";
 
 export interface TokenStats {
   totalInputTokens: number;
@@ -22,6 +22,17 @@ export interface EvalHarnessOptions {
   prePopulate?: Record<string, string>;
   maxToolCalls?: number;
   timeoutMs?: number;
+  /**
+   * Reuse an existing project directory (e.g., one left behind by a prior
+   * harness with `keepFixtureOnCleanup`). When set, the harness skips
+   * fresh fixture creation — skills are assumed to already be present.
+   */
+  projectDir?: string;
+}
+
+export interface CleanupOptions {
+  /** Keep the project dir on disk so a follow-up harness can reuse it. */
+  keepFixture?: boolean;
 }
 
 export class EvalHarness {
@@ -34,6 +45,13 @@ export class EvalHarness {
     turns: 0,
   };
   private toolCallMap = new Map<string, CollectedToolCall>();
+  /**
+   * Counts assistant message_end events. Each tool_execution_start is stamped
+   * with the current value, so two tool calls with the same stamp came from
+   * the same LLM response (the LLM emitted both tool_use blocks together).
+   * Used by `expectSameAssistantTurn` to verify eager-capture pairing.
+   */
+  private currentAssistantTurn = 0;
 
   private constructor(
     readonly projectDir: string,
@@ -53,9 +71,10 @@ export class EvalHarness {
     const projectDir = await createFixture({
       skillNames,
       prePopulate: options.prePopulate,
+      projectDir: options.projectDir,
     });
 
-    const conversationId = `eval-${Date.now()}`;
+    const conversationId = `eval-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const apiKey = process.env[`${provider.toUpperCase()}_API_KEY`];
 
     const { agent, systemPrompt } = await setupCreativeAgent(
@@ -74,7 +93,11 @@ export class EvalHarness {
 
     agent.subscribe((event: AgentEvent) => {
       if (event.type === "tool_execution_start") {
-        const entry: CollectedToolCall = { toolName: event.toolName, args: event.args };
+        const entry: CollectedToolCall = {
+          toolName: event.toolName,
+          args: event.args,
+          assistantTurn: harness.currentAssistantTurn,
+        };
         harness.toolCalls.push(entry);
         harness.toolCallMap.set(event.toolCallId, entry);
       }
@@ -88,6 +111,7 @@ export class EvalHarness {
       if (event.type === "message_end") {
         const msg = event.message as AssistantMessage;
         if (msg.role === "assistant") {
+          harness.currentAssistantTurn++;
           for (const block of msg.content) {
             if (block.type === "text" && block.text.trim()) {
               harness.assistantTexts.push(block.text);
@@ -135,9 +159,9 @@ export class EvalHarness {
     }
   }
 
-  async cleanup(): Promise<void> {
+  async cleanup(options?: CleanupOptions): Promise<void> {
     clearSkillManager(this.conversationId);
-    await cleanupFixture(this.projectDir);
+    await cleanupFixture(this.projectDir, { keep: options?.keepFixture });
   }
 
   dumpTokenStats(): void {
