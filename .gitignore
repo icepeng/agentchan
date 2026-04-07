@@ -10,3 +10,4 @@ apps/webui/data/
 .claude/settings.local.json
 
 research/
+CLAUDE.local.md
