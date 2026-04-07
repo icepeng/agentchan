@@ -95,7 +95,6 @@ function parseWithFrontmatter(
       name: skillName,
       description,
       ...(raw.license ? { license: raw.license as string } : {}),
-      ...(raw.compatibility ? { compatibility: raw.compatibility as string } : {}),
       ...(raw.metadata ? { metadata: raw.metadata as Record<string, string> } : {}),
     },
     location: resolve(location),
