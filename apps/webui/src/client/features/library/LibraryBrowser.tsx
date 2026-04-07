@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { X } from "lucide-react";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, Badge, Button } from "@/client/shared/ui/index.js";
 import { fetchLibrarySkills, copyLibrarySkillToProject } from "@/client/entities/skill/index.js";
@@ -35,9 +36,7 @@ export function LibraryBrowser({ projectSlug, existingSkills, onCopied, onClose 
       <div className="flex items-center justify-between px-4 py-3 border-b border-edge/6">
         <h3 className="text-sm font-medium text-fg-2">{t("libraryBrowser.title")}</h3>
         <IconButton size="sm" onClick={onClose}>
-          <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M3 3l6 6M9 3l-6 6" />
-          </svg>
+          <X size={14} strokeWidth={1.5} />
         </IconButton>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-1">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { ArrowLeft, BookOpen, Code, Plus } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
 import type { PageRoute } from "@/client/app/context/UIContext.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -62,9 +63,7 @@ export function ProjectSettingsView() {
           onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "main" } })}
           title={t("settings.back")}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeft size={16} strokeWidth={2} />
         </IconButton>
         <h2 className="font-display text-lg font-bold tracking-tight">{project.name}</h2>
         <TabBar
@@ -237,10 +236,7 @@ function SkillsTab({ slug }: { slug: string }) {
             onClick={() => setBrowsing(true)}
             className="w-full px-3 py-2 rounded-xl text-sm border border-dashed border-accent/20 hover:border-accent/40 hover:bg-accent/5 text-accent transition-all flex items-center gap-2"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
-            </svg>
+            <BookOpen size={12} strokeWidth={2} />
             {t("settings.fromLibrary")}
           </button>
           <button
@@ -251,9 +247,7 @@ function SkillsTab({ slug }: { slug: string }) {
             }}
             className="w-full px-3 py-2 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all flex items-center gap-2"
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-            </svg>
+            <Plus size={12} strokeWidth={2.5} />
             {t("settings.newSkill")}
           </button>
         </div>
@@ -424,10 +418,7 @@ function RendererTab({ slug }: { slug: string }) {
             }`}
           >
             <div className="flex items-center gap-2 font-medium">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 18 22 12 16 6" />
-                <polyline points="8 6 2 12 8 18" />
-              </svg>
+              <Code size={12} strokeWidth={2} />
               {t("settings.rendererTs")}
             </div>
             <div className="text-xs text-fg-3 mt-0.5">
@@ -517,10 +508,7 @@ function RendererTab({ slug }: { slug: string }) {
         ) : (
           /* No renderer yet */
           <div className="flex flex-col items-center justify-center h-full gap-3">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-fg-3">
-              <polyline points="16 18 22 12 16 6" />
-              <polyline points="8 6 2 12 8 18" />
-            </svg>
+            <Code size={32} strokeWidth={1.5} className="text-fg-3" />
             <div className="text-fg-3 text-sm">{t("settings.noRendererYet")}</div>
             <div className="text-fg-3 text-xs">
               {libraryRenderers.length > 0

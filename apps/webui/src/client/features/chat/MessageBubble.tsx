@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
@@ -25,9 +26,7 @@ function BranchNavigator({
         disabled={currentIndex === 0}
         className="px-1 hover:text-accent disabled:opacity-20 disabled:cursor-default transition-colors"
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <path d="M6 2L3 5L6 8" />
-        </svg>
+        <ChevronLeft size={10} strokeWidth={1.5} />
       </button>
       <span className="px-0.5 text-fg-3 tabular-nums select-none">
         {currentIndex + 1}/{siblings.length}
@@ -37,9 +36,7 @@ function BranchNavigator({
         disabled={currentIndex === siblings.length - 1}
         className="px-1 hover:text-accent disabled:opacity-20 disabled:cursor-default transition-colors"
       >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <path d="M4 2L7 5L4 8" />
-        </svg>
+        <ChevronRight size={10} strokeWidth={1.5} />
       </button>
     </div>
   );
@@ -60,9 +57,7 @@ function CompactSummaryBubble({
 
   const inner = (
     <div className="flex items-center gap-2 text-xs text-fg-3 py-1.5">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-50">
-        <path d="M4 6h16M4 12h16M4 18h10" />
-      </svg>
+      <AlignLeft size={14} strokeWidth={2} className="shrink-0 opacity-50" />
       <span className="opacity-70">{t("chat.compactSummary")}</span>
       <button
         onClick={() => setExpanded(!expanded)}

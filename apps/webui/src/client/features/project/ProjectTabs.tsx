@@ -1,4 +1,5 @@
 import { useReducer, useRef, useEffect, useCallback } from "react";
+import { Check, Plus, Settings, X } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -182,18 +183,14 @@ export function ProjectTabs() {
                 className="p-0.5 hover:text-fg cursor-pointer transition-colors"
                 title={t("project.confirmDelete")}
               >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M3 8l4 4 6-7" />
-                </svg>
+                <Check size={12} strokeWidth={2} />
               </span>
               <span
                 onClick={() => modeDispatch({ type: "RESET" })}
                 className="p-0.5 hover:text-fg-2 cursor-pointer transition-colors"
                 title={t("project.cancelDelete")}
               >
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M3 3l6 6M9 3l-6 6" />
-                </svg>
+                <X size={10} strokeWidth={1.5} />
               </span>
             </div>
           );
@@ -230,10 +227,7 @@ export function ProjectTabs() {
                 } p-0.5 hover:text-accent transition-all cursor-pointer`}
                 title={t("sidebar.projectSettings")}
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-                </svg>
+                <Settings size={10} strokeWidth={2} />
               </span>
               {isActive && projects.length > 1 && (
                 <span
@@ -243,9 +237,7 @@ export function ProjectTabs() {
                   }}
                   className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-danger transition-all cursor-pointer"
                 >
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                    <path d="M3 3l6 6M9 3l-6 6" />
-                  </svg>
+                  <X size={10} strokeWidth={1.5} />
                 </span>
               )}
             </ContextMenu.Trigger>
@@ -304,9 +296,7 @@ export function ProjectTabs() {
           onClick={() => modeDispatch({ type: "START_CREATE" })}
           className="w-full px-3 py-2.5 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all duration-200 flex items-center gap-2"
         >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-          </svg>
+          <Plus size={12} strokeWidth={2.5} />
           {t("project.new")}
         </button>
       )}

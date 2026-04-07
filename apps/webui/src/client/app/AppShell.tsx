@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "./context/UIContext.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
@@ -39,13 +40,7 @@ export function AppShell() {
         onClick={() => uiDispatch({ type: "TOGGLE_SIDEBAR" })}
         className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-elevated border border-edge/6 hover:border-edge/12 lg:hidden transition-all duration-150"
       >
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" className="text-fg-2">
-          <path
-            fillRule="evenodd"
-            d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <Menu size={18} strokeWidth={2.5} className="text-fg-2" />
       </button>
 
       {/* Sidebar */}
