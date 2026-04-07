@@ -76,18 +76,19 @@ export function createConversationService(
       const piMessages = storedToPiMessages(history);
 
       const config = configService.getConfig();
+      const compactProvider = configService.findProvider(config.provider);
       const apiKey = configService.getApiKey(config.provider);
-      if (!apiKey) {
+      // Custom providers (e.g. local Ollama) may not require an API key.
+      if (!apiKey && !compactProvider?.custom) {
         throw new Error(`API key not configured for provider: ${config.provider}`);
       }
 
-      const compactProvider = configService.findProvider(config.provider);
       const result = await fullCompact({
         messages: piMessages,
         model: resolveModel(config.provider, config.model,
           compactProvider?.custom ? { baseUrl: compactProvider.custom.url, apiFormat: compactProvider.custom.format } : undefined,
         ),
-        apiKey,
+        apiKey: apiKey ?? "",
       });
 
       // Re-inject activated skill content for continuity

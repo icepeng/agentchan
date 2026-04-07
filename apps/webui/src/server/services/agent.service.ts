@@ -65,8 +65,10 @@ export function createAgentService(
     const config = configService.getConfig();
     const projectDir = join(projectsDir, slug);
 
+    const providerInfo = configService.findProvider(config.provider);
     const apiKey = configService.getApiKey(config.provider);
-    if (!apiKey) {
+    // Custom providers (e.g. local Ollama) may not require an API key.
+    if (!apiKey && !providerInfo?.custom) {
       await stream.writeSSE({
         event: "error",
         data: JSON.stringify({ message: `API key not configured for provider: ${config.provider}` }),
@@ -76,11 +78,10 @@ export function createAgentService(
     }
 
     try {
-      const providerInfo = configService.findProvider(config.provider);
       const { agent, historyLength } = await setupCreativeAgent(
         {
           provider: config.provider, model: config.model, projectDir,
-          apiKey,
+          apiKey: apiKey ?? "",
           temperature: config.temperature,
           maxTokens: config.maxTokens, contextWindow: config.contextWindow,
           thinkingLevel: config.thinkingLevel,
