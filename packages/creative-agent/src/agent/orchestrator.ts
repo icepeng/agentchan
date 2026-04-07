@@ -13,7 +13,7 @@ import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { SkillManager } from "../skills/manager.js";
 import { generateCatalog } from "../skills/catalog.js";
-import { RESTRICTED_TOOLS, collectGrantedRestrictedTools, type SkillMetadata } from "../skills/types.js";
+import { type SkillMetadata } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
 import { analyzeContext } from "./context-analysis.js";
@@ -53,14 +53,14 @@ const DEFAULT_SYSTEM_PROMPT = `You are a creative AI assistant with access to fi
 
 # Using your tools
 
-Use dedicated tools instead of bash whenever possible:
-
-- Use read to read file contents — not bash with cat or type
+- Use read to read file contents
 - Use write to create new files, edit to modify existing files, append to add content to the end of a file
-- Use grep to search file contents by pattern — not bash with grep or findstr
+- Use grep to search file contents by pattern
 - Use ls to list directory contents
-- Reserve bash for operations that dedicated tools cannot handle: running scripts, executing build commands, or chaining shell operations
+- Use script to run a helper script shipped with a skill (e.g. compile, validate, analyze)
 - Use activate_skill when a task matches an available skill — skills provide structured workflows for creative tasks
+
+There is no shell tool in this environment. Do not try to call bash, sh, cmd, powershell, cat, sed, find, or echo — those tools do not exist. Use the dedicated tools above for file operations, and use script to execute helper code shipped with a skill.
 
 # Read before you act
 
@@ -163,10 +163,8 @@ export async function setupCreativeAgent(
     manager.update(skills, options.projectDir);
   }
 
-  // Build tools — restricted tools (e.g. bash) require skill opt-in via allowed-tools
-  let tools: any[] = createProjectTools(options.projectDir);
-  const granted = collectGrantedRestrictedTools(skills);
-  tools = tools.filter((t) => !RESTRICTED_TOOLS.has(t.name) || granted.has(t.name));
+  // Build tools
+  const tools: any[] = createProjectTools(options.projectDir);
   if (skills.size > 0) tools.push(manager.createTool());
 
   // Build system prompt

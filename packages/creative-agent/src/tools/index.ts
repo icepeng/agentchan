@@ -1,5 +1,5 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-import { createBashTool } from "./bash.js";
+import { createScriptTool } from "./script.js";
 import { createReadTool } from "./read.js";
 import { createWriteTool } from "./write.js";
 import { createAppendTool } from "./append.js";
@@ -13,7 +13,7 @@ import { createLsTool } from "./ls.js";
  */
 export function createProjectTools(projectDir: string): AgentTool<any, any>[] {
   return [
-    createBashTool(projectDir),
+    createScriptTool(projectDir),
     createReadTool(projectDir),
     createWriteTool(projectDir),
     createAppendTool(projectDir),

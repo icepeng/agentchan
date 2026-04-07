@@ -2,8 +2,7 @@
 name: novel-writing
 description: 소설의 기획, 집필, 교정을 체계적으로 지원한다. 소설 쓰기, 줄거리 구성, 캐릭터 개발, 챕터 집필, 원고 교정 등의 작업에서 활성화한다.
 license: MIT
-compatibility: Bun(consistency-check.ts용) 및 bash(셸 스크립트용) 필요
-allowed-tools: bash
+compatibility: 헬퍼 스크립트는 모두 TypeScript이며 내장 Bun 런타임으로 실행됩니다 (별도 설치 불필요)
 metadata:
   author: agentchan
   version: "1.0"
@@ -75,7 +74,7 @@ metadata:
 2. **아웃라인을 따르되** 이야기가 요구하면 변경 가능 — 벗어날 때는 `output/outline.md`를 업데이트
 3. **보여주기, 말하지 않기.** 요약보다 장면(행동 + 대사)을 선호
 4. **긴장감으로 챕터 마무리** — 질문, 반전, 또는 클리프행어
-5. **분량 추적** — 3~5챕터마다 `scripts/word-count.sh output`을 실행
+5. **분량 추적** — 3~5챕터마다 `script` 도구로 `scripts/word-count.ts`를 실행 (인자: `["output"]`, 또는 목표 단어 수가 있다면 `["output", "--target", "80000"]`)
 
 ### 기본 스타일 (사용자 선호에 따라 변경 가능)
 
@@ -88,11 +87,7 @@ metadata:
 
 ### 4-A. 일관성 점검
 
-자동 일관성 검사기를 실행합니다:
-
-```bash
-bun run scripts/consistency-check.ts --project output
-```
+`script` 도구로 자동 일관성 검사기를 실행합니다 (`file: "scripts/consistency-check.ts"`, `args: ["--project", "output"]`):
 
 모든 챕터 및 캐릭터 파일에서 다음을 검사합니다:
 - 캐릭터 이름/특성 모순
@@ -113,11 +108,7 @@ bun run scripts/consistency-check.ts --project output
 
 ### 4-C. 원고 편집
 
-모든 챕터 교정이 완료되면 편집합니다:
-
-```bash
-scripts/compile.sh output <제목>
-```
+모든 챕터 교정이 완료되면 `script` 도구로 편집합니다 (`file: "scripts/compile.ts"`, `args: ["output", "<제목>"]`, 저자 추가 시 `["output", "<제목>", "--author", "<저자>"]`).
 
 이렇게 하면 `output/manuscript.md`가 생성되며, 표지, 목차, 전체 챕터가 하나로 합쳐집니다.
 
@@ -137,7 +128,7 @@ output/
 │   ├── 01-chapter-title.md
 │   ├── 02-chapter-title.md
 │   └── ...
-└── manuscript.md          (compile.sh로 생성)
+└── manuscript.md          (compile.ts로 생성)
 ```
 
 워크플로우가 진행됨에 따라 이 디렉토리와 파일을 생성합니다.

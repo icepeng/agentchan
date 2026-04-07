@@ -106,13 +106,6 @@ export function expectToolCallAny(
 }
 
 /**
- * Assert that at least one bash tool call has a command matching the pattern.
- */
-export function expectBashCall(toolCalls: CollectedToolCall[], commandPattern: string | RegExp): void {
-  expectToolCall(toolCalls, "bash", { command: commandPattern });
-}
-
-/**
  * Assert that RP content written via write/append tools is NOT duplicated in assistant text.
  *
  * Extracts character dialogue lines (**Name:** pattern) from write/append content,
