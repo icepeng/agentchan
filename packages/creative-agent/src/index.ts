@@ -1,5 +1,5 @@
 // Tools
-export { createBashTool } from "./tools/bash.js";
+export { createScriptTool } from "./tools/script.js";
 export { createReadTool } from "./tools/read.js";
 export { createWriteTool } from "./tools/write.js";
 export { createAppendTool } from "./tools/append.js";
@@ -13,7 +13,6 @@ export { discoverSkills, discoverProjectSkills } from "./skills/discovery.js";
 export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
-export { RESTRICTED_TOOLS, collectGrantedRestrictedTools } from "./skills/types.js";
 
 // Session
 export {

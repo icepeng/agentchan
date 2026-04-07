@@ -97,12 +97,14 @@ apps/webui/data/
 - Character skills: `metadata.display-name`, `metadata.color` (hex). Images via `[skill:path]` tokens in output, files in skill `assets/` folder
 - Library skills managed via Library page UI, copied to projects as needed
 - No explicit "modes" — skill composition determines AI behavior, renderer determines display
+- 스킬의 `scripts/*.ts`는 사용자가 한 파일만 읽고 이해할 수 있게 self-contained — 스킬 간 헬퍼 공통화 금지, 소량 중복 허용
 
 ## Example Data
 - `example_data/`는 git에 커밋되는 예시 데이터 (스킬, 렌더러, 프로젝트 등)
 - `apps/webui/data/`는 gitignored 런타임 데이터 — 직접 수정하지 않는다
 - **스킬/렌더러/프로젝트 예시 데이터의 내용 변경은 `example_data/`에만 가한다** (`apps/webui/data/`는 건드리지 않음)
 - 앱이 초기화 시 `example_data/`를 `apps/webui/data/`로 복사하므로, 소스 오브 트루스는 항상 `example_data/`
+- 같은 스킬이 `library/skills/{name}/`와 `projects/{slug}/skills/{name}/` 양쪽에 존재할 수 있음 — 항상 `library/` 쪽을 먼저 수정한 뒤 `cp`로 `projects/{slug}/skills/{name}/`에 동기 (`diff -r`로 검증)
 
 ## Single Executable Build
 - `bun run build:exe` — Vite client build → Bun `--compile` server → sidecar 복사 (public/, data/)
@@ -123,3 +125,4 @@ apps/webui/data/
 - Slug-based project folder names (Korean preserved, spaces to hyphens, lowercase ASCII)
 - All new type fields should be optional for backward compatibility with existing data
 - `updateProject` takes a partial updates object, not positional args
+- Agent 도구 LLM 가이드는 2층: 시스템 프롬프트(`creative-agent/src/agent/orchestrator.ts`)는 선택 규칙("X 대신 Y", 부재 도구 명시), 각 도구의 `description`은 사용법(파라미터/출력 형식). `tools/edit.ts`의 `DESCRIPTION` 상수가 모범

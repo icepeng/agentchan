@@ -97,7 +97,6 @@ function parseWithFrontmatter(
       ...(raw.license ? { license: raw.license as string } : {}),
       ...(raw.compatibility ? { compatibility: raw.compatibility as string } : {}),
       ...(raw.metadata ? { metadata: raw.metadata as Record<string, string> } : {}),
-      ...(raw["allowed-tools"] ? { allowedTools: raw["allowed-tools"] as string } : {}),
     },
     location: resolve(location),
     baseDir: resolve(location, ".."),

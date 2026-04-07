@@ -5,7 +5,7 @@ import { createFixture, cleanupFixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
 export type { CollectedToolCall } from "./assertions.js";
-export { expectToolCall, expectToolCallAny, expectNoToolCall, expectBashCall, expectNoWriteDuplication, expectAppendNewlineSeparation } from "./assertions.js";
+export { expectToolCall, expectToolCallAny, expectNoToolCall, expectNoWriteDuplication, expectAppendNewlineSeparation } from "./assertions.js";
 
 export interface TokenStats {
   totalInputTokens: number;
