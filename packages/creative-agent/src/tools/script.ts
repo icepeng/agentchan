@@ -23,11 +23,6 @@ type ScriptInput = Static<typeof ScriptParams>;
 
 const DESCRIPTION = `Run a TypeScript or JavaScript file from the project directory.
 
-Usage:
-- file: path relative to the project root (e.g. "scripts/word-count.ts"). Must be a .ts, .js, or .mjs file that exists in the project.
-- args: array of strings passed as argv to the script — each element becomes one argv entry, with no shell quoting or escaping needed. The script reads them via process.argv (the first user-supplied arg is process.argv[2]).
-- timeout: milliseconds before the script is killed (default: 120000).
-
 The script runs with cwd set to the project root. Captured stdout and stderr are returned together; non-zero exit codes are surfaced. Output is truncated to roughly the last 50KB / 2000 lines.`;
 
 /**
