@@ -2,8 +2,8 @@
 /**
  * BM25 기반 메모리 검색 도구.
  *
- * Bun 내장 sqlite (FTS5 + trigram tokenizer + bm25)로 memory/ 디렉토리 안의
- * .md 파일을 청크 단위로 인덱싱하고 키워드 검색을 수행한다. 의존성 0.
+ * Bun 내장 sqlite (FTS5 + trigram tokenizer + bm25)로 cwd top-level .md 파일을
+ * 청크 단위로 인덱싱하고 키워드 검색을 수행한다. 의존성 0.
  *
  * 사용법 (프로젝트 루트 = cwd 에서 호출):
  *   bun assets/search.ts <쿼리>            # 검색 (필요 시 lazy 인덱싱)
@@ -11,8 +11,8 @@
  *   bun assets/search.ts --rebuild <쿼리>  # 재빌드 후 검색
  *
  * 동작:
- *   - 검색 대상: <cwd>/memory/ 하위의 모든 .md 파일 (재귀)
- *   - 인덱스 파일: <cwd>/memory/.index.db (sidecar)
+ *   - 검색 대상: <cwd>/*.md (top-level만, 재귀 아님). 주로 journal.md
+ *   - 인덱스 파일: <cwd>/.journal-index.db (hidden sidecar)
  *   - mtime+size 비교로 변경된 파일만 재인덱싱
  *   - 한국어 1~2글자 토큰은 trigram이 못 잡으므로 자동으로 LIKE 폴백
  *   - 결과는 BM25 점수 기준 top-K
@@ -23,8 +23,7 @@ import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 
 const CWD = process.cwd();
-const MEMORY_DIR = resolve(CWD, "memory");
-const INDEX_PATH = resolve(MEMORY_DIR, ".index.db");
+const INDEX_PATH = resolve(CWD, ".journal-index.db");
 
 const FTS_TABLE = "chunks_fts";
 const META_TABLE = "files_meta";
@@ -68,7 +67,7 @@ function ensureSchema(db: Database): void {
 }
 
 async function listMarkdownFiles(root: string): Promise<string[]> {
-  const glob = new Bun.Glob("**/*.md");
+  const glob = new Bun.Glob("*.md");
   const out: string[] = [];
   for await (const file of glob.scan({ cwd: root, absolute: true })) {
     out.push(file);
@@ -120,7 +119,7 @@ type PendingFile = { rel: string; mtime: number; size: number; chunks: Chunk[] }
 
 async function syncIndex(db: Database): Promise<SyncResult> {
   ensureSchema(db);
-  const files = await listMarkdownFiles(MEMORY_DIR);
+  const files = await listMarkdownFiles(CWD);
 
   const metaRows = db.prepare(`SELECT path, mtime, size FROM ${META_TABLE}`).all() as Array<{
     path: string;
@@ -328,13 +327,6 @@ async function main(): Promise<void> {
   if (!cli.query && !cli.rebuild) {
     console.error("Usage: bun assets/search.ts <query>");
     console.error("       bun assets/search.ts --rebuild");
-    process.exit(1);
-  }
-
-  try {
-    await stat(MEMORY_DIR);
-  } catch {
-    console.error(`No memory directory at ${MEMORY_DIR}`);
     process.exit(1);
   }
 
