@@ -119,7 +119,8 @@ export function createGoogleCacheHook(apiKey: string, sessionId: string) {
       log.info("cache", `created (${(cache.usageMetadata as any)?.totalTokenCount ?? "?"} tokens, ${cacheCount} msgs)`);
       return patchPayload(params, entry);
     } catch (err) {
-      log.error("cache", `create failed: ${err}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      log.error("cache", `create failed: ${msg}`);
       return;
     }
   };

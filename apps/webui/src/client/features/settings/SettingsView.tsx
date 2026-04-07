@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
 import type { PageRoute } from "@/client/app/context/UIContext.js";
 import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
-import type { ApiKeyStatus, CustomApiFormat, CustomProviderDef } from "@/client/entities/config/index.js";
+import type { ApiKeyStatus, CustomApiFormat } from "@/client/entities/config/index.js";
 import { useI18n, type LanguagePreference, type TranslationKey } from "@/client/i18n/index.js";
 import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput } from "@/client/shared/ui/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
@@ -222,7 +222,7 @@ function ApiKeysTab() {
                   <span className="text-sm font-medium text-fg">{p.name}</span>
                   <span className="text-xs text-fg-4 font-mono">{p.custom!.format}</span>
                 </div>
-                <Button variant="danger" size="md" onClick={(e) => { e.stopPropagation(); handleDeleteProvider(p.name); }}>
+                <Button variant="danger" size="md" onClick={(e) => { e.stopPropagation(); void handleDeleteProvider(p.name); }}>
                   {t("globalSettings.removeKey")}
                 </Button>
               </div>
