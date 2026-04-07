@@ -6,6 +6,19 @@ import { useI18n } from "@/client/i18n/index.js";
 import { Indicator } from "@/client/shared/ui/index.js";
 import { useProject } from "./useProject.js";
 
+// -- Shared menu styles ---
+
+const MENU_POPUP_CLASS =
+  "bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50";
+const MENU_ITEM_CLASS =
+  "px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10 data-[highlighted]:text-accent";
+
+const plusIcon = (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
+  </svg>
+);
+
 // -- State Machine ---
 
 type TabsMode =
@@ -252,10 +265,10 @@ export function ProjectTabs() {
             </ContextMenu.Trigger>
             <ContextMenu.Portal>
               <ContextMenu.Positioner sideOffset={4}>
-                <ContextMenu.Popup className="bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50">
+                <ContextMenu.Popup className={MENU_POPUP_CLASS}>
                   <ContextMenu.Item
                     onClick={() => modeDispatch({ type: "START_DUPLICATE", sourceSlug: project.slug })}
-                    className="px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10 data-[highlighted]:text-accent"
+                    className={MENU_ITEM_CLASS}
                   >
                     {t("project.duplicateSettings")}
                   </ContextMenu.Item>
@@ -309,38 +322,36 @@ export function ProjectTabs() {
               />
             }
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-            </svg>
+            {plusIcon}
             {t("project.new")}
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner sideOffset={6} align="start">
-              <Menu.Popup className="bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50 min-w-[220px]">
+              <Menu.Popup className={`${MENU_POPUP_CLASS} min-w-[220px]`}>
                 <Menu.Item
                   onClick={() => modeDispatch({ type: "START_CREATE" })}
-                  className="px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10 data-[highlighted]:text-accent flex items-center gap-2"
+                  className={`${MENU_ITEM_CLASS} flex items-center gap-2`}
                 >
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-                  </svg>
+                  {plusIcon}
                   {t("project.newOptionsEmpty")}
                 </Menu.Item>
                 {projects.length > 0 && (
                   <>
-                    <div className="my-1 border-t border-edge/8" />
-                    <div className="px-4 py-1 text-[10px] uppercase tracking-wider text-fg-4">
-                      {t("project.newOptionsCopyFrom")}
-                    </div>
-                    {projects.map((p) => (
-                      <Menu.Item
-                        key={p.slug}
-                        onClick={() => modeDispatch({ type: "START_DUPLICATE", sourceSlug: p.slug })}
-                        className="px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10 data-[highlighted]:text-accent truncate"
-                      >
-                        {p.name}
-                      </Menu.Item>
-                    ))}
+                    <div className="my-1 border-t border-edge/8" role="separator" />
+                    <Menu.Group>
+                      <Menu.GroupLabel className="px-4 py-1 text-[10px] uppercase tracking-wider text-fg-4">
+                        {t("project.newOptionsCopyFrom")}
+                      </Menu.GroupLabel>
+                      {projects.map((p) => (
+                        <Menu.Item
+                          key={p.slug}
+                          onClick={() => modeDispatch({ type: "START_DUPLICATE", sourceSlug: p.slug })}
+                          className={`${MENU_ITEM_CLASS} truncate`}
+                        >
+                          {p.name}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Group>
                   </>
                 )}
               </Menu.Popup>
