@@ -1,31 +1,30 @@
 ---
 name: long-term-memory
-description: "세션 간 기억을 파일로 영속하는 장기 기억 프레임워크. 영속 사실은 MEMORY.md에 큐레이션하고, 일일 사건 로그는 memory/sessions/에 append-only로 누적한다. 캐릭터 챗에서 장기적인 관계 발전과 스토리 연속성이 필요할 때 활성화한다."
+description: "세션 간 기억을 파일로 영속하는 장기 기억 프레임워크. 영속 사실은 MEMORY.md에 큐레이션하고, 사건 저널은 memory/journal.md에 append-only로 누적한다. 사건 발생 그 턴에 두 파일을 함께 갱신해 항상 coherent한 상태를 유지한다. 캐릭터 챗에서 장기적인 관계 발전과 스토리 연속성이 필요할 때 활성화한다."
 metadata:
   author: agentchan
-  version: "2.0"
+  version: "3.0"
   type: framework
 ---
 
 # Long-Term Memory Skill
 
-세션을 넘어 기억을 유지하기 위한 파일 기반 메모리 프레임워크. 영속적인 사실(durable)과 시간 순 사건 로그(daily)를 **분리된 파일**로 관리하여 데이터 손실을 구조적으로 방지하고, 큰 기억도 검색 가능하게 만든다.
+세션을 넘어 기억을 유지하기 위한 파일 기반 메모리 프레임워크. 영속적인 사실(durable)과 시간 순 사건 로그(append-only journal)를 **분리된 파일**로 관리하되, **사건 발생 그 턴에 두 파일을 함께 갱신**해 MEMORY.md를 항상 coherent하게 유지한다. "세션 종료 시 일괄 정리" 같은 fiction trigger에 의존하지 않는다 — AI는 자기 세션의 끝을 감지할 수 없기 때문이다.
 
 ## 메모리 파일 구조
 
 ```
 memory/
-├── MEMORY.md             ← 큐레이션된 영속 기억 (durable)
-└── sessions/
-    └── YYYY-MM-DD.md     ← 일일 사건 로그 (append-only)
+├── MEMORY.md         ← 큐레이션된 영속 기억 (durable, 항상 컨텍스트에 들어감)
+└── journal.md        ← 시간 순 사건 저널 (append-only, 헤딩 단위로 BM25 청킹)
 ```
 
 두 파일은 **다른 라이프사이클·다른 도구·다른 제약**을 가진다. 이 분리는 실수로 기억을 덮어쓰는 사고를 막기 위한 핵심 안전장치다.
 
 | 파일 | 용도 | 허용 도구 | 금지 도구 |
 |------|------|-----------|-----------|
-| `memory/MEMORY.md` | 작고 가벼운 핵심 사실. 항상 컨텍스트에 들어감 | `read`, `edit` | **`write` 금지** |
-| `memory/sessions/YYYY-MM-DD.md` | 시간 순 raw 로그. 길어도 무방 | `read`, `append`, `grep` | **`write`/`edit` 금지** |
+| `memory/MEMORY.md` | 작고 가벼운 핵심 사실. 항상 컨텍스트에 들어감 | `read`, `edit` | **`write` 금지** (첫 생성 1회 예외) |
+| `memory/journal.md` | 시간 순 raw 사건 로그. 길어도 무방 | `read`, `append`, `grep` | **`write`/`edit` 금지** (첫 생성 1회 예외) |
 
 > 안전 규칙: 빈 결과로 기억을 통째로 날리는 사고를 막기 위해 위 제약을 반드시 따른다. 무엇을 저장할지 모르겠으면 **아무것도 저장하지 않는다**.
 
@@ -51,20 +50,30 @@ memory/
 
 목표는 **150줄 이내**. 길어지면 압축한다(아래 "압축" 절 참조).
 
-### memory/sessions/YYYY-MM-DD.md 형식
+### memory/journal.md 형식
 
 ```markdown
-# Session Log — 2026-04-07
+# Journal
 
-## 14:32 — 첫 만남
+## 04-07 14:32 — 첫 만남
 아리아가 표류목 등불에 도착. 엘라라가 문워시 언급에 손이 멈춤.
 → Open: 엘라라가 뭔가 알고 있다.
 
-## 15:08 — 부두 산책
+## 04-07 15:08 — 부두 산책
 어부의 소문 청취. 푸른 빛 현상 처음 등장.
+
+## 04-08 09:14 — 등대
+마렉의 일지 발견. 푸른 빛이 1년 전부터 기록되어 있음.
 ```
 
-자유 형식이지만 **시간 표시 + 한 줄 헤드라인 + 짧은 본문**의 리듬을 유지한다. 이 파일은 raw하므로 정돈할 필요가 없다.
+**`## ` 헤딩이 BM25 청킹의 단위**다 — 즉 회수 grain은 파일이 아니라 헤딩이다. 그래서 파일은 하나여도 검색은 장면 단위로 분산된다. 자유 형식이지만 다음 리듬을 유지한다:
+
+- `## ` 로 시작 (필수 — 청킹 경계)
+- 헤더에 짧은 시각·장면 표시 + headline (헤딩 자체가 인덱싱되므로 회수 품질에 직접 기여)
+- 본문 1~3줄
+- 시각은 작중 시각이든 실제 시각이든 컨텍스트에 맞춰 자유롭게
+
+이 파일은 raw하므로 정돈할 필요가 없다. 길어져도 BM25가 헤딩 단위로 검색하므로 성능 문제는 없다.
 
 ## 회수 워크플로 (Recall) — 답변 *전에* 수행
 
@@ -74,25 +83,19 @@ memory/
 
 세션의 첫 턴에서 **다른 모든 행동보다 먼저**:
 
-1. `read memory/MEMORY.md` — 영속 기억 전체 로드
-2. `ls memory/sessions/` — 가장 최근 세션 파일 1~2개 식별
-3. 직전 세션 파일을 `read` (필요하면 `offset/limit`로 끝부분만)
-4. 위 정보를 바탕으로 캐릭터의 상태·관계·미해결 사건을 머리에 적재한 뒤 첫 응답 시작
+1. `read memory/MEMORY.md` — 영속 기억 전체 로드 (이게 진짜 작업 메모리다)
+2. `read memory/journal.md` — 끝부분만 (큰 파일이면 `offset`으로 마지막 ~200줄). 직전 활동 맥락을 잡는 용도
+3. 위 정보를 바탕으로 캐릭터의 상태·관계·미해결 사건을 머리에 적재한 뒤 첫 응답 시작
 
-`memory/MEMORY.md`가 없으면 첫 세션이다 — 빈 템플릿으로 `write`로 **1회 생성**한다(파일이 존재한 이후로는 `write` 절대 금지, 항상 `edit`). `sessions/` 디렉토리는 첫 `append` 호출 시 자동 생성된다.
+**MEMORY.md는 항상 coherent**하므로(§3 eager capture 참조) 이 단계만으로 최신 영속 상태가 모두 들어온다. journal은 raw 디테일 보충용이다.
+
+**첫 세션 (파일이 없을 때)**: `memory/MEMORY.md`와 `memory/journal.md` 둘 다 없으면 첫 세션이다. 각각 빈 템플릿으로 `write` **1회 생성**한다. 파일이 존재한 이후로는 `write` 절대 금지 — MEMORY.md는 `edit`, journal은 `append`만 사용한다.
 
 ### 2. 답변 중 특정 주제가 떠오를 때
 
-특정 인물·장소·과거 사건이 답변에 필요하지만 컨텍스트에 없을 때, 메모리 규모에 따라 두 경로 중 하나를 쓴다.
+특정 인물·장소·과거 사건이 답변에 필요하지만 컨텍스트에 없을 때, 두 도구 중 하나를 쓴다. **journal.md가 단일 파일이라도 회수는 헤딩 단위 청크에서 일어난다** — 그래서 파일 크기와 무관하게 검색 grain은 장면이다.
 
-#### 작은 메모리 (sessions 파일이 ~10개 이하) — `grep` 사용
-
-1. `grep` 키워드로 `memory/sessions/`를 검색한다
-   - 예: 패턴 `"문워시"`, glob `memory/sessions/*.md`, output_mode `files_with_matches`
-2. 매칭된 파일을 `read`로 (필요하면 부분만) 로드한다
-3. 그 다음에 답변한다
-
-#### 큰 메모리 (sessions 파일이 누적되어 grep 결과가 노이즈가 될 때) — `search.ts` 사용
+#### `search.ts` (기본) — BM25 랭킹 검색
 
 이 skill은 `assets/search.ts` 도구를 동봉한다. Bun 내장 SQLite (FTS5 + trigram 토크나이저 + BM25)로 청크 단위 랭킹 검색을 수행한다. 의존성 0, 인덱스는 `memory/.index.db`에 자동 생성된다.
 
@@ -107,7 +110,7 @@ bun skills/long-term-memory/assets/search.ts --rebuild       # 인덱스 강제 
 출력 형식:
 
 ```
-[0.480] memory/sessions/2026-04-01.md:9-11
+[0.480] memory/journal.md:42-47
    ...남은 부분에 "<<문워시>>는 단...
 
 [0.466] memory/MEMORY.md:13-17
@@ -124,22 +127,65 @@ bun skills/long-term-memory/assets/search.ts --rebuild       # 인덱스 강제 
 
 이유: 도구는 한국어 형태소 분석을 하지 않는다. "마렉이"와 "마렉을"은 다른 토큰으로 본다. 어간만 쓰면 모든 활용형을 잡는다.
 
+#### `grep` (특수 경우) — 정확한 한 단어
+
+다음 경우엔 grep이 더 빠르고 setup도 0이다:
+
+- **고유명사 한 단어**의 모든 등장 위치를 빠짐없이 보고 싶을 때 (예: "마렉" 첫 언급 추적)
+- search.ts 인덱스가 아직 빌드되지 않은 첫 호출이고 결과 1개만 필요할 때
+- BM25 랭킹이 필요 없을 때
+
+`grep` 사용 예: 패턴 `"마렉"`, glob `memory/*.md`, output_mode `content` — `memory/` 직속의 두 파일(MEMORY.md + journal.md)에서 모든 등장 위치를 줄번호와 함께 본다.
+
 #### 어느 쪽을 언제?
 
-- **즉시 결정**: sessions 디렉토리에 파일이 ~10개 이하면 grep, 그 이상이면 search.ts
-- **grep이 노이즈를 너무 많이 던지면** → search.ts로 전환 (BM25는 IDF로 흔한 단어를 자동 가중치 낮춤)
-- **정확한 고유명사 한 단어** → grep도 충분
-- **여러 키워드 조합 + 랭킹 필요** → search.ts
+- **기본**: search.ts (랭킹 + snippet + 헤딩 단위 청킹 → 거의 모든 회수에 적합)
+- **고유명사 1개의 모든 등장 위치 망라** → grep
+- **여러 키워드 조합 + 관련도 정렬** → search.ts (BM25는 IDF로 흔한 단어 가중치 자동 조정)
 
-**전체를 한꺼번에 읽지 않는다.** sessions 폴더가 커질수록 grep 또는 search.ts로 좁힌 뒤 부분 읽기가 정답이다.
+**전체를 한꺼번에 읽지 않는다.** journal.md가 커질수록 search.ts로 좁힌 뒤 해당 줄 범위만 `read offset/limit`로 보충한다.
 
-## 저장 워크플로 (Capture)
+## 저장 워크플로 (Eager Capture)
 
-### 3. 세션 중 — sessions에 append
+### 3. 사건 발생 시 — 같은 턴에 두 파일을 함께 갱신
 
-기록할 가치가 있는 사건이 발생하면 **즉시** `append memory/sessions/YYYY-MM-DD.md`로 추가한다. 기록 단위는 "사건"이지 "턴"이 아니다.
+기록할 가치가 있는 사건이 발생하면, **그 턴 안에서** 다음 두 write를 묶어서 수행한다. 미루지 않는다.
 
-기록해야 하는 것:
+#### 3a. 항상: `append memory/journal.md`
+
+```
+## MM-DD HH:MM — 한 줄 헤드라인
+1~3줄 요약 본문
+```
+
+- `append`는 항상 줄바꿈으로 시작하라 (`\n## 04-07 14:32 — ...`). 도구가 기존 내용 끝에 그대로 붙이기 때문이다
+- 헤딩(`## `)이 BM25 청킹 경계이므로 새 사건마다 새 헤딩을 쓴다
+- 날짜 접두사(MM-DD 또는 YYYY-MM-DD)를 권장한다 — search.ts로 날짜 검색이 가능해지고, 다중 일자 journal에서 위치 파악이 쉬워진다
+- 시각은 작중/실제 어느 쪽이든 컨텍스트에 맞춰
+
+#### 3b. 영속 상태에 영향이 있으면: 같은 턴에 `edit memory/MEMORY.md`
+
+같은 사건이 아래 중 하나라도 해당하면, journal append 직후 같은 턴에 MEMORY.md의 해당 섹션을 `edit`으로 갱신한다:
+
+| 사건 종류 | 갱신할 섹션 | 동작 |
+|---|---|---|
+| 캐릭터 간 관계 변화 | Relationship State | 해당 줄 갱신 (한 줄로 압축) |
+| 새 영구 사실/세계관 디테일 | Core Facts | 한 줄 추가 |
+| 새 약속·결심·거짓말·복선 | Open Threads | 한 줄 추가 |
+| 미해결 사건의 해결 | Open Threads | 해당 항목 제거 |
+| 의미 있는 timeline 항목 | Timeline | 한 줄 추가 (날짜 + 압축 요약) |
+
+한 사건이 여러 섹션에 영향을 줄 수 있다 (예: "엘라라가 아리아에게 마렉의 정체를 털어놓음" = Relationship State 갱신 + Open Thread 해결 + Timeline 항목 추가). 그런 경우 `edit`을 여러 번 호출해도 OK — 각 섹션 단위로 안전하게 갱신된다.
+
+영향이 없으면 journal append만으로 끝낸다. 모든 사건이 MEMORY.md에 가야 하는 건 아니다.
+
+#### 왜 같은 턴에 묶는가
+
+**AI는 자기 세션의 끝을 감지할 수 없다**. 매 턴이 마지막일 수 있다 — 다음 턴이 영영 안 올 수 있다. "나중에 정리해서 promotion"은 절대 trigger되지 않는 dead workflow다. 그래서 모든 갱신은 사건이 발생한 그 턴에 atomic하게 commit한다. 이렇게 하면 MEMORY.md는 **항상 직전 턴까지의 상태로 coherent**하다.
+
+#### 기록해야 하는 것 / 하지 않는 것
+
+기록해야 하는 것 (journal에 append):
 - 캐릭터 간 관계의 변화 ("엘라라가 아리아를 신뢰하기 시작했다")
 - 스토리에 영향을 주는 사건 ("등대에서 마렉의 일지를 발견했다")
 - 캐릭터가 한 약속·결심·거짓말
@@ -152,46 +198,30 @@ bun skills/long-term-memory/assets/search.ts --rebuild       # 인덱스 강제 
 - 세계관 기본 설정 (이미 월드 스킬·로어북에 있음)
 - 구체적인 대사 (요약만)
 
-`append`는 항상 줄바꿈으로 시작하라 (`\n## 14:32 — ...`). 도구가 기존 내용 끝에 그대로 붙이기 때문이다.
-
 > 저장할 게 없는 턴이 대부분이다. **무리해서 기록하지 않는다.** 사건이 실제로 발생했을 때만 기록한다.
 
-### 4. MEMORY.md 승격 — 세션 종료 또는 명시 요청 시
+### 4. 압축 (Compaction) — MEMORY.md가 150줄을 초과할 때
 
-세션 마지막 응답에서, 또는 유저가 명시적으로 요청할 때:
-
-1. `read memory/MEMORY.md`로 현재 영속 기억을 읽는다
-2. 이번 세션의 sessions 파일에서 **영속화할 가치가 있는 항목**을 골라낸다:
-   - 새로운 Core Fact
-   - 해결된 Open Thread (제거)
-   - 새로 열린 Open Thread (추가)
-   - 관계 상태 변화 (Relationship State 갱신)
-   - 한 줄 timeline 항목 (Timeline에 추가)
-3. `edit memory/MEMORY.md`로 **부분 수정**한다 — 절대 `write`로 통째로 덮어쓰지 않는다
-
-`edit`은 `old_string` → `new_string` 치환이므로, 한 섹션씩 수정하면 다른 섹션이 사고로 사라지지 않는다.
-
-### 5. 압축 (Compaction) — MEMORY.md가 150줄을 초과할 때
-
-압축은 **사용자 명시 요청 시에만** 수행한다 (자동 실행 금지 — 데이터 손실 위험).
+압축은 **사용자 명시 요청 시에만** 수행한다 (자동 실행 금지 — 데이터 손실 위험). Eager capture가 MEMORY.md를 항상 coherent하게 유지하므로 압축의 책임은 *추가*가 아니라 *축약*이다.
 
 압축 전략:
 - **Timeline**: 가장 오래된 항목 여러 줄을 한 줄로 재요약
 - **Core Facts**: 중복·파생 사실 제거
-- **Open Threads**: 이미 해결된 항목 제거
+- **Open Threads**: 이미 해결된 항목 제거 (eager flow에서 놓친 게 있다면 이때 정리)
 - **Relationship State**: 가장 최신 상태만 남김
 
 압축 후에도 항상 `edit`을 사용한다. 큰 변경이라도 섹션별로 나눠 `edit`을 여러 번 호출하는 편이 안전하다.
 
-`memory/sessions/`의 오래된 파일은 **삭제하지 않는다**. raw 로그는 영구적으로 누적되며, 검색이 필요할 때 grep으로 접근한다.
+`memory/journal.md`는 압축하지 않는다 — raw 로그는 영구적으로 누적되며 search.ts로 접근한다. 사이즈가 정말 부담스러워질 때만 사용자가 명시 요청해서 수동 archive를 검토한다 (지금은 over-engineering이라 워크플로 미정의).
 
 ## 안전 규칙 요약
 
-- ❌ `write memory/MEMORY.md` — **절대 금지**. 단, 파일이 없는 첫 세션에서 빈 템플릿 생성하는 1회만 허용 (§회수 1단계). 그 외에는 항상 `edit`.
-- ❌ `write memory/sessions/*.md` — **절대 금지**. 항상 `append`를 사용한다.
-- ❌ `edit memory/sessions/*.md` — 금지. 과거 로그는 수정하지 않는다.
+- ❌ `write memory/MEMORY.md` — **절대 금지**. 단, 파일이 없는 첫 세션에서 빈 템플릿 생성하는 1회만 허용 (§1 새 세션 시작 시). 그 외에는 항상 `edit`.
+- ❌ `write memory/journal.md` — **절대 금지**. 단, 파일이 없는 첫 세션에서 빈 템플릿 생성하는 1회만 허용. 그 외에는 항상 `append`.
+- ❌ `edit memory/journal.md` — 금지. 과거 로그는 수정하지 않는다.
+- ❌ "나중에 promotion할게" — 금지. 사건이 발생한 그 턴에 journal과 MEMORY.md를 함께 갱신한다 (§3 eager capture).
 - ✅ 저장할 게 없으면 그냥 응답한다. 빈 내용을 강제로 만들지 않는다.
-- ✅ 큰 파일은 `read offset/limit` + `grep`으로 좁혀서 접근한다.
+- ✅ 큰 journal은 search.ts로 좁힌 뒤 `read offset/limit`로 부분만 본다.
 
 ## 다른 스킬과의 관계
 
