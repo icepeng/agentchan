@@ -67,6 +67,8 @@ export const translations: Record<TranslationKey, string> = {
   "project.deleteFailed": "프로젝트 삭제 실패: {{error}}",
   "project.duplicateSettings": "새 프로젝트에 설정 복사",
   "project.duplicateSettingsNamePlaceholder": "새 프로젝트 이름...",
+  "project.newOptionsEmpty": "빈 프로젝트로 시작",
+  "project.newOptionsCopyFrom": "다른 프로젝트에서 복제",
 
   // Project settings
   "settings.back": "뒤로",
