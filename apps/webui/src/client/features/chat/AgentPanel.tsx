@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useSessionState } from "@/client/entities/session/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
@@ -122,10 +123,7 @@ export function AgentPanel() {
       {session.replyToNodeId && (
         <div className="px-3 py-2 bg-accent/5 border-b border-accent/10 flex items-center justify-between">
           <span className="text-[11px] text-accent tracking-wide flex items-center gap-1.5">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 17L2 12L7 7" />
-              <path d="M2 12H16C18.2091 12 20 10.2091 20 8V4" />
-            </svg>
+            <CornerUpLeft size={10} strokeWidth={2} />
             {t("chat.branching")}
           </span>
           <button

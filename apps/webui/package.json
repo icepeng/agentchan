@@ -29,6 +29,7 @@
     "@lezer/highlight": "^1.2.3",
     "hono": "^4.7.0",
     "idiomorph": "^0.7.4",
+    "lucide-react": "^1.7.0",
     "nanoid": "^5.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

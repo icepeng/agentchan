@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useConfigState, useConfigDispatch } from "@/client/entities/config/index.js";
 import type { ThinkingLevel } from "@/client/entities/config/index.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -147,17 +148,11 @@ export function ModelBar() {
                 {!expanded && paramTags.map(({ label, key }) => (
                   <Badge variant="param" key={key}>{label}</Badge>
                 ))}
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
+                <ChevronDown
+                  size={10}
+                  strokeWidth={1.5}
                   className={`text-fg-4 group-hover:text-fg-3 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-                >
-                  <path d="M2.5 3.5L5 6L7.5 3.5" />
-                </svg>
+                />
               </div>
             </div>
           </button>

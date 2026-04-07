@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { Plus } from "lucide-react";
 import { useI18n, type TranslationKey } from "@/client/i18n/index.js";
 import { Button, TextInput } from "@/client/shared/ui/index.js";
 import { type EditorLanguage } from "@/client/shared/ui/TextEditor.js";
@@ -89,9 +90,7 @@ export function LibraryEditorView<T>({
             }}
             className="w-full px-3 py-2 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all flex items-center gap-2"
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-            </svg>
+            <Plus size={12} strokeWidth={2.5} />
             {t(config.labels.newButton)}
           </button>
         </div>

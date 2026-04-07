@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { ChevronsLeft } from "lucide-react";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
@@ -104,14 +105,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
             className="hidden lg:flex flex-shrink-0 w-7 items-center justify-center border-l border-edge/6 bg-base/20 hover:bg-accent/8 text-fg-3 hover:text-accent transition-all duration-200 cursor-pointer group"
             title={t("empty.openAgentPanel")}
           >
-            <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              className="group-hover:scale-110 transition-transform"
-            >
-              <path d="M11 17l-5-5 5-5" />
-              <path d="M18 17l-5-5 5-5" />
-            </svg>
+            <ChevronsLeft size={14} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
           </button>
         )}
       </div>

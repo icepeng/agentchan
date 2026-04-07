@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ArrowLeft, Globe } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
 import type { PageRoute } from "@/client/app/context/UIContext.js";
 import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
@@ -29,9 +30,7 @@ export function SettingsView() {
           onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "main" } })}
           title={t("settings.back")}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeft size={16} strokeWidth={2} />
         </IconButton>
         <h2 className="font-display text-lg font-bold tracking-tight">{t("globalSettings.title")}</h2>
         <TabBar<SettingsTab>
@@ -67,13 +66,7 @@ function AppearanceTab() {
       value: "system",
       label: t("globalSettings.langSystem"),
       desc: t("globalSettings.langSystemDesc"),
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M2 12h20" />
-          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-        </svg>
-      ),
+      icon: <Globe size={20} strokeWidth={1.8} />,
     },
     {
       value: "en",

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useUIDispatch } from "@/client/app/context/UIContext.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, TabBar } from "@/client/shared/ui/index.js";
@@ -117,9 +118,7 @@ export function LibraryView() {
           onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "main" } })}
           title={t("settings.back")}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeft size={16} strokeWidth={2} />
         </IconButton>
         <h2 className="font-display text-lg font-bold tracking-tight">{t("library.title")}</h2>
         <TabBar

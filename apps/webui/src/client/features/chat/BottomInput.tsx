@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { ArrowUp, ChevronsLeft } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useConfigState } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
@@ -88,10 +89,7 @@ export function BottomInput() {
               className="m-1.5 p-2 rounded-lg text-fg-3 hover:text-accent hover:bg-accent/8 transition-all"
               title={t("empty.showAgentPanel")}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M11 17l-5-5 5-5" />
-                <path d="M18 17l-5-5 5-5" />
-              </svg>
+              <ChevronsLeft size={16} strokeWidth={2} />
             </button>
           )}
 
@@ -114,19 +112,7 @@ export function BottomInput() {
             disabled={!text.trim() || isStreaming}
             className="m-1.5 p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 19V5" />
-              <path d="M5 12l7-7 7 7" />
-            </svg>
+            <ArrowUp size={16} strokeWidth={2.5} />
           </button>
         </div>
         </div>
