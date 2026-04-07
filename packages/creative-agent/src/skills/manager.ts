@@ -70,10 +70,6 @@ Important:
   private buildSkillContent(name: string, skill: SkillRecord): string {
     let content = `<skill_content name="${name}">\n`;
 
-    if (skill.meta.compatibility) {
-      content += `Compatibility: ${skill.meta.compatibility}\n\n`;
-    }
-
     content += skill.body + "\n\n";
     const skillDir = relative(this.projectDir, skill.baseDir);
     content += `Skill directory: ${skillDir}\n`;

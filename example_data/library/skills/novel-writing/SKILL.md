@@ -2,7 +2,6 @@
 name: novel-writing
 description: 소설의 기획, 집필, 교정을 체계적으로 지원한다. 소설 쓰기, 줄거리 구성, 캐릭터 개발, 챕터 집필, 원고 교정 등의 작업에서 활성화한다.
 license: MIT
-compatibility: 헬퍼 스크립트는 모두 TypeScript이며 내장 Bun 런타임으로 실행됩니다 (별도 설치 불필요)
 metadata:
   author: agentchan
   version: "1.0"
