@@ -1,8 +1,9 @@
 ---
 name: ren-blackwood
 description: "렌 블랙우드 — 금서 지도를 수집하는 조용한 방랑 학자. 궁지에 몰리면 수수께끼로 대답한다. 미스터리나 탐험 장면의 RP에서 활성화한다."
+always-active: true
 metadata:
-  type: character
+  tags: [character]
   display-name: Ren Blackwood
   color: "#a78bfa"
   avatar-image: assets/avatar

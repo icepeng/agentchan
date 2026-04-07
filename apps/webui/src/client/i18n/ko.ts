@@ -131,6 +131,12 @@ export const translations: Record<TranslationKey, string> = {
   "editor.tokens": "토큰",
   "editor.approx": "약",
 
+  // Skill frontmatter toggles
+  "skillToggles.alwaysActive": "항상 활성",
+  "skillToggles.alwaysActiveHint": "세션 전체 동안 시스템 프롬프트에 로드됩니다.",
+  "skillToggles.disableModel": "모델 호출 비활성화",
+  "skillToggles.disableModelHint": "모델 카탈로그에서 숨깁니다. 슬래시 명령은 여전히 작동합니다.",
+
   // Global settings
   "globalSettings.title": "설정",
   "globalSettings.appearance": "외관",

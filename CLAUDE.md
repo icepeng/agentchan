@@ -93,10 +93,17 @@ apps/webui/data/
 - Output refreshes when agent streaming completes (isStreaming → false)
 
 ## Skill Conventions for Creative Use
-- Skills use `metadata.type` in YAML frontmatter: `character`, `world`, `style`, or omit for general
-- Character skills: `metadata.display-name`, `metadata.color` (hex). Images via `[skill:path]` tokens in output, files in skill `assets/` folder
+- **Skill is the only first-class concept**. Personas, frameworks, world settings, writing styles — all of them are just Skills with different content and flags. The system never branches on category, and users should not have to learn a fixed taxonomy
+- Activation modes (orthogonal frontmatter flags, both default off):
+  - `always-active: true` — body is injected into the system prompt for the entire session. Use for personas, world settings, persistent style guides
+  - `disable-model-invocation: true` — hidden from the model's `activate_skill` catalog. The skill is reachable only via user `/skillname` slash command
+  - Default (both off) — model decides when to invoke via `activate_skill`. Slash invocation also works
+- All Skills, regardless of flags, can be invoked by slash command unless `always-active` (already in the prompt — slash would be redundant). Always-active skills are hidden from slash autocomplete
+- `metadata.tags` is a free user-input list — used only for grouping/search in the UI. The system does not branch on tag values
+- Character/world skills typically combine `always-active: true` with display metadata: `metadata.display-name`, `metadata.color` (hex), `metadata.avatar-image`. Images via `[skill:path]` tokens in output, files in skill `assets/` folder
+- `metadata.recommended-renderer` (string) lets a skill suggest a renderer for its project — surfaced in the renderer picker UI
 - Library skills managed via Library page UI, copied to projects as needed
-- No explicit "modes" — skill composition determines AI behavior, renderer determines display
+- No explicit "modes" — skill composition + flags determine AI behavior, renderer determines display
 - 스킬의 `scripts/*.ts`는 사용자가 한 파일만 읽고 이해할 수 있게 self-contained — 스킬 간 헬퍼 공통화 금지, 소량 중복 허용
 
 ## Example Data

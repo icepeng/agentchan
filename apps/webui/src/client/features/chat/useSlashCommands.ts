@@ -1,21 +1,39 @@
 import { useState, useMemo, useCallback } from "react";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
+import { useSkillState } from "@/client/entities/skill/index.js";
 import { useConversation } from "./useConversation.js";
 import { COMMANDS, type SlashCommand } from "./commands.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const configDispatch = useConfigDispatch();
+  const skillState = useSkillState();
   const { create, compact } = useConversation();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const query = text.startsWith("/") ? text.slice(1) : "";
   const isOpen = text.startsWith("/") && !query.includes(" ");
 
+  // Built-in commands + slash-invocable project skills.
+  // Always-active skills are intentionally hidden from autocomplete: their
+  // body is already in the system prompt and re-injecting via slash would be
+  // redundant. The server's findSlashInvocableSkill enforces the same rule.
+  const allCommands = useMemo<SlashCommand[]>(() => {
+    const skillCommands: SlashCommand[] = skillState.skills
+      .filter((s) => !s.alwaysActive)
+      .map((s) => ({
+        name: s.name,
+        description: s.description,
+        needsArg: false,
+        isSkill: true,
+      }));
+    return [...COMMANDS, ...skillCommands];
+  }, [skillState.skills]);
+
   const filteredCommands = useMemo(() => {
     if (!isOpen) return [];
-    if (query === "") return COMMANDS;
-    return COMMANDS.filter((cmd) => cmd.name.startsWith(query.toLowerCase()));
-  }, [isOpen, query]);
+    if (query === "") return allCommands;
+    return allCommands.filter((cmd) => cmd.name.startsWith(query.toLowerCase()));
+  }, [isOpen, query, allCommands]);
 
   // Clamp selectedIndex when filtered list changes
   const clampedIndex = Math.min(selectedIndex, Math.max(filteredCommands.length - 1, 0));
@@ -52,7 +70,11 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
 
   const selectCommand = useCallback(
     (cmd: SlashCommand) => {
-      if (cmd.needsArg) {
+      if (cmd.isSkill) {
+        // Skills are dispatched server-side. Just fill the input with
+        // "/name " so the user can either add args or press Enter.
+        setText("/" + cmd.name + " ");
+      } else if (cmd.needsArg) {
         setText("/" + cmd.name + " ");
       } else {
         void executeCommand(cmd.name, "");

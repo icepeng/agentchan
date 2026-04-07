@@ -1,8 +1,9 @@
 ---
 name: elara-brightwell
 description: "엘라라 브라이트웰 — 모든 이의 비밀을 알지만 절대 발설하지 않는 따뜻하고 재치 있는 주점 주인. 표류목 등불 주점 배경의 RP 장면에서 활성화한다."
+always-active: true
 metadata:
-  type: character
+  tags: [character]
   display-name: Elara Brightwell
   color: "#fbbf24"
   avatar-image: assets/avatar

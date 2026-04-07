@@ -15,6 +15,7 @@ export interface LibraryEditorConfig<T> {
   getName: (item: T) => string;
   language?: EditorLanguage;
   showTokenCount?: boolean;
+  enableSkillToggles?: boolean;
   labels: {
     newButton: TranslationKey;
     newTitle: TranslationKey;
@@ -162,6 +163,7 @@ export function LibraryEditorView<T>({
             onDelete={handleDelete}
             language={config.language}
             showTokenCount={config.showTokenCount}
+            enableSkillToggles={config.enableSkillToggles}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-fg-3 text-sm">

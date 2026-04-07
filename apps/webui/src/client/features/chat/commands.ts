@@ -3,6 +3,12 @@ export interface SlashCommand {
   description: string;
   needsArg: boolean;
   argPlaceholder?: string;
+  /**
+   * True for slash-invocable skills (sourced from the project's SkillContext)
+   * rather than built-in client commands. The server expands these into the
+   * full skill body — the client only owns the autocomplete UX.
+   */
+  isSkill?: boolean;
 }
 
 export const COMMANDS: SlashCommand[] = [
