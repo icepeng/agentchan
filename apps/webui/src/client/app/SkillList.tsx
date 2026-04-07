@@ -16,12 +16,19 @@ export function SkillList() {
         {skill.skills.map((s) => (
           <div
             key={s.name}
-            className="w-full text-left px-2.5 py-2 rounded-lg"
+            className="w-full text-left px-2.5 py-2 rounded-lg flex items-start gap-2"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="text-sm truncate text-fg-2">{s.name}</div>
               <div className="text-xs text-fg-3 truncate">{s.description}</div>
             </div>
+            {s.alwaysActive && (
+              <span
+                className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-accent"
+                title={t("skillToggles.alwaysActive")}
+                aria-label={t("skillToggles.alwaysActive")}
+              />
+            )}
           </div>
         ))}
       </div>
