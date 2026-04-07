@@ -1,3 +1,15 @@
+// Hooks
+export {
+  createHookRunner,
+  type HookEventName,
+  type HookConfig,
+  type HookConfigEntry,
+  type HookInput,
+  type HookResponse,
+  type HookExecResult,
+  type HookRunner,
+} from "./hooks/index.js";
+
 // Tools
 export { createScriptTool } from "./tools/script.js";
 export { createReadTool } from "./tools/read.js";

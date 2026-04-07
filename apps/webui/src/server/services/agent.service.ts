@@ -8,8 +8,10 @@ import {
   extractUsage,
   flattenPathToMessages,
   pathToNode,
+  createHookRunner,
   type AgentEvent,
   type AssistantMessage,
+  type HookRunner,
   type Message,
   type ToolCall,
 } from "@agentchan/creative-agent";
@@ -61,6 +63,7 @@ export function createAgentService(
     userText: string,
     historyPath: string[],
     tree: Map<string, any>,
+    hookRunner?: HookRunner,
   ) {
     const config = configService.getConfig();
     const projectDir = join(projectsDir, slug);
@@ -86,6 +89,7 @@ export function createAgentService(
           maxTokens: config.maxTokens, contextWindow: config.contextWindow,
           thinkingLevel: config.thinkingLevel,
           ...(providerInfo?.custom && { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }),
+          ...(hookRunner && { hookRunner }),
         },
         flattenPathToMessages(tree, historyPath),
         conversationId,
@@ -211,6 +215,33 @@ export function createAgentService(
       parentNodeId: string | null,
       text: string,
     ) {
+      const projectDir = join(projectsDir, slug);
+      const hookRunner = await createHookRunner({
+        projectDir,
+        sessionId: conversationId,
+      });
+
+      // Run UserPromptSubmit before persisting — a block prevents the message
+      // from entering the conversation tree at all.
+      let finalText = text;
+      if (hookRunner.has("UserPromptSubmit")) {
+        const result = await hookRunner.run("UserPromptSubmit", { prompt: text });
+        if (result.blocked) {
+          await stream.writeSSE({
+            event: "error",
+            data: JSON.stringify({
+              message: result.reason ?? "Prompt blocked by UserPromptSubmit hook",
+              hookBlocked: true,
+            }),
+          });
+          await stream.writeSSE({ event: "done", data: "" });
+          return;
+        }
+        if (result.additionalContext) {
+          finalText = `${result.additionalContext}\n\n${text}`;
+        }
+      }
+
       const userNode: TreeNode = {
         id: nanoid(12), parentId: parentNodeId,
         role: "user", content: [{ type: "text", text }], createdAt: Date.now(),
@@ -227,7 +258,7 @@ export function createAgentService(
       const historyPath = parentNodeId ? pathToNode(tree, parentNodeId) : [];
 
       await stream.writeSSE({ event: "user_node", data: JSON.stringify(userNode) });
-      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, text, historyPath, tree);
+      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, finalText, historyPath, tree, hookRunner);
     },
 
     async regenerate(

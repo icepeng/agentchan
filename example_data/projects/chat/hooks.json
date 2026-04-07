@@ -1,0 +1,8 @@
+{
+  "PostToolUse": [
+    { "matcher": "*", "file": "hooks/log-tool-use.ts" }
+  ],
+  "UserPromptSubmit": [
+    { "file": "hooks/timestamp.ts" }
+  ]
+}

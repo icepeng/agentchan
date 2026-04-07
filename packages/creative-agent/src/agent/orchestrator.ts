@@ -18,6 +18,7 @@ import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
 import { analyzeContext } from "./context-analysis.js";
 import { createGoogleCacheHook, clearGoogleCache } from "./google-cache.js";
+import { createHookRunner, type HookRunner } from "../hooks/index.js";
 import { formatTokens } from "@agentchan/estimate-tokens";
 import * as log from "../logger.js";
 import type { StoredMessage } from "../types.js";
@@ -37,6 +38,12 @@ export interface CreativeAgentOptions {
   baseUrl?: string;
   /** Override API format, e.g. "openai-completions" (used by custom providers). */
   apiFormat?: string;
+  /**
+   * Pre-built hook runner. If omitted, setupCreativeAgent loads `hooks.json`
+   * and creates one. Pass an existing runner when the caller already needed
+   * hooks before setup (e.g. UserPromptSubmit) to avoid re-reading the file.
+   */
+  hookRunner?: HookRunner;
 }
 
 export interface CreativeAgentSetup {
@@ -163,8 +170,14 @@ export async function setupCreativeAgent(
     manager.update(skills, options.projectDir);
   }
 
-  // Build tools
-  const tools: any[] = createProjectTools(options.projectDir);
+  const hookRunner =
+    options.hookRunner ??
+    (await createHookRunner({
+      projectDir: options.projectDir,
+      sessionId: conversationId,
+    }));
+
+  const tools: any[] = createProjectTools(options.projectDir, hookRunner);
   if (skills.size > 0) tools.push(manager.createTool());
 
   // Build system prompt
