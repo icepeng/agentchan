@@ -11,7 +11,6 @@ import {
   fullCompact,
   resolveModel,
   discoverProjectSkills,
-  parseSlashCommand,
 } from "@agentchan/creative-agent";
 import type { ConversationRepo } from "../repositories/conversation.repo.js";
 import type { ConfigService } from "./config.service.js";
@@ -85,52 +84,36 @@ export function createConversationService(
         throw new Error(`API key not configured for provider: ${config.provider}`);
       }
 
-      const result = await fullCompact({
-        messages: piMessages,
-        model: resolveModel(config.provider, config.model,
-          compactProvider?.custom ? { baseUrl: compactProvider.custom.url, apiFormat: compactProvider.custom.format } : undefined,
-        ),
-        apiKey: apiKey ?? "",
-      });
-
-      // Re-inject previously activated skill content for continuity.
+      // Re-inject always-active skill bodies so the new conversation keeps the
+      // same persona/world as the previous one. Other skills (model-invoked via
+      // activate_skill, user-invoked via slash command) are NOT re-injected —
+      // the catalog survives in the new conversation's system prompt, so the
+      // model or user can re-activate them on demand if still needed.
       //
-      // We track three sources:
-      //   1. Always-active skills — implicitly active for the whole project,
-      //      auto-invoked at session start. Re-inject unconditionally.
-      //   2. Model-invoked via the activate_skill tool (assistant tool_use blocks)
-      //   3. User-invoked via slash command (user text blocks with displayText)
+      // This is the compact-side counterpart to maybeAutoInvokeAlwaysActive in
+      // agent.service.ts: that one runs at session start (parentNodeId === null),
+      // this one runs after compact since the new conversation is seeded with a
+      // summary user node, so the auto-invoke path won't fire there.
+      //
+      // fullCompact (LLM call) and discoverProjectSkills (fs scan) are
+      // independent — run them in parallel so skill discovery overlaps with the
+      // long-running summarization.
       const projectDir = join(projectsDir, slug);
-      const skillsMap = await discoverProjectSkills(join(projectDir, "skills"));
-      const activatedSkills = new Set<string>();
-      for (const skill of skillsMap.values()) {
-        if (skill.meta.alwaysActive) activatedSkills.add(skill.meta.name);
-      }
-      for (const msg of history) {
-        if (msg.role === "assistant") {
-          for (const block of msg.content) {
-            if (block.type === "tool_use" && block.name === "activate_skill") {
-              const name = block.input.name;
-              if (typeof name === "string") activatedSkills.add(name);
-            }
-          }
-        } else if (msg.role === "user") {
-          for (const block of msg.content) {
-            if (block.type !== "text") continue;
-            if (!block.displayText) continue;
-            const parsed = parseSlashCommand(block.displayText);
-            if (parsed) activatedSkills.add(parsed.name);
-          }
-        }
-      }
-
-      const parts: string[] = [];
-      for (const name of activatedSkills) {
-        const skill = skillsMap.get(name);
-        if (skill) parts.push(buildSkillContent(skill, projectDir, ""));
-      }
-      const skillSection = parts.length > 0
-        ? "\n\nThe following skills were active in the previous session and are re-injected for continuity:\n\n" + parts.join("\n\n")
+      const [result, skillsMap] = await Promise.all([
+        fullCompact({
+          messages: piMessages,
+          model: resolveModel(config.provider, config.model,
+            compactProvider?.custom ? { baseUrl: compactProvider.custom.url, apiFormat: compactProvider.custom.format } : undefined,
+          ),
+          apiKey: apiKey ?? "",
+        }),
+        discoverProjectSkills(join(projectDir, "skills")),
+      ]);
+      const alwaysActiveBodies = [...skillsMap.values()]
+        .filter((s) => s.meta.alwaysActive)
+        .map((s) => buildSkillContent(s, projectDir, ""));
+      const skillSection = alwaysActiveBodies.length > 0
+        ? "\n\nThe following always-active skills are re-injected for continuity:\n\n" + alwaysActiveBodies.join("\n\n")
         : "";
 
       const summaryText = `This session continues from a previous conversation. Below is the context summary.\n\n${result.summary}${skillSection}`;
