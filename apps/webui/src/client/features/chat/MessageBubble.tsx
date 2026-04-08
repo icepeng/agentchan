@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { isSkillContentBlock } from "@agentchan/creative-agent/client";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
@@ -146,18 +145,20 @@ export function MessageBubble({
     );
   }
 
-  const firstBlock = node.content[0];
-  if (
-    node.role === "user" &&
-    node.content.length === 1 &&
-    firstBlock?.type === "text" &&
-    isSkillContentBlock(firstBlock)
-  ) {
-    // A single node may bundle multiple <skill_content> blocks (e.g. the
-    // auto-invoke at session start emits one node with every always-active
-    // skill). Extract all of them so the label reflects what was loaded.
-    const nameMatches = [...firstBlock.text.matchAll(/<skill_content name="([^"]+)"/g)];
-    const skillNames = nameMatches.length > 0 ? nameMatches.map((m) => m[1]) : ["unknown"];
+  // Always-active skill auto-load — synthetic system event injected at
+  // session start. Rendered as a chip-only line (no avatar, no branch nav)
+  // because it isn't something the user said. Same dispatch pattern as
+  // `meta === "compact-summary"` below — meta tags identify nodes that need
+  // a non-default presentation. Skill names are recovered from the
+  // `<skill_content name="…">` tags inside the body, which is the format
+  // owned by buildSkillContent (the only producer of this node).
+  if (node.meta === "skill-auto-load") {
+    const firstBlock = node.content[0];
+    const bodyText =
+      firstBlock?.type === "text" ? firstBlock.text : "";
+    const nameMatches = [...bodyText.matchAll(/<skill_content name="([^"]+)"/g)];
+    const skillNames =
+      nameMatches.length > 0 ? nameMatches.map((m) => m[1]) : ["unknown"];
     const inner = (
       <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-60">
         <span>{"\u2699"}</span>

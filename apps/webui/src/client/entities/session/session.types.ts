@@ -13,7 +13,7 @@ export interface TreeNode {
   activeChildId?: string;
   children?: string[];
   usage?: TokenUsage;
-  meta?: "compact-summary" | (string & {});
+  meta?: "compact-summary" | "skill-auto-load" | (string & {});
 }
 
 export interface Conversation {

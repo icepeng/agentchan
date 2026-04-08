@@ -13,6 +13,7 @@ import {
   type AssistantMessage,
   type Message,
   type SkillRecord,
+  type StoredMessage,
   type ToolCall,
 } from "@agentchan/creative-agent";
 import type { ConversationRepo } from "../repositories/conversation.repo.js";
@@ -63,8 +64,7 @@ export function createAgentService(
     conversationId: string,
     parentNodeId: string,
     userText: string,
-    historyPath: string[],
-    tree: Map<string, any>,
+    history: StoredMessage[],
     skillsMap: Map<string, SkillRecord>,
   ) {
     const config = configService.getConfig();
@@ -93,7 +93,7 @@ export function createAgentService(
           skills: skillsMap,
           ...(providerInfo?.custom && { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }),
         },
-        flattenPathToMessages(tree, historyPath),
+        history,
         conversationId,
       );
 
@@ -224,15 +224,12 @@ export function createAgentService(
         stream, slug, conversationId, parentNodeId, projectDir, skillsMap,
       );
 
-      const expansion = slashService.tryExpandSlashCommand(projectDir, skillsMap, text);
-      const llmText = expansion?.expanded ?? text;
-      const textBlock: { type: "text"; text: string; displayText?: string } = expansion
-        ? { type: "text", text: expansion.expanded, displayText: expansion.displayText }
-        : { type: "text", text };
-
+      // User nodes store the **raw** text the user typed — including any
+      // `/skillname` slash command. Expansion happens at LLM-payload build
+      // time below (both for the new prompt and for prior history turns).
       const userNode: TreeNode = {
         id: nanoid(12), parentId: parentNodeId,
-        role: "user", content: [textBlock], createdAt: Date.now(),
+        role: "user", content: [{ type: "text", text }], createdAt: Date.now(),
       };
       await conversationRepo.appendNode(slug, conversationId, userNode);
 
@@ -244,10 +241,14 @@ export function createAgentService(
       }
 
       const historyPath = parentNodeId ? pathToNode(tree, parentNodeId) : [];
+      const history = slashService.expandSlashesInHistory(
+        projectDir, skillsMap, flattenPathToMessages(tree, historyPath),
+      );
+      const llmText = slashService.expandSlashCommand(projectDir, skillsMap, text);
 
       await stream.writeSSE({ event: "user_node", data: JSON.stringify(userNode) });
       await streamAgentAndPersist(
-        stream, slug, conversationId, userNode.id, llmText, historyPath, tree, skillsMap,
+        stream, slug, conversationId, userNode.id, llmText, history, skillsMap,
       );
     },
 
@@ -273,10 +274,15 @@ export function createAgentService(
         return;
       }
 
-      const skillsMap = await discoverProjectSkills(join(projectsDir, slug, "skills"));
+      const projectDir = join(projectsDir, slug);
+      const skillsMap = await discoverProjectSkills(join(projectDir, "skills"));
       const historyPath = userNode.parentId ? pathToNode(tree, userNode.parentId) : [];
+      const history = slashService.expandSlashesInHistory(
+        projectDir, skillsMap, flattenPathToMessages(tree, historyPath),
+      );
+      const llmText = slashService.expandSlashCommand(projectDir, skillsMap, userText);
       await streamAgentAndPersist(
-        stream, slug, conversationId, userNodeId, userText, historyPath, tree, skillsMap,
+        stream, slug, conversationId, userNodeId, llmText, history, skillsMap,
       );
     },
   };
