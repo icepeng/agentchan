@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { join } from "node:path";
 import type { TreeNode } from "../types.js";
 import {
+  buildSlashSkillContent,
   clearSkillManager,
   computeActivePath,
   flattenPathToMessages,
@@ -94,13 +95,17 @@ export function createConversationService(
 
       // Re-inject previously activated skill content for continuity.
       //
-      // We track two activation channels:
-      //   1. Model-invoked via the activate_skill tool (assistant tool_use blocks)
-      //   2. User-invoked via slash command (user text blocks with displayText)
-      //
-      // Always-active skills are excluded — their body is automatically present
-      // in the system prompt of the new session via generatePersistentSkillsBlock.
+      // We track three sources:
+      //   1. Always-active skills — implicitly active for the whole project,
+      //      auto-invoked at session start. Re-inject unconditionally.
+      //   2. Model-invoked via the activate_skill tool (assistant tool_use blocks)
+      //   3. User-invoked via slash command (user text blocks with displayText)
+      const projectDir = join(projectsDir, slug);
+      const skillsMap = await discoverProjectSkills(join(projectDir, "skills"));
       const activatedSkills = new Set<string>();
+      for (const skill of skillsMap.values()) {
+        if (skill.meta.alwaysActive) activatedSkills.add(skill.meta.name);
+      }
       for (const msg of history) {
         if (msg.role === "assistant") {
           for (const block of msg.content) {
@@ -119,21 +124,14 @@ export function createConversationService(
         }
       }
 
-      let skillSection = "";
-      if (activatedSkills.size > 0) {
-        const skills = await discoverProjectSkills(join(projectsDir, slug, "skills"));
-        const parts: string[] = [];
-        for (const name of activatedSkills) {
-          const skill = skills.get(name);
-          if (!skill) continue;
-          // Always-active skills are already in the system prompt — skip.
-          if (skill.meta.alwaysActive) continue;
-          parts.push(`<skill_content name="${name}">\n${skill.body}\n</skill_content>`);
-        }
-        if (parts.length > 0) {
-          skillSection = "\n\nThe following skills were active in the previous session and are re-injected for continuity:\n\n" + parts.join("\n\n");
-        }
+      const parts: string[] = [];
+      for (const name of activatedSkills) {
+        const skill = skillsMap.get(name);
+        if (skill) parts.push(buildSlashSkillContent(skill, projectDir, ""));
       }
+      const skillSection = parts.length > 0
+        ? "\n\nThe following skills were active in the previous session and are re-injected for continuity:\n\n" + parts.join("\n\n")
+        : "";
 
       const summaryText = `This session continues from a previous conversation. Below is the context summary.\n\n${result.summary}${skillSection}`;
       const newConv = await conversationRepo.createConversation(slug, config.provider, config.model, conversationId);

@@ -72,10 +72,18 @@ function deriveConversation(
   nodes: TreeNode[],
   tree?: Map<string, TreeNodeWithChildren>,
 ): Conversation {
-  const firstUser = nodes.find((n) => n.role === "user");
-  const title = firstUser
-    ? generateTitle(firstUser.content.find((b) => b.type === "text" && "text" in b)?.text ?? "")
-    : "New conversation";
+  // Skip skill_content user nodes (auto-invoked always-active blocks and slash
+  // invocations) — they're noise as a title and would expose raw skill bodies.
+  // Same shape as the collapse guard in MessageBubble.tsx.
+  let title = "New conversation";
+  for (const n of nodes) {
+    if (n.role !== "user") continue;
+    const textBlock = n.content.find((b) => b.type === "text" && "text" in b);
+    if (!textBlock || !("text" in textBlock)) continue;
+    if (textBlock.text.startsWith("<skill_content")) continue;
+    title = generateTitle(textBlock.text);
+    break;
+  }
 
   const createdAt = header?.createdAt ?? nodes[0]?.createdAt ?? Date.now();
   const updatedAt = nodes.length > 0 ? nodes[nodes.length - 1].createdAt : createdAt;

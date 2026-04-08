@@ -10,7 +10,7 @@ export { createProjectTools } from "./tools/index.js";
 
 // Skills
 export { discoverSkills, discoverProjectSkills } from "./skills/discovery.js";
-export { generateCatalog, generatePersistentSkillsBlock } from "./skills/catalog.js";
+export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
 export {

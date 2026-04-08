@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { SkillManager } from "../skills/manager.js";
-import { generateCatalog, generatePersistentSkillsBlock } from "../skills/catalog.js";
+import { generateCatalog } from "../skills/catalog.js";
 import { type SkillMetadata } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
@@ -172,12 +172,12 @@ export async function setupCreativeAgent(
   );
   if (hasInvocableSkill) tools.push(manager.createTool());
 
-  // Build system prompt
+  // Build system prompt — only the catalog. always-active skill bodies are
+  // injected as the first user message by the caller (see agent.service.ts
+  // maybeAutoInvokeAlwaysActive), not into the system prompt: keeping them
+  // close to the conversation tail preserves the recency / first-turn anchor
+  // effect that the original activate_skill flow relied on.
   let systemPrompt = DEFAULT_SYSTEM_PROMPT;
-  const persistentBlock = generatePersistentSkillsBlock(skillList, options.projectDir);
-  if (persistentBlock) {
-    systemPrompt += "\n\n" + persistentBlock;
-  }
   const catalog = generateCatalog(skillList);
   if (catalog) {
     systemPrompt += "\n\n" + catalog;

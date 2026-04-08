@@ -151,13 +151,22 @@ export function MessageBubble({
     node.content[0].type === "text" &&
     node.content[0].text.startsWith("<skill_content")
   ) {
-    const nameMatch = node.content[0].text.match(/name="([^"]+)"/);
-    const skillName = nameMatch?.[1] ?? "unknown";
+    // A single node may bundle multiple <skill_content> blocks (e.g. the
+    // auto-invoke at session start emits one node with every always-active
+    // skill). Extract all of them so the label reflects what was loaded.
+    const nameMatches = [...node.content[0].text.matchAll(/<skill_content name="([^"]+)"/g)];
+    const skillNames = nameMatches.length > 0 ? nameMatches.map((m) => m[1]) : ["unknown"];
     const inner = (
       <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-60">
         <span>{"\u2699"}</span>
         <span>
-          Skill loaded: <span className="font-mono text-accent/80">{skillName}</span>
+          Skill loaded:{" "}
+          {skillNames.map((name, i) => (
+            <span key={name}>
+              {i > 0 && ", "}
+              <span className="font-mono text-accent/80">{name}</span>
+            </span>
+          ))}
         </span>
       </div>
     );

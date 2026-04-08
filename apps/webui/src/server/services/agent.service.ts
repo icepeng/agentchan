@@ -213,9 +213,10 @@ export function createAgentService(
    * `displayText` (so the UI can show "/skillname" while the model receives the
    * full body). Returns null if the text is not a recognized slash command.
    *
-   * Always-active skills are intentionally not matched: they are already in the
-   * system prompt, and slash autocomplete hides them. Unknown skills also return
-   * null, in which case the text is sent as-is (the model sees the literal "/foo").
+   * Always-active skills are intentionally not matched: they are auto-invoked
+   * once at session start by maybeAutoInvokeAlwaysActive, so a manual slash
+   * would just duplicate the body. Unknown skills also return null, in which
+   * case the text is sent as-is (the model sees the literal "/foo").
    */
   async function tryExpandSlashCommand(
     slug: string,
@@ -233,6 +234,45 @@ export function createAgentService(
     return { expanded, displayText: text };
   }
 
+  /**
+   * On the first message of a conversation, inject every always-active skill's
+   * body as a single user node so the model sees it as recent context (not as a
+   * far-away system instruction). Returns the new parent id, or `parentNodeId`
+   * unchanged if there was nothing to inject.
+   *
+   * Mirrors the slash invocation format (`<skill_content>` block via
+   * buildSlashSkillContent) so the LLM payload is identical to a manual
+   * `/skillname` invocation. The displayText is a short label so the chat UI
+   * doesn't render the full body.
+   */
+  async function maybeAutoInvokeAlwaysActive(
+    stream: SSEStreamingApi,
+    slug: string,
+    conversationId: string,
+    parentNodeId: string | null,
+  ): Promise<string | null> {
+    if (parentNodeId !== null) return parentNodeId;
+    const projectDir = join(projectsDir, slug);
+    const skills = await discoverProjectSkills(join(projectDir, "skills"));
+    const alwaysActive = [...skills.values()].filter((s) => s.meta.alwaysActive);
+    if (alwaysActive.length === 0) return parentNodeId;
+
+    const combined = alwaysActive
+      .map((s) => buildSlashSkillContent(s, projectDir, ""))
+      .join("\n\n");
+    const names = alwaysActive.map((s) => s.meta.name).join(", ");
+    const autoNode: TreeNode = {
+      id: nanoid(12),
+      parentId: null,
+      role: "user",
+      content: [{ type: "text", text: combined, displayText: `[Auto-loaded: ${names}]` }],
+      createdAt: Date.now(),
+    };
+    await conversationRepo.appendNode(slug, conversationId, autoNode);
+    await stream.writeSSE({ event: "user_node", data: JSON.stringify(autoNode) });
+    return autoNode.id;
+  }
+
   return {
     async sendMessage(
       stream: SSEStreamingApi,
@@ -241,6 +281,10 @@ export function createAgentService(
       parentNodeId: string | null,
       text: string,
     ) {
+      parentNodeId = await maybeAutoInvokeAlwaysActive(
+        stream, slug, conversationId, parentNodeId,
+      );
+
       const expansion = await tryExpandSlashCommand(slug, text);
       const llmText = expansion?.expanded ?? text;
       const textBlock: { type: "text"; text: string; displayText?: string } = expansion
