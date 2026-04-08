@@ -39,10 +39,10 @@ export function SlashCommandPopup({ commands, selectedIndex, onSelect, onHover }
         >
           <span className="font-mono text-sm">/{cmd.name}</span>
           <span className="text-xs text-fg-3 flex-1 truncate">{cmd.description}</span>
-          {cmd.isSkill && (
+          {cmd.type === "skill" && (
             <span className="text-[10px] text-fg-3 font-mono uppercase tracking-wider opacity-70">skill</span>
           )}
-          {cmd.needsArg && cmd.argPlaceholder && (
+          {cmd.type === "command" && cmd.needsArg && cmd.argPlaceholder && (
             <span className="text-[10px] text-fg-3 font-mono opacity-70">{cmd.argPlaceholder}</span>
           )}
         </button>

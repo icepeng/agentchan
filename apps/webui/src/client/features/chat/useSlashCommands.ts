@@ -15,16 +15,16 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
 
   // Built-in commands + slash-invocable project skills.
   // Always-active skills are intentionally hidden from autocomplete: their
-  // body is already in the system prompt and re-injecting via slash would be
-  // redundant. The server's findSlashInvocableSkill enforces the same rule.
+  // body is already loaded as the first message of the conversation and
+  // re-injecting via slash would be redundant. The server's
+  // findSlashInvocableSkill enforces the same rule.
   const allCommands = useMemo<SlashCommand[]>(() => {
     const skillCommands: SlashCommand[] = skillState.skills
       .filter((s) => !s.alwaysActive)
       .map((s) => ({
+        type: "skill",
         name: s.name,
         description: s.description,
-        needsArg: false,
-        isSkill: true,
       }));
     return [...COMMANDS, ...skillCommands];
   }, [skillState.skills]);
@@ -70,7 +70,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
 
   const selectCommand = useCallback(
     (cmd: SlashCommand) => {
-      if (cmd.isSkill) {
+      if (cmd.type === "skill") {
         // Skills are dispatched server-side. Just fill the input with
         // "/name " so the user can either add args or press Enter.
         setText("/" + cmd.name + " ");
