@@ -13,7 +13,7 @@ import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { SkillManager } from "../skills/manager.js";
 import { generateCatalog } from "../skills/catalog.js";
-import { type SkillMetadata } from "../skills/types.js";
+import { type SkillMetadata, type SkillRecord } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
 import { analyzeContext } from "./context-analysis.js";
@@ -37,6 +37,13 @@ export interface CreativeAgentOptions {
   baseUrl?: string;
   /** Override API format, e.g. "openai-completions" (used by custom providers). */
   apiFormat?: string;
+  /**
+   * Pre-loaded skills map. If omitted, setupCreativeAgent calls
+   * discoverProjectSkills itself. Pass this when the caller already loaded
+   * the skills (e.g. for slash expansion or auto-invoke) to avoid hitting
+   * the disk twice in the same turn.
+   */
+  skills?: Map<string, SkillRecord>;
 }
 
 export interface CreativeAgentSetup {
@@ -152,8 +159,9 @@ export async function setupCreativeAgent(
   history: StoredMessage[],
   conversationId: string,
 ): Promise<CreativeAgentSetup> {
-  // Discover skills
-  const skills = await discoverProjectSkills(join(options.projectDir, "skills"));
+  // Use the caller-provided skills snapshot if present, otherwise scan disk.
+  const skills = options.skills
+    ?? await discoverProjectSkills(join(options.projectDir, "skills"));
 
   let manager = skillManagers.get(conversationId);
   if (!manager) {

@@ -25,8 +25,8 @@ export function SkillList() {
             {s.alwaysActive && (
               <span
                 className="mt-1.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-accent"
-                title={t("skillToggles.alwaysActive")}
-                aria-label={t("skillToggles.alwaysActive")}
+                title={t("skills.alwaysActive")}
+                aria-label={t("skills.alwaysActive")}
               />
             )}
           </div>

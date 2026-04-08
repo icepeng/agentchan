@@ -1,9 +1,9 @@
-import { relative } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { UserMessage } from "@mariozechner/pi-ai";
 import { textResult } from "../tools/util.js";
 import * as log from "../logger.js";
+import { buildSkillContent } from "./skill-content.js";
 import type { SkillRecord } from "./types.js";
 
 export const ACTIVATE_SKILL_TOOL_NAME = "activate_skill";
@@ -67,7 +67,7 @@ Important:
           ));
         }
 
-        const content = this.buildSkillContent(params.name, skill);
+        const content = buildSkillContent(skill, this.projectDir);
 
         if (this.onSteer) {
           this.onSteer({ role: "user", content, timestamp: Date.now() });
@@ -77,18 +77,6 @@ Important:
         return Promise.resolve(textResult(`Skill "${params.name}" loaded.`));
       },
     };
-  }
-
-  private buildSkillContent(name: string, skill: SkillRecord): string {
-    let content = `<skill_content name="${name}">\n`;
-
-    content += skill.body + "\n\n";
-    const skillDir = relative(this.projectDir, skill.baseDir);
-    content += `Skill directory: ${skillDir}\n`;
-    content += `Resource paths are relative to the skill directory. Prefix with the skill directory path when using file tools (e.g., read("${skillDir}/path/to/file")).\n`;
-
-    content += "</skill_content>";
-    return content;
   }
 
   update(skills: Map<string, SkillRecord>, projectDir: string): void {

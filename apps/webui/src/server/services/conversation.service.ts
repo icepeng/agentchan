@@ -2,7 +2,7 @@ import { nanoid } from "nanoid";
 import { join } from "node:path";
 import type { TreeNode } from "../types.js";
 import {
-  buildSlashSkillContent,
+  buildSkillContent,
   clearSkillManager,
   computeActivePath,
   flattenPathToMessages,
@@ -127,7 +127,7 @@ export function createConversationService(
       const parts: string[] = [];
       for (const name of activatedSkills) {
         const skill = skillsMap.get(name);
-        if (skill) parts.push(buildSlashSkillContent(skill, projectDir, ""));
+        if (skill) parts.push(buildSkillContent(skill, projectDir, ""));
       }
       const skillSection = parts.length > 0
         ? "\n\nThe following skills were active in the previous session and are re-injected for continuity:\n\n" + parts.join("\n\n")

@@ -12,11 +12,11 @@ export { createProjectTools } from "./tools/index.js";
 export { discoverSkills, discoverProjectSkills } from "./skills/discovery.js";
 export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
+export { buildSkillContent, isSkillContentBlock } from "./skills/skill-content.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
 export {
   parseSlashCommand,
   findSlashInvocableSkill,
-  buildSlashSkillContent,
   type ParsedSlashCommand,
 } from "./skills/slash.js";
 

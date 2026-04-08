@@ -40,7 +40,6 @@ const skillsConfig: LibraryEditorConfig<SkillItem> = {
   getName: (item) => item.name,
   language: "markdown",
   showTokenCount: true,
-  enableSkillToggles: true,
   labels: {
     newButton: "library.newSkill",
     newTitle: "library.newSkillTitle",

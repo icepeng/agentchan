@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { nanoid } from "nanoid";
 import type { TreeNode, TreeNodeWithChildren, Conversation } from "../types.js";
+import { isSkillContentBlock } from "../skills/skill-content.js";
 import { computeActivePath, generateTitle } from "./tree.js";
 
 // --- Helpers ---
@@ -74,15 +75,16 @@ function deriveConversation(
 ): Conversation {
   // Skip skill_content user nodes (auto-invoked always-active blocks and slash
   // invocations) — they're noise as a title and would expose raw skill bodies.
-  // Same shape as the collapse guard in MessageBubble.tsx.
   let title = "New conversation";
   for (const n of nodes) {
     if (n.role !== "user") continue;
-    const textBlock = n.content.find((b) => b.type === "text" && "text" in b);
-    if (!textBlock || !("text" in textBlock)) continue;
-    if (textBlock.text.startsWith("<skill_content")) continue;
-    title = generateTitle(textBlock.text);
-    break;
+    const textBlock = n.content.find(
+      (b) => b.type === "text" && !isSkillContentBlock(b),
+    );
+    if (textBlock?.type === "text") {
+      title = generateTitle(textBlock.text);
+      break;
+    }
   }
 
   const createdAt = header?.createdAt ?? nodes[0]?.createdAt ?? Date.now();

@@ -10,6 +10,7 @@ export const translations = {
 
   // Skills
   "skills.label": "Skills",
+  "skills.alwaysActive": "Always active",
 
   // Theme
   "theme.title": "Theme: {{preference}}",
@@ -128,12 +129,6 @@ export const translations = {
   "editor.saving": "Saving...",
   "editor.tokens": "tokens",
   "editor.approx": "~",
-
-  // Skill frontmatter toggles
-  "skillToggles.alwaysActive": "Always active",
-  "skillToggles.alwaysActiveHint": "Loaded into the system prompt for the entire session.",
-  "skillToggles.disableModel": "Disable model invocation",
-  "skillToggles.disableModelHint": "Hide from the model's catalog. Slash commands still work.",
 
   // Global settings
   "globalSettings.title": "Settings",

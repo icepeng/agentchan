@@ -321,7 +321,6 @@ function SkillsTab({ slug }: { slug: string }) {
             onDelete={handleDelete}
             language="markdown"
             showTokenCount
-            enableSkillToggles
           />
         ) : (
           <div className="flex items-center justify-center h-full text-fg-3 text-sm">

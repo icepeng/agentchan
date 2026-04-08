@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { isSkillContentBlock } from "@agentchan/creative-agent";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
@@ -145,16 +146,17 @@ export function MessageBubble({
     );
   }
 
+  const firstBlock = node.content[0];
   if (
     node.role === "user" &&
     node.content.length === 1 &&
-    node.content[0].type === "text" &&
-    node.content[0].text.startsWith("<skill_content")
+    firstBlock?.type === "text" &&
+    isSkillContentBlock(firstBlock)
   ) {
     // A single node may bundle multiple <skill_content> blocks (e.g. the
     // auto-invoke at session start emits one node with every always-active
     // skill). Extract all of them so the label reflects what was loaded.
-    const nameMatches = [...node.content[0].text.matchAll(/<skill_content name="([^"]+)"/g)];
+    const nameMatches = [...firstBlock.text.matchAll(/<skill_content name="([^"]+)"/g)];
     const skillNames = nameMatches.length > 0 ? nameMatches.map((m) => m[1]) : ["unknown"];
     const inner = (
       <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-60">

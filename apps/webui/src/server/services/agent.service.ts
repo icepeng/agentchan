@@ -11,10 +11,11 @@ import {
   discoverProjectSkills,
   parseSlashCommand,
   findSlashInvocableSkill,
-  buildSlashSkillContent,
+  buildSkillContent,
   type AgentEvent,
   type AssistantMessage,
   type Message,
+  type SkillRecord,
   type ToolCall,
 } from "@agentchan/creative-agent";
 import type { ConversationRepo } from "../repositories/conversation.repo.js";
@@ -65,6 +66,7 @@ export function createAgentService(
     userText: string,
     historyPath: string[],
     tree: Map<string, any>,
+    skillsMap: Map<string, SkillRecord>,
   ) {
     const config = configService.getConfig();
     const projectDir = join(projectsDir, slug);
@@ -89,6 +91,7 @@ export function createAgentService(
           temperature: config.temperature,
           maxTokens: config.maxTokens, contextWindow: config.contextWindow,
           thinkingLevel: config.thinkingLevel,
+          skills: skillsMap,
           ...(providerInfo?.custom && { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }),
         },
         flattenPathToMessages(tree, historyPath),
@@ -218,19 +221,18 @@ export function createAgentService(
    * would just duplicate the body. Unknown skills also return null, in which
    * case the text is sent as-is (the model sees the literal "/foo").
    */
-  async function tryExpandSlashCommand(
-    slug: string,
+  function tryExpandSlashCommand(
+    projectDir: string,
+    skillsMap: Map<string, SkillRecord>,
     text: string,
-  ): Promise<{ expanded: string; displayText: string } | null> {
+  ): { expanded: string; displayText: string } | null {
     const parsed = parseSlashCommand(text);
     if (!parsed) return null;
 
-    const projectDir = join(projectsDir, slug);
-    const skills = await discoverProjectSkills(join(projectDir, "skills"));
-    const skill = findSlashInvocableSkill(skills, parsed.name);
+    const skill = findSlashInvocableSkill(skillsMap, parsed.name);
     if (!skill) return null;
 
-    const expanded = buildSlashSkillContent(skill, projectDir, parsed.args);
+    const expanded = buildSkillContent(skill, projectDir, parsed.args);
     return { expanded, displayText: text };
   }
 
@@ -241,7 +243,7 @@ export function createAgentService(
    * unchanged if there was nothing to inject.
    *
    * Mirrors the slash invocation format (`<skill_content>` block via
-   * buildSlashSkillContent) so the LLM payload is identical to a manual
+   * buildSkillContent) so the LLM payload is identical to a manual
    * `/skillname` invocation. The displayText is a short label so the chat UI
    * doesn't render the full body.
    */
@@ -250,15 +252,15 @@ export function createAgentService(
     slug: string,
     conversationId: string,
     parentNodeId: string | null,
+    projectDir: string,
+    skillsMap: Map<string, SkillRecord>,
   ): Promise<string | null> {
     if (parentNodeId !== null) return parentNodeId;
-    const projectDir = join(projectsDir, slug);
-    const skills = await discoverProjectSkills(join(projectDir, "skills"));
-    const alwaysActive = [...skills.values()].filter((s) => s.meta.alwaysActive);
+    const alwaysActive = [...skillsMap.values()].filter((s) => s.meta.alwaysActive);
     if (alwaysActive.length === 0) return parentNodeId;
 
     const combined = alwaysActive
-      .map((s) => buildSlashSkillContent(s, projectDir, ""))
+      .map((s) => buildSkillContent(s, projectDir, ""))
       .join("\n\n");
     const names = alwaysActive.map((s) => s.meta.name).join(", ");
     const autoNode: TreeNode = {
@@ -281,11 +283,14 @@ export function createAgentService(
       parentNodeId: string | null,
       text: string,
     ) {
+      const projectDir = join(projectsDir, slug);
+      const skillsMap = await discoverProjectSkills(join(projectDir, "skills"));
+
       parentNodeId = await maybeAutoInvokeAlwaysActive(
-        stream, slug, conversationId, parentNodeId,
+        stream, slug, conversationId, parentNodeId, projectDir, skillsMap,
       );
 
-      const expansion = await tryExpandSlashCommand(slug, text);
+      const expansion = tryExpandSlashCommand(projectDir, skillsMap, text);
       const llmText = expansion?.expanded ?? text;
       const textBlock: { type: "text"; text: string; displayText?: string } = expansion
         ? { type: "text", text: expansion.expanded, displayText: expansion.displayText }
@@ -307,7 +312,9 @@ export function createAgentService(
       const historyPath = parentNodeId ? pathToNode(tree, parentNodeId) : [];
 
       await stream.writeSSE({ event: "user_node", data: JSON.stringify(userNode) });
-      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, llmText, historyPath, tree);
+      await streamAgentAndPersist(
+        stream, slug, conversationId, userNode.id, llmText, historyPath, tree, skillsMap,
+      );
     },
 
     async regenerate(
@@ -332,8 +339,11 @@ export function createAgentService(
         return;
       }
 
+      const skillsMap = await discoverProjectSkills(join(projectsDir, slug, "skills"));
       const historyPath = userNode.parentId ? pathToNode(tree, userNode.parentId) : [];
-      await streamAgentAndPersist(stream, slug, conversationId, userNodeId, userText, historyPath, tree);
+      await streamAgentAndPersist(
+        stream, slug, conversationId, userNodeId, userText, historyPath, tree, skillsMap,
+      );
     },
   };
 }
