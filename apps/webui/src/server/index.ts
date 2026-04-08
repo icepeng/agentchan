@@ -17,6 +17,7 @@ import { createProjectSkillRepo } from "./repositories/project-skill.repo.js";
 import { createConfigService } from "./services/config.service.js";
 import { createProjectService } from "./services/project.service.js";
 import { createConversationService } from "./services/conversation.service.js";
+import { createSlashService } from "./services/slash.service.js";
 import { createAgentService } from "./services/agent.service.js";
 import { createLibraryService } from "./services/library.service.js";
 import { createSkillService } from "./services/skill.service.js";
@@ -37,7 +38,8 @@ const projectSkillRepo = createProjectSkillRepo(PROJECTS_DIR);
 const configService = createConfigService(settingsRepo);
 const projectService = createProjectService(projectRepo, PROJECTS_DIR);
 const conversationService = createConversationService(conversationRepo, configService, PROJECTS_DIR);
-const agentService = createAgentService(configService, conversationRepo, PROJECTS_DIR);
+const slashService = createSlashService(conversationRepo);
+const agentService = createAgentService(configService, conversationRepo, slashService, PROJECTS_DIR);
 const libraryService = createLibraryService(libraryRepo);
 const skillService = createSkillService(projectSkillRepo, libraryRepo, PROJECTS_DIR);
 

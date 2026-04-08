@@ -9,9 +9,6 @@ import {
   flattenPathToMessages,
   pathToNode,
   discoverProjectSkills,
-  parseSlashCommand,
-  findSlashInvocableSkill,
-  buildSkillContent,
   type AgentEvent,
   type AssistantMessage,
   type Message,
@@ -20,6 +17,7 @@ import {
 } from "@agentchan/creative-agent";
 import type { ConversationRepo } from "../repositories/conversation.repo.js";
 import type { ConfigService } from "./config.service.js";
+import type { SlashService } from "./slash.service.js";
 
 function agentEventToSSE(event: AgentEvent): { event: string; data: string } | null {
   switch (event.type) {
@@ -56,6 +54,7 @@ function agentEventToSSE(event: AgentEvent): { event: string; data: string } | n
 export function createAgentService(
   configService: ConfigService,
   conversationRepo: ConversationRepo,
+  slashService: SlashService,
   projectsDir: string,
 ) {
   async function streamAgentAndPersist(
@@ -210,71 +209,6 @@ export function createAgentService(
     await stream.writeSSE({ event: "done", data: "" });
   }
 
-  /**
-   * If `text` matches a slash command for an invocable skill, expand it into the
-   * skill body. Returns the expanded text plus the original raw input as
-   * `displayText` (so the UI can show "/skillname" while the model receives the
-   * full body). Returns null if the text is not a recognized slash command.
-   *
-   * Always-active skills are intentionally not matched: they are auto-invoked
-   * once at session start by maybeAutoInvokeAlwaysActive, so a manual slash
-   * would just duplicate the body. Unknown skills also return null, in which
-   * case the text is sent as-is (the model sees the literal "/foo").
-   */
-  function tryExpandSlashCommand(
-    projectDir: string,
-    skillsMap: Map<string, SkillRecord>,
-    text: string,
-  ): { expanded: string; displayText: string } | null {
-    const parsed = parseSlashCommand(text);
-    if (!parsed) return null;
-
-    const skill = findSlashInvocableSkill(skillsMap, parsed.name);
-    if (!skill) return null;
-
-    const expanded = buildSkillContent(skill, projectDir, parsed.args);
-    return { expanded, displayText: text };
-  }
-
-  /**
-   * On the first message of a conversation, inject every always-active skill's
-   * body as a single user node so the model sees it as recent context (not as a
-   * far-away system instruction). Returns the new parent id, or `parentNodeId`
-   * unchanged if there was nothing to inject.
-   *
-   * Mirrors the slash invocation format (`<skill_content>` block via
-   * buildSkillContent) so the LLM payload is identical to a manual
-   * `/skillname` invocation. The displayText is a short label so the chat UI
-   * doesn't render the full body.
-   */
-  async function maybeAutoInvokeAlwaysActive(
-    stream: SSEStreamingApi,
-    slug: string,
-    conversationId: string,
-    parentNodeId: string | null,
-    projectDir: string,
-    skillsMap: Map<string, SkillRecord>,
-  ): Promise<string | null> {
-    if (parentNodeId !== null) return parentNodeId;
-    const alwaysActive = [...skillsMap.values()].filter((s) => s.meta.alwaysActive);
-    if (alwaysActive.length === 0) return parentNodeId;
-
-    const combined = alwaysActive
-      .map((s) => buildSkillContent(s, projectDir, ""))
-      .join("\n\n");
-    const names = alwaysActive.map((s) => s.meta.name).join(", ");
-    const autoNode: TreeNode = {
-      id: nanoid(12),
-      parentId: null,
-      role: "user",
-      content: [{ type: "text", text: combined, displayText: `[Auto-loaded: ${names}]` }],
-      createdAt: Date.now(),
-    };
-    await conversationRepo.appendNode(slug, conversationId, autoNode);
-    await stream.writeSSE({ event: "user_node", data: JSON.stringify(autoNode) });
-    return autoNode.id;
-  }
-
   return {
     async sendMessage(
       stream: SSEStreamingApi,
@@ -286,11 +220,11 @@ export function createAgentService(
       const projectDir = join(projectsDir, slug);
       const skillsMap = await discoverProjectSkills(join(projectDir, "skills"));
 
-      parentNodeId = await maybeAutoInvokeAlwaysActive(
+      parentNodeId = await slashService.maybeAutoInvokeAlwaysActive(
         stream, slug, conversationId, parentNodeId, projectDir, skillsMap,
       );
 
-      const expansion = tryExpandSlashCommand(projectDir, skillsMap, text);
+      const expansion = slashService.tryExpandSlashCommand(projectDir, skillsMap, text);
       const llmText = expansion?.expanded ?? text;
       const textBlock: { type: "text"; text: string; displayText?: string } = expansion
         ? { type: "text", text: expansion.expanded, displayText: expansion.displayText }
