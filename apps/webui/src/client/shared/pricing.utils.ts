@@ -8,7 +8,7 @@
 
 export { estimateTokens, formatTokens } from "@agentchan/estimate-tokens";
 
-export type { TokenUsage } from "@agentchan/creative-agent";
+export type { TokenUsage } from "@agentchan/creative-agent/client";
 
 export function formatCost(cost: number | null | undefined): string {
   if (cost == null) return "~?";

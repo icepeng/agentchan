@@ -3,10 +3,15 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
       "default": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./dist/client.d.mts",
+      "default": "./src/client.ts"
     }
   },
   "files": ["dist", "src"],

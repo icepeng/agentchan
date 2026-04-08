@@ -12,7 +12,8 @@ export { createProjectTools } from "./tools/index.js";
 export { discoverSkills, discoverProjectSkills } from "./skills/discovery.js";
 export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
-export { buildSkillContent, isSkillContentBlock } from "./skills/skill-content.js";
+export { buildSkillContent } from "./skills/skill-content-build.js";
+export { isSkillContentBlock } from "./skills/skill-content-detect.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
 
 // Slash

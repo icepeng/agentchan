@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { listSlashCommands } from "@agentchan/creative-agent";
+import { listSlashCommands } from "@agentchan/creative-agent/client";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
 import { useSkillState } from "@/client/entities/skill/index.js";
 import { useConversation } from "./useConversation.js";

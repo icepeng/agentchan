@@ -3,7 +3,7 @@ import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { UserMessage } from "@mariozechner/pi-ai";
 import { textResult } from "../tools/util.js";
 import * as log from "../logger.js";
-import { buildSkillContent } from "./skill-content.js";
+import { buildSkillContent } from "./skill-content-build.js";
 import type { SkillRecord } from "./types.js";
 
 export const ACTIVATE_SKILL_TOOL_NAME = "activate_skill";

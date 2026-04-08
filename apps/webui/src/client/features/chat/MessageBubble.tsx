@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { isSkillContentBlock } from "@agentchan/creative-agent";
+import { isSkillContentBlock } from "@agentchan/creative-agent/client";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";

@@ -1,4 +1,4 @@
-import type { SlashCommandInfo } from "@agentchan/creative-agent";
+import type { SlashCommandInfo } from "@agentchan/creative-agent/client";
 
 /**
  * Built-in client command — executed locally by the chat input (e.g. /clear,

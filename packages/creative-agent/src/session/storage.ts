@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { nanoid } from "nanoid";
 import type { TreeNode, TreeNodeWithChildren, Conversation } from "../types.js";
-import { isSkillContentBlock } from "../skills/skill-content.js";
+import { isSkillContentBlock } from "../skills/skill-content-detect.js";
 import { computeActivePath, generateTitle } from "./tree.js";
 
 // --- Helpers ---

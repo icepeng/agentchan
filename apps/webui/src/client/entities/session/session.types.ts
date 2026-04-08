@@ -1,4 +1,4 @@
-import type { ContentBlock, TokenUsage } from "@agentchan/creative-agent";
+import type { ContentBlock, TokenUsage } from "@agentchan/creative-agent/client";
 
 export type { ContentBlock, TokenUsage };
 

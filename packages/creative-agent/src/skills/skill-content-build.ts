@@ -1,16 +1,5 @@
 import { relative } from "node:path";
-import type { ContentBlock } from "../types.js";
 import type { SkillRecord } from "./types.js";
-
-/**
- * True if the given content block carries a `<skill_content>` payload.
- * Used by the chat UI to collapse the block into a short label and by
- * deriveConversation to skip it when picking a session title — both consumers
- * treat skill_content user nodes as system noise rather than user input.
- */
-export function isSkillContentBlock(block: ContentBlock): boolean {
-  return block.type === "text" && block.text.startsWith("<skill_content");
-}
 
 /**
  * Build a `<skill_content>` block ready to be injected as a user message.
@@ -23,6 +12,10 @@ export function isSkillContentBlock(block: ContentBlock): boolean {
  *
  * Optional `args` are appended after the closing tag as plain text — used
  * by slash invocation to forward user-supplied arguments alongside the body.
+ *
+ * Lives in its own file (separate from isSkillContentBlock) because of the
+ * `node:path` dependency: client hosts must be able to import the detect
+ * predicate without pulling this builder into their bundle graph.
  */
 export function buildSkillContent(
   skill: SkillRecord,
