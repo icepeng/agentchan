@@ -57,7 +57,7 @@ Important:
 
         if (skill.meta.alwaysActive) {
           return Promise.resolve(textResult(
-            `Skill "${params.name}" is always active and already loaded in the system prompt. No action needed.`,
+            `Skill "${params.name}" is always active and already loaded as the first message of this conversation. No action needed.`,
           ));
         }
 

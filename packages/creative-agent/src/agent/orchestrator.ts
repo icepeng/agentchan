@@ -182,9 +182,10 @@ export async function setupCreativeAgent(
 
   // Build system prompt — only the catalog. always-active skill bodies are
   // injected as the first user message by the caller (see agent.service.ts
-  // maybeAutoInvokeAlwaysActive), not into the system prompt: keeping them
-  // close to the conversation tail preserves the recency / first-turn anchor
-  // effect that the original activate_skill flow relied on.
+  // maybeAutoInvokeAlwaysActive), not into the system prompt. The body sits
+  // at the conversation HEAD (root of the tree) and never moves: new turns
+  // are appended at the tail, so the cache prefix
+  // `[system + first user message]` stays stable across turns.
   let systemPrompt = DEFAULT_SYSTEM_PROMPT;
   const catalog = generateCatalog(skillList);
   if (catalog) {
