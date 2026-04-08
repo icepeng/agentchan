@@ -14,11 +14,16 @@ export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
 export { buildSkillContent, isSkillContentBlock } from "./skills/skill-content.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
+
+// Slash
 export {
   parseSlashCommand,
   findSlashInvocableSkill,
+  listSlashCommands,
   type ParsedSlashCommand,
-} from "./skills/slash.js";
+  type SlashCommandInfo,
+  type SlashSource,
+} from "./slash/index.js";
 
 // Session
 export {

@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
+import { listSlashCommands } from "@agentchan/creative-agent";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
 import { useSkillState } from "@/client/entities/skill/index.js";
 import { useConversation } from "./useConversation.js";
-import { COMMANDS, type SlashCommand } from "./commands.js";
+import { COMMANDS, type SlashEntry } from "./commands.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const configDispatch = useConfigDispatch();
@@ -13,20 +14,12 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
   const query = text.startsWith("/") ? text.slice(1) : "";
   const isOpen = text.startsWith("/") && !query.includes(" ");
 
-  // Built-in commands + slash-invocable project skills.
-  // Always-active skills are intentionally hidden from autocomplete: their
-  // body is already loaded as the first message of the conversation and
-  // re-injecting via slash would be redundant. The server's
-  // findSlashInvocableSkill enforces the same rule.
-  const allCommands = useMemo<SlashCommand[]>(() => {
-    const skillCommands: SlashCommand[] = skillState.skills
-      .filter((s) => !s.alwaysActive)
-      .map((s) => ({
-        type: "skill",
-        name: s.name,
-        description: s.description,
-      }));
-    return [...COMMANDS, ...skillCommands];
+  // Local built-in commands + every domain-routed slash exposed by
+  // creative-agent (currently just skills; future: tools, agents, mcp).
+  // Always-active filtering lives inside listSlashCommands — this hook does
+  // not need to know the rule.
+  const allCommands = useMemo<SlashEntry[]>(() => {
+    return [...COMMANDS, ...listSlashCommands(skillState.skills)];
   }, [skillState.skills]);
 
   const filteredCommands = useMemo(() => {
@@ -69,10 +62,11 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
   );
 
   const selectCommand = useCallback(
-    (cmd: SlashCommand) => {
-      if (cmd.type === "skill") {
-        // Skills are dispatched server-side. Just fill the input with
-        // "/name " so the user can either add args or press Enter.
+    (cmd: SlashEntry) => {
+      if (cmd.source !== "local") {
+        // Domain-routed (skill today; tool/agent/mcp tomorrow). Fill the
+        // input with "/name " so the user can add args or just press Enter
+        // — the server expands it on send.
         setText("/" + cmd.name + " ");
       } else if (cmd.needsArg) {
         setText("/" + cmd.name + " ");

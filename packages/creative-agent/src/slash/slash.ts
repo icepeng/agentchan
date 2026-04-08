@@ -1,4 +1,4 @@
-import type { SkillRecord } from "./types.js";
+import type { SkillRecord } from "../skills/types.js";
 
 export interface ParsedSlashCommand {
   name: string;

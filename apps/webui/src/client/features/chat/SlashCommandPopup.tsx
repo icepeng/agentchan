@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
-import type { SlashCommand } from "./commands.js";
+import type { SlashEntry } from "./commands.js";
 
 interface SlashCommandPopupProps {
-  commands: SlashCommand[];
+  commands: SlashEntry[];
   selectedIndex: number;
-  onSelect: (cmd: SlashCommand) => void;
+  onSelect: (cmd: SlashEntry) => void;
   onHover: (index: number) => void;
 }
 
@@ -39,10 +39,10 @@ export function SlashCommandPopup({ commands, selectedIndex, onSelect, onHover }
         >
           <span className="font-mono text-sm">/{cmd.name}</span>
           <span className="text-xs text-fg-3 flex-1 truncate">{cmd.description}</span>
-          {cmd.type === "skill" && (
-            <span className="text-[10px] text-fg-3 font-mono uppercase tracking-wider opacity-70">skill</span>
+          {cmd.source !== "local" && (
+            <span className="text-[10px] text-fg-3 font-mono uppercase tracking-wider opacity-70">{cmd.source}</span>
           )}
-          {cmd.type === "command" && cmd.needsArg && cmd.argPlaceholder && (
+          {cmd.source === "local" && cmd.needsArg && cmd.argPlaceholder && (
             <span className="text-[10px] text-fg-3 font-mono opacity-70">{cmd.argPlaceholder}</span>
           )}
         </button>
