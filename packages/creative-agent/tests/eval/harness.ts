@@ -1,11 +1,22 @@
+import { join } from "node:path";
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { setupCreativeAgent, clearConversationAgentState } from "../../src/agent/orchestrator.js";
+import { buildAlwaysActiveSeedNode } from "../../src/agent/build.js";
+import { discoverProjectSkills } from "../../src/skills/discovery.js";
+import type { StoredMessage } from "../../src/types.js";
 import { createFixture, cleanupFixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
 export type { CollectedToolCall } from "./assertions.js";
-export { expectToolCall, expectToolCallAny, expectNoToolCall, expectNoWriteDuplication, expectAppendNewlineSeparation } from "./assertions.js";
+export {
+  expectToolCall,
+  expectToolCallAny,
+  expectNoToolCall,
+  expectNoSkillActivation,
+  expectNoWriteDuplication,
+  expectAppendNewlineSeparation,
+} from "./assertions.js";
 
 export interface TokenStats {
   totalInputTokens: number;
@@ -22,6 +33,14 @@ export interface EvalHarnessOptions {
   prePopulate?: Record<string, string>;
   maxToolCalls?: number;
   timeoutMs?: number;
+  /**
+   * Mirror the runtime behavior where `createConversation` seeds a
+   * `meta:"skill-load"` user node containing every always-active skill body
+   * before the first real prompt. When true the harness discovers skills in
+   * the fixture, builds that seed node, and hands it to `setupCreativeAgent`
+   * as a user history message.
+   */
+  seedAlwaysActive?: boolean;
 }
 
 export class EvalHarness {
@@ -58,6 +77,15 @@ export class EvalHarness {
     const conversationId = `eval-${Date.now()}`;
     const apiKey = process.env[`${provider.toUpperCase()}_API_KEY`];
 
+    const history: StoredMessage[] = [];
+    if (options.seedAlwaysActive) {
+      const skills = await discoverProjectSkills(join(projectDir, "skills"));
+      const seedNode = buildAlwaysActiveSeedNode(projectDir, skills, null);
+      if (seedNode) {
+        history.push({ role: "user", content: seedNode.content });
+      }
+    }
+
     const { agent, systemPrompt } = await setupCreativeAgent(
       {
         provider,
@@ -66,7 +94,7 @@ export class EvalHarness {
         apiKey,
         temperature: 0,
       },
-      [],
+      history,
       conversationId,
     );
 

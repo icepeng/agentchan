@@ -83,6 +83,32 @@ export function expectNoToolCall(toolCalls: CollectedToolCall[], toolName: strin
 }
 
 /**
+ * Assert that `activate_skill` was never called for any of the given skill names.
+ *
+ * Used to detect the always-active duplicate-load bug: a skill whose body is
+ * already seeded into the conversation should NEVER be (re-)loaded via the
+ * activate_skill tool, since that just re-injects the same body the model
+ * already has in context.
+ */
+export function expectNoSkillActivation(
+  toolCalls: CollectedToolCall[],
+  skillNames: string | string[],
+): void {
+  const targets = new Set(Array.isArray(skillNames) ? skillNames : [skillNames]);
+  const offending = toolCalls.filter(
+    (tc) => tc.toolName === "activate_skill" && typeof tc.args?.name === "string" && targets.has(tc.args.name as string),
+  );
+
+  if (offending.length > 0) {
+    const names = offending.map((tc) => tc.args?.name as string);
+    throw new Error(
+      `activate_skill must not be called for already-loaded skill(s) [${[...targets].join(", ")}], ` +
+        `but got ${offending.length} redundant call(s): ${JSON.stringify(names)}.`,
+    );
+  }
+}
+
+/**
  * Assert that at least one tool call matches any of the given names and arg patterns.
  */
 export function expectToolCallAny(
