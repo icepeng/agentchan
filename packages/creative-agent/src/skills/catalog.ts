@@ -41,11 +41,9 @@ export function generateCatalog(skills: SkillRecord[]): string | null {
 
   return [
     SYSTEM_REMINDER_OPEN,
-    "Available skills for this session:",
+    "The following skills are available for use with the activate_skill tool:",
     "",
     ...lines,
-    "",
-    "Call `activate_skill` with the skill name when a task matches its description. Only names listed above are valid targets.",
     SYSTEM_REMINDER_CLOSE,
   ].join("\n");
 }

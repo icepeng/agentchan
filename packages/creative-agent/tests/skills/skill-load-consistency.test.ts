@@ -204,15 +204,13 @@ describe("skill catalog reminder node", () => {
     expect(text.trimEnd().endsWith(SYSTEM_REMINDER_CLOSE)).toBe(true);
 
     // Both always-active and invocable skills appear as flat bullets — no
-    // marker. The "already loaded" inference is owned by the activate_skill
-    // tool description, which keys off the presence of `<skill_content>`
-    // blocks in the conversation.
+    // marker. All "already loaded" / "how to call" rules live on the
+    // activate_skill tool description; the reminder is just a name list
+    // pointing the model at that tool.
     expect(text).toMatch(/- always-character:/);
     expect(text).toMatch(/- invocable-character:/);
     expect(text).not.toContain("(already loaded)");
-
-    // The reminder carries the positive rule (how to call activate_skill).
-    expect(text).toContain("Call `activate_skill` with the skill name");
+    expect(text).toContain("activate_skill tool");
   });
 
   test("returns null when no skills are visible to the model", async () => {
