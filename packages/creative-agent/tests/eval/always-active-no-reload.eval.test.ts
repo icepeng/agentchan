@@ -1,20 +1,17 @@
 /**
  * Eval: Always-Active Skill — No Redundant Reload
  *
- * Verifies that an always-active skill (whose body is already seeded into the
+ * Verifies that an always-active skill (whose body is seeded into the
  * conversation by `createConversation`) is NOT re-loaded via `activate_skill`
  * on the user's first or follow-up turn.
  *
- * The bug this targets: even though `generateCatalog` hides always-active
- * skills from the "## Available Skills" section, the seeded user node still
- * contains `<skill_content name="...">` blocks — the model can read the name
- * from history and call `activate_skill({name: ...})`, which SkillManager
- * happily re-injects. This wastes tokens and spams the conversation with
- * duplicate skill bodies.
+ * The bug this targets: the seeded user node contains `<skill_content
+ * name="...">` blocks, so the model can read the name from history and call
+ * `activate_skill({name: ...})`, which SkillManager happily re-injects.
+ * This wastes tokens and spams the conversation with duplicate skill bodies.
  *
- * The harness enables `seedAlwaysActive: true`, which mirrors the runtime
- * behavior of `createConversation` in lifecycle.ts by placing the always-active
- * seed content in the `setupCreativeAgent` history list.
+ * The harness drives the production `createConversation` path, so the model
+ * sees the same catalog reminder + always-active seed pair the webui produces.
  */
 
 import { describe, test, afterEach } from "bun:test";
@@ -50,7 +47,6 @@ suite("always-active skill: no redundant reload", () => {
     async () => {
       harness = await EvalHarness.create({
         skillNames: CHAT_SKILLS,
-        seedAlwaysActive: true,
       });
 
       await harness.prompt(
@@ -68,7 +64,6 @@ suite("always-active skill: no redundant reload", () => {
     async () => {
       harness = await EvalHarness.create({
         skillNames: CHAT_SKILLS,
-        seedAlwaysActive: true,
         prePopulate: {
           "output/scene.md":
             `*표류목 등불 주점. 모닥불이 타오르고, 빗소리가 창을 두드린다.*\n\n` +

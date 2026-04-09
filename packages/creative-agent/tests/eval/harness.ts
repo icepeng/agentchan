@@ -1,11 +1,10 @@
-import { join } from "node:path";
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { setupCreativeAgent, clearConversationAgentState } from "../../src/agent/orchestrator.js";
-import { buildAlwaysActiveSeedNode } from "../../src/agent/build.js";
-import { discoverProjectSkills } from "../../src/skills/discovery.js";
+import { createAgentContext } from "../../src/agent/context.js";
+import { createConversation } from "../../src/agent/lifecycle.js";
 import type { StoredMessage } from "../../src/types.js";
-import { createFixture, cleanupFixture } from "./fixtures.js";
+import { createFixture, cleanupFixture, type Fixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
 export type { CollectedToolCall } from "./assertions.js";
@@ -33,14 +32,6 @@ export interface EvalHarnessOptions {
   prePopulate?: Record<string, string>;
   maxToolCalls?: number;
   timeoutMs?: number;
-  /**
-   * Mirror the runtime behavior where `createConversation` seeds a
-   * `meta:"skill-load"` user node containing every always-active skill body
-   * before the first real prompt. When true the harness discovers skills in
-   * the fixture, builds that seed node, and hands it to `setupCreativeAgent`
-   * as a user history message.
-   */
-  seedAlwaysActive?: boolean;
 }
 
 export class EvalHarness {
@@ -55,12 +46,17 @@ export class EvalHarness {
   private toolCallMap = new Map<string, CollectedToolCall>();
 
   private constructor(
-    readonly projectDir: string,
+    readonly fixture: Fixture,
     private agent: Agent,
     private conversationId: string,
     private timeoutMs: number,
     readonly systemPromptLength: number,
   ) {}
+
+  /** Convenience accessor — full path to the project under the temp projects dir. */
+  get projectDir(): string {
+    return this.fixture.projectDir;
+  }
 
   static async create(options: EvalHarnessOptions = {}): Promise<EvalHarness> {
     const skillNames = options.skillNames ?? [options.skillName ?? "novel-writing"];
@@ -68,29 +64,33 @@ export class EvalHarness {
     const model = options.model ?? process.env.EVAL_MODEL ?? "gemini-3-flash-preview";
     const maxToolCalls = options.maxToolCalls ?? 30;
     const timeoutMs = options.timeoutMs ?? 120_000;
+    const apiKey = process.env[`${provider.toUpperCase()}_API_KEY`] ?? "";
 
-    const projectDir = await createFixture({
+    const fixture = await createFixture({
       skillNames,
       prePopulate: options.prePopulate,
     });
 
-    const conversationId = `eval-${Date.now()}`;
-    const apiKey = process.env[`${provider.toUpperCase()}_API_KEY`];
-
-    const history: StoredMessage[] = [];
-    if (options.seedAlwaysActive) {
-      const skills = await discoverProjectSkills(join(projectDir, "skills"));
-      const seedNode = buildAlwaysActiveSeedNode(projectDir, skills, null);
-      if (seedNode) {
-        history.push({ role: "user", content: seedNode.content });
-      }
-    }
+    // Drive the production conversation-bootstrap path so the harness gets
+    // exactly what runtime conversations start with (catalog reminder +
+    // always-active seed). Future changes to lifecycle.ts propagate here for
+    // free — no parallel mirroring required.
+    const ctx = createAgentContext({
+      projectsDir: fixture.projectsDir,
+      resolveAgentConfig: () => ({ provider, model, apiKey, temperature: 0 }),
+    });
+    const created = await createConversation(ctx, fixture.slug);
+    const conversationId = created.conversation.id;
+    const history: StoredMessage[] = created.nodes.map((n) => ({
+      role: n.role,
+      content: n.content,
+    }));
 
     const { agent, systemPrompt } = await setupCreativeAgent(
       {
         provider,
         model,
-        projectDir,
+        projectDir: fixture.projectDir,
         apiKey,
         temperature: 0,
       },
@@ -98,7 +98,7 @@ export class EvalHarness {
       conversationId,
     );
 
-    const harness = new EvalHarness(projectDir, agent, conversationId, timeoutMs, systemPrompt.length);
+    const harness = new EvalHarness(fixture, agent, conversationId, timeoutMs, systemPrompt.length);
 
     agent.subscribe((event: AgentEvent) => {
       if (event.type === "tool_execution_start") {
@@ -165,7 +165,7 @@ export class EvalHarness {
 
   async cleanup(): Promise<void> {
     clearConversationAgentState(this.conversationId);
-    await cleanupFixture(this.projectDir);
+    await cleanupFixture(this.fixture);
   }
 
   dumpTokenStats(): void {

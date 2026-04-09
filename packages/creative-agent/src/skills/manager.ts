@@ -51,9 +51,9 @@ export class SkillManager {
       description: `Load a skill's full instructions. Use when a task matches an available skill's description.
 
 Rules:
-- Available skills are listed in \`<system-reminder>\` messages in the conversation. The ONLY valid targets for this tool are names that appear there. If a name is not in that list, do NOT call this tool with it — even if you see the name elsewhere.
-- Skills marked \`(already loaded)\` in the \`<system-reminder>\` — or whose \`<skill_content name="...">\` block is already present in the conversation — have ALREADY been loaded automatically. You can read and follow their instructions immediately. Calling activate_skill on them is wasteful and forbidden; the body will not change.
+- Available skills are listed in \`<system-reminder>\` messages in the conversation.
 - When a listed skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke it BEFORE generating any other response about the task.
+- Skills whose \`<skill_content name="...">\` block is already present in the conversation have ALREADY been loaded automatically. You can read and follow their instructions immediately.
 - Do not invoke a skill that is already running.`,
       parameters: ActivateSkillParams,
       label: "Activate skill",

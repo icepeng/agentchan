@@ -7,10 +7,25 @@ export interface FixtureOptions {
   prePopulate?: Record<string, string>;
 }
 
+/**
+ * A fixture is a temp `projectsDir` containing one project at `slug`. The
+ * shape mirrors production storage so the harness can hand `projectsDir` to
+ * `createAgentContext` and `slug` to `createConversation` — i.e. exercise
+ * the same code path the webui uses.
+ */
+export interface Fixture {
+  projectsDir: string;
+  slug: string;
+  /** Convenience: `join(projectsDir, slug)`. */
+  projectDir: string;
+}
+
 const MONOREPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
-export async function createFixture(options: FixtureOptions): Promise<string> {
-  const projectDir = await mkdtemp(join(tmpdir(), "eval-"));
+export async function createFixture(options: FixtureOptions): Promise<Fixture> {
+  const projectsDir = await mkdtemp(join(tmpdir(), "eval-"));
+  const slug = "test";
+  const projectDir = join(projectsDir, slug);
 
   const names = options.skillNames ?? [];
   for (const name of names) {
@@ -28,11 +43,11 @@ export async function createFixture(options: FixtureOptions): Promise<string> {
     }
   }
 
-  return projectDir;
+  return { projectsDir, slug, projectDir };
 }
 
-export async function cleanupFixture(projectDir: string): Promise<void> {
-  await rm(projectDir, { recursive: true, force: true });
+export async function cleanupFixture(fixture: Fixture): Promise<void> {
+  await rm(fixture.projectsDir, { recursive: true, force: true });
 }
 
 // --- Pre-populate stub data for later stages ---

@@ -19,27 +19,25 @@ export const SYSTEM_REMINDER_CLOSE = "</system-reminder>";
  * "Use activate_skill..." guidance as a BLOCKING trigger — in the ge project,
  * all three always-active skills fired `activate_skill` in parallel on the
  * very first user turn, ignoring the tool description's "already loaded"
- * clause. Moving the catalog into the conversation channel, wrapped in
- * `<system-reminder>`, puts both the catalog and the seeded bodies in the
- * same user-role channel where the "(already loaded)" marker survives.
+ * clause. Moving the catalog into the same user-role channel as the seeded
+ * `<skill_content>` blocks lets the model see both as one stream.
  *
- * Every skill appears in the catalog (including always-active). Always-active
- * skills are tagged "(already loaded)" and accompanied by a forbidding clause
- * that names them inline. Non-always-active skills are callable through
- * `activate_skill` as normal. `disableModelInvocation` skills are always
- * hidden — they reach the model only via slash commands.
+ * Every visible skill is listed as a flat name+description bullet. The model
+ * relies on the presence (or absence) of a `<skill_content name="...">` block
+ * elsewhere in the conversation to know which skills are already loaded —
+ * the activate_skill tool description carries the rule that owns that
+ * inference. `disableModelInvocation` skills are hidden here; they reach the
+ * model only via slash commands.
  *
- * Returns `null` if there is nothing to list (no skills, or all are
- * disableModelInvocation).
+ * Returns `null` if there is nothing to list.
  */
 export function generateCatalog(skills: SkillRecord[]): string | null {
   const visible = skills.filter((s) => !s.meta.disableModelInvocation);
   if (visible.length === 0) return null;
 
-  const lines = visible.map((s) => {
-    const suffix = s.meta.alwaysActive ? " (already loaded)" : "";
-    return `- ${s.meta.name}${suffix}: ${s.meta.description}`;
-  });
+  const lines = visible.map(
+    (s) => `- ${s.meta.name}: ${s.meta.description}`,
+  );
 
   return [
     SYSTEM_REMINDER_OPEN,
@@ -47,9 +45,7 @@ export function generateCatalog(skills: SkillRecord[]): string | null {
     "",
     ...lines,
     "",
-    "Skills marked `(already loaded)` have their full instructions in `<skill_content>` blocks in this conversation — follow them directly. Do NOT call `activate_skill` on them; they are already active.",
-    "",
-    "For skills without that marker, call `activate_skill` with the skill name when the task matches the skill's description. Only names listed above are valid targets.",
+    "Call `activate_skill` with the skill name when a task matches its description. Only names listed above are valid targets.",
     SYSTEM_REMINDER_CLOSE,
   ].join("\n");
 }
