@@ -104,8 +104,7 @@ export function BottomInput() {
                 : t("input.placeholder")
             }
             rows={1}
-            disabled={isStreaming}
-            className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 disabled:opacity-40 max-h-[200px] font-body"
+            className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 max-h-[200px] font-body"
           />
           <button
             onClick={handleSubmit}
