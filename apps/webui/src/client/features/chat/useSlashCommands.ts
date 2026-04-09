@@ -31,7 +31,6 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
     async (name: string, arg: string) => {
       switch (name) {
         case "new":
-        case "clear":
           await create();
           break;
         case "compact":
@@ -47,10 +46,6 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
           configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
           break;
         }
-        case "help":
-          // Show full command list by setting text to "/"
-          setText("/");
-          return;
       }
       setText("");
     },

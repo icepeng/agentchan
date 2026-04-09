@@ -18,11 +18,9 @@ export type SlashEntry = LocalSlashCommand | SkillSlashCommand;
 
 export const LOCAL_COMMANDS: LocalSlashCommand[] = [
   { kind: "local", name: "new", description: "Create new session", needsArg: false },
-  { kind: "local", name: "clear", description: "Clear / new session", needsArg: false },
   { kind: "local", name: "compact", description: "Summarize and continue in new session", needsArg: false },
   { kind: "local", name: "model", description: "Change model", needsArg: true, argPlaceholder: "<model-name>" },
   { kind: "local", name: "provider", description: "Change provider", needsArg: true, argPlaceholder: "<provider-name>" },
-  { kind: "local", name: "help", description: "Show available commands", needsArg: false },
 ];
 
 // alwaysActive skills are excluded from the popup (their body is already
