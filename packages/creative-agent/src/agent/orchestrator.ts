@@ -58,14 +58,10 @@ const DEFAULT_SYSTEM_PROMPT = `You are a creative AI assistant with access to fi
 
 # Using your tools
 
-- Use read to read file contents
-- Use write to create new files, edit to modify existing files, append to add content to the end of a file
-- Use grep to search file contents by pattern
-- Use ls to list directory contents
-- Use script to run a helper script shipped with a skill (e.g. compile, validate, analyze)
-- Use activate_skill when a task matches an available skill — skills provide structured workflows for creative tasks
+- To search file contents by pattern, use grep.
+- To run a helper script shipped with a skill (e.g. compile, validate, analyze), use script.
 
-There is no shell tool in this environment. Do not try to call bash, sh, cmd, powershell, cat, sed, find, or echo — those tools do not exist. Use the dedicated tools above for file operations, and use script to execute helper code shipped with a skill.
+There is no shell tool in this environment. Do not try to call bash, sh, cmd, powershell, cat, sed, find, or echo — those tools do not exist. Use script to execute helper code shipped with a skill.
 
 # Read before you act
 

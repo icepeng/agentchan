@@ -48,13 +48,14 @@ export class SkillManager {
   createTool(): AgentTool<typeof ActivateSkillParams, void> {
     return {
       name: ACTIVATE_SKILL_TOOL_NAME,
-      description: `Load a skill's full instructions. Use when a task matches an available skill's description.
+      description: `Execute a skill within the main conversation
 
-Rules:
+When users ask you to perform tasks, check if any of the available skills match. Skills provide specialized capabilities and domain knowledge.
+
+Important:
 - Available skills are listed in \`<system-reminder>\` messages in the conversation.
 - When a listed skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke it BEFORE generating any other response about the task.
-- Skills whose \`<skill_content name="...">\` block is already present in the conversation have ALREADY been loaded automatically. You can read and follow their instructions immediately.
-- Do not invoke a skill that is already running.`,
+- If you see a <skill_content> tag with equal name in the conversation, the skill has ALREADY been loaded. Follow the instructions directly instead of calling this tool again.`,
       parameters: ActivateSkillParams,
       label: "Activate skill",
 
