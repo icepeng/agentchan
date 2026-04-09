@@ -1,28 +1,21 @@
 /**
- * Conversation lifecycle as free functions over a CreativeContext.
- * compactConversation is the only function here that calls the LLM.
+ * Conversation operations that touch the LLM or seed agent state.
+ *
+ * - createConversation: storage create + always-active skill seed node
+ * - deleteConversation: storage delete + per-conversation agent state cleanup
+ * - compactConversation: LLM-based summarization, persisted as a fresh conversation
  */
 
 import { join } from "node:path";
 import { nanoid } from "nanoid";
 
-import type {
-  Conversation,
-  TreeNode,
-  TreeNodeWithChildren,
-} from "../types.js";
-import type { LoadedConversation } from "../session/storage.js";
-import {
-  computeActivePath,
-  switchBranch as switchBranchInTree,
-} from "../session/tree.js";
+import type { Conversation, TreeNode } from "../types.js";
+import { flattenPathToMessages } from "../conversation/tree.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
-import { fullCompact } from "../agent/compact.js";
-import { storedToPiMessages } from "../agent/convert.js";
-import { flattenPathToMessages } from "../session/tree.js";
-import { resolveModel, clearConversationAgentState } from "../agent/orchestrator.js";
-
-import { type CreativeContext, projectDirOf } from "./context.js";
+import { fullCompact } from "./compact.js";
+import { storedToPiMessages } from "./convert.js";
+import { resolveModel, clearConversationAgentState } from "./orchestrator.js";
+import { type AgentContext, projectDirOf } from "./context.js";
 import { buildAlwaysActiveSeedNode } from "./build.js";
 
 // --- Public types ---
@@ -33,60 +26,16 @@ export interface CreatedConversation {
   nodes: TreeNode[];
 }
 
-export interface ConversationSnapshot {
-  conversation: Conversation;
-  nodes: TreeNodeWithChildren[];
-  activePath: string[];
-}
-
 export interface CompactResult {
   conversation: Conversation;
   nodes: TreeNode[];
   sourceConversationId: string;
 }
 
-export interface DeleteSubtreeResult {
-  rootNodeId: string;
-  activeLeafId: string;
-  activePath: string[];
-}
-
-export interface SwitchBranchResult {
-  activePath: string[];
-  activeLeafId: string;
-}
-
-// --- Read-only ---
-
-export function listConversations(
-  ctx: CreativeContext,
-  slug: string,
-): Promise<Conversation[]> {
-  return ctx.storage.listConversations(slug);
-}
-
-export function getConversation(
-  ctx: CreativeContext,
-  slug: string,
-  id: string,
-): Promise<Conversation | null> {
-  return ctx.storage.getConversation(slug, id);
-}
-
-export async function loadConversationSnapshot(
-  ctx: CreativeContext,
-  slug: string,
-  id: string,
-): Promise<ConversationSnapshot | null> {
-  const loaded = await ctx.storage.loadConversationWithTree(slug, id);
-  if (!loaded) return null;
-  return snapshotFromLoaded(loaded);
-}
-
 // --- Create / delete ---
 
 export async function createConversation(
-  ctx: CreativeContext,
+  ctx: AgentContext,
   slug: string,
 ): Promise<CreatedConversation> {
   const cfg = ctx.resolveAgentConfig();
@@ -105,7 +54,7 @@ export async function createConversation(
 }
 
 export async function deleteConversation(
-  ctx: CreativeContext,
+  ctx: AgentContext,
   slug: string,
   id: string,
 ): Promise<void> {
@@ -115,42 +64,10 @@ export async function deleteConversation(
   await ctx.storage.deleteConversation(slug, id);
 }
 
-export async function deleteSubtree(
-  ctx: CreativeContext,
-  slug: string,
-  conversationId: string,
-  nodeId: string,
-): Promise<DeleteSubtreeResult> {
-  return ctx.storage.deleteSubtree(slug, conversationId, nodeId);
-}
-
-// --- Switch branch ---
-
-export async function switchBranch(
-  ctx: CreativeContext,
-  slug: string,
-  conversationId: string,
-  nodeId: string,
-): Promise<SwitchBranchResult | null> {
-  const loaded = await ctx.storage.loadConversationWithTree(slug, conversationId);
-  if (!loaded) return null;
-  const tree = loaded.tree;
-  if (!tree.has(nodeId)) return null;
-
-  const { updatedNodes, newLeafId } = switchBranchInTree(tree, nodeId);
-  if (updatedNodes.length > 0) {
-    await ctx.storage.persistActiveChildUpdates(slug, conversationId, tree);
-  }
-
-  const rootNode = [...tree.values()].find((n) => !n.parentId);
-  const activePath = rootNode ? computeActivePath(tree, rootNode.id) : [];
-  return { activePath, activeLeafId: newLeafId };
-}
-
 // --- Compact ---
 
 export async function compactConversation(
-  ctx: CreativeContext,
+  ctx: AgentContext,
   slug: string,
   sourceId: string,
 ): Promise<CompactResult> {
@@ -237,18 +154,5 @@ export async function compactConversation(
     conversation: { ...newConv, rootNodeId: userNode.id, activeLeafId },
     nodes,
     sourceConversationId: sourceId,
-  };
-}
-
-// --- Helpers ---
-
-function snapshotFromLoaded(loaded: LoadedConversation): ConversationSnapshot {
-  return {
-    conversation: loaded.conversation,
-    nodes: [...loaded.tree.values()].map(({ children, ...node }) => ({
-      ...node,
-      children,
-    })),
-    activePath: loaded.activePath,
   };
 }

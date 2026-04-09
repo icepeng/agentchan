@@ -15,16 +15,13 @@ import type {
 import {
   pathToNode,
   flattenPathToMessages,
-} from "../session/tree.js";
-import { setupCreativeAgent } from "../agent/orchestrator.js";
-import { piToStoredMessages, extractUsage } from "../agent/convert.js";
+} from "../conversation/tree.js";
+import { setupCreativeAgent } from "./orchestrator.js";
+import { piToStoredMessages, extractUsage } from "./convert.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import * as log from "../logger.js";
-import {
-  type CreativeContext,
-  type ResolvedAgentConfig,
-  projectDirOf,
-} from "./context.js";
+import { type AgentContext, projectDirOf } from "./context.js";
+import type { ResolvedAgentConfig } from "./config.js";
 import {
   buildUserNodeForPrompt,
   buildSkillLoadNode,
@@ -60,7 +57,7 @@ export interface RegenerateInput {
 // --- Public entry points ---
 
 export function runPrompt(
-  ctx: CreativeContext,
+  ctx: AgentContext,
   input: PromptInput,
   emit: Emit,
 ): Promise<void> {
@@ -100,7 +97,7 @@ export function runPrompt(
 }
 
 export function runRegenerate(
-  ctx: CreativeContext,
+  ctx: AgentContext,
   input: RegenerateInput,
   emit: Emit,
 ): Promise<void> {
@@ -153,7 +150,7 @@ async function runWithEnvelope(emit: Emit, fn: () => Promise<void>): Promise<voi
 }
 
 async function loadFreshTree(
-  ctx: CreativeContext,
+  ctx: AgentContext,
   slug: string,
   conversationId: string,
 ): Promise<Map<string, TreeNodeWithChildren>> {
@@ -172,7 +169,7 @@ async function loadFreshTree(
  * on reload, so persisting the pointer here would be redundant.
  */
 async function persistAndInsertNode(
-  ctx: CreativeContext,
+  ctx: AgentContext,
   slug: string,
   conversationId: string,
   tree: Map<string, TreeNodeWithChildren>,
@@ -188,7 +185,7 @@ async function persistAndInsertNode(
 }
 
 interface AgentTurnArgs {
-  ctx: CreativeContext;
+  ctx: AgentContext;
   slug: string;
   conversationId: string;
   projectDir: string;

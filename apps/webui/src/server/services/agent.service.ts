@@ -1,7 +1,7 @@
 import type { SSEStreamingApi } from "hono/streaming";
 import {
   type AgentEvent,
-  type CreativeContext,
+  type AgentContext,
   type SessionEvent,
   type ToolCall,
   runPrompt,
@@ -13,7 +13,7 @@ import {
  * already expects. Event name strings here are the client contract; see
  * useChatStream for the consumer.
  */
-export function createAgentService(ctx: CreativeContext) {
+export function createAgentService(ctx: AgentContext) {
   return {
     async sendMessage(
       stream: SSEStreamingApi,

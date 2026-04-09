@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import {
   buildAlwaysActiveSeedNode,
   buildUserNodeForPrompt,
-} from "../../src/conversation/build.js";
+} from "../../src/agent/build.js";
 import { discoverProjectSkills } from "../../src/skills/discovery.js";
 import { SKILL_CONTENT_PREFIX } from "../../src/skills/skill-content.js";
 import { SkillManager, type SkillLoadEvent } from "../../src/skills/manager.js";

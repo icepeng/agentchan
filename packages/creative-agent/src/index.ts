@@ -24,19 +24,8 @@ export {
 } from "./slash/parse.js";
 export { findSlashInvocableSkill } from "./slash/catalog.js";
 
-// Session
-export {
-  computeActivePath,
-  flattenPathToMessages,
-  pathToNode,
-  generateTitle,
-} from "./session/tree.js";
-export {
-  createSessionStorage,
-  slugify,
-  type SessionStorage,
-  type LoadedConversation,
-} from "./session/storage.js";
+// Slug utility
+export { slugify } from "./slug.js";
 
 // Types
 export type { ContentBlock, NodeMeta, StoredMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
@@ -58,16 +47,25 @@ export { storedToPiMessages, piToStoredMessages, extractUsage } from "./agent/co
 export type { AgentEvent } from "@mariozechner/pi-agent-core";
 export type { AssistantMessage, AssistantMessageEvent, Message, ToolCall } from "@mariozechner/pi-ai";
 
-// Conversation — stateless free-function surface (replaces Workspace/Session)
+// Conversation — pure data layer
 export {
-  createCreativeContext,
   listConversations,
   getConversation,
   loadConversationSnapshot,
-  createConversation,
-  deleteConversation,
   deleteSubtree,
   switchBranch,
+  type ConversationContext,
+  type ConversationSnapshot,
+  type DeleteSubtreeResult,
+  type SwitchBranchResult,
+} from "./conversation/index.js";
+
+// Agent — context, config, and LLM-touching ops
+export {
+  createAgentContext,
+  projectDirOf,
+  createConversation,
+  deleteConversation,
   compactConversation,
   runPrompt,
   runRegenerate,
@@ -77,19 +75,16 @@ export {
   buildSkillLoadNode,
   joinUserNodeText,
   summarizeTurnUsage,
-  type CreativeContext,
-  type CreativeContextOptions,
+  type AgentContext,
+  type AgentContextOptions,
   type ResolvedAgentConfig,
+  type CreatedConversation,
+  type CompactResult,
   type SessionEvent,
   type Emit,
   type PromptInput,
   type RegenerateInput,
-  type CreatedConversation,
-  type ConversationSnapshot,
-  type CompactResult,
-  type DeleteSubtreeResult,
-  type SwitchBranchResult,
-} from "./conversation/index.js";
+} from "./agent/index.js";
 
 
 // Logger

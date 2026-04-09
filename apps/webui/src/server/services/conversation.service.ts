@@ -1,5 +1,5 @@
 import {
-  type CreativeContext,
+  type AgentContext,
   listConversations,
   loadConversationSnapshot,
   getConversation,
@@ -10,7 +10,7 @@ import {
   switchBranch,
 } from "@agentchan/creative-agent";
 
-export function createConversationService(ctx: CreativeContext) {
+export function createConversationService(ctx: AgentContext) {
   return {
     list: (slug: string) => listConversations(ctx, slug),
 
