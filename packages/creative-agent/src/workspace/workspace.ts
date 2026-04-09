@@ -22,6 +22,7 @@ import { fullCompact } from "../agent/compact.js";
 import { storedToPiMessages } from "../agent/convert.js";
 import { flattenPathToMessages } from "../session/tree.js";
 import { resolveModel, clearSkillManager } from "../agent/orchestrator.js";
+import { discoverProjectSkills } from "../skills/discovery.js";
 
 import { CreativeSession, type ResolvedAgentConfig } from "./session.js";
 import { buildAlwaysActiveSeedNode } from "./seed.js";
@@ -177,7 +178,8 @@ export function createCreativeWorkspace(
       const cfg = opts.resolveAgentConfig();
       const conv = await storage.createConversation(slug, cfg.provider, cfg.model);
       const projectDir = projectDirOf(slug);
-      const autoNode = await buildAlwaysActiveSeedNode(projectDir, null);
+      const skills = await discoverProjectSkills(join(projectDir, "skills"));
+      const autoNode = buildAlwaysActiveSeedNode(projectDir, skills, null);
       if (autoNode) {
         await storage.appendNode(slug, conv.id, autoNode);
         return {
@@ -280,7 +282,8 @@ export function createCreativeWorkspace(
       // the order is `summary → ack → seed → first real prompt` — freshest
       // context last for LLM attention.
       const projectDir = projectDirOf(slug);
-      const autoNode = await buildAlwaysActiveSeedNode(projectDir, assistantNode.id);
+      const skills = await discoverProjectSkills(join(projectDir, "skills"));
+      const autoNode = buildAlwaysActiveSeedNode(projectDir, skills, assistantNode.id);
       if (autoNode) {
         await storage.appendNode(slug, newConv.id, autoNode);
       }

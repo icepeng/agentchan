@@ -13,7 +13,7 @@ export { textResult } from "./tool-result.js";
 export { discoverProjectSkills } from "./skills/discovery.js";
 export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
-export { buildSkillContent } from "./skills/skill-content.js";
+export { buildSkillContent, SKILL_CONTENT_PREFIX } from "./skills/skill-content.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
 
 // Slash commands

@@ -44,7 +44,6 @@ export const translations = {
   "chat.compactShowDetails": "show details",
   "chat.compactHideDetails": "hide details",
   "chat.skillLoaded": "Skill loaded",
-  "chat.skillBody": "skill body",
   "chat.showBody": "show",
   "chat.hideBody": "hide",
 

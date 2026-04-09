@@ -4,6 +4,7 @@
  * delegated to the SessionStorage handed in by CreativeWorkspace.
  */
 
+import { join } from "node:path";
 import { nanoid } from "nanoid";
 import type { Message, AssistantMessage } from "@mariozechner/pi-ai";
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
@@ -25,6 +26,9 @@ import {
   clearSkillManager,
 } from "../agent/orchestrator.js";
 import { piToStoredMessages, extractUsage } from "../agent/convert.js";
+import { discoverProjectSkills } from "../skills/discovery.js";
+import { SKILL_CONTENT_PREFIX } from "../skills/skill-content.js";
+import type { SkillRecord } from "../skills/types.js";
 import { buildUserNodeForPrompt, joinUserNodeText } from "./seed.js";
 import { createMutex, type Mutex } from "./mutex.js";
 
@@ -84,6 +88,13 @@ export class CreativeSession {
   private mutex: Mutex = createMutex();
   private disposed = false;
 
+  /**
+   * Lazy session-lifetime skill cache. Refreshed only by opening a new
+   * conversation/session — skills rarely change mid-session, and the cost
+   * of a stale entry is small.
+   */
+  private skillsCache: Map<string, SkillRecord> | null = null;
+
   constructor(init: CreativeSessionInit) {
     this.projectSlug = init.projectSlug;
     this.conversationId = init.conversationId;
@@ -121,15 +132,24 @@ export class CreativeSession {
 
   prompt(rawText: string, opts: PromptOptions): Promise<void> {
     return this.runTurn(async () => {
-      const { node: userNode, llmText } = await buildUserNodeForPrompt(
+      const skills = await this.getSkills();
+      const { nodes: userNodes, llmText } = buildUserNodeForPrompt(
         rawText,
         this.projectDir,
+        skills,
         opts.parentNodeId,
       );
-      await this.persistAndInsertNode(userNode);
-      this.emit({ type: "user_node", node: userNode });
+      for (const node of userNodes) {
+        await this.persistAndInsertNode(node);
+        this.emit({ type: "user_node", node });
+      }
 
-      await this.runAgentTurn(userNode.id, opts.parentNodeId, llmText);
+      // For both single- and two-node cases, the history anchor is just the
+      // last node's parent: convert.ts merges consecutive user messages, so
+      // the chip (in history) and the user text (as new prompt) collapse
+      // into one user turn for the LLM.
+      const last = userNodes[userNodes.length - 1];
+      await this.runAgentTurn(last.id, last.parentId, llmText);
     });
   }
 
@@ -177,6 +197,13 @@ export class CreativeSession {
   }
 
   // --- Internals ---
+
+  private async getSkills(): Promise<Map<string, SkillRecord>> {
+    if (!this.skillsCache) {
+      this.skillsCache = await discoverProjectSkills(join(this.projectDir, "skills"));
+    }
+    return this.skillsCache;
+  }
 
   private assertNotDisposed(): void {
     if (this.disposed) {
@@ -291,6 +318,13 @@ export class CreativeSession {
     const newNodes: TreeNode[] = [];
     let lastNodeId = promptParentId;
     for (const msg of storedNew) {
+      // activate_skill steer is the only path that produces a mid-turn user
+      // message starting with SKILL_CONTENT_PREFIX, so tagging here unifies
+      // the skill-load meta across every injection path.
+      const isSkillLoadSteer =
+        msg.role === "user" &&
+        msg.content[0]?.type === "text" &&
+        msg.content[0].text.startsWith(SKILL_CONTENT_PREFIX);
       const node: TreeNode = {
         id: nanoid(12),
         parentId: lastNodeId,
@@ -300,6 +334,7 @@ export class CreativeSession {
         ...(msg.role === "assistant"
           ? { provider: cfg.provider, model: cfg.model }
           : {}),
+        ...(isSkillLoadSteer ? { meta: "skill-load" as const } : {}),
       };
       newNodes.push(node);
       lastNodeId = node.id;

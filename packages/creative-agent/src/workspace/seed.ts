@@ -1,88 +1,119 @@
 /**
  * Seed/user-node helpers used internally by CreativeSession and CreativeWorkspace.
  *
- * These were previously in `apps/webui/src/server/services/slash.service.ts`.
- * They are package-internal — not re-exported from the package index — because
- * the public surface is the Session/Workspace methods that consume them.
+ * The three skill-injection paths (always-active seed, slash invocation,
+ * activate_skill steer) all produce nodes with `meta: "skill-load"` carrying
+ * skill body text in the canonical format from `buildSkillInjectionContent`,
+ * so MessageBubble can identify them with a single meta check.
+ *
+ * These helpers are PURE with respect to skill discovery — callers pass in
+ * an already-loaded skill map so they can decide whether to share a session
+ * cache or hit disk fresh.
  */
 
-import { join } from "node:path";
 import { nanoid } from "nanoid";
 import type { ContentBlock, TreeNode } from "../types.js";
-import { discoverProjectSkills } from "../skills/discovery.js";
 import { buildSkillContent } from "../skills/skill-content.js";
+import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
 import { findSlashInvocableSkill } from "../slash/catalog.js";
 
 /**
- * Build the user TreeNode (and the LLM-facing text) for a raw user prompt.
- *
- * If the input begins with a slash command that resolves to an invocable
- * skill, the user node carries two text blocks: the serialized command and
- * the skill body. Plain prompts pass through as a single text block.
- *
- * Skill discovery is only performed when the input could be a slash command
- * (avoids a directory walk on every chat turn).
+ * Format one or more skill bodies into the canonical injection text.
+ * Single source of truth for the on-the-wire format used by every
+ * skill-injection path.
  */
-export async function buildUserNodeForPrompt(
+export function buildSkillInjectionContent(
+  skills: SkillRecord[],
+  projectDir: string,
+): string {
+  return skills.map((s) => buildSkillContent(s, projectDir)).join("\n\n");
+}
+
+/**
+ * Build the user TreeNode(s) for a raw user prompt.
+ *
+ * Slash → skill returns two nodes (chip first, slash text as its child)
+ * so regenerate/branch from descendants always replay the skill body via
+ * history — matching always-active seeding's "skill loaded, then user
+ * speaks" order. Plain prompts return a single node.
+ *
+ * `llmText` is the text fed to `agent.prompt()`; for the two-node case the
+ * chip is left in history and convert.ts merges consecutive user messages.
+ */
+export function buildUserNodeForPrompt(
   rawText: string,
   projectDir: string,
+  skills: Map<string, SkillRecord>,
   parentNodeId: string | null,
-): Promise<{ node: TreeNode; llmText: string }> {
-  const content = await buildUserNodeContent(rawText, projectDir);
+): { nodes: TreeNode[]; llmText: string } {
+  const slashBranch = tryBuildSlashSkillNodes(rawText, projectDir, skills, parentNodeId);
+  if (slashBranch) return slashBranch;
+
   const node: TreeNode = {
     id: nanoid(12),
     parentId: parentNodeId,
     role: "user",
-    content,
+    content: [{ type: "text", text: rawText }],
     createdAt: Date.now(),
   };
-  return { node, llmText: joinUserNodeText(content) };
+  return { nodes: [node], llmText: rawText };
 }
 
-async function buildUserNodeContent(
+function tryBuildSlashSkillNodes(
   rawText: string,
   projectDir: string,
-): Promise<ContentBlock[]> {
-  if (!rawText.trimStart().startsWith("/")) {
-    return [{ type: "text", text: rawText }];
-  }
+  skills: Map<string, SkillRecord>,
+  parentNodeId: string | null,
+): { nodes: TreeNode[]; llmText: string } | null {
+  if (!rawText.trimStart().startsWith("/")) return null;
   const parsed = parseSlashInput(rawText);
-  if (!parsed) return [{ type: "text", text: rawText }];
+  if (!parsed) return null;
 
-  const skills = await discoverProjectSkills(join(projectDir, "skills"));
   const skill = findSlashInvocableSkill(skills, parsed.name);
-  if (!skill) return [{ type: "text", text: rawText }];
+  if (!skill) return null;
 
-  return [
-    { type: "text", text: serializeCommand(parsed.name, parsed.args) },
-    { type: "text", text: buildSkillContent(skill, projectDir, parsed.args) },
-  ];
+  const skillText = buildSkillInjectionContent([skill], projectDir);
+  const skillNode: TreeNode = {
+    id: nanoid(12),
+    parentId: parentNodeId,
+    role: "user",
+    content: [{ type: "text", text: skillText }],
+    createdAt: Date.now(),
+    meta: "skill-load",
+  };
+  const userText = serializeCommand(parsed.name, parsed.args);
+  const userNode: TreeNode = {
+    id: nanoid(12),
+    parentId: skillNode.id,
+    role: "user",
+    content: [{ type: "text", text: userText }],
+    createdAt: Date.now(),
+  };
+  return { nodes: [skillNode, userNode], llmText: userText };
 }
 
 /**
  * Build a single user node containing every always-active skill body.
- *
- * Returns null when there are no always-active skills. Does NOT persist —
- * the caller (Workspace.createConversation / compactConversation) is
- * responsible for `appendNode`.
+ * Does NOT persist — the caller (Workspace.createConversation /
+ * compactConversation) is responsible for `appendNode`.
  */
-export async function buildAlwaysActiveSeedNode(
+export function buildAlwaysActiveSeedNode(
   projectDir: string,
+  skills: Map<string, SkillRecord>,
   parentNodeId: string | null,
-): Promise<TreeNode | null> {
-  const skills = await discoverProjectSkills(join(projectDir, "skills"));
+): TreeNode | null {
   const active = [...skills.values()].filter((s) => s.meta.alwaysActive);
   if (active.length === 0) return null;
 
-  const text = active.map((s) => buildSkillContent(s, projectDir, "")).join("\n\n");
+  const text = buildSkillInjectionContent(active, projectDir);
   return {
     id: nanoid(12),
     parentId: parentNodeId,
     role: "user",
     content: [{ type: "text", text }],
     createdAt: Date.now(),
-    meta: "skill-auto-load",
+    meta: "skill-load",
   };
 }
 

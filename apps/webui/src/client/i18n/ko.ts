@@ -46,7 +46,6 @@ export const translations: Record<TranslationKey, string> = {
   "chat.compactShowDetails": "자세히 보기",
   "chat.compactHideDetails": "접기",
   "chat.skillLoaded": "스킬 로드됨",
-  "chat.skillBody": "스킬 본문",
   "chat.showBody": "보기",
   "chat.hideBody": "숨기기",
 

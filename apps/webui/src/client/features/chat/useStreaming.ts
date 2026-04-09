@@ -62,8 +62,7 @@ export function useStreaming() {
 
       const callbacks = makeCallbacks(projectSlug, conversationId);
       callbacks.onUserNode = (node) => {
-        sessionDispatch({ type: "ADD_NODE", node });
-        sessionDispatch({ type: "SET_ACTIVE_PATH", activePath: [...sessionStateRef.current.activePath, node.id] });
+        sessionDispatch({ type: "APPEND_USER_NODE", node });
       };
 
       await sendMessage(projectSlug, conversationId, parentNodeId, text, callbacks);

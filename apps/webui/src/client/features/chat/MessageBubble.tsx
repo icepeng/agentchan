@@ -106,8 +106,10 @@ function CompactSummaryBubble({
 }
 
 // ── Skill Chip Bubble ────────────────────────
-// Renders both `meta: "skill-auto-load"` seed nodes and steer-style
-// activate_skill outputs (single <skill_content> block).
+// Renders any user node tagged `meta: "skill-load"` — covers all three
+// injection paths (always-active seed, slash invocation chip, activate_skill
+// steer). The chip extracts skill names from the canonical
+// `<skill_content name="...">` blocks for the header label.
 
 function SkillChipBubble({
   node,
@@ -154,6 +156,8 @@ function SkillChipBubble({
 }
 
 // ── Slash Invocation Bubble ──────────────────
+// Body is now in a sibling skill-load node (rendered by SkillChipBubble),
+// so this bubble only needs to display the parsed `/name args` line.
 
 function SlashInvocationBubble({
   node,
@@ -163,7 +167,6 @@ function SlashInvocationBubble({
   variant?: "compact" | "wide";
 }) {
   const { t } = useI18n();
-  const [expanded, setExpanded] = useState(false);
   const firstBlock = node.content[0];
   const text =
     firstBlock && firstBlock.type === "text" ? firstBlock.text : "";
@@ -173,9 +176,6 @@ function SlashInvocationBubble({
     );
     return { name: m?.[1] ?? "unknown", args: m?.[2] ?? "" };
   }, [text]);
-
-  const bodyBlock = node.content[1];
-  const hasBody = bodyBlock?.type === "text";
 
   return (
     <BubbleWrap variant={variant} padding="loose" className="group animate-fade-slide">
@@ -191,24 +191,6 @@ function SlashInvocationBubble({
             <span className="font-mono text-accent">/{name}</span>
             {args && <span className="ml-1 whitespace-pre-wrap">{args}</span>}
           </div>
-          {hasBody && (
-            <div className="mt-1.5 text-xs">
-              <button
-                onClick={() => setExpanded((v) => !v)}
-                className="text-fg-3 hover:text-accent transition-colors"
-              >
-                {"\u25b8 "}
-                {expanded ? t("chat.hideBody") : t("chat.skillBody")}
-              </button>
-              {expanded && bodyBlock?.type === "text" && (
-                <div className="mt-1.5 pl-3 text-fg-3/70 border-l-2 border-edge/10">
-                  <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
-                    {bodyBlock.text}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </BubbleWrap>
@@ -256,12 +238,7 @@ export function MessageBubble({
     );
   }
 
-  if (
-    node.role === "user" &&
-    node.content[0]?.type === "text" &&
-    (node.meta === "skill-auto-load" ||
-      (node.content.length === 1 && node.content[0].text.startsWith("<skill_content")))
-  ) {
+  if (node.role === "user" && node.meta === "skill-load") {
     return <SkillChipBubble node={node} variant={variant} />;
   }
 

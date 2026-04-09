@@ -59,7 +59,7 @@ Rules:
           ));
         }
 
-        const content = buildSkillContent(skill, this.projectDir, "");
+        const content = buildSkillContent(skill, this.projectDir);
 
         if (this.onSteer) {
           this.onSteer({ role: "user", content, timestamp: Date.now() });
