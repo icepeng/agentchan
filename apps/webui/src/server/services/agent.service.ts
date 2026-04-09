@@ -1,22 +1,113 @@
-import { nanoid } from "nanoid";
-import { join } from "node:path";
 import type { SSEStreamingApi } from "hono/streaming";
-import type { TreeNode, TokenUsage } from "../types.js";
-import {
-  setupCreativeAgent,
-  piToStoredMessages,
-  extractUsage,
-  flattenPathToMessages,
-  pathToNode,
-  discoverProjectSkills,
-  type AgentEvent,
-  type AssistantMessage,
-  type Message,
-  type ToolCall,
+import type {
+  AgentEvent,
+  CreativeWorkspace,
+  SessionEvent,
+  ToolCall,
 } from "@agentchan/creative-agent";
-import type { ConversationRepo } from "../repositories/conversation.repo.js";
-import type { ConfigService } from "./config.service.js";
-import type { SlashService } from "./slash.service.js";
+
+/**
+ * SSE adapter — translates SessionEvent into the wire format the frontend
+ * already expects. Event name strings here are the client contract; see
+ * useChatStream for the consumer.
+ */
+export function createAgentService(workspace: CreativeWorkspace) {
+  return {
+    async sendMessage(
+      stream: SSEStreamingApi,
+      slug: string,
+      conversationId: string,
+      parentNodeId: string | null,
+      text: string,
+    ) {
+      const session = await workspace.openSession(slug, conversationId);
+      const queue = createSerialWriter(stream);
+      const unsubscribe = session.subscribe((ev) => queue.push(ev));
+      try {
+        await session.prompt(text, { parentNodeId });
+      } finally {
+        unsubscribe();
+        await queue.drain();
+      }
+    },
+
+    async regenerate(
+      stream: SSEStreamingApi,
+      slug: string,
+      conversationId: string,
+      userNodeId: string,
+    ) {
+      const session = await workspace.openSession(slug, conversationId);
+      const queue = createSerialWriter(stream);
+      const unsubscribe = session.subscribe((ev) => queue.push(ev));
+      try {
+        await session.regenerate(userNodeId);
+      } finally {
+        unsubscribe();
+        await queue.drain();
+      }
+    },
+  };
+}
+
+export type AgentService = ReturnType<typeof createAgentService>;
+
+// --- Event → SSE serialization ---
+
+/**
+ * Session listeners are sync (called from inside Agent's sync subscribe loop).
+ * SSE writes are async. We need a serial queue so back-to-back text deltas
+ * don't interleave on the wire.
+ */
+function createSerialWriter(stream: SSEStreamingApi) {
+  let chain: Promise<void> = Promise.resolve();
+  function push(ev: SessionEvent): void {
+    chain = chain.then(() => writeSessionEvent(stream, ev)).catch((err) => {
+      console.error("[agent.service] SSE write failed", err);
+    });
+  }
+  function drain(): Promise<void> {
+    return chain;
+  }
+  return { push, drain };
+}
+
+async function writeSessionEvent(
+  stream: SSEStreamingApi,
+  ev: SessionEvent,
+): Promise<void> {
+  switch (ev.type) {
+    case "user_node":
+      await stream.writeSSE({ event: "user_node", data: JSON.stringify(ev.node) });
+      return;
+    case "agent_event": {
+      const sse = agentEventToSSE(ev.event);
+      if (sse) await stream.writeSSE(sse);
+      return;
+    }
+    case "assistant_nodes":
+      await stream.writeSSE({
+        event: "assistant_nodes",
+        data: JSON.stringify(ev.nodes),
+      });
+      return;
+    case "usage_summary":
+      await stream.writeSSE({
+        event: "usage_summary",
+        data: JSON.stringify(ev.usage),
+      });
+      return;
+    case "error":
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({ message: ev.message }),
+      });
+      return;
+    case "done":
+      await stream.writeSSE({ event: "done", data: "" });
+      return;
+  }
+}
 
 function agentEventToSSE(event: AgentEvent): { event: string; data: string } | null {
   switch (event.type) {
@@ -29,11 +120,17 @@ function agentEventToSSE(event: AgentEvent): { event: string; data: string } | n
           return { event: "thinking_delta", data: JSON.stringify({ text: sub.delta }) };
         case "toolcall_start": {
           const tc = sub.partial.content[sub.contentIndex] as ToolCall;
-          return { event: "tool_use_start", data: JSON.stringify({ id: tc?.id ?? "", name: tc?.name ?? "" }) };
+          return {
+            event: "tool_use_start",
+            data: JSON.stringify({ id: tc?.id ?? "", name: tc?.name ?? "" }),
+          };
         }
         case "toolcall_delta": {
           const tc = sub.partial.content[sub.contentIndex] as ToolCall;
-          return { event: "tool_use_delta", data: JSON.stringify({ id: tc?.id ?? "", input_json: sub.delta }) };
+          return {
+            event: "tool_use_delta",
+            data: JSON.stringify({ id: tc?.id ?? "", input_json: sub.delta }),
+          };
         }
         case "toolcall_end":
           return { event: "tool_use_end", data: JSON.stringify({ id: sub.toolCall.id }) };
@@ -42,233 +139,20 @@ function agentEventToSSE(event: AgentEvent): { event: string; data: string } | n
       }
     }
     case "tool_execution_start":
-      return { event: "tool_exec_start", data: JSON.stringify({ id: event.toolCallId, name: event.toolName, parallel: false }) };
+      return {
+        event: "tool_exec_start",
+        data: JSON.stringify({
+          id: event.toolCallId,
+          name: event.toolName,
+          parallel: false,
+        }),
+      };
     case "tool_execution_end":
-      return { event: "tool_exec_end", data: JSON.stringify({ id: event.toolCallId, is_error: event.isError }) };
+      return {
+        event: "tool_exec_end",
+        data: JSON.stringify({ id: event.toolCallId, is_error: event.isError }),
+      };
     default:
       return null;
   }
 }
-
-export function createAgentService(
-  configService: ConfigService,
-  conversationRepo: ConversationRepo,
-  slashService: SlashService,
-  projectsDir: string,
-) {
-  async function streamAgentAndPersist(
-    stream: SSEStreamingApi,
-    slug: string,
-    conversationId: string,
-    parentNodeId: string,
-    userText: string,
-    historyPath: string[],
-    tree: Map<string, any>,
-  ) {
-    const config = configService.getConfig();
-    const projectDir = join(projectsDir, slug);
-
-    const providerInfo = configService.findProvider(config.provider);
-    const apiKey = configService.getApiKey(config.provider);
-    // Custom providers (e.g. local Ollama) may not require an API key.
-    if (!apiKey && !providerInfo?.custom) {
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ message: `API key not configured for provider: ${config.provider}` }),
-      });
-      await stream.writeSSE({ event: "done", data: "" });
-      return;
-    }
-
-    try {
-      const { agent, historyLength } = await setupCreativeAgent(
-        {
-          provider: config.provider, model: config.model, projectDir,
-          apiKey: apiKey ?? "",
-          temperature: config.temperature,
-          maxTokens: config.maxTokens, contextWindow: config.contextWindow,
-          thinkingLevel: config.thinkingLevel,
-          ...(providerInfo?.custom && { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }),
-        },
-        flattenPathToMessages(tree, historyPath),
-        conversationId,
-      );
-
-      // Usage accumulator (totals across all API calls in this turn)
-      let totalInput = 0, totalOutput = 0, totalCachedInput = 0, totalCacheCreation = 0, totalCost = 0;
-      // Last API call usage (overwritten each time — for context window utilization)
-      let lastInput = 0, lastOutput = 0, lastCachedInput = 0, lastCacheCreation = 0;
-
-      // Sync subscribe → async SSE queue
-      const pending: { event: string; data: string }[] = [];
-      let notify: (() => void) | null = null;
-      let agentDone = false;
-
-      const unsubscribe = agent.subscribe((ev: AgentEvent) => {
-        // Accumulate usage from completed assistant messages
-        if (ev.type === "message_end" && (ev.message as Message).role === "assistant") {
-          const u = extractUsage(ev.message as AssistantMessage);
-          totalInput += u.inputTokens;
-          totalOutput += u.outputTokens;
-          totalCachedInput += u.cachedInputTokens ?? 0;
-          totalCacheCreation += u.cacheCreationTokens ?? 0;
-          totalCost += u.cost ?? 0;
-          lastInput = u.inputTokens;
-          lastOutput = u.outputTokens;
-          lastCachedInput = u.cachedInputTokens ?? 0;
-          lastCacheCreation = u.cacheCreationTokens ?? 0;
-        }
-
-        const sse = agentEventToSSE(ev);
-        if (sse) {
-          pending.push(sse);
-          notify?.();
-          notify = null;
-        }
-      });
-
-      // Start agent in background
-      const promptDone = agent.prompt(userText).finally(() => {
-        agentDone = true;
-        unsubscribe();
-        notify?.();
-        notify = null;
-      });
-
-      // Drain SSE queue while agent runs
-      while (!agentDone || pending.length > 0) {
-        while (pending.length > 0) await stream.writeSSE(pending.shift()!);
-        if (!agentDone) await new Promise<void>((r) => { notify = r; });
-      }
-      await promptDone;
-
-      // --- Agent finished: persist and send final events ---
-
-      const storedNewAll = piToStoredMessages((agent.state.messages as Message[]).slice(historyLength));
-      // The first message is the user prompt, already persisted by the caller — skip it.
-      const storedNew = storedNewAll[0]?.role === "user" ? storedNewAll.slice(1) : storedNewAll;
-
-      // Convert to TreeNodes
-      const newNodes: TreeNode[] = [];
-      let lastNodeId = parentNodeId;
-      for (const msg of storedNew) {
-        const node: TreeNode = {
-          id: nanoid(12), parentId: lastNodeId,
-          role: msg.role, content: msg.content, createdAt: Date.now(),
-          ...(msg.role === "assistant" ? { provider: config.provider, model: config.model } : {}),
-        };
-        newNodes.push(node);
-        lastNodeId = node.id;
-      }
-
-      // Context tokens = last API call's total window usage
-      const contextTokens = lastInput + lastOutput + lastCachedInput + lastCacheCreation;
-
-      // Build usage object and attach to last assistant node
-      let turnUsage: TokenUsage | undefined;
-      if (totalInput > 0 || totalOutput > 0) {
-        turnUsage = { inputTokens: totalInput, outputTokens: totalOutput };
-        if (totalCachedInput) turnUsage.cachedInputTokens = totalCachedInput;
-        if (totalCacheCreation) turnUsage.cacheCreationTokens = totalCacheCreation;
-        if (totalCost) turnUsage.cost = totalCost;
-        if (contextTokens > 0) turnUsage.contextTokens = contextTokens;
-
-        const lastAssistant = [...newNodes].reverse().find((n) => n.role === "assistant");
-        if (lastAssistant) lastAssistant.usage = turnUsage;
-      }
-
-      // Persist
-      for (const node of newNodes) await conversationRepo.appendNode(slug, conversationId, node);
-
-      // Send final SSE events
-      if (turnUsage) {
-        await stream.writeSSE({
-          event: "usage_summary",
-          data: JSON.stringify(turnUsage),
-        });
-      }
-      if (newNodes.length === 0) {
-        await stream.writeSSE({
-          event: "error",
-          data: JSON.stringify({ message: "No response from model" }),
-        });
-      } else {
-        await stream.writeSSE({ event: "assistant_nodes", data: JSON.stringify(newNodes) });
-      }
-
-    } catch (error) {
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ message: error instanceof Error ? error.message : String(error) }),
-      });
-    }
-
-    await stream.writeSSE({ event: "done", data: "" });
-  }
-
-  return {
-    async sendMessage(
-      stream: SSEStreamingApi,
-      slug: string,
-      conversationId: string,
-      parentNodeId: string | null,
-      text: string,
-    ) {
-      const projectDir = join(projectsDir, slug);
-      // Only walk the skills directory when the input could be a slash
-      // invocation. Plain chat messages (the common case) don't need it,
-      // and setupCreativeAgent will discover skills again for itself.
-      const skills = text.trimStart().startsWith("/")
-        ? await discoverProjectSkills(join(projectDir, "skills"))
-        : new Map();
-
-      const userNode: TreeNode = {
-        id: nanoid(12), parentId: parentNodeId,
-        role: "user",
-        content: slashService.buildUserNodeContent(text, projectDir, skills),
-        createdAt: Date.now(),
-      };
-      await conversationRepo.appendNode(slug, conversationId, userNode);
-
-      const tree = await conversationRepo.loadTree(slug, conversationId);
-      tree.set(userNode.id, { ...userNode, children: [] });
-      if (parentNodeId && tree.has(parentNodeId)) {
-        tree.get(parentNodeId)!.children.push(userNode.id);
-        tree.get(parentNodeId)!.activeChildId = userNode.id;
-      }
-
-      const historyPath = parentNodeId ? pathToNode(tree, parentNodeId) : [];
-      const prompt = slashService.joinUserNodeText(userNode.content);
-
-      await stream.writeSSE({ event: "user_node", data: JSON.stringify(userNode) });
-      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, prompt, historyPath, tree);
-    },
-
-    async regenerate(
-      stream: SSEStreamingApi,
-      slug: string,
-      conversationId: string,
-      userNodeId: string,
-    ) {
-      const tree = await conversationRepo.loadTree(slug, conversationId);
-      const userNode = tree.get(userNodeId);
-      if (!userNode) {
-        await stream.writeSSE({ event: "error", data: JSON.stringify({ message: "User node not found" }) });
-        await stream.writeSSE({ event: "done", data: "" });
-        return;
-      }
-
-      const userText = slashService.joinUserNodeText(userNode.content);
-      if (!userText) {
-        await stream.writeSSE({ event: "error", data: JSON.stringify({ message: "No text content in user node" }) });
-        await stream.writeSSE({ event: "done", data: "" });
-        return;
-      }
-
-      const historyPath = userNode.parentId ? pathToNode(tree, userNode.parentId) : [];
-      await streamAgentAndPersist(stream, slug, conversationId, userNodeId, userText, historyPath, tree);
-    },
-  };
-}
-
-export type AgentService = ReturnType<typeof createAgentService>;

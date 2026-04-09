@@ -58,6 +58,18 @@ export { storedToPiMessages, piToStoredMessages, extractUsage } from "./agent/co
 export type { AgentEvent } from "@mariozechner/pi-agent-core";
 export type { AssistantMessage, AssistantMessageEvent, Message, ToolCall } from "@mariozechner/pi-ai";
 
+// Workspace / Session — stateful first-class objects (thin-server façade)
+export {
+  createCreativeWorkspace,
+  type CreativeWorkspace,
+  type ResolvedAgentConfig,
+  type SessionEvent,
+  type CreatedConversation,
+  type ConversationSnapshot,
+  type CompactResult,
+  type SwitchBranchResult,
+} from "./workspace/index.js";
+
 // Logger
 export * as log from "./logger.js";
 

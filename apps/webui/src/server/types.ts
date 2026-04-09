@@ -15,7 +15,6 @@ import type { ConversationService } from "./services/conversation.service.js";
 import type { AgentService } from "./services/agent.service.js";
 import type { LibraryService } from "./services/library.service.js";
 import type { SkillService } from "./services/skill.service.js";
-import type { SlashService } from "./services/slash.service.js";
 
 export type AppEnv = {
   Variables: {
@@ -25,7 +24,6 @@ export type AppEnv = {
     agentService: AgentService;
     libraryService: LibraryService;
     skillService: SkillService;
-    slashService: SlashService;
   };
 };
 

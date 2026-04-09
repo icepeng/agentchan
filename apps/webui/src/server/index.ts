@@ -3,13 +3,13 @@ import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
+import { createCreativeWorkspace, type ResolvedAgentConfig } from "@agentchan/creative-agent";
 import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, isDev } from "./paths.js";
 import type { AppEnv } from "./types.js";
 
 // --- Repositories ---
 import { createSettingsRepo } from "./repositories/settings.repo.js";
 import { createProjectRepo } from "./repositories/project.repo.js";
-import { createConversationRepo } from "./repositories/conversation.repo.js";
 import { createLibraryRepo } from "./repositories/library.repo.js";
 import { createProjectSkillRepo } from "./repositories/project-skill.repo.js";
 
@@ -20,7 +20,6 @@ import { createConversationService } from "./services/conversation.service.js";
 import { createAgentService } from "./services/agent.service.js";
 import { createLibraryService } from "./services/library.service.js";
 import { createSkillService } from "./services/skill.service.js";
-import { createSlashService } from "./services/slash.service.js";
 
 // --- Routes ---
 import { createConfigRoutes } from "./routes/config.routes.js";
@@ -30,18 +29,37 @@ import { createLibraryRoutes } from "./routes/library.routes.js";
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
 const projectRepo = createProjectRepo(PROJECTS_DIR);
-const conversationRepo = createConversationRepo(PROJECTS_DIR);
 const libraryRepo = createLibraryRepo(LIBRARY_DIR);
 const projectSkillRepo = createProjectSkillRepo(PROJECTS_DIR);
 
 // ===== 2. Services =====
 const configService = createConfigService(settingsRepo);
 const projectService = createProjectService(projectRepo, PROJECTS_DIR);
-const slashService = createSlashService(conversationRepo);
-const conversationService = createConversationService(conversationRepo, configService, slashService, PROJECTS_DIR);
-const agentService = createAgentService(configService, conversationRepo, slashService, PROJECTS_DIR);
 const libraryService = createLibraryService(libraryRepo);
 const skillService = createSkillService(projectSkillRepo, libraryRepo, PROJECTS_DIR);
+
+// ===== 2b. Creative workspace =====
+const workspace = createCreativeWorkspace({
+  projectsDir: PROJECTS_DIR,
+  resolveAgentConfig: (): ResolvedAgentConfig => {
+    const cfg = configService.getConfig();
+    const providerInfo = configService.findProvider(cfg.provider);
+    return {
+      provider: cfg.provider,
+      model: cfg.model,
+      apiKey: configService.getApiKey(cfg.provider) ?? "",
+      temperature: cfg.temperature,
+      maxTokens: cfg.maxTokens,
+      contextWindow: cfg.contextWindow,
+      thinkingLevel: cfg.thinkingLevel,
+      ...(providerInfo?.custom
+        ? { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }
+        : {}),
+    };
+  },
+});
+const conversationService = createConversationService(workspace);
+const agentService = createAgentService(workspace);
 
 // ===== 3. Bootstrap =====
 await libraryRepo.ensureLibrary();
@@ -67,7 +85,6 @@ app.use("/api/*", async (c, next) => {
   c.set("agentService", agentService);
   c.set("libraryService", libraryService);
   c.set("skillService", skillService);
-  c.set("slashService", slashService);
   await next();
 });
 
