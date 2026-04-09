@@ -1,6 +1,6 @@
 import { Suspense, lazy } from "react";
 import { Menu } from "lucide-react";
-import { useUIState, useUIDispatch } from "./context/UIContext.js";
+import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { ProjectSettingsPage } from "@/client/pages/ProjectSettingsPage.js";

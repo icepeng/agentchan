@@ -1,4 +1,4 @@
-import type { CustomApiFormat } from "./config.types.js";
+import type { CustomApiFormat } from "@agentchan/creative-agent";
 
 export const FORMAT_OPTIONS: { value: CustomApiFormat; label: string }[] = [
   { value: "openai-completions", label: "OpenAI Completions" },

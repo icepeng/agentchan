@@ -4,7 +4,7 @@ import { useSessionDispatch, fetchConversations } from "@/client/entities/sessio
 import { useConfigDispatch, fetchConfig, fetchProviders } from "@/client/entities/config/index.js";
 import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
 
-import { AppShell } from "./app/AppShell.js";
+import { AppShell } from "@/client/app/index.js";
 
 export function App() {
   const projectDispatch = useProjectDispatch();

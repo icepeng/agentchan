@@ -2,7 +2,7 @@ import { useReducer, useRef, useEffect, useCallback } from "react";
 import { Check, Plus, Settings, X } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
-import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
+import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator } from "@/client/shared/ui/index.js";
 import { useProject } from "./useProject.js";

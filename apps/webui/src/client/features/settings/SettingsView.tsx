@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Globe } from "lucide-react";
-import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
-import type { PageRoute } from "@/client/app/context/UIContext.js";
+import { useUIState, useUIDispatch, type PageRoute } from "@/client/entities/ui/index.js";
 import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
 import type { ApiKeyStatus, CustomApiFormat } from "@/client/entities/config/index.js";
 import { useI18n, type LanguagePreference, type TranslationKey } from "@/client/i18n/index.js";

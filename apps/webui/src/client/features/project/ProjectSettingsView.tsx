@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { ArrowLeft, BookOpen, Code, Plus } from "lucide-react";
-import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
-import type { PageRoute } from "@/client/app/context/UIContext.js";
+import { useUIState, useUIDispatch, type PageRoute } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { Button, IconButton, SectionHeader, TabBar, TextInput, Badge } from "@/client/shared/ui/index.js";
 import { SkillEditor, LibraryBrowser } from "@/client/features/library/index.js";

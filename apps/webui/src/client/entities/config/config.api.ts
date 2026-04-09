@@ -1,5 +1,5 @@
 import { json } from "@/client/shared/api.js";
-import type { ProviderInfo, ThinkingLevel, CustomProviderDef } from "./config.types.js";
+import type { ProviderInfo, ThinkingLevel, CustomProviderDef } from "@agentchan/creative-agent";
 
 export interface ConfigResponse {
   provider: string;

@@ -1,3 +1,5 @@
+// Provider/model/config shape types — single source of truth shared by webui server and client.
+
 export interface ModelInfo {
   id: string;
   name: string;

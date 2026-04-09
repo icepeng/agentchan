@@ -7,6 +7,7 @@ export { createEditTool } from "./tools/edit.js";
 export { createGrepTool } from "./tools/grep.js";
 export { createLsTool } from "./tools/ls.js";
 export { createProjectTools } from "./tools/index.js";
+export { textResult } from "./tool-result.js";
 
 // Skills
 export { discoverProjectSkills } from "./skills/discovery.js";
@@ -40,6 +41,7 @@ export {
 
 // Types
 export type { ContentBlock, StoredMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
+export type { ModelInfo, CustomApiFormat, ProviderInfo, CustomProviderDef, ThinkingLevel } from "./config-types.js";
 
 // Agent
 export {

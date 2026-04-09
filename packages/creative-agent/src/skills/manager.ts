@@ -1,7 +1,7 @@
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import type { UserMessage } from "@mariozechner/pi-ai";
-import { textResult } from "../tools/util.js";
+import { textResult } from "../tool-result.js";
 import * as log from "../logger.js";
 import { buildSkillContent } from "./skill-content.js";
 import type { SkillRecord } from "./types.js";

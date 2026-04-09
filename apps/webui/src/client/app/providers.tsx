@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { UIProvider } from "./context/UIContext.js";
+import { UIProvider } from "@/client/entities/ui/index.js";
 import { ConfigProvider } from "@/client/entities/config/index.js";
 import { ProjectProvider } from "@/client/entities/project/index.js";
 import { SessionProvider } from "@/client/entities/session/index.js";

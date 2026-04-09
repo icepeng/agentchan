@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useUIDispatch } from "@/client/app/context/UIContext.js";
+import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, TabBar } from "@/client/shared/ui/index.js";
 import { LibraryEditorView, type LibraryEditorConfig } from "./LibraryEditorView.js";

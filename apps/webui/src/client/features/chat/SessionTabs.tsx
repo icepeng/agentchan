@@ -1,6 +1,6 @@
 import { ChevronsRight, Plus, X } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
-import { useUIDispatch } from "@/client/app/context/UIContext.js";
+import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { useConversation } from "./useConversation.js";
 

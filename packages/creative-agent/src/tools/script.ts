@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
-import { textResult, truncateTail } from "./util.js";
+import { textResult } from "../tool-result.js";
+import { truncateTail } from "./util.js";
 
 const ScriptParams = Type.Object({
   file: Type.String({

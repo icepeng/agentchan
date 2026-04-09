@@ -2,7 +2,8 @@ import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
-import { textResult, MAX_OUTPUT_BYTES } from "./util.js";
+import { textResult } from "../tool-result.js";
+import { MAX_OUTPUT_BYTES } from "./util.js";
 
 const MAX_ENTRIES = 500;
 

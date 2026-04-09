@@ -1,5 +1,5 @@
 import { BookOpen, Settings } from "lucide-react";
-import { useUIState, useUIDispatch } from "./context/UIContext.js";
+import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton } from "@/client/shared/ui/index.js";
 import { ProjectTabs } from "@/client/features/project/index.js";
