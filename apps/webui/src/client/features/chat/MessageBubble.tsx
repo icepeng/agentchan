@@ -238,6 +238,12 @@ export function MessageBubble({
     );
   }
 
+  // skill-catalog is conversation infrastructure (the <system-reminder>-wrapped
+  // skill catalog injected at session start). Not user-visible.
+  if (node.role === "user" && node.meta === "skill-catalog") {
+    return null;
+  }
+
   if (node.role === "user" && node.meta === "skill-load") {
     return <SkillChipBubble node={node} variant={variant} />;
   }

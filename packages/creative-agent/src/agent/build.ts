@@ -9,6 +9,7 @@
 import { nanoid } from "nanoid";
 import type { ContentBlock, TreeNode } from "../types.js";
 import { buildSkillContent } from "../skills/skill-content.js";
+import { generateCatalog } from "../skills/catalog.js";
 import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
 import { findSlashInvocableSkill } from "../slash/catalog.js";
@@ -86,6 +87,32 @@ function tryBuildSlashSkillNodes(
     createdAt: Date.now(),
   };
   return { nodes: [skillNode, userNode], llmText: userText };
+}
+
+/**
+ * Build a `meta:"skill-catalog"` user TreeNode wrapping the skill catalog in
+ * a `<system-reminder>` block. Injected at conversation start so the model
+ * sees the catalog in the same user-role channel as the seeded skill
+ * bodies — this is the Claude-Code-style fix for the ge project's 3× parallel
+ * `activate_skill` regression (see `generateCatalog` comment for context).
+ *
+ * Returns `null` if no skills are visible to the model at all.
+ */
+export function buildCatalogReminderNode(
+  skills: Map<string, SkillRecord>,
+  parentNodeId: string | null,
+): TreeNode | null {
+  const text = generateCatalog([...skills.values()]);
+  if (!text) return null;
+
+  return {
+    id: nanoid(12),
+    parentId: parentNodeId,
+    role: "user",
+    content: [{ type: "text", text }],
+    createdAt: Date.now(),
+    meta: "skill-catalog",
+  };
 }
 
 /**

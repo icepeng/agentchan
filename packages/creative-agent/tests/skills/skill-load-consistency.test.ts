@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 
 import {
   buildAlwaysActiveSeedNode,
+  buildCatalogReminderNode,
   buildUserNodeForPrompt,
 } from "../../src/agent/build.js";
 import { discoverProjectSkills } from "../../src/skills/discovery.js";
@@ -180,6 +181,45 @@ describe("skill-load wire format consistency across paths", () => {
       expect(text).toContain('<skill_content name="');
       expect(text).toContain("</skill_content>");
       expect(text).toContain("Skill directory:");
+    }
+  });
+});
+
+describe("skill catalog reminder node", () => {
+  test("emits a meta:skill-catalog user node wrapped in <system-reminder>", async () => {
+    const skills = await discoverProjectSkills(join(projectDir, "skills"));
+    const node = buildCatalogReminderNode(skills, null);
+    expect(node).not.toBeNull();
+    expect(node!.role).toBe("user");
+    expect(node!.meta).toBe("skill-catalog");
+    expect(node!.parentId).toBeNull();
+    expect(node!.content).toHaveLength(1);
+
+    const text = getText(node!);
+    expect(text.startsWith("<system-reminder>")).toBe(true);
+    expect(text.trimEnd().endsWith("</system-reminder>")).toBe(true);
+
+    // Always-active skills appear with an `(already loaded)` marker.
+    expect(text).toContain("always-character (already loaded)");
+    // Invocable skills appear without the marker.
+    expect(text).toMatch(/- invocable-character:/);
+    expect(text).not.toContain("invocable-character (already loaded)");
+
+    // The reminder explicitly forbids re-activating already-loaded skills
+    // and guides the model on how to call activate_skill for invocables.
+    expect(text).toContain("Do NOT call `activate_skill`");
+    expect(text).toContain("activate_skill");
+  });
+
+  test("returns null when no skills are visible to the model", async () => {
+    const emptyDir = await mkdtemp(join(tmpdir(), "skill-empty-"));
+    try {
+      await mkdir(join(emptyDir, "skills"), { recursive: true });
+      const skills = await discoverProjectSkills(join(emptyDir, "skills"));
+      const node = buildCatalogReminderNode(skills, null);
+      expect(node).toBeNull();
+    } finally {
+      await rm(emptyDir, { recursive: true, force: true });
     }
   });
 });

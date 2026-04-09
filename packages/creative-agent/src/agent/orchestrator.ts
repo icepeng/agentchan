@@ -12,7 +12,6 @@ import { join } from "node:path";
 import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { SkillManager } from "../skills/manager.js";
-import { generateCatalog } from "../skills/catalog.js";
 import { type SkillMetadata } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
@@ -166,9 +165,12 @@ export async function setupCreativeAgent(
   const tools: any[] = createProjectTools(options.projectDir);
   if (skills.size > 0) tools.push(manager.createTool());
 
-  let systemPrompt = DEFAULT_SYSTEM_PROMPT;
-  const catalog = generateCatalog([...skills.values()]);
-  if (catalog) systemPrompt += "\n\n" + catalog;
+  // NOTE: the skill catalog is no longer part of the system prompt. It is
+  // injected as a `meta:"skill-catalog"` user node (wrapped in
+  // `<system-reminder>`) at conversation start by createConversation/
+  // compactConversation. See `buildCatalogReminderNode` and the comment on
+  // `generateCatalog` for the ge-project regression that motivated the move.
+  const systemPrompt = DEFAULT_SYSTEM_PROMPT;
 
   // Convert history
   const piMessages = storedToPiMessages(history);

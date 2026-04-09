@@ -16,7 +16,7 @@ import { fullCompact } from "./compact.js";
 import { storedToPiMessages } from "./convert.js";
 import { resolveModel, clearConversationAgentState } from "./orchestrator.js";
 import { type AgentContext, projectDirOf } from "./context.js";
-import { buildAlwaysActiveSeedNode } from "./build.js";
+import { buildAlwaysActiveSeedNode, buildCatalogReminderNode } from "./build.js";
 
 // --- Public types ---
 
@@ -42,15 +42,37 @@ export async function createConversation(
   const conv = await ctx.storage.createConversation(slug, cfg.provider, cfg.model);
   const projectDir = projectDirOf(ctx, slug);
   const skills = await discoverProjectSkills(join(projectDir, "skills"));
-  const autoNode = buildAlwaysActiveSeedNode(projectDir, skills, null);
-  if (autoNode) {
-    await ctx.storage.appendNode(slug, conv.id, autoNode);
-    return {
-      conversation: { ...conv, rootNodeId: autoNode.id, activeLeafId: autoNode.id },
-      nodes: [autoNode],
-    };
+
+  // Skill catalog (wrapped in <system-reminder>) → always-active seed bodies.
+  // Both land as consecutive user-role nodes so the model sees the catalog
+  // and the seeded `<skill_content>` blocks in the same conversation channel.
+  const nodes: TreeNode[] = [];
+  const catalogNode = buildCatalogReminderNode(skills, null);
+  if (catalogNode) {
+    await ctx.storage.appendNode(slug, conv.id, catalogNode);
+    nodes.push(catalogNode);
   }
-  return { conversation: conv, nodes: [] };
+  const seedNode = buildAlwaysActiveSeedNode(
+    projectDir,
+    skills,
+    catalogNode?.id ?? null,
+  );
+  if (seedNode) {
+    await ctx.storage.appendNode(slug, conv.id, seedNode);
+    nodes.push(seedNode);
+  }
+
+  if (nodes.length === 0) {
+    return { conversation: conv, nodes: [] };
+  }
+  return {
+    conversation: {
+      ...conv,
+      rootNodeId: nodes[0].id,
+      activeLeafId: nodes[nodes.length - 1].id,
+    },
+    nodes,
+  };
 }
 
 export async function deleteConversation(
@@ -135,20 +157,31 @@ export async function compactConversation(
   await ctx.storage.appendNode(slug, newConv.id, userNode);
   await ctx.storage.appendNode(slug, newConv.id, assistantNode);
 
-  // Seed always-active skills as a child of the ack assistant node so the
-  // order is `summary → ack → seed → first real prompt` — freshest context
-  // last for LLM attention.
+  // Re-inject catalog reminder + always-active seed as children of the ack
+  // assistant node so the order is
+  //   `summary → ack → catalog reminder → seed → first real prompt`
+  // — freshest context last for LLM attention.
   const projectDir = projectDirOf(ctx, slug);
   const skills = await discoverProjectSkills(join(projectDir, "skills"));
-  const autoNode = buildAlwaysActiveSeedNode(projectDir, skills, assistantNode.id);
-  if (autoNode) {
-    await ctx.storage.appendNode(slug, newConv.id, autoNode);
+
+  const trailing: TreeNode[] = [];
+  const catalogNode = buildCatalogReminderNode(skills, assistantNode.id);
+  if (catalogNode) {
+    await ctx.storage.appendNode(slug, newConv.id, catalogNode);
+    trailing.push(catalogNode);
+  }
+  const seedNode = buildAlwaysActiveSeedNode(
+    projectDir,
+    skills,
+    catalogNode?.id ?? assistantNode.id,
+  );
+  if (seedNode) {
+    await ctx.storage.appendNode(slug, newConv.id, seedNode);
+    trailing.push(seedNode);
   }
 
-  const nodes: TreeNode[] = autoNode
-    ? [userNode, assistantNode, autoNode]
-    : [userNode, assistantNode];
-  const activeLeafId = (autoNode ?? assistantNode).id;
+  const nodes: TreeNode[] = [userNode, assistantNode, ...trailing];
+  const activeLeafId = (trailing[trailing.length - 1] ?? assistantNode).id;
 
   return {
     conversation: { ...newConv, rootNodeId: userNode.id, activeLeafId },
