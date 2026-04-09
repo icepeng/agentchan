@@ -9,7 +9,7 @@ export { createLsTool } from "./tools/ls.js";
 export { createProjectTools } from "./tools/index.js";
 
 // Skills
-export { discoverSkills, discoverProjectSkills } from "./skills/discovery.js";
+export { discoverProjectSkills } from "./skills/discovery.js";
 export { generateCatalog } from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
 export { buildSkillContent } from "./skills/skill-content.js";
@@ -19,7 +19,6 @@ export type { SkillRecord, SkillMetadata } from "./skills/types.js";
 export {
   parseSlashInput,
   serializeCommand,
-  parseCommandSerialization,
   type ParsedSlashCommand,
 } from "./slash/parse.js";
 export { findSlashInvocableSkill } from "./slash/catalog.js";

@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
-import { homedir } from "node:os";
+import type { Dirent } from "node:fs";
+import { basename, dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import * as log from "../logger.js";
 import type { SkillRecord } from "./types.js";
@@ -109,74 +109,34 @@ function parseWithFrontmatter(
   };
 }
 
-async function scanSkillDir(dir: string): Promise<SkillRecord[]> {
-  const skills: SkillRecord[] = [];
-
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-
-      const skillMdPath = join(dir, entry.name, "SKILL.md");
-      try {
-        const content = await readFile(skillMdPath, "utf-8");
-        const record = parseSkillMd(content, skillMdPath);
-        if (record) {
-          skills.push(record);
-        }
-      } catch {
-        // No SKILL.md in this subdirectory — skip
-      }
-    }
-  } catch {
-    // Directory doesn't exist — skip
-  }
-
-  return skills;
-}
-
-export async function discoverSkills(
-  cwd: string = process.cwd(),
-): Promise<Map<string, SkillRecord>> {
-  const home = homedir();
-
-  const searchPaths = [
-    join(cwd, ".agents", "skills"),
-    join(cwd, ".agentchan", "skills"),
-    join(home, ".agents", "skills"),
-    join(home, ".agentchan", "skills"),
-  ];
-
-  const result = new Map<string, SkillRecord>();
-
-  for (const dir of searchPaths) {
-    const skills = await scanSkillDir(dir);
-    for (const skill of skills) {
-      if (!result.has(skill.meta.name)) {
-        result.set(skill.meta.name, skill);
-      } else {
-        const existing = result.get(skill.meta.name)!;
-        log.warn(
-          "skills",
-          `name collision: "${skill.meta.name}" at ${skill.location} shadowed by ${existing.location}`,
-        );
-      }
-    }
-  }
-
-  return result;
-}
-
 export async function discoverProjectSkills(
   skillsDir: string,
 ): Promise<Map<string, SkillRecord>> {
   const result = new Map<string, SkillRecord>();
-  const skills = await scanSkillDir(skillsDir);
-  for (const skill of skills) {
-    if (!result.has(skill.meta.name)) {
-      result.set(skill.meta.name, skill);
+
+  let entries: Dirent[];
+  try {
+    entries = await readdir(skillsDir, { withFileTypes: true });
+  } catch {
+    return result; // Directory doesn't exist — empty result
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const skillMdPath = resolve(skillsDir, entry.name, "SKILL.md");
+    let content: string;
+    try {
+      content = await readFile(skillMdPath, "utf-8");
+    } catch {
+      continue; // No SKILL.md in this subdirectory — skip
+    }
+
+    const record = parseSkillMd(content, skillMdPath);
+    if (record && !result.has(record.meta.name)) {
+      result.set(record.meta.name, record);
     }
   }
+
   return result;
 }
