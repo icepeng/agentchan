@@ -1,6 +1,7 @@
 ---
 name: dynamic-lorebook
 description: "키워드 기반으로 월드 로어를 선택적으로 로드하여 토큰 효율을 높이는 동적 로어북 프레임워크. World Skill의 확장판으로, 방대한 세계관 데이터를 관리할 때 활성화한다."
+always-active: true
 metadata:
   author: agentchan
   version: "1.0"

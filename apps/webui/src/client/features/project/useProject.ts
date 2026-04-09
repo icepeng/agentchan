@@ -97,9 +97,8 @@ export function useProject() {
       await apiDelete(slug);
       projectDispatch({ type: "DELETE_PROJECT", slug });
       if (projectState.activeProjectSlug === slug) {
-        const projects = await apiFetchProjects();
-        if (projects.length > 0) {
-          const fallback = projects[0];
+        const fallback = projectState.projects.find((p) => p.slug !== slug);
+        if (fallback) {
           localStorage.setItem("agentchan-last-project", fallback.slug);
           projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: fallback.slug, currentConversationId: sessionState.activeConversationId });
           sessionDispatch({ type: "CLEAR" });
@@ -113,7 +112,7 @@ export function useProject() {
         }
       }
     },
-    [projectState.activeProjectSlug, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
+    [projectState.activeProjectSlug, projectState.projects, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
   );
 
   return {

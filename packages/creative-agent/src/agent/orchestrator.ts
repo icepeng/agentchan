@@ -167,11 +167,9 @@ export async function setupCreativeAgent(
   const tools: any[] = createProjectTools(options.projectDir);
   if (skills.size > 0) tools.push(manager.createTool());
 
-  // Build system prompt
   let systemPrompt = DEFAULT_SYSTEM_PROMPT;
-  if (skills.size > 0) {
-    systemPrompt += "\n\n" + generateCatalog([...skills.values()]);
-  }
+  const catalog = generateCatalog([...skills.values()]);
+  if (catalog) systemPrompt += "\n\n" + catalog;
 
   // Convert history
   const piMessages = storedToPiMessages(history);

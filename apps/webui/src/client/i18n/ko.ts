@@ -45,6 +45,10 @@ export const translations: Record<TranslationKey, string> = {
   "chat.compactSummary": "이전 세션에서 요약됨",
   "chat.compactShowDetails": "자세히 보기",
   "chat.compactHideDetails": "접기",
+  "chat.skillLoaded": "스킬 로드됨",
+  "chat.skillBody": "스킬 본문",
+  "chat.showBody": "보기",
+  "chat.hideBody": "숨기기",
 
   // Empty state
   "empty.subtitle": "크리에이티브 라이팅 스튜디오",

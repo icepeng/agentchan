@@ -1,9 +1,37 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
 import { MessageContent } from "./MessageContent.js";
+
+// ── Bubble Wrap ───────────────────────────────
+// All chat bubbles share the same outer wrapper rules. Wide variant adds a
+// max-w-3xl content column; padding is "tight" (py-1) for chips/summaries
+// or "loose" (py-3/py-4) for full message rows.
+
+function BubbleWrap({
+  variant,
+  padding = "tight",
+  className = "",
+  children,
+}: {
+  variant: "compact" | "wide";
+  padding?: "tight" | "loose";
+  className?: string;
+  children: ReactNode;
+}) {
+  if (variant === "wide") {
+    const py = padding === "loose" ? "py-4" : "py-1";
+    return (
+      <div className={`px-4 ${py} ${className}`.trimEnd()}>
+        <div className="max-w-3xl mx-auto">{children}</div>
+      </div>
+    );
+  }
+  const py = padding === "loose" ? "py-3" : "py-1";
+  return <div className={`px-3 ${py} ${className}`.trimEnd()}>{children}</div>;
+}
 
 // ── Branch Navigator ──────────────────────────
 
@@ -53,45 +81,137 @@ function CompactSummaryBubble({
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const isWide = variant === "wide";
-
-  const inner = (
-    <div className="flex items-center gap-2 text-xs text-fg-3 py-1.5">
-      <AlignLeft size={14} strokeWidth={2} className="shrink-0 opacity-50" />
-      <span className="opacity-70">{t("chat.compactSummary")}</span>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="text-accent/60 hover:text-accent transition-colors ml-1"
-      >
-        {expanded ? t("chat.compactHideDetails") : t("chat.compactShowDetails")}
-      </button>
-    </div>
-  );
-
-  const details = expanded ? (
-    <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
-      <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
-        <MessageContent content={node.content} />
-      </div>
-    </div>
-  ) : null;
-
-  if (isWide) {
-    return (
-      <div className="px-4 py-1">
-        <div className="max-w-3xl mx-auto">
-          {inner}
-          {details}
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="px-3 py-1">
-      {inner}
-      {details}
-    </div>
+    <BubbleWrap variant={variant}>
+      <div className="flex items-center gap-2 text-xs text-fg-3 py-1.5">
+        <AlignLeft size={14} strokeWidth={2} className="shrink-0 opacity-50" />
+        <span className="opacity-70">{t("chat.compactSummary")}</span>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-accent/60 hover:text-accent transition-colors ml-1"
+        >
+          {expanded ? t("chat.compactHideDetails") : t("chat.compactShowDetails")}
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
+          <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
+            <MessageContent content={node.content} />
+          </div>
+        </div>
+      )}
+    </BubbleWrap>
+  );
+}
+
+// ── Skill Chip Bubble ────────────────────────
+// Renders both `meta: "skill-auto-load"` seed nodes and steer-style
+// activate_skill outputs (single <skill_content> block).
+
+function SkillChipBubble({
+  node,
+  variant = "compact",
+}: {
+  node: TreeNode;
+  variant?: "compact" | "wide";
+}) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  const firstText =
+    node.content[0]?.type === "text" ? node.content[0].text : "";
+  const names = useMemo(() => {
+    const matches = [...firstText.matchAll(/<skill_content name="([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+    return matches.length > 0 ? matches : ["unknown"];
+  }, [firstText]);
+
+  return (
+    <BubbleWrap variant={variant}>
+      <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-70">
+        <span>{"\u2699"}</span>
+        <span>
+          {t("chat.skillLoaded")}:{" "}
+          <span className="font-mono text-accent/80">{names.join(", ")}</span>
+        </span>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-accent/60 hover:text-accent transition-colors ml-1"
+        >
+          {expanded ? t("chat.hideBody") : t("chat.showBody")}
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
+          <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
+            <MessageContent content={node.content} />
+          </div>
+        </div>
+      )}
+    </BubbleWrap>
+  );
+}
+
+// ── Slash Invocation Bubble ──────────────────
+
+function SlashInvocationBubble({
+  node,
+  variant = "compact",
+}: {
+  node: TreeNode;
+  variant?: "compact" | "wide";
+}) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  const firstBlock = node.content[0];
+  const text =
+    firstBlock && firstBlock.type === "text" ? firstBlock.text : "";
+  const { name, args } = useMemo(() => {
+    const m = text.match(
+      /^<command-name>\/([a-z0-9][a-z0-9-]*)<\/command-name>(?:\s*<command-args>([\s\S]*?)<\/command-args>)?/,
+    );
+    return { name: m?.[1] ?? "unknown", args: m?.[2] ?? "" };
+  }, [text]);
+
+  const bodyBlock = node.content[1];
+  const hasBody = bodyBlock?.type === "text";
+
+  return (
+    <BubbleWrap variant={variant} padding="loose" className="group animate-fade-slide">
+      <div className="flex items-start gap-2.5">
+        <UserAvatar />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-warm">
+              {t("chat.you")}
+            </span>
+          </div>
+          <div className="text-sm text-fg">
+            <span className="font-mono text-accent">/{name}</span>
+            {args && <span className="ml-1 whitespace-pre-wrap">{args}</span>}
+          </div>
+          {hasBody && (
+            <div className="mt-1.5 text-xs">
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="text-fg-3 hover:text-accent transition-colors"
+              >
+                {"\u25b8 "}
+                {expanded ? t("chat.hideBody") : t("chat.skillBody")}
+              </button>
+              {expanded && bodyBlock?.type === "text" && (
+                <div className="mt-1.5 pl-3 text-fg-3/70 border-l-2 border-edge/10">
+                  <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
+                    {bodyBlock.text}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </BubbleWrap>
   );
 }
 
@@ -129,45 +249,28 @@ export function MessageBubble({
     node.content.every((b) => b.type === "tool_result");
 
   if (isToolResultOnly) {
-    if (isWide) {
-      return (
-        <div className="px-4 py-1">
-          <div className="max-w-3xl mx-auto">
-            <MessageContent content={node.content} />
-          </div>
-        </div>
-      );
-    }
     return (
-      <div className="px-3 py-1">
+      <BubbleWrap variant={variant}>
         <MessageContent content={node.content} />
-      </div>
+      </BubbleWrap>
     );
   }
 
   if (
     node.role === "user" &&
-    node.content.length === 1 &&
-    node.content[0].type === "text" &&
-    node.content[0].text.startsWith("<skill_content")
+    node.content[0]?.type === "text" &&
+    (node.meta === "skill-auto-load" ||
+      (node.content.length === 1 && node.content[0].text.startsWith("<skill_content")))
   ) {
-    const nameMatch = node.content[0].text.match(/name="([^"]+)"/);
-    const skillName = nameMatch?.[1] ?? "unknown";
-    const inner = (
-      <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-60">
-        <span>{"\u2699"}</span>
-        <span>
-          Skill loaded: <span className="font-mono text-accent/80">{skillName}</span>
-        </span>
-      </div>
-    );
-    return isWide ? (
-      <div className="px-4 py-1">
-        <div className="max-w-3xl mx-auto">{inner}</div>
-      </div>
-    ) : (
-      <div className="px-3 py-1">{inner}</div>
-    );
+    return <SkillChipBubble node={node} variant={variant} />;
+  }
+
+  if (
+    node.role === "user" &&
+    node.content[0]?.type === "text" &&
+    node.content[0].text.startsWith("<command-name>")
+  ) {
+    return <SlashInvocationBubble node={node} variant={variant} />;
   }
 
   if (node.meta === "compact-summary") {
@@ -239,27 +342,13 @@ export function MessageBubble({
     </div>
   );
 
-  if (isWide) {
-    return (
-      <div
-        className={`group px-4 py-4 animate-fade-slide ${
-          isUser ? "" : "bg-surface/40"
-        }`}
-      >
-        <div className="max-w-3xl mx-auto">
-          {content}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      className={`group px-3 py-3 animate-fade-slide ${
-        isUser ? "" : "bg-surface/40"
-      }`}
+    <BubbleWrap
+      variant={variant}
+      padding="loose"
+      className={`group animate-fade-slide ${isUser ? "" : "bg-surface/40"}`}
     >
       {content}
-    </div>
+    </BubbleWrap>
   );
 }

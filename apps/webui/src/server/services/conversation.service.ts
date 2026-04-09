@@ -13,10 +13,12 @@ import {
 } from "@agentchan/creative-agent";
 import type { ConversationRepo } from "../repositories/conversation.repo.js";
 import type { ConfigService } from "./config.service.js";
+import type { SlashService } from "./slash.service.js";
 
 export function createConversationService(
   conversationRepo: ConversationRepo,
   configService: ConfigService,
+  slashService: SlashService,
   projectsDir: string,
 ) {
   return {
@@ -41,7 +43,17 @@ export function createConversationService(
 
     async create(slug: string) {
       const config = configService.getConfig();
-      return conversationRepo.createConversation(slug, config.provider, config.model);
+      const conv = await conversationRepo.createConversation(slug, config.provider, config.model);
+      const projectDir = join(projectsDir, slug);
+      const skills = await discoverProjectSkills(join(projectDir, "skills"));
+      const autoNode = await slashService.seedAlwaysActiveSkills(
+        slug, conv.id, null, projectDir, skills,
+      );
+      const seedId = autoNode?.id ?? "";
+      return {
+        conversation: { ...conv, rootNodeId: seedId, activeLeafId: seedId },
+        nodes: autoNode ? [autoNode] : [],
+      };
     },
 
     async delete(slug: string, id: string) {
@@ -91,32 +103,7 @@ export function createConversationService(
         apiKey: apiKey ?? "",
       });
 
-      // Re-inject activated skill content for continuity
-      const activatedSkills = new Set<string>();
-      for (const msg of history) {
-        if (msg.role !== "assistant") continue;
-        for (const block of msg.content) {
-          if (block.type === "tool_use" && block.name === "activate_skill") {
-            const name = block.input.name;
-            if (typeof name === "string") activatedSkills.add(name);
-          }
-        }
-      }
-
-      let skillSection = "";
-      if (activatedSkills.size > 0) {
-        const skills = await discoverProjectSkills(join(projectsDir, slug, "skills"));
-        const parts: string[] = [];
-        for (const name of activatedSkills) {
-          const skill = skills.get(name);
-          if (skill) parts.push(`<skill_content name="${name}">\n${skill.body}\n</skill_content>`);
-        }
-        if (parts.length > 0) {
-          skillSection = "\n\nThe following skills were active in the previous session and are re-injected for continuity:\n\n" + parts.join("\n\n");
-        }
-      }
-
-      const summaryText = `This session continues from a previous conversation. Below is the context summary.\n\n${result.summary}${skillSection}`;
+      const summaryText = `This session continues from a previous conversation. Below is the context summary.\n\n${result.summary}`;
       const newConv = await conversationRepo.createConversation(slug, config.provider, config.model, conversationId);
 
       const userNode: TreeNode = {
@@ -136,9 +123,23 @@ export function createConversationService(
       await conversationRepo.appendNode(slug, newConv.id, userNode);
       await conversationRepo.appendNode(slug, newConv.id, assistantNode);
 
+      // Seed always-active skills after the summary/ack pair so the order is
+      // `summary user → ack assistant → skill-auto-load user → real user`.
+      // "Freshest context last" matches the LLM attention pattern.
+      const projectDir = join(projectsDir, slug);
+      const skills = await discoverProjectSkills(join(projectDir, "skills"));
+      const autoNode = await slashService.seedAlwaysActiveSkills(
+        slug, newConv.id, assistantNode.id, projectDir, skills,
+      );
+
+      const nodes: TreeNode[] = autoNode
+        ? [userNode, assistantNode, autoNode]
+        : [userNode, assistantNode];
+      const activeLeafId = (autoNode ?? assistantNode).id;
+
       return {
-        conversation: { ...newConv, rootNodeId: userNode.id, activeLeafId: assistantNode.id },
-        nodes: [userNode, assistantNode],
+        conversation: { ...newConv, rootNodeId: userNode.id, activeLeafId },
+        nodes,
         sourceConversationId: conversationId,
       };
     },

@@ -90,12 +90,18 @@ function parseWithFrontmatter(
   const dirName = basename(dirname(location));
   const skillName = validateSkillName(raw.name as string | undefined, dirName, location);
 
+  const alwaysActiveRaw = raw["always-active"];
+  const disableInvokeRaw = raw["disable-model-invocation"];
+  const isTruthy = (v: unknown): boolean => v === true || v === "true";
+
   return {
     meta: {
       name: skillName,
       description,
       ...(raw.license ? { license: raw.license as string } : {}),
       ...(raw.metadata ? { metadata: raw.metadata as Record<string, string> } : {}),
+      ...(isTruthy(alwaysActiveRaw) ? { alwaysActive: true } : {}),
+      ...(isTruthy(disableInvokeRaw) ? { disableModelInvocation: true } : {}),
     },
     location: resolve(location),
     baseDir: resolve(location, ".."),

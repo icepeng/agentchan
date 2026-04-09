@@ -20,6 +20,7 @@ import { createConversationService } from "./services/conversation.service.js";
 import { createAgentService } from "./services/agent.service.js";
 import { createLibraryService } from "./services/library.service.js";
 import { createSkillService } from "./services/skill.service.js";
+import { createSlashService } from "./services/slash.service.js";
 
 // --- Routes ---
 import { createConfigRoutes } from "./routes/config.routes.js";
@@ -36,8 +37,9 @@ const projectSkillRepo = createProjectSkillRepo(PROJECTS_DIR);
 // ===== 2. Services =====
 const configService = createConfigService(settingsRepo);
 const projectService = createProjectService(projectRepo, PROJECTS_DIR);
-const conversationService = createConversationService(conversationRepo, configService, PROJECTS_DIR);
-const agentService = createAgentService(configService, conversationRepo, PROJECTS_DIR);
+const slashService = createSlashService(conversationRepo);
+const conversationService = createConversationService(conversationRepo, configService, slashService, PROJECTS_DIR);
+const agentService = createAgentService(configService, conversationRepo, slashService, PROJECTS_DIR);
 const libraryService = createLibraryService(libraryRepo);
 const skillService = createSkillService(projectSkillRepo, libraryRepo, PROJECTS_DIR);
 
@@ -65,6 +67,7 @@ app.use("/api/*", async (c, next) => {
   c.set("agentService", agentService);
   c.set("libraryService", libraryService);
   c.set("skillService", skillService);
+  c.set("slashService", slashService);
   await next();
 });
 

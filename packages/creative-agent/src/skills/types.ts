@@ -3,6 +3,10 @@ export interface SkillMetadata {
   description: string;
   license?: string;
   metadata?: Record<string, string>;
+  /** Auto-inject the skill body at conversation root (and on compact). */
+  alwaysActive?: boolean;
+  /** Hide from the model-facing catalog so the model never self-activates. */
+  disableModelInvocation?: boolean;
 }
 
 export interface SkillRecord {

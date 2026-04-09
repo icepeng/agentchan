@@ -43,6 +43,10 @@ export const translations = {
   "chat.compactSummary": "Summarized from previous session",
   "chat.compactShowDetails": "show details",
   "chat.compactHideDetails": "hide details",
+  "chat.skillLoaded": "Skill loaded",
+  "chat.skillBody": "skill body",
+  "chat.showBody": "show",
+  "chat.hideBody": "hide",
 
   // Empty state
   "empty.subtitle": "creative writing studio",

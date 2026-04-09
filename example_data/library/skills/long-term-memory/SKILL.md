@@ -1,6 +1,7 @@
 ---
 name: long-term-memory
 description: "대화 요약을 파일에 기록하여 세션 간 기억을 유지하는 장기 기억 프레임워크. 캐릭터 챗에서 장기적인 관계 발전과 스토리 연속성이 필요할 때 활성화한다."
+always-active: true
 metadata:
   author: agentchan
   version: "1.0"

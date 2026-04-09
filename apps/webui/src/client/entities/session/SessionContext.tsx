@@ -43,7 +43,7 @@ export type SessionAction =
   | { type: "ADD_NODE"; node: TreeNode }
   | { type: "ADD_NODES"; nodes: TreeNode[] }
   | { type: "SET_ACTIVE_PATH"; activePath: string[] }
-  | { type: "NEW_CONVERSATION"; conversation: Conversation }
+  | { type: "NEW_CONVERSATION"; conversation: Conversation; nodes?: TreeNode[] }
   | { type: "DELETE_CONVERSATION"; id: string }
   | { type: "SET_REPLY_TO"; nodeId: string | null }
   | { type: "STREAM_COMPLETE"; nodes: TreeNode[]; conversation?: Conversation }
@@ -143,16 +143,19 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
     case "SET_ACTIVE_PATH":
       return { ...state, activePath: action.activePath };
 
-    case "NEW_CONVERSATION":
+    case "NEW_CONVERSATION": {
+      const seeded = action.nodes ?? [];
+      const nodeMap = buildNodeMap(seeded);
       return {
         ...state,
         conversations: [action.conversation, ...state.conversations],
         activeConversationId: action.conversation.id,
-        nodes: new Map(),
-        activePath: [],
+        nodes: nodeMap,
+        activePath: seeded.map((n) => n.id),
         replyToNodeId: null,
         sessionUsage: { ...emptyUsage },
       };
+    }
 
     case "DELETE_CONVERSATION": {
       const remaining = state.conversations.filter((c) => c.id !== action.id);

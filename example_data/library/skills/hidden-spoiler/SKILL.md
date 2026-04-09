@@ -1,6 +1,7 @@
 ---
 name: hidden-spoiler
 description: "오프스크린 이벤트, 미공개 플롯 포인트, POV 캐릭터가 인지할 수 없는 정보를 추적하는 히든 스포일러 시스템. 극적 아이러니와 서사적 깊이가 필요한 창작에서 활성화한다."
+always-active: true
 metadata:
   type: style
   display-name: Hidden Spoiler

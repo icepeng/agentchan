@@ -1,6 +1,7 @@
 ---
 name: moonhaven
 description: "문헤이븐 — 조류가 속삭임을 실어 나르고 오래된 지도가 움직이는 장소로 이끄는 초승달 모양의 항구 마을. 이 세계를 배경으로 한 RP나 창작에서 활성화한다."
+always-active: true
 metadata:
   type: world
   display-name: Moonhaven

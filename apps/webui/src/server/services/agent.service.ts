@@ -8,6 +8,7 @@ import {
   extractUsage,
   flattenPathToMessages,
   pathToNode,
+  discoverProjectSkills,
   type AgentEvent,
   type AssistantMessage,
   type Message,
@@ -15,6 +16,7 @@ import {
 } from "@agentchan/creative-agent";
 import type { ConversationRepo } from "../repositories/conversation.repo.js";
 import type { ConfigService } from "./config.service.js";
+import type { SlashService } from "./slash.service.js";
 
 function agentEventToSSE(event: AgentEvent): { event: string; data: string } | null {
   switch (event.type) {
@@ -51,6 +53,7 @@ function agentEventToSSE(event: AgentEvent): { event: string; data: string } | n
 export function createAgentService(
   configService: ConfigService,
   conversationRepo: ConversationRepo,
+  slashService: SlashService,
   projectsDir: string,
 ) {
   async function streamAgentAndPersist(
@@ -211,9 +214,19 @@ export function createAgentService(
       parentNodeId: string | null,
       text: string,
     ) {
+      const projectDir = join(projectsDir, slug);
+      // Only walk the skills directory when the input could be a slash
+      // invocation. Plain chat messages (the common case) don't need it,
+      // and setupCreativeAgent will discover skills again for itself.
+      const skills = text.trimStart().startsWith("/")
+        ? await discoverProjectSkills(join(projectDir, "skills"))
+        : new Map();
+
       const userNode: TreeNode = {
         id: nanoid(12), parentId: parentNodeId,
-        role: "user", content: [{ type: "text", text }], createdAt: Date.now(),
+        role: "user",
+        content: slashService.buildUserNodeContent(text, projectDir, skills),
+        createdAt: Date.now(),
       };
       await conversationRepo.appendNode(slug, conversationId, userNode);
 
@@ -225,9 +238,10 @@ export function createAgentService(
       }
 
       const historyPath = parentNodeId ? pathToNode(tree, parentNodeId) : [];
+      const prompt = slashService.joinUserNodeText(userNode.content);
 
       await stream.writeSSE({ event: "user_node", data: JSON.stringify(userNode) });
-      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, text, historyPath, tree);
+      await streamAgentAndPersist(stream, slug, conversationId, userNode.id, prompt, historyPath, tree);
     },
 
     async regenerate(
@@ -244,8 +258,7 @@ export function createAgentService(
         return;
       }
 
-      const textBlock = userNode.content.find((b: any) => b.type === "text");
-      const userText = textBlock && "text" in textBlock ? textBlock.text : "";
+      const userText = slashService.joinUserNodeText(userNode.content);
       if (!userText) {
         await stream.writeSSE({ event: "error", data: JSON.stringify({ message: "No text content in user node" }) });
         await stream.writeSSE({ event: "done", data: "" });

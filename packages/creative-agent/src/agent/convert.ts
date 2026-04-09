@@ -36,7 +36,15 @@ export function storedToPiMessages(history: StoredMessage[]): Message[] {
 
       if (textBlocks.length > 0 && toolResultBlocks.length === 0) {
         const text = textBlocks.map((b) => (b as { type: "text"; text: string }).text).join("\n");
-        result.push({ role: "user", content: text } as Message);
+        // Merge with previous user message if applicable. Providers like OpenAI
+        // reject two consecutive user messages, and the always-active seed +
+        // real user node pattern relies on this concatenation.
+        const last = result[result.length - 1];
+        if (last && last.role === "user" && typeof last.content === "string") {
+          last.content = last.content + "\n" + text;
+        } else {
+          result.push({ role: "user", content: text } as Message);
+        }
       }
 
       for (const block of toolResultBlocks) {
