@@ -2,16 +2,15 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { UserMessage } from "@mariozechner/pi-ai";
 
 import {
   buildAlwaysActiveSeedNode,
   buildUserNodeForPrompt,
-} from "../../src/workspace/seed.js";
+} from "../../src/conversation/build.js";
 import { discoverProjectSkills } from "../../src/skills/discovery.js";
 import { SKILL_CONTENT_PREFIX } from "../../src/skills/skill-content.js";
-import { SkillManager } from "../../src/skills/manager.js";
-import type { TreeNode } from "../../src/types.js";
+import { SkillManager, type SkillLoadEvent } from "../../src/skills/manager.js";
+import type { ContentBlock, TreeNode } from "../../src/types.js";
 
 // Three skill-injection paths must produce nodes with a consistent shape
 // (`role: "user"`, `meta: "skill-load"`, `content[0]` text starting with
@@ -56,6 +55,26 @@ function getText(node: TreeNode): string {
   const block = node.content[0];
   if (block?.type !== "text") throw new Error("expected first content block to be text");
   return block.text;
+}
+
+function getBlockText(content: ContentBlock[]): string {
+  const block = content[0];
+  if (block?.type !== "text") throw new Error("expected first content block to be text");
+  return block.text;
+}
+
+/** Drive a SkillManager.activate_skill call and return the captured load event. */
+async function captureSkillLoad(
+  manager: SkillManager,
+  skillName: string,
+): Promise<SkillLoadEvent> {
+  let loaded: SkillLoadEvent | null = null;
+  manager.setOnSkillLoad((load) => {
+    loaded = load;
+  });
+  await manager.createTool().execute("test-call-id", { name: skillName });
+  if (!loaded) throw new Error("onSkillLoad was never invoked");
+  return loaded;
 }
 
 function assertSkillLoadShape(node: TreeNode, expectedSkillName: string): void {
@@ -106,28 +125,18 @@ describe("skill-load shape — three injection paths", () => {
     expect(result.llmText).toBe(userText);
   });
 
-  test("activate_skill path: SkillManager.execute steers a content matching the conversion-loop contract", async () => {
+  test("activate_skill path: SkillManager fires onSkillLoad with a ContentBlock[] payload", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const manager = new SkillManager(skills, projectDir);
 
-    let steered: UserMessage | null = null;
-    manager.setSteerCallback((msg) => {
-      steered = msg;
-    });
+    const loaded = await captureSkillLoad(manager, "invocable-character");
+    expect(loaded.skillName).toBe("invocable-character");
 
-    const tool = manager.createTool();
-    await tool.execute("test-call-id", { name: "invocable-character" });
-
-    expect(steered).not.toBeNull();
-    const msg = steered as unknown as UserMessage;
-    expect(msg.role).toBe("user");
-
-    // session.ts:runAgentTurn tags any user msg whose first text starts with
-    // SKILL_CONTENT_PREFIX as meta:"skill-load". Verify the steered output
-    // satisfies that contract — without it, the chip rendering breaks.
-    const content = msg.content;
-    expect(typeof content).toBe("string");
-    const text = content as string;
+    // runPrompt's onSkillLoad callback turns this payload directly into a
+    // meta:"skill-load" TreeNode (via buildSkillLoadNode), so the contract is
+    // simply: a single text block whose body is the canonical skill wrapper.
+    expect(loaded.content).toHaveLength(1);
+    const text = getBlockText(loaded.content);
     expect(text.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
     expect(text).toContain('name="invocable-character"');
     expect(text).toContain("</skill_content>");
@@ -147,12 +156,8 @@ describe("skill-load wire format consistency across paths", () => {
     const slashChipText = getText(slashResult.nodes[0]);
 
     const manager = new SkillManager(skills, projectDir);
-    let steered: UserMessage | null = null;
-    manager.setSteerCallback((msg) => {
-      steered = msg;
-    });
-    await manager.createTool().execute("id", { name: "invocable-character" });
-    const activatedText = (steered as unknown as UserMessage).content as string;
+    const loaded = await captureSkillLoad(manager, "invocable-character");
+    const activatedText = getBlockText(loaded.content);
 
     expect(slashChipText).toBe(activatedText);
   });
@@ -167,12 +172,8 @@ describe("skill-load wire format consistency across paths", () => {
       buildUserNodeForPrompt("/invocable-character", projectDir, skills, null).nodes[0],
     );
     const manager = new SkillManager(skills, projectDir);
-    let steered: UserMessage | null = null;
-    manager.setSteerCallback((msg) => {
-      steered = msg;
-    });
-    await manager.createTool().execute("id", { name: "invocable-character" });
-    const activatedText = (steered as unknown as UserMessage).content as string;
+    const loaded = await captureSkillLoad(manager, "invocable-character");
+    const activatedText = getBlockText(loaded.content);
 
     for (const text of [alwaysText, slashChipText, activatedText]) {
       expect(text.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);

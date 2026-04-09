@@ -1,27 +1,35 @@
-import type { CreativeWorkspace } from "@agentchan/creative-agent";
+import {
+  type CreativeContext,
+  listConversations,
+  loadConversationSnapshot,
+  getConversation,
+  createConversation,
+  deleteConversation,
+  deleteSubtree,
+  compactConversation,
+  switchBranch,
+} from "@agentchan/creative-agent";
 
-export function createConversationService(workspace: CreativeWorkspace) {
+export function createConversationService(ctx: CreativeContext) {
   return {
-    list: (slug: string) => workspace.listConversations(slug),
+    list: (slug: string) => listConversations(ctx, slug),
 
-    get: (slug: string, id: string) => workspace.loadConversationSnapshot(slug, id),
+    get: (slug: string, id: string) => loadConversationSnapshot(ctx, slug, id),
 
-    getConversation: (slug: string, id: string) => workspace.getConversation(slug, id),
+    getConversation: (slug: string, id: string) => getConversation(ctx, slug, id),
 
-    create: (slug: string) => workspace.createConversation(slug),
+    create: (slug: string) => createConversation(ctx, slug),
 
-    delete: (slug: string, id: string) => workspace.deleteConversation(slug, id),
+    delete: (slug: string, id: string) => deleteConversation(ctx, slug, id),
 
     deleteSubtree: (slug: string, conversationId: string, nodeId: string) =>
-      workspace.deleteSubtree(slug, conversationId, nodeId),
+      deleteSubtree(ctx, slug, conversationId, nodeId),
 
     compact: (slug: string, conversationId: string) =>
-      workspace.compactConversation(slug, conversationId),
+      compactConversation(ctx, slug, conversationId),
 
-    async switchBranch(slug: string, conversationId: string, nodeId: string) {
-      const session = await workspace.openSession(slug, conversationId);
-      return session.switchBranch(nodeId);
-    },
+    switchBranch: (slug: string, conversationId: string, nodeId: string) =>
+      switchBranch(ctx, slug, conversationId, nodeId),
   };
 }
 

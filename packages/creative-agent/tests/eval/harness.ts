@@ -1,6 +1,6 @@
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
-import { setupCreativeAgent, clearSkillManager } from "../../src/agent/orchestrator.js";
+import { setupCreativeAgent, clearConversationAgentState } from "../../src/agent/orchestrator.js";
 import { createFixture, cleanupFixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
@@ -136,7 +136,7 @@ export class EvalHarness {
   }
 
   async cleanup(): Promise<void> {
-    clearSkillManager(this.conversationId);
+    clearConversationAgentState(this.conversationId);
     await cleanupFixture(this.projectDir);
   }
 

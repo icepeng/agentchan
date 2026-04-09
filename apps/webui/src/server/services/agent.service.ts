@@ -1,9 +1,11 @@
 import type { SSEStreamingApi } from "hono/streaming";
-import type {
-  AgentEvent,
-  CreativeWorkspace,
-  SessionEvent,
-  ToolCall,
+import {
+  type AgentEvent,
+  type CreativeContext,
+  type SessionEvent,
+  type ToolCall,
+  runPrompt,
+  runRegenerate,
 } from "@agentchan/creative-agent";
 
 /**
@@ -11,7 +13,7 @@ import type {
  * already expects. Event name strings here are the client contract; see
  * useChatStream for the consumer.
  */
-export function createAgentService(workspace: CreativeWorkspace) {
+export function createAgentService(ctx: CreativeContext) {
   return {
     async sendMessage(
       stream: SSEStreamingApi,
@@ -20,13 +22,14 @@ export function createAgentService(workspace: CreativeWorkspace) {
       parentNodeId: string | null,
       text: string,
     ) {
-      const session = await workspace.openSession(slug, conversationId);
       const queue = createSerialWriter(stream);
-      const unsubscribe = session.subscribe((ev) => queue.push(ev));
       try {
-        await session.prompt(text, { parentNodeId });
+        await runPrompt(
+          ctx,
+          { slug, conversationId, parentNodeId, text },
+          (ev) => queue.push(ev),
+        );
       } finally {
-        unsubscribe();
         await queue.drain();
       }
     },
@@ -37,13 +40,14 @@ export function createAgentService(workspace: CreativeWorkspace) {
       conversationId: string,
       userNodeId: string,
     ) {
-      const session = await workspace.openSession(slug, conversationId);
       const queue = createSerialWriter(stream);
-      const unsubscribe = session.subscribe((ev) => queue.push(ev));
       try {
-        await session.regenerate(userNodeId);
+        await runRegenerate(
+          ctx,
+          { slug, conversationId, userNodeId },
+          (ev) => queue.push(ev),
+        );
       } finally {
-        unsubscribe();
         await queue.drain();
       }
     },

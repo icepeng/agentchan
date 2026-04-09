@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
-import { createCreativeWorkspace, type ResolvedAgentConfig } from "@agentchan/creative-agent";
+import { createCreativeContext, type ResolvedAgentConfig } from "@agentchan/creative-agent";
 import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, isDev } from "./paths.js";
 import type { AppEnv } from "./types.js";
 
@@ -38,8 +38,8 @@ const projectService = createProjectService(projectRepo, PROJECTS_DIR);
 const libraryService = createLibraryService(libraryRepo);
 const skillService = createSkillService(projectSkillRepo, libraryRepo, PROJECTS_DIR);
 
-// ===== 2b. Creative workspace =====
-const workspace = createCreativeWorkspace({
+// ===== 2b. Creative context (stateless handle) =====
+const creativeContext = createCreativeContext({
   projectsDir: PROJECTS_DIR,
   resolveAgentConfig: (): ResolvedAgentConfig => {
     const cfg = configService.getConfig();
@@ -58,8 +58,8 @@ const workspace = createCreativeWorkspace({
     };
   },
 });
-const conversationService = createConversationService(workspace);
-const agentService = createAgentService(workspace);
+const conversationService = createConversationService(creativeContext);
+const agentService = createAgentService(creativeContext);
 
 // ===== 3. Bootstrap =====
 await libraryRepo.ensureLibrary();

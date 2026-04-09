@@ -1,14 +1,9 @@
 /**
- * Seed/user-node helpers used internally by CreativeSession and CreativeWorkspace.
+ * Pure helpers that build user TreeNodes for the skill-injection paths
+ * (always-active seeding, slash invocation, plain prompt, activate_skill).
  *
- * The three skill-injection paths (always-active seed, slash invocation,
- * activate_skill steer) all produce nodes with `meta: "skill-load"` carrying
- * skill body text in the canonical format from `buildSkillInjectionContent`,
- * so MessageBubble can identify them with a single meta check.
- *
- * These helpers are PURE with respect to skill discovery — callers pass in
- * an already-loaded skill map so they can decide whether to share a session
- * cache or hit disk fresh.
+ * Callers pass in an already-loaded skill map so these stay decoupled from
+ * skill discovery.
  */
 
 import { nanoid } from "nanoid";
@@ -95,8 +90,7 @@ function tryBuildSlashSkillNodes(
 
 /**
  * Build a single user node containing every always-active skill body.
- * Does NOT persist — the caller (Workspace.createConversation /
- * compactConversation) is responsible for `appendNode`.
+ * Does NOT persist — the caller is responsible for `appendNode`.
  */
 export function buildAlwaysActiveSeedNode(
   projectDir: string,
@@ -112,6 +106,24 @@ export function buildAlwaysActiveSeedNode(
     parentId: parentNodeId,
     role: "user",
     content: [{ type: "text", text }],
+    createdAt: Date.now(),
+    meta: "skill-load",
+  };
+}
+
+/**
+ * Build a `meta:"skill-load"` user TreeNode for an activate_skill load.
+ * Used inside the runPrompt callback that wires SkillManager to the tree.
+ */
+export function buildSkillLoadNode(
+  content: ContentBlock[],
+  parentNodeId: string | null,
+): TreeNode {
+  return {
+    id: nanoid(12),
+    parentId: parentNodeId,
+    role: "user",
+    content,
     createdAt: Date.now(),
     meta: "skill-load",
   };

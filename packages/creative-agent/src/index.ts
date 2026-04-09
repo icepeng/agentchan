@@ -29,7 +29,6 @@ export {
   computeActivePath,
   flattenPathToMessages,
   pathToNode,
-  switchBranch,
   generateTitle,
 } from "./session/tree.js";
 export {
@@ -40,13 +39,13 @@ export {
 } from "./session/storage.js";
 
 // Types
-export type { ContentBlock, StoredMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
+export type { ContentBlock, NodeMeta, StoredMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
 export type { ModelInfo, CustomApiFormat, ProviderInfo, CustomProviderDef, ThinkingLevel } from "./config-types.js";
 
 // Agent
 export {
   setupCreativeAgent,
-  clearSkillManager,
+  clearConversationAgentState,
   getSkills,
   resolveModel,
   type CreativeAgentOptions,
@@ -59,17 +58,39 @@ export { storedToPiMessages, piToStoredMessages, extractUsage } from "./agent/co
 export type { AgentEvent } from "@mariozechner/pi-agent-core";
 export type { AssistantMessage, AssistantMessageEvent, Message, ToolCall } from "@mariozechner/pi-ai";
 
-// Workspace / Session — stateful first-class objects (thin-server façade)
+// Conversation — stateless free-function surface (replaces Workspace/Session)
 export {
-  createCreativeWorkspace,
-  type CreativeWorkspace,
+  createCreativeContext,
+  listConversations,
+  getConversation,
+  loadConversationSnapshot,
+  createConversation,
+  deleteConversation,
+  deleteSubtree,
+  switchBranch,
+  compactConversation,
+  runPrompt,
+  runRegenerate,
+  buildSkillInjectionContent,
+  buildUserNodeForPrompt,
+  buildAlwaysActiveSeedNode,
+  buildSkillLoadNode,
+  joinUserNodeText,
+  summarizeTurnUsage,
+  type CreativeContext,
+  type CreativeContextOptions,
   type ResolvedAgentConfig,
   type SessionEvent,
+  type Emit,
+  type PromptInput,
+  type RegenerateInput,
   type CreatedConversation,
   type ConversationSnapshot,
   type CompactResult,
+  type DeleteSubtreeResult,
   type SwitchBranchResult,
-} from "./workspace/index.js";
+} from "./conversation/index.js";
+
 
 // Logger
 export * as log from "./logger.js";

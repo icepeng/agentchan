@@ -41,6 +41,12 @@ export interface CreativeAgentOptions {
 
 export interface CreativeAgentSetup {
   agent: Agent;
+  /**
+   * Caller attaches `onSkillLoad` before invoking the agent. The callback
+   * mints a `meta:"skill-load"` TreeNode at activate_skill time and forwards
+   * the body to `agent.steer()`.
+   */
+  manager: SkillManager;
   /** Number of pi-ai messages from history (for slicing new messages after prompt). */
   historyLength: number;
   /** The assembled system prompt sent to the model. */
@@ -65,8 +71,6 @@ There is no shell tool in this environment. Do not try to call bash, sh, cmd, po
 # Read before you act
 
 Always read relevant files before acting on them. Do not modify, append to, or make decisions based on a file you haven't read in this conversation. When a skill or the user references a file, read it first — then proceed.`;
-
-const skillManagers = new Map<string, SkillManager>();
 
 // --- Helpers ---
 
@@ -129,8 +133,11 @@ export function resolveModel(
 
 // --- Skill management ---
 
-export function clearSkillManager(conversationId: string): void {
-  skillManagers.delete(conversationId);
+/**
+ * Tear down per-conversation caches owned by the agent layer. Currently
+ * clears only the Google explicit-cache hook, which is keyed by conversationId.
+ */
+export function clearConversationAgentState(conversationId: string): void {
   clearGoogleCache(conversationId);
 }
 
@@ -152,16 +159,8 @@ export async function setupCreativeAgent(
   history: StoredMessage[],
   conversationId: string,
 ): Promise<CreativeAgentSetup> {
-  // Discover skills
   const skills = await discoverProjectSkills(join(options.projectDir, "skills"));
-
-  let manager = skillManagers.get(conversationId);
-  if (!manager) {
-    manager = new SkillManager(skills, options.projectDir);
-    skillManagers.set(conversationId, manager);
-  } else {
-    manager.update(skills, options.projectDir);
-  }
+  const manager = new SkillManager(skills, options.projectDir);
 
   // Build tools
   const tools: any[] = createProjectTools(options.projectDir);
@@ -220,8 +219,6 @@ export async function setupCreativeAgent(
     ...(thinkingLevel && { reasoning: thinkingLevel }),
   });
 
-  manager.setSteerCallback((msg) => agent.steer(msg));
-
   log.info(
     "agent",
     `setup: ${options.provider}/${options.model}, ${skills.size} skills, ${tools.length} tools, ${historyLength} history msgs`,
@@ -275,5 +272,5 @@ export async function setupCreativeAgent(
     }
   });
 
-  return { agent, historyLength, systemPrompt };
+  return { agent, manager, historyLength, systemPrompt };
 }

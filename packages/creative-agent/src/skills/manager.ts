@@ -1,8 +1,8 @@
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-import type { UserMessage } from "@mariozechner/pi-ai";
 import { textResult } from "../tool-result.js";
 import * as log from "../logger.js";
+import type { ContentBlock } from "../types.js";
 import { buildSkillContent } from "./skill-content.js";
 import type { SkillRecord } from "./types.js";
 
@@ -17,21 +17,32 @@ const ActivateSkillParams = Type.Object({
 type ActivateSkillInput = Static<typeof ActivateSkillParams>;
 
 /**
- * Manages skill activation and provides the activate_skill tool.
+ * Payload handed to the runPrompt-supplied callback when a skill is activated.
+ * The caller mints a `meta:"skill-load"` TreeNode from this and forwards the
+ * body to `agent.steer()`.
+ */
+export interface SkillLoadEvent {
+  skillName: string;
+  content: ContentBlock[];
+}
+
+/**
+ * Provides the `activate_skill` tool. The runPrompt caller wires an
+ * `onSkillLoad` callback that translates each load into a TreeNode and
+ * forwards it to the agent via `agent.steer()`.
  */
 export class SkillManager {
   private skills: Map<string, SkillRecord>;
   private projectDir: string;
-  private onSteer?: (msg: UserMessage) => void;
+  private onSkillLoad?: (load: SkillLoadEvent) => void | Promise<void>;
 
   constructor(skills: Map<string, SkillRecord>, projectDir: string) {
     this.skills = skills;
     this.projectDir = projectDir;
   }
 
-  /** Wire the steer callback. Called by orchestrator after Agent creation. */
-  setSteerCallback(fn: (msg: UserMessage) => void): void {
-    this.onSteer = fn;
+  setOnSkillLoad(fn: (load: SkillLoadEvent) => void | Promise<void>): void {
+    this.onSkillLoad = fn;
   }
 
   createTool(): AgentTool<typeof ActivateSkillParams, void> {
@@ -47,26 +58,24 @@ Rules:
       parameters: ActivateSkillParams,
       label: "Activate skill",
 
-      execute: (_toolCallId: string, params: ActivateSkillInput) => {
+      execute: async (_toolCallId: string, params: ActivateSkillInput) => {
         const skill = this.skills.get(params.name);
         if (!skill) {
           log.warn("agent", `unknown skill: "${params.name}"`);
           const invocable = [...this.skills.values()]
             .filter((s) => !s.meta.alwaysActive && !s.meta.disableModelInvocation)
             .map((s) => s.meta.name);
-          return Promise.resolve(textResult(
+          return textResult(
             `Unknown skill: "${params.name}". Available skills: ${invocable.join(", ")}`,
-          ));
+          );
         }
 
-        const content = buildSkillContent(skill, this.projectDir);
-
-        if (this.onSteer) {
-          this.onSteer({ role: "user", content, timestamp: Date.now() });
-        }
+        const text = buildSkillContent(skill, this.projectDir);
+        const content: ContentBlock[] = [{ type: "text", text }];
+        await this.onSkillLoad?.({ skillName: skill.meta.name, content });
 
         log.info("agent", `skill activated: ${params.name}`);
-        return Promise.resolve(textResult(`Skill "${params.name}" loaded.`));
+        return textResult(`Skill "${params.name}" loaded.`);
       },
     };
   }

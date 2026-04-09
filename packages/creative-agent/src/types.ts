@@ -26,6 +26,14 @@ export interface TokenUsage {
 
 // --- Conversation tree node ---
 
+/**
+ * Node meta tags drive UI rendering decisions in MessageBubble.
+ *
+ * `skill-load` — user node carrying a skill body, rendered as a chip.
+ * `compact-summary` — system-generated summary node from a `compact` operation.
+ */
+export type NodeMeta = "skill-load" | "compact-summary";
+
 export interface TreeNode {
   id: string;
   parentId: string | null;
@@ -36,7 +44,7 @@ export interface TreeNode {
   model?: string;
   activeChildId?: string;
   usage?: TokenUsage;
-  meta?: string;
+  meta?: NodeMeta;
 }
 
 // --- Conversation metadata ---
