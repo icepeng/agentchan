@@ -31,6 +31,13 @@ export interface ConversationStorage {
 
   // Tree node operations
   appendNode(projectSlug: string, conversationId: string, node: TreeNode): Promise<void>;
+  /**
+   * Batch variant — writes multiple nodes in one underlying `appendFile`
+   * call. Use this when several nodes are persisted back-to-back (e.g.
+   * catalog + seed at conversation start) to cut syscalls and keep ordering
+   * deterministic. A no-op when `nodes` is empty.
+   */
+  appendNodes(projectSlug: string, conversationId: string, nodes: TreeNode[]): Promise<void>;
   loadTree(projectSlug: string, conversationId: string): Promise<Map<string, TreeNodeWithChildren>>;
   persistActiveChildUpdates(
     projectSlug: string,
@@ -58,6 +65,20 @@ export function createConversationStorage(projectsDir: string): ConversationStor
 
   async function ensureConversationsDir(slug: string): Promise<void> {
     await mkdir(conversationsDir(slug), { recursive: true });
+  }
+
+  /**
+   * Serialize and write one or more nodes in a single `appendFile` call.
+   * Caller must ensure `nodes.length > 0`.
+   */
+  async function writeNodeLines(
+    projectSlug: string,
+    conversationId: string,
+    nodes: TreeNode[],
+  ): Promise<void> {
+    await ensureConversationsDir(projectSlug);
+    const body = nodes.map((n) => JSON.stringify(n) + "\n").join("");
+    await appendFile(conversationPath(projectSlug, conversationId), body);
   }
 
   /** Read, parse, and build tree from a single conversation file. */
@@ -145,8 +166,12 @@ export function createConversationStorage(projectsDir: string): ConversationStor
     },
 
     async appendNode(projectSlug: string, conversationId: string, node: TreeNode): Promise<void> {
-      await ensureConversationsDir(projectSlug);
-      await appendFile(conversationPath(projectSlug, conversationId), JSON.stringify(node) + "\n");
+      await writeNodeLines(projectSlug, conversationId, [node]);
+    },
+
+    async appendNodes(projectSlug: string, conversationId: string, nodes: TreeNode[]): Promise<void> {
+      if (nodes.length === 0) return;
+      await writeNodeLines(projectSlug, conversationId, nodes);
     },
 
     async loadTree(

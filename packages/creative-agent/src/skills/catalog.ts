@@ -1,6 +1,15 @@
 import type { SkillRecord } from "./types.js";
 
 /**
+ * Claude-Code-style `<system-reminder>` wrapper tags. Exported so tests and
+ * any future reminder-producing helper can reference the same literal instead
+ * of re-encoding it — mirrors the `SKILL_CONTENT_PREFIX` convention in
+ * `skill-content.ts`.
+ */
+export const SYSTEM_REMINDER_OPEN = "<system-reminder>";
+export const SYSTEM_REMINDER_CLOSE = "</system-reminder>";
+
+/**
  * Generate the skill catalog text that gets injected as a user-role
  * `<system-reminder>` message at conversation start (and after compact).
  *
@@ -33,7 +42,7 @@ export function generateCatalog(skills: SkillRecord[]): string | null {
   });
 
   return [
-    "<system-reminder>",
+    SYSTEM_REMINDER_OPEN,
     "Available skills for this session:",
     "",
     ...lines,
@@ -41,6 +50,6 @@ export function generateCatalog(skills: SkillRecord[]): string | null {
     "Skills marked `(already loaded)` have their full instructions in `<skill_content>` blocks in this conversation — follow them directly. Do NOT call `activate_skill` on them; they are already active.",
     "",
     "For skills without that marker, call `activate_skill` with the skill name when the task matches the skill's description. Only names listed above are valid targets.",
-    "</system-reminder>",
+    SYSTEM_REMINDER_CLOSE,
   ].join("\n");
 }

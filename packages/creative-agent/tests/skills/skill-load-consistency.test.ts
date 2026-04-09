@@ -10,6 +10,10 @@ import {
 } from "../../src/agent/build.js";
 import { discoverProjectSkills } from "../../src/skills/discovery.js";
 import { SKILL_CONTENT_PREFIX } from "../../src/skills/skill-content.js";
+import {
+  SYSTEM_REMINDER_OPEN,
+  SYSTEM_REMINDER_CLOSE,
+} from "../../src/skills/catalog.js";
 import { SkillManager, type SkillLoadEvent } from "../../src/skills/manager.js";
 import type { ContentBlock, TreeNode } from "../../src/types.js";
 
@@ -196,8 +200,8 @@ describe("skill catalog reminder node", () => {
     expect(node!.content).toHaveLength(1);
 
     const text = getText(node!);
-    expect(text.startsWith("<system-reminder>")).toBe(true);
-    expect(text.trimEnd().endsWith("</system-reminder>")).toBe(true);
+    expect(text.startsWith(SYSTEM_REMINDER_OPEN)).toBe(true);
+    expect(text.trimEnd().endsWith(SYSTEM_REMINDER_CLOSE)).toBe(true);
 
     // Always-active skills appear with an `(already loaded)` marker.
     expect(text).toContain("always-character (already loaded)");
@@ -205,10 +209,11 @@ describe("skill catalog reminder node", () => {
     expect(text).toMatch(/- invocable-character:/);
     expect(text).not.toContain("invocable-character (already loaded)");
 
-    // The reminder explicitly forbids re-activating already-loaded skills
-    // and guides the model on how to call activate_skill for invocables.
+    // The reminder carries both the negative rule (forbid re-activating
+    // already-loaded skills) and the positive rule (how to call
+    // activate_skill for invocables).
     expect(text).toContain("Do NOT call `activate_skill`");
-    expect(text).toContain("activate_skill");
+    expect(text).toContain("call `activate_skill` with the skill name");
   });
 
   test("returns null when no skills are visible to the model", async () => {

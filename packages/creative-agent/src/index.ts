@@ -11,7 +11,11 @@ export { textResult } from "./tool-result.js";
 
 // Skills
 export { discoverProjectSkills } from "./skills/discovery.js";
-export { generateCatalog } from "./skills/catalog.js";
+export {
+  generateCatalog,
+  SYSTEM_REMINDER_OPEN,
+  SYSTEM_REMINDER_CLOSE,
+} from "./skills/catalog.js";
 export { SkillManager } from "./skills/manager.js";
 export { buildSkillContent, SKILL_CONTENT_PREFIX } from "./skills/skill-content.js";
 export type { SkillRecord, SkillMetadata } from "./skills/types.js";
@@ -72,6 +76,7 @@ export {
   buildSkillInjectionContent,
   buildUserNodeForPrompt,
   buildAlwaysActiveSeedNode,
+  buildCatalogReminderNode,
   buildSkillLoadNode,
   joinUserNodeText,
   summarizeTurnUsage,

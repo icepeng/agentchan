@@ -165,11 +165,7 @@ export async function setupCreativeAgent(
   const tools: any[] = createProjectTools(options.projectDir);
   if (skills.size > 0) tools.push(manager.createTool());
 
-  // NOTE: the skill catalog is no longer part of the system prompt. It is
-  // injected as a `meta:"skill-catalog"` user node (wrapped in
-  // `<system-reminder>`) at conversation start by createConversation/
-  // compactConversation. See `buildCatalogReminderNode` and the comment on
-  // `generateCatalog` for the ge-project regression that motivated the move.
+  // Catalog is injected as a user node by lifecycle.ts, not here.
   const systemPrompt = DEFAULT_SYSTEM_PROMPT;
 
   // Convert history
