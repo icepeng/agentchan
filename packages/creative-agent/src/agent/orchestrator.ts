@@ -42,12 +42,6 @@ export interface CreativeAgentOptions {
 
 export interface CreativeAgentSetup {
   agent: Agent;
-  /**
-   * Caller attaches `onSkillLoad` before invoking the agent. The callback
-   * mints a `meta:"skill-load"` TreeNode at activate_skill time and forwards
-   * the body to `agent.steer()`.
-   */
-  manager: SkillManager;
   /** Number of pi-ai messages from history (for slicing new messages after prompt). */
   historyLength: number;
   /** The assembled system prompt sent to the model. */
@@ -297,5 +291,5 @@ export async function setupCreativeAgent(
     }
   });
 
-  return { agent, manager, historyLength, systemPrompt };
+  return { agent, historyLength, systemPrompt };
 }

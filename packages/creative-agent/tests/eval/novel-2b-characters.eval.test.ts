@@ -2,7 +2,7 @@
  * Eval: Stage 2-B — Character Design
  *
  * Verifies the agent reads character-archetypes.md and character-sheet.md,
- * then writes character files to output/characters/.
+ * then writes character files to files/characters/.
  */
 
 import { describe, test, afterEach } from "bun:test";

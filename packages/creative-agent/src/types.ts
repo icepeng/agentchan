@@ -29,12 +29,10 @@ export interface TokenUsage {
 /**
  * Node meta tags drive UI rendering decisions in MessageBubble.
  *
- * `skill-catalog` — user node carrying the `<system-reminder>`-wrapped skill
- *                   catalog, injected at conversation start.
  * `skill-load` — user node carrying a skill body, rendered as a chip.
  * `compact-summary` — system-generated summary node from a `compact` operation.
  */
-export type NodeMeta = "skill-catalog" | "skill-load" | "compact-summary";
+export type NodeMeta = "skill-load" | "compact-summary";
 
 export interface TreeNode {
   id: string;

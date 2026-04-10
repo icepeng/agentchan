@@ -23,7 +23,6 @@ import { type AgentContext, projectDirOf } from "./context.js";
 import type { ResolvedAgentConfig } from "./config.js";
 import {
   buildUserNodeForPrompt,
-  buildSkillLoadNode,
   joinUserNodeText,
 } from "./build.js";
 import { summarizeTurnUsage } from "./usage.js";
@@ -212,23 +211,13 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     : [];
   const history = flattenPathToMessages(tree, historyPath);
 
-  const { agent, manager, historyLength } = await setupCreativeAgent(
+  const { agent, historyLength } = await setupCreativeAgent(
     buildAgentOptions(cfg, projectDir),
     history,
     conversationId,
   );
 
-  // Each activate_skill call splices a new node between the last node and
-  // the assistant response, so the chain advances on every callback.
   let lastNodeId = args.promptParentId;
-
-  manager.setOnSkillLoad(async ({ skillName, content }) => {
-    log.info("agent", `skill-load node: ${skillName}`);
-    const node = buildSkillLoadNode(content, lastNodeId);
-    await persistAndInsertNode(ctx, slug, conversationId, tree, node);
-    emit({ type: "user_node", node });
-    lastNodeId = node.id;
-  });
 
   const usageEntries: TokenUsage[] = [];
   const unsubscribe = agent.subscribe((ev: AgentEvent) => {

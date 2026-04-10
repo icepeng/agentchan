@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 
 export interface FixtureOptions {
   skillNames?: string[];
+  /** Write a SYSTEM.md at the project root. */
+  systemMd?: string;
+  /** Copy files/ from an example_data project (e.g. "chat"). */
+  copyProjectFiles?: string;
   prePopulate?: Record<string, string>;
 }
 
@@ -33,7 +37,22 @@ export async function createFixture(options: FixtureOptions): Promise<Fixture> {
     const skillDst = join(projectDir, "skills", name);
     await cp(skillSrc, skillDst, { recursive: true });
   }
-  await mkdir(join(projectDir, "output"), { recursive: true });
+
+  if (options.copyProjectFiles) {
+    const projSrc = join(MONOREPO_ROOT, "example_data", "projects", options.copyProjectFiles);
+    const filesSrc = join(projSrc, "files");
+    const systemSrc = join(projSrc, "SYSTEM.md");
+    const copies: Promise<void>[] = [];
+    copies.push(cp(filesSrc, join(projectDir, "files"), { recursive: true }));
+    copies.push(cp(systemSrc, join(projectDir, "SYSTEM.md")).catch(() => {}));
+    await Promise.all(copies);
+  }
+
+  if (options.systemMd) {
+    await writeFile(join(projectDir, "SYSTEM.md"), options.systemMd, "utf-8");
+  }
+
+  await mkdir(join(projectDir, "files", "scenes"), { recursive: true });
 
   if (options.prePopulate) {
     for (const [relPath, content] of Object.entries(options.prePopulate)) {
@@ -171,19 +190,19 @@ const CHAPTER_STUB = `# 1장: 금지된 서고
 `;
 
 export const OUTLINE_ONLY_FIXTURES: Record<string, string> = {
-  "output/outline.md": OUTLINE_STUB,
+  "files/outline.md": OUTLINE_STUB,
 };
 
 /** Pre-populate data for stage 3 (needs outline + characters + world) */
 export const STAGE_3_FIXTURES: Record<string, string> = {
-  "output/outline.md": OUTLINE_STUB,
-  "output/characters/lira.md": CHARACTER_STUB_LIRA,
-  "output/characters/vorath.md": CHARACTER_STUB_VORATH,
-  "output/world.md": WORLD_STUB,
+  "files/outline.md": OUTLINE_STUB,
+  "files/characters/lira.md": CHARACTER_STUB_LIRA,
+  "files/characters/vorath.md": CHARACTER_STUB_VORATH,
+  "files/world.md": WORLD_STUB,
 };
 
 /** Pre-populate data for stage 4 (needs everything + chapters) */
 export const STAGE_4_FIXTURES: Record<string, string> = {
   ...STAGE_3_FIXTURES,
-  "output/chapters/01-forbidden-library.md": CHAPTER_STUB,
+  "files/chapters/01-forbidden-library.md": CHAPTER_STUB,
 };

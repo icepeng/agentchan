@@ -2,7 +2,7 @@
  * Eval: Stage 3 — Chapter Writing
  *
  * Verifies the agent reads prose-style-guide.md and chapter-template.md,
- * then writes a chapter file to output/chapters/.
+ * then writes a chapter file to files/chapters/.
  */
 
 import { describe, test, afterEach } from "bun:test";

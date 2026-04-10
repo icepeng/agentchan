@@ -2,7 +2,7 @@
  * Eval: Stage 2-A — Plot Outline
  *
  * Verifies the agent reads story-structure.md and outline-template.md,
- * then writes the outline to output/outline.md.
+ * then writes the outline to files/outline.md.
  */
 
 import { describe, test, afterEach } from "bun:test";

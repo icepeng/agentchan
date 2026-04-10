@@ -2,7 +2,6 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
 import * as log from "../logger.js";
-import type { ContentBlock } from "../types.js";
 import { buildSkillContent } from "./skill-content.js";
 import type { SkillRecord } from "./types.js";
 
@@ -17,32 +16,17 @@ const ActivateSkillParams = Type.Object({
 type ActivateSkillInput = Static<typeof ActivateSkillParams>;
 
 /**
- * Payload handed to the runPrompt-supplied callback when a skill is activated.
- * The caller mints a `meta:"skill-load"` TreeNode from this for UI display.
- * The skill body itself is returned directly in the tool result — no steer needed.
- */
-export interface SkillLoadEvent {
-  skillName: string;
-  content: ContentBlock[];
-}
-
-/**
  * Provides the `activate_skill` tool. The skill body is returned directly
- * in the tool result. The optional `onSkillLoad` callback lets the caller
- * mint a `meta:"skill-load"` TreeNode for UI display.
+ * in the tool result — the normal tool_call→tool_result exchange carries
+ * everything; no separate node or callback needed.
  */
 export class SkillManager {
   private skills: Map<string, SkillRecord>;
   private projectDir: string;
-  private onSkillLoad?: (load: SkillLoadEvent) => void | Promise<void>;
 
   constructor(skills: Map<string, SkillRecord>, projectDir: string) {
     this.skills = skills;
     this.projectDir = projectDir;
-  }
-
-  setOnSkillLoad(fn: (load: SkillLoadEvent) => void | Promise<void>): void {
-    this.onSkillLoad = fn;
   }
 
   createTool(): AgentTool<typeof ActivateSkillParams, void> {
@@ -71,12 +55,8 @@ Important:
           );
         }
 
-        const text = buildSkillContent(skill, this.projectDir);
-        const content: ContentBlock[] = [{ type: "text", text }];
-        await this.onSkillLoad?.({ skillName: skill.meta.name, content });
-
         log.info("agent", `skill activated: ${params.name}`);
-        return textResult(text);
+        return textResult(buildSkillContent(skill, this.projectDir));
       },
     };
   }

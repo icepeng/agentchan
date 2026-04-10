@@ -79,8 +79,6 @@ suite("skill wire format: instruction following baseline", () => {
         name: "novel-writing",
       });
 
-      // Skill body says outline goes to output/outline.md (or files/outline.md
-      // depending on project structure). Accept either.
       expectToolCallAny(harness.toolCalls, ["write", "append"], {
         file_path: /outline/,
       });
@@ -95,7 +93,7 @@ suite("skill wire format: instruction following baseline", () => {
         skillNames: ["novel-writing"],
         prePopulate: {
           // Simulate existing outline to trigger stage-3
-          "output/outline.md": "# 아웃라인\n## 1막\n### 오프닝\n리라는 서고에서 주문서를 발견한다.\n",
+          "files/outline.md": "# 아웃라인\n## 1막\n### 오프닝\n리라는 서고에서 주문서를 발견한다.\n",
         },
       });
 

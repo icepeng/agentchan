@@ -28,6 +28,8 @@ export interface TokenStats {
 export interface EvalHarnessOptions {
   skillName?: string;
   skillNames?: string[];
+  /** Copy SYSTEM.md + files/ from an example_data project. */
+  copyProjectFiles?: string;
   provider?: string;
   model?: string;
   prePopulate?: Record<string, string>;
@@ -60,7 +62,10 @@ export class EvalHarness {
   }
 
   static async create(options: EvalHarnessOptions = {}): Promise<EvalHarness> {
-    const skillNames = options.skillNames ?? [options.skillName ?? "novel-writing"];
+    const hasSkillOption = options.skillName !== undefined || options.skillNames !== undefined;
+    const skillNames = hasSkillOption
+      ? (options.skillNames ?? [options.skillName!])
+      : (options.copyProjectFiles ? [] : ["novel-writing"]);
     const provider = options.provider ?? process.env.EVAL_PROVIDER ?? "google";
     const model = options.model ?? process.env.EVAL_MODEL ?? "gemini-3-flash-preview";
     const maxToolCalls = options.maxToolCalls ?? 30;
@@ -69,6 +74,7 @@ export class EvalHarness {
 
     const fixture = await createFixture({
       skillNames,
+      copyProjectFiles: options.copyProjectFiles,
       prePopulate: options.prePopulate,
     });
 

@@ -106,9 +106,8 @@ function CompactSummaryBubble({
 }
 
 // ── Skill Chip Bubble ────────────────────────
-// Renders any user node tagged `meta: "skill-load"` — covers all three
-// injection paths (always-active seed, slash invocation chip, activate_skill
-// steer). The chip extracts skill names from the canonical
+// Renders any user node tagged `meta: "skill-load"` — covers slash invocation
+// and activate_skill paths. Extracts skill names from the canonical
 // `<skill_content name="...">` blocks for the header label.
 
 function SkillChipBubble({
@@ -236,12 +235,6 @@ export function MessageBubble({
         <MessageContent content={node.content} />
       </BubbleWrap>
     );
-  }
-
-  // skill-catalog is conversation infrastructure (the <system-reminder>-wrapped
-  // skill catalog injected at session start). Not user-visible.
-  if (node.role === "user" && node.meta === "skill-catalog") {
-    return null;
   }
 
   if (node.role === "user" && node.meta === "skill-load") {

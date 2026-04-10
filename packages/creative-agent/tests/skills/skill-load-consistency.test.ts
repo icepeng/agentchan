@@ -11,13 +11,12 @@ import {
   SYSTEM_REMINDER_OPEN,
   SYSTEM_REMINDER_CLOSE,
 } from "../../src/skills/catalog.js";
-import { SkillManager, type SkillLoadEvent } from "../../src/skills/manager.js";
-import type { ContentBlock, TreeNode } from "../../src/types.js";
+import { SkillManager } from "../../src/skills/manager.js";
+import type { TreeNode } from "../../src/types.js";
 
-// Two skill-injection paths must produce nodes with a consistent shape
-// (`role: "user"`, `meta: "skill-load"`, `content[0]` text starting with
-// SKILL_CONTENT_PREFIX) so MessageBubble's single meta gate works for all of
-// them and convert.ts merges them into the LLM context the same way.
+// Two skill-injection paths must produce identical `<skill_content>` text:
+// 1. Slash command → buildUserNodeForPrompt creates a skill-load TreeNode
+// 2. activate_skill tool → execute() returns body in tool result
 
 const INVOCABLE_SKILL = `---
 name: invocable-character
@@ -59,23 +58,10 @@ function getText(node: TreeNode): string {
   return block.text;
 }
 
-function getBlockText(content: ContentBlock[]): string {
-  const block = content[0];
-  if (block?.type !== "text") throw new Error("expected first content block to be text");
+function getToolResultText(result: { content: { type: string; text?: string }[] }): string {
+  const block = result.content[0];
+  if (block?.type !== "text" || !block.text) throw new Error("expected text content in tool result");
   return block.text;
-}
-
-async function captureSkillLoad(
-  manager: SkillManager,
-  skillName: string,
-): Promise<SkillLoadEvent> {
-  let loaded: SkillLoadEvent | null = null;
-  manager.setOnSkillLoad((load) => {
-    loaded = load;
-  });
-  await manager.createTool().execute("test-call-id", { name: skillName });
-  if (!loaded) throw new Error("onSkillLoad was never invoked");
-  return loaded;
 }
 
 function assertSkillLoadShape(node: TreeNode, expectedSkillName: string): void {
@@ -114,15 +100,12 @@ describe("skill-load shape — two injection paths", () => {
     expect(result.llmText).toBe(userText);
   });
 
-  test("activate_skill path: SkillManager fires onSkillLoad with a ContentBlock[] payload", async () => {
+  test("activate_skill path: tool result contains skill body directly", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const manager = new SkillManager(skills, projectDir);
 
-    const loaded = await captureSkillLoad(manager, "invocable-character");
-    expect(loaded.skillName).toBe("invocable-character");
-
-    expect(loaded.content).toHaveLength(1);
-    const text = getBlockText(loaded.content);
+    const result = await manager.createTool().execute("test-call-id", { name: "invocable-character" });
+    const text = getToolResultText(result);
     expect(text.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
     expect(text).toContain('name="invocable-character"');
     expect(text).toContain("</skill_content>");
@@ -142,8 +125,8 @@ describe("skill-load wire format consistency across paths", () => {
     const slashChipText = getText(slashResult.nodes[0]);
 
     const manager = new SkillManager(skills, projectDir);
-    const loaded = await captureSkillLoad(manager, "invocable-character");
-    const activatedText = getBlockText(loaded.content);
+    const toolResult = await manager.createTool().execute("test-call-id", { name: "invocable-character" });
+    const activatedText = getToolResultText(toolResult);
 
     expect(slashChipText).toBe(activatedText);
   });
