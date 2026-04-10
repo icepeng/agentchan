@@ -1,11 +1,41 @@
-# Novel Project
+# 소설 집필 프로젝트
 
-소설 집필 프로젝트입니다.
+창작 소설의 기획, 집필, 교정을 위한 프로젝트입니다.
 
-## 프로젝트 구조
-- files/chapters/ — 챕터 파일
-- files/characters/ — 캐릭터 시트
-- files/outline.md — 소설 아웃라인
-- files/world.md — 세계관 설정
+## 워크플로우
 
-novel-writing 스킬을 활성화하여 집필을 시작하세요.
+소설 집필은 다섯 단계로 진행됩니다. 각 단계에 해당하는 스킬을 활성화하여 진행합니다.
+
+| 단계 | 스킬 | 목적 |
+|------|------|------|
+| 1. 전제 + 아웃라인 | outline | 컨셉, 장르, 주제 정의 및 플롯 구성 |
+| 2. 캐릭터 | characters | 주요 캐릭터 설계 |
+| 3. 세계관 | world-building | 배경 세계 구축 |
+| 4. 집필 | chapter-writing | 아웃라인에 따라 챕터 작성 |
+| 5. 교정 | revision | 일관성 점검, 문체 교정, 원고 편집 |
+
+단계 1~3은 순서를 바꿔도 되지만, 집필(4단계) 전에 아웃라인, 캐릭터, 세계관이 갖춰져야 합니다.
+
+## 파일 구조
+
+모든 소설 파일은 `files/` 디렉토리 아래에 작성합니다. 소설 이름으로 별도 폴더를 만들지 마세요.
+
+```
+files/
+├── outline.md
+├── world.md
+├── characters/
+│   ├── protagonist.md
+│   ├── antagonist.md
+│   └── ...
+├── chapters/
+│   ├── 01-chapter-title.md
+│   ├── 02-chapter-title.md
+│   └── ...
+└── manuscript.md          (revision 스킬의 compile.ts로 생성)
+```
+
+## 공통 규칙
+
+- 마크다운 형식으로 작성
+- 워크플로우가 진행됨에 따라 디렉토리와 파일을 생성

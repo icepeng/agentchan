@@ -65,7 +65,7 @@ export class EvalHarness {
     const hasSkillOption = options.skillName !== undefined || options.skillNames !== undefined;
     const skillNames = hasSkillOption
       ? (options.skillNames ?? [options.skillName!])
-      : (options.copyProjectFiles ? [] : ["novel-writing"]);
+      : [];
     const provider = options.provider ?? process.env.EVAL_PROVIDER ?? "google";
     const model = options.model ?? process.env.EVAL_MODEL ?? "gemini-3-flash-preview";
     const maxToolCalls = options.maxToolCalls ?? 30;

@@ -23,7 +23,7 @@ const hasApiKey = !!process.env.GOOGLE_API_KEY;
 const suite = hasApiKey ? describe : describe.skip;
 
 // Two skills in the catalog — model should be selective
-const MULTI_SKILLS = ["novel-writing", "example"];
+const MULTI_SKILLS = ["outline", "example"];
 
 suite("skill catalog: system prompt placement regression", () => {
   let harness: EvalHarness;
@@ -63,9 +63,9 @@ suite("skill catalog: system prompt placement regression", () => {
 
       await harness.prompt("소설을 하나 쓰고 싶어요. 어떻게 시작하면 좋을까요?");
 
-      // Should activate novel-writing (matches the request)
+      // Should activate outline (matches the request)
       expectToolCall(harness.toolCalls, "activate_skill", {
-        name: "novel-writing",
+        name: "outline",
       });
 
       // Should NOT activate the example skill (irrelevant to the request)

@@ -36,17 +36,17 @@ suite("skill wire format: instruction following baseline", () => {
   });
 
   test(
-    "1a: novel-writing activation triggers stage-1 questioning",
+    "1a: outline activation triggers premise questioning",
     async () => {
       harness = await EvalHarness.create({
-        skillNames: ["novel-writing"],
+        skillNames: ["outline"],
       });
 
       await harness.prompt("소설을 쓰고 싶어요. 도와주세요.");
 
-      // Model should activate the novel-writing skill
+      // Model should activate the outline skill
       expectToolCall(harness.toolCalls, "activate_skill", {
-        name: "novel-writing",
+        name: "outline",
       });
 
       // After activation, skill body instructs: "사용자에게 장르, 로그라인,
@@ -61,22 +61,22 @@ suite("skill wire format: instruction following baseline", () => {
   );
 
   test(
-    "1b: stage-2 outline creation writes to correct path",
+    "1b: outline creation writes to correct path",
     async () => {
       harness = await EvalHarness.create({
-        skillNames: ["novel-writing"],
+        skillNames: ["outline"],
       });
 
-      // Provide all stage-1 info upfront to skip questioning
+      // Provide all premise info upfront to skip questioning
       await harness.prompt(
         "소설을 쓰고 싶어요. 장르: 판타지, 로그라인: 견습 마법사가 금지된 주문을 발동하여 " +
           "세계가 무너지기 전에 해주를 찾아야 한다. 주제: 지식의 대가. " +
-          "목표 분량: 80,000 단어. 바로 2단계 아웃라인 작성으로 진행해주세요.",
+          "목표 분량: 80,000 단어. 바로 아웃라인 작성으로 진행해주세요.",
       );
 
       // Model should activate the skill
       expectToolCall(harness.toolCalls, "activate_skill", {
-        name: "novel-writing",
+        name: "outline",
       });
 
       expectToolCallAny(harness.toolCalls, ["write", "append"], {
@@ -90,28 +90,27 @@ suite("skill wire format: instruction following baseline", () => {
     "1c: skill directory path correctly prefixed in file operations",
     async () => {
       harness = await EvalHarness.create({
-        skillNames: ["novel-writing"],
+        skillNames: ["outline"],
         prePopulate: {
-          // Simulate existing outline to trigger stage-3
           "files/outline.md": "# 아웃라인\n## 1막\n### 오프닝\n리라는 서고에서 주문서를 발견한다.\n",
         },
       });
 
       await harness.prompt(
-        "novel-writing 스킬을 활성화하고, 이 프로젝트의 아웃라인을 읽어보세요. " +
+        "outline 스킬을 활성화하고, 이 프로젝트의 아웃라인을 읽어보세요. " +
           "스킬 디렉토리에 있는 리소스 파일 목록도 확인해주세요.",
       );
 
       // The model should read the skill directory contents.
-      // buildSkillContent adds: "Skill directory: skills/novel-writing"
+      // buildSkillContent adds: "Skill directory: skills/outline"
       // The model should use this path prefix for any skill resource access.
       expectToolCall(harness.toolCalls, "activate_skill", {
-        name: "novel-writing",
+        name: "outline",
       });
 
       // The model should read the outline and/or skill resources
       expectToolCallAny(harness.toolCalls, ["read", "ls"], {
-        file_path: /outline|skills\/novel-writing/,
+        file_path: /outline/,
       });
     },
     { timeout: 180_000 },
