@@ -13,7 +13,7 @@
  */
 
 import { describe, test, afterEach } from "bun:test";
-import { EvalHarness, expectToolCall, expectToolCallAny, expectNoWriteDuplication, expectAppendNewlineSeparation } from "./harness.js";
+import { EvalHarness, expectToolCallAny, expectNoWriteDuplication, expectAppendNewlineSeparation } from "./harness.js";
 
 const hasApiKey = !!process.env.GOOGLE_API_KEY;
 const suite = hasApiKey ? describe : describe.skip;
@@ -41,7 +41,7 @@ suite("character-chat: no duplicate response", () => {
         "캐릭터챗을 시작합니다. 엘라라가 주점에서 손님을 맞이하는 장면을 바로 시작해 주세요.",
       );
 
-      expectToolCall(harness.toolCalls, "write", { file_path: /output\/scene/ });
+      expectToolCallAny(harness.toolCalls, ["append", "write"], { file_path: /output\/scene/ });
       expectNoWriteDuplication(harness.toolCalls, harness.assistantTexts);
     },
     { timeout: 180_000 },

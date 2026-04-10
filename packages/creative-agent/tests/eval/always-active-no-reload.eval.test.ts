@@ -24,11 +24,11 @@ import {
 const hasApiKey = !!process.env.GOOGLE_API_KEY;
 const suite = hasApiKey ? describe : describe.skip;
 
-// elara-brightwell is declared `always-active: true` in example_data —
-// character-chat is a normal activatable skill and is expected to be loaded
-// by the model on the first turn.
+// Both character-chat and elara-brightwell are declared `always-active: true`
+// in example_data, so their bodies are seeded into the conversation at
+// creation time. Neither should be (re-)loaded via activate_skill on any turn.
 const CHAT_SKILLS = ["character-chat", "elara-brightwell"];
-const ALWAYS_ACTIVE = "elara-brightwell";
+const ALWAYS_ACTIVE = ["character-chat", "elara-brightwell"];
 
 suite("always-active skill: no redundant reload", () => {
   let harness: EvalHarness;
