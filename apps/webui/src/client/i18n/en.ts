@@ -78,7 +78,6 @@ export const translations = {
   "settings.renderer": "Renderer",
   "settings.projectConfig": "Project Configuration",
   "settings.name": "Name",
-  "settings.outputDir": "Output Directory",
   "settings.notes": "Notes",
   "settings.save": "Save",
   "settings.saving": "Saving...",

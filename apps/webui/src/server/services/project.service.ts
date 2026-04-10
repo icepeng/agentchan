@@ -9,7 +9,7 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
     async list() { return projectRepo.list(); },
     async get(slug: string) { return projectRepo.get(slug); },
     async create(name: string) { return projectRepo.create(name); },
-    async update(slug: string, updates: { name?: string; outputDir?: string; notes?: string }) {
+    async update(slug: string, updates: { name?: string; notes?: string }) {
       return projectRepo.update(slug, updates);
     },
     async delete(slug: string) {
@@ -18,8 +18,8 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       return projectRepo.delete(slug);
     },
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
-    async readOutputFiles(slug: string, outputDirName?: string) {
-      return projectRepo.readOutputFiles(slug, outputDirName);
+    async scanWorkspaceFiles(slug: string) {
+      return projectRepo.scanWorkspaceFiles(slug);
     },
 
     async ensureInitialProject(): Promise<void> {
@@ -46,10 +46,10 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       await Bun.write(rendererPath, source);
     },
 
-    serveProjectFile(slug: string, filePath: string): { fullPath: string } | null {
-      const projectsBase = resolve(projectsDir);
-      const fullPath = resolve(projectsDir, slug, filePath);
-      if (!fullPath.startsWith(projectsBase + sep)) return null;
+    serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {
+      const filesBase = resolve(projectsDir, slug, "files");
+      const fullPath = resolve(filesBase, filePath);
+      if (!fullPath.startsWith(filesBase + sep)) return null;
       return { fullPath };
     },
   };

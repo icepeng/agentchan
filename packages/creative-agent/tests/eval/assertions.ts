@@ -84,11 +84,6 @@ export function expectNoToolCall(toolCalls: CollectedToolCall[], toolName: strin
 
 /**
  * Assert that `activate_skill` was never called for any of the given skill names.
- *
- * Used to detect the always-active duplicate-load bug: a skill whose body is
- * already seeded into the conversation should NEVER be (re-)loaded via the
- * activate_skill tool, since that just re-injects the same body the model
- * already has in context.
  */
 export function expectNoSkillActivation(
   toolCalls: CollectedToolCall[],

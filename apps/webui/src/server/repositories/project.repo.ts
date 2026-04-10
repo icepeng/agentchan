@@ -1,8 +1,8 @@
-import { readFile, mkdir, readdir, rename, rm, stat, cp } from "node:fs/promises";
+import { readFile, mkdir, readdir, rename, rm, cp } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
-import { slugify } from "@agentchan/creative-agent";
-import type { Project, OutputFile } from "../types.js";
+import { join } from "node:path";
+import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
+import type { Project } from "../types.js";
 
 export function createProjectRepo(projectsDir: string) {
   function projectDir(slug: string): string {
@@ -71,7 +71,7 @@ export function createProjectRepo(projectsDir: string) {
 
     async update(
       slug: string,
-      updates: { name?: string; outputDir?: string; notes?: string },
+      updates: { name?: string; notes?: string },
     ): Promise<Project> {
       const metaPath = projectMetaPath(slug);
       if (!existsSync(metaPath)) throw new Error(`Project not found: ${slug}`);
@@ -84,7 +84,6 @@ export function createProjectRepo(projectsDir: string) {
         slug: newSlug,
         name: newName,
         updatedAt: Date.now(),
-        ...(updates.outputDir !== undefined ? { outputDir: updates.outputDir } : {}),
         ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
       };
 
@@ -105,7 +104,6 @@ export function createProjectRepo(projectsDir: string) {
     async duplicate(sourceSlug: string, name: string): Promise<Project> {
       const srcMeta = projectMetaPath(sourceSlug);
       if (!existsSync(srcMeta)) throw new Error(`Source project not found: ${sourceSlug}`);
-      const source = JSON.parse(await readFile(srcMeta, "utf-8")) as Project;
 
       const slug = uniqueSlug(name);
       const now = Date.now();
@@ -115,7 +113,6 @@ export function createProjectRepo(projectsDir: string) {
         name,
         createdAt: now,
         updatedAt: now,
-        ...(source.outputDir ? { outputDir: source.outputDir } : {}),
       };
 
       await ensureProjectDir(slug);
@@ -125,9 +122,11 @@ export function createProjectRepo(projectsDir: string) {
       const destDir = projectDir(slug);
       const copies: Promise<void>[] = [];
 
-      const srcSkills = join(srcDir, "skills");
-      if (existsSync(srcSkills)) {
-        copies.push(cp(srcSkills, join(destDir, "skills"), { recursive: true }));
+      for (const sub of ["skills", "files"] as const) {
+        const src = join(srcDir, sub);
+        if (existsSync(src)) {
+          copies.push(cp(src, join(destDir, sub), { recursive: true }));
+        }
       }
 
       const srcRenderer = join(srcDir, "renderer.ts");
@@ -135,48 +134,19 @@ export function createProjectRepo(projectsDir: string) {
         copies.push(cp(srcRenderer, join(destDir, "renderer.ts")));
       }
 
+      const srcSystem = join(srcDir, "SYSTEM.md");
+      if (existsSync(srcSystem)) {
+        copies.push(cp(srcSystem, join(destDir, "SYSTEM.md")));
+      }
+
       await Promise.all(copies);
 
       return project;
     },
 
-    async readOutputFiles(
-      projectSlug: string,
-      outputDirName: string = "output",
-    ): Promise<OutputFile[]> {
-      const projectBase = resolve(projectDir(projectSlug));
-      const baseDir = resolve(join(projectBase, outputDirName));
-      if (!baseDir.startsWith(projectBase)) {
-        throw new Error("Invalid output directory");
-      }
-      if (!existsSync(baseDir)) return [];
-
-      const files: OutputFile[] = [];
-
-      async function walk(dir: string): Promise<void> {
-        const entries = await readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = join(dir, entry.name);
-          if (entry.isDirectory()) {
-            await walk(fullPath);
-          } else {
-            try {
-              const content = await readFile(fullPath, "utf-8");
-              const fileStat = await stat(fullPath);
-              files.push({
-                path: relative(baseDir, fullPath).replace(/\\/g, "/"),
-                content,
-                modifiedAt: fileStat.mtimeMs,
-              });
-            } catch {
-              // Skip unreadable files
-            }
-          }
-        }
-      }
-
-      await walk(baseDir);
-      return files.sort((a, b) => a.path.localeCompare(b.path));
+    async scanWorkspaceFiles(projectSlug: string): Promise<ProjectFile[]> {
+      const filesDir = join(projectDir(projectSlug), "files");
+      return scanWorkspaceFiles(filesDir);
     },
   };
 }

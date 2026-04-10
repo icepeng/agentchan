@@ -71,20 +71,15 @@ export class EvalHarness {
       prePopulate: options.prePopulate,
     });
 
-    // Drive the production conversation-bootstrap path so the harness gets
-    // exactly what runtime conversations start with (catalog reminder +
-    // always-active seed). Future changes to lifecycle.ts propagate here for
-    // free — no parallel mirroring required.
+    // Drive the production conversation-bootstrap path. New conversations
+    // start empty — SYSTEM.md and skill catalog are in the system prompt.
     const ctx = createAgentContext({
       projectsDir: fixture.projectsDir,
       resolveAgentConfig: () => ({ provider, model, apiKey, temperature: 0 }),
     });
     const created = await createConversation(ctx, fixture.slug);
     const conversationId = created.conversation.id;
-    const history: StoredMessage[] = created.nodes.map((n) => ({
-      role: n.role,
-      content: n.content,
-    }));
+    const history: StoredMessage[] = [];
 
     const { agent, systemPrompt } = await setupCreativeAgent(
       {

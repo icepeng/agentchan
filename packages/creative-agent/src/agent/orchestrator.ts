@@ -8,9 +8,11 @@
 import { Agent, type AgentMessage, type AgentEvent } from "@mariozechner/pi-agent-core";
 import { getModel, getEnvApiKey, streamSimple, type AssistantMessage, type Message, type ThinkingLevel } from "@mariozechner/pi-ai";
 import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 
 import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
+import { generateCatalog } from "../skills/catalog.js";
 import { SkillManager } from "../skills/manager.js";
 import { type SkillMetadata } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
@@ -66,6 +68,33 @@ There is no shell tool in this environment. Do not try to call bash, sh, cmd, po
 # Read before you act
 
 Always read relevant files before acting on them. Do not modify, append to, or make decisions based on a file you haven't read in this conversation. When a skill or the user references a file, read it first — then proceed.`;
+
+// --- System prompt composition ---
+
+async function tryReadFile(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, "utf-8");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Compose the system prompt from up to three layers:
+ * [1] DEFAULT_SYSTEM_PROMPT — hardcoded tool rules and base behavior
+ * [2] SYSTEM.md content — user-authored project instructions
+ * [3] Skill catalog — auto-generated name+description list
+ */
+function composeSystemPrompt(
+  base: string,
+  systemMd: string | null,
+  catalog: string | null,
+): string {
+  const layers = [base, systemMd, catalog].filter(
+    (s): s is string => s != null && s.trim().length > 0,
+  );
+  return layers.join("\n\n");
+}
 
 // --- Helpers ---
 
@@ -161,8 +190,10 @@ export async function setupCreativeAgent(
   const tools: any[] = createProjectTools(options.projectDir);
   if (skills.size > 0) tools.push(manager.createTool());
 
-  // Catalog is injected as a user node by lifecycle.ts, not here.
-  const systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  // Compose system prompt: DEFAULT + SYSTEM.md + skill catalog
+  const systemMd = await tryReadFile(join(options.projectDir, "SYSTEM.md"));
+  const catalog = generateCatalog([...skills.values()]);
+  const systemPrompt = composeSystemPrompt(DEFAULT_SYSTEM_PROMPT, systemMd, catalog);
 
   // Convert history
   const piMessages = storedToPiMessages(history);

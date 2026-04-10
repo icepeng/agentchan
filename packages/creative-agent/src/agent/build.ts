@@ -1,15 +1,11 @@
 /**
- * Pure helpers that build user TreeNodes for the skill-injection paths
- * (always-active seeding, slash invocation, plain prompt, activate_skill).
- *
- * Callers pass in an already-loaded skill map so these stay decoupled from
- * skill discovery.
+ * Pure helpers that build user TreeNodes for skill-injection paths
+ * (slash invocation, plain prompt, activate_skill).
  */
 
 import { nanoid } from "nanoid";
 import type { ContentBlock, TreeNode } from "../types.js";
 import { buildSkillContent } from "../skills/skill-content.js";
-import { generateCatalog } from "../skills/catalog.js";
 import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
 import { findSlashInvocableSkill } from "../slash/catalog.js";
@@ -31,8 +27,7 @@ export function buildSkillInjectionContent(
  *
  * Slash → skill returns two nodes (chip first, slash text as its child)
  * so regenerate/branch from descendants always replay the skill body via
- * history — matching always-active seeding's "skill loaded, then user
- * speaks" order. Plain prompts return a single node.
+ * history. Plain prompts return a single node.
  *
  * `llmText` is the text fed to `agent.prompt()`; for the two-node case the
  * chip is left in history and convert.ts merges consecutive user messages.
@@ -87,55 +82,6 @@ function tryBuildSlashSkillNodes(
     createdAt: Date.now(),
   };
   return { nodes: [skillNode, userNode], llmText: userText };
-}
-
-/**
- * Build a `meta:"skill-catalog"` user TreeNode wrapping the skill catalog in
- * a `<system-reminder>` block. Injected at conversation start so the model
- * sees the catalog in the same user-role channel as the seeded skill
- * bodies — this is the Claude-Code-style fix for the ge project's 3× parallel
- * `activate_skill` regression (see `generateCatalog` comment for context).
- *
- * Returns `null` if no skills are visible to the model at all.
- */
-export function buildCatalogReminderNode(
-  skills: Map<string, SkillRecord>,
-  parentNodeId: string | null,
-): TreeNode | null {
-  const text = generateCatalog([...skills.values()]);
-  if (!text) return null;
-
-  return {
-    id: nanoid(12),
-    parentId: parentNodeId,
-    role: "user",
-    content: [{ type: "text", text }],
-    createdAt: Date.now(),
-    meta: "skill-catalog",
-  };
-}
-
-/**
- * Build a single user node containing every always-active skill body.
- * Does NOT persist — the caller is responsible for `appendNode`.
- */
-export function buildAlwaysActiveSeedNode(
-  projectDir: string,
-  skills: Map<string, SkillRecord>,
-  parentNodeId: string | null,
-): TreeNode | null {
-  const active = [...skills.values()].filter((s) => s.meta.alwaysActive);
-  if (active.length === 0) return null;
-
-  const text = buildSkillInjectionContent(active, projectDir);
-  return {
-    id: nanoid(12),
-    parentId: parentNodeId,
-    role: "user",
-    content: [{ type: "text", text }],
-    createdAt: Date.now(),
-    meta: "skill-load",
-  };
 }
 
 /**

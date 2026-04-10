@@ -20,23 +20,13 @@ export function createProjectRoutes() {
 
   app.put("/:slug", async (c) => {
     const slug = c.req.param("slug");
-    const body = await c.req.json<{
-      name?: string;
-      outputDir?: string;
-      notes?: string;
-    }>();
+    const body = await c.req.json<{ name?: string; notes?: string }>();
 
     const existing = await c.get("projectService").get(slug);
     if (!existing) return c.json({ error: "Project not found" }, 404);
 
-    const updates: { name?: string; outputDir?: string; notes?: string } = {};
+    const updates: { name?: string; notes?: string } = {};
     if (body.name?.trim()) updates.name = body.name.trim();
-    if (body.outputDir !== undefined) {
-      if (body.outputDir && (body.outputDir.includes("..") || body.outputDir.includes("\\") || body.outputDir.startsWith("/"))) {
-        return c.json({ error: "Invalid outputDir" }, 400);
-      }
-      updates.outputDir = body.outputDir;
-    }
     if (body.notes !== undefined) updates.notes = body.notes;
 
     const updated = await c.get("projectService").update(slug, updates);
@@ -71,13 +61,12 @@ export function createProjectRoutes() {
     }
   });
 
-  app.get("/:slug/output/files", async (c) => {
+  app.get("/:slug/workspace/files", async (c) => {
     const slug = c.req.param("slug");
     const existing = await c.get("projectService").get(slug);
     if (!existing) return c.json({ error: "Project not found" }, 404);
 
-    const outputDir = existing.outputDir || "output";
-    const files = await c.get("projectService").readOutputFiles(slug, outputDir);
+    const files = await c.get("projectService").scanWorkspaceFiles(slug);
     return c.json({ files });
   });
 
@@ -88,13 +77,13 @@ export function createProjectRoutes() {
     return c.json({ js });
   });
 
-  // Static file serving with extensionless image fallback
+  // Static file serving from files/ workspace with extensionless image fallback
   app.get("/:slug/files/:path{.+}", async (c) => {
     const slug = c.req.param("slug");
     const filePath = c.req.param("path");
     if (!filePath) return c.json({ error: "Invalid path" }, 400);
 
-    const resolved = c.get("projectService").serveProjectFile(slug, filePath);
+    const resolved = c.get("projectService").serveWorkspaceFile(slug, filePath);
     if (!resolved) return c.json({ error: "Invalid path" }, 400);
 
     const file = Bun.file(resolved.fullPath);

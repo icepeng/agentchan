@@ -80,7 +80,6 @@ export const translations: Record<TranslationKey, string> = {
   "settings.renderer": "렌더러",
   "settings.projectConfig": "프로젝트 설정",
   "settings.name": "이름",
-  "settings.outputDir": "출력 디렉토리",
   "settings.notes": "노트",
   "settings.save": "저장",
   "settings.saving": "저장 중...",

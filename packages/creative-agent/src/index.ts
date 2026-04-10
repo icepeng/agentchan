@@ -75,8 +75,6 @@ export {
   runRegenerate,
   buildSkillInjectionContent,
   buildUserNodeForPrompt,
-  buildAlwaysActiveSeedNode,
-  buildCatalogReminderNode,
   buildSkillLoadNode,
   joinUserNodeText,
   summarizeTurnUsage,
@@ -91,6 +89,11 @@ export {
   type RegenerateInput,
 } from "./agent/index.js";
 
+
+// Workspace
+export type { ProjectFile, TextFile, BinaryFile } from "./workspace/types.js";
+export { scanWorkspaceFiles } from "./workspace/scan.js";
+export { parseFrontmatter, type ParsedFrontmatter } from "./workspace/frontmatter.js";
 
 // Logger
 export * as log from "./logger.js";

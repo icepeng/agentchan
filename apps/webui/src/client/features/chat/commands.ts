@@ -23,12 +23,10 @@ export const LOCAL_COMMANDS: LocalSlashCommand[] = [
   { kind: "local", name: "provider", description: "Change provider", needsArg: true, argPlaceholder: "<provider-name>" },
 ];
 
-// alwaysActive skills are excluded from the popup (their body is already
-// loaded; invoking is redundant). disableModelInvocation skills are kept —
-// the slash path is the only way the user can reach them.
+// All skills are invocable via slash command. disableModelInvocation skills
+// are only reachable through the slash path.
 export function buildSlashEntries(skills: SkillMetadata[]): SlashEntry[] {
   const skillEntries: SkillSlashCommand[] = skills
-    .filter((s) => !s.alwaysActive)
     .map((s) => ({ kind: "skill" as const, name: s.name, description: s.description }))
     .sort((a, b) => a.name.localeCompare(b.name));
   return [...LOCAL_COMMANDS, ...skillEntries];

@@ -1,5 +1,5 @@
 import { json } from "@/client/shared/api.js";
-import type { Project, OutputFile } from "./project.types.js";
+import type { Project, ProjectFile } from "./project.types.js";
 
 // --- Project CRUD ---
 
@@ -17,7 +17,7 @@ export function createProject(name: string): Promise<Project> {
 
 export function updateProject(
   slug: string,
-  updates: { name?: string; outputDir?: string; notes?: string },
+  updates: { name?: string; notes?: string },
 ): Promise<Project> {
   return json(`/projects/${encodeURIComponent(slug)}`, {
     method: "PUT",
@@ -40,8 +40,8 @@ export function duplicateProject(sourceSlug: string, name: string): Promise<Proj
 
 // --- Client-side Rendering ---
 
-export function fetchOutputFiles(projectSlug: string): Promise<{ files: OutputFile[] }> {
-  return json(`/projects/${encodeURIComponent(projectSlug)}/output/files`);
+export function fetchWorkspaceFiles(projectSlug: string): Promise<{ files: ProjectFile[] }> {
+  return json(`/projects/${encodeURIComponent(projectSlug)}/workspace/files`);
 }
 
 export function fetchTranspiledRenderer(projectSlug: string): Promise<{ js: string }> {

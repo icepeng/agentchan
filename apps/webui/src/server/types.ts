@@ -54,16 +54,7 @@ export interface Project {
   name: string;
   createdAt: number;
   updatedAt: number;
-  outputDir?: string;      // Output directory path (default: "output/")
   notes?: string;          // Free-form project notes
-}
-
-// --- Output file (for renderer system) ---
-
-export interface OutputFile {
-  path: string;        // Relative path within outputDir
-  content: string;     // File content
-  modifiedAt: number;  // Last modified timestamp
 }
 
 // --- Server config state ---

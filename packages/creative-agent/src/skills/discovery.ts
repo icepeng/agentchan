@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
+import { parseFrontmatter } from "../workspace/frontmatter.js";
 import * as log from "../logger.js";
 import type { SkillRecord } from "./types.js";
 
@@ -51,36 +52,34 @@ function fixMalformedYaml(yamlStr: string): string {
 }
 
 function parseSkillMd(content: string, location: string): SkillRecord | null {
-  const normalized = content.replace(/\r/g, "");
-  const frontmatterMatch = normalized.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
-  if (!frontmatterMatch) {
-    const fmOnly = normalized.match(/^---\s*\n([\s\S]*?)\n---\s*$/);
-    if (!fmOnly) return null;
-    return parseWithFrontmatter(fmOnly[1], "", location);
+  const { frontmatter: raw, body } = parseFrontmatter(content);
+
+  if (raw) {
+    return buildSkillRecord(raw, body, location);
   }
-  return parseWithFrontmatter(frontmatterMatch[1], frontmatterMatch[2], location);
+
+  // Fallback: try fixing malformed YAML (unquoted values with colons)
+  const normalized = content.replace(/\r/g, "");
+  const match = normalized.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/)
+    ?? normalized.match(/^---\s*\n([\s\S]*?)\n---\s*$/);
+  if (!match) return null;
+
+  try {
+    const fixed = parseYaml(fixMalformedYaml(match[1])) as unknown;
+    if (!fixed || typeof fixed !== "object" || Array.isArray(fixed)) return null;
+    log.warn("skills", `${location}: applied malformed YAML fallback`);
+    return buildSkillRecord(fixed as Record<string, unknown>, match[2] ?? "", location);
+  } catch (e) {
+    log.warn("skills", `${location}: failed to parse YAML: ${String(e)}`);
+    return null;
+  }
 }
 
-function parseWithFrontmatter(
-  yamlStr: string,
+function buildSkillRecord(
+  raw: Record<string, unknown>,
   body: string,
   location: string,
 ): SkillRecord | null {
-  let raw: Record<string, unknown>;
-  try {
-    raw = parseYaml(yamlStr) as Record<string, unknown>;
-  } catch {
-    try {
-      raw = parseYaml(fixMalformedYaml(yamlStr)) as Record<string, unknown>;
-      log.warn("skills", `${location}: applied malformed YAML fallback`);
-    } catch (retryError) {
-      log.warn("skills", `${location}: failed to parse YAML: ${String(retryError)}`);
-      return null;
-    }
-  }
-
-  if (!raw || typeof raw !== "object") return null;
-
   const description = raw.description as string;
   if (!description) {
     log.warn("skills", `${location}: missing description, skipping`);
@@ -90,7 +89,6 @@ function parseWithFrontmatter(
   const dirName = basename(dirname(location));
   const skillName = validateSkillName(raw.name as string | undefined, dirName, location);
 
-  const alwaysActiveRaw = raw["always-active"];
   const disableInvokeRaw = raw["disable-model-invocation"];
   const isTruthy = (v: unknown): boolean => v === true || v === "true";
 
@@ -100,7 +98,6 @@ function parseWithFrontmatter(
       description,
       ...(raw.license ? { license: raw.license as string } : {}),
       ...(raw.metadata ? { metadata: raw.metadata as Record<string, string> } : {}),
-      ...(isTruthy(alwaysActiveRaw) ? { alwaysActive: true } : {}),
       ...(isTruthy(disableInvokeRaw) ? { disableModelInvocation: true } : {}),
     },
     location: resolve(location),
@@ -118,7 +115,7 @@ export async function discoverProjectSkills(
   try {
     entries = await readdir(skillsDir, { withFileTypes: true });
   } catch {
-    return result; // Directory doesn't exist — empty result
+    return result;
   }
 
   for (const entry of entries) {
@@ -129,7 +126,7 @@ export async function discoverProjectSkills(
     try {
       content = await readFile(skillMdPath, "utf-8");
     } catch {
-      continue; // No SKILL.md in this subdirectory — skip
+      continue;
     }
 
     const record = parseSkillMd(content, skillMdPath);

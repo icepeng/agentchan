@@ -89,18 +89,17 @@ export function ProjectSettingsView() {
 
 // --- General Tab ---
 
-function GeneralTab({ slug, project }: { slug: string; project: { name: string; outputDir?: string; notes?: string } }) {
+function GeneralTab({ slug, project }: { slug: string; project: { name: string; notes?: string } }) {
   const projectDispatch = useProjectDispatch();
   const { t } = useI18n();
   const [name, setName] = useState(project.name);
-  const [outputDir, setOutputDir] = useState(project.outputDir ?? "output");
   const [notes, setNotes] = useState(project.notes ?? "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await updateProject(slug, { name: name.trim() || undefined, outputDir, notes });
+      const updated = await updateProject(slug, { name: name.trim() || undefined, notes });
       projectDispatch({ type: "UPDATE_PROJECT", oldSlug: slug, project: updated });
     } finally {
       setSaving(false);
@@ -118,12 +117,6 @@ function GeneralTab({ slug, project }: { slug: string; project: { name: string; 
               {t("settings.name")}
             </label>
             <TextInput size="md" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em] mb-2">
-              {t("settings.outputDir")}
-            </label>
-            <TextInput size="md" mono value={outputDir} onChange={(e) => setOutputDir(e.target.value)} />
           </div>
           <div>
             <label className="block text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em] mb-2">

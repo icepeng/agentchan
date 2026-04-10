@@ -2,11 +2,10 @@ import { useCallback } from "react";
 import {
   useProjectState,
   useProjectDispatch,
-  fetchOutputFiles,
+  fetchWorkspaceFiles,
   fetchTranspiledRenderer,
 } from "@/client/entities/project/index.js";
 import type { RenderContext } from "@/client/entities/project/index.js";
-import { useSkillState } from "@/client/entities/skill/index.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -44,7 +43,6 @@ async function executeRenderer(jsCode: string, context: RenderContext): Promise<
 export function useOutput() {
   const projectState = useProjectState();
   const projectDispatch = useProjectDispatch();
-  const skillState = useSkillState();
 
   const refresh = useCallback(async () => {
     const slug = projectState.activeProjectSlug;
@@ -53,16 +51,11 @@ export function useOutput() {
     try {
       const [rendererResult, filesResult] = await Promise.all([
         fetchTranspiledRenderer(slug),
-        fetchOutputFiles(slug),
+        fetchWorkspaceFiles(slug),
       ]);
 
       const context: RenderContext = {
-        outputFiles: filesResult.files,
-        skills: skillState.skills.map((s) => ({
-          name: s.name,
-          description: s.description,
-          ...(s.metadata ? { metadata: s.metadata } : {}),
-        })),
+        files: filesResult.files,
         baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
       };
 
@@ -76,7 +69,7 @@ export function useOutput() {
         projectDispatch({ type: "SET_RENDERED_HTML", html: errorHtml(message) });
       }
     }
-  }, [projectState.activeProjectSlug, skillState.skills, projectDispatch]);
+  }, [projectState.activeProjectSlug, projectDispatch]);
 
   return { refresh };
 }

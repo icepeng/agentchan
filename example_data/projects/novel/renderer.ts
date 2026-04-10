@@ -1,8 +1,25 @@
+interface TextFile {
+  type: "text";
+  path: string;
+  content: string;
+  frontmatter: Record<string, unknown> | null;
+  modifiedAt: number;
+}
+
+interface BinaryFile {
+  type: "binary";
+  path: string;
+  modifiedAt: number;
+}
+
+type ProjectFile = TextFile | BinaryFile;
+
 interface RenderContext {
-  outputFiles: { path: string; content: string; modifiedAt: number }[];
-  skills: { name: string; description: string; metadata?: Record<string, string> }[];
+  files: ProjectFile[];
   baseUrl: string;
 }
+
+type OutputFile = TextFile;
 
 function escapeHtml(text: string): string {
   return text
@@ -302,7 +319,7 @@ const STYLES = `<style>
 </style>`;
 
 export function render(ctx: RenderContext): string {
-  const files = ctx.outputFiles;
+  const files = ctx.files.filter((f): f is TextFile => f.type === "text");
   if (files.length === 0) {
     return `${STYLES}<div class="rb-empty">아직 출력 파일이 없습니다</div>`;
   }
