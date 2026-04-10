@@ -98,6 +98,12 @@ export const translations = {
   "settings.selectRendererToPreview": "Select a library renderer to preview",
   "settings.createInLibraryFirst": "Create one in the Library first",
   "settings.noLibraryRenderers": "No library renderers",
+  "settings.system": "System",
+  "settings.projectSystem": "Project system prompt",
+  "settings.systemLibrary": "Library",
+  "settings.noSystemYet": "No SYSTEM.md yet",
+  "settings.selectSystemToPreview": "Select a library system template to preview",
+  "settings.noLibrarySystems": "No library system templates",
 
   // Library page
   "library.title": "Library",
@@ -113,6 +119,11 @@ export const translations = {
   "library.create": "Create",
   "library.selectSkillToEdit": "Select a skill to edit",
   "library.selectRendererToEdit": "Select a renderer to edit",
+  "library.systemsTab": "Systems",
+  "library.newSystem": "New system",
+  "library.newSystemTitle": "New System",
+  "library.systemNamePlaceholder": "system-name",
+  "library.selectSystemToEdit": "Select a system template to edit",
 
   // Library browser
   "libraryBrowser.title": "Add from Library",

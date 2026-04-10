@@ -12,6 +12,11 @@ export function createLibraryService(libraryRepo: LibraryRepo) {
     async createRenderer(name: string, source: string) { return libraryRepo.createRenderer(name, source); },
     async updateRenderer(name: string, source: string) { return libraryRepo.updateRenderer(name, source); },
     async deleteRenderer(name: string) { return libraryRepo.deleteRenderer(name); },
+    async listSystems() { return libraryRepo.listSystems(); },
+    async getSystem(name: string) { return libraryRepo.getSystem(name); },
+    async createSystem(name: string, content: string) { return libraryRepo.createSystem(name, content); },
+    async updateSystem(name: string, content: string) { return libraryRepo.updateSystem(name, content); },
+    async deleteSystem(name: string) { return libraryRepo.deleteSystem(name); },
   };
 }
 

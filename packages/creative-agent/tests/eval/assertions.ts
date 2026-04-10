@@ -169,10 +169,34 @@ export function expectNoWriteDuplication(
 }
 
 /**
+ * Assert that at least one assistant text block matches the given pattern.
+ *
+ * Useful for verifying that the model followed a skill instruction that
+ * produces a recognisable text output (e.g. asking stage-1 questions).
+ */
+export function expectAssistantText(
+  assistantTexts: string[],
+  pattern: string | RegExp,
+): void {
+  const matched = assistantTexts.some((text) =>
+    pattern instanceof RegExp ? pattern.test(text) : text.includes(pattern),
+  );
+
+  if (!matched) {
+    const preview = assistantTexts
+      .map((t) => (t.length > 200 ? t.slice(0, 200) + "…" : t))
+      .join("\n---\n");
+
+    throw new Error(
+      `Expected assistant text matching ${pattern instanceof RegExp ? pattern.toString() : JSON.stringify(pattern)}, but none matched.\n\n` +
+        `Assistant texts (${assistantTexts.length}):\n${preview}`,
+    );
+  }
+}
+
+/**
  * Assert that append tool calls begin with \n\n so the new content doesn't
- * merge with the last line of the existing file. Without the leading blank
- * line, blockquote echoes (> ...) and dialogue (**Name:**) are not
- * recognised as separate markdown blocks by the chat renderer.
+ * merge with the last line of the existing file.
  */
 export function expectAppendNewlineSeparation(toolCalls: CollectedToolCall[]): void {
   const appendCalls = toolCalls.filter(

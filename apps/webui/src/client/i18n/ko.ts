@@ -100,6 +100,12 @@ export const translations: Record<TranslationKey, string> = {
   "settings.selectRendererToPreview": "미리볼 라이브러리 렌더러를 선택하세요",
   "settings.createInLibraryFirst": "먼저 라이브러리에서 생성하세요",
   "settings.noLibraryRenderers": "라이브러리 렌더러 없음",
+  "settings.system": "시스템",
+  "settings.projectSystem": "프로젝트 시스템 프롬프트",
+  "settings.systemLibrary": "라이브러리",
+  "settings.noSystemYet": "SYSTEM.md가 아직 없습니다",
+  "settings.selectSystemToPreview": "미리볼 라이브러리 시스템 템플릿을 선택하세요",
+  "settings.noLibrarySystems": "라이브러리 시스템 템플릿 없음",
 
   // Library page
   "library.title": "라이브러리",
@@ -115,6 +121,11 @@ export const translations: Record<TranslationKey, string> = {
   "library.create": "생성",
   "library.selectSkillToEdit": "편집할 스킬을 선택하세요",
   "library.selectRendererToEdit": "편집할 렌더러를 선택하세요",
+  "library.systemsTab": "시스템",
+  "library.newSystem": "새 시스템",
+  "library.newSystemTitle": "새 시스템",
+  "library.systemNamePlaceholder": "시스템-이름",
+  "library.selectSystemToEdit": "편집할 시스템 템플릿을 선택하세요",
 
   // Library browser
   "libraryBrowser.title": "라이브러리에서 추가",

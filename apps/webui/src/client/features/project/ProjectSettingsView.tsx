@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, BookOpen, Code, Plus } from "lucide-react";
+import { ArrowLeft, BookOpen, Code, FileText, Plus } from "lucide-react";
 import { useUIState, useUIDispatch, type PageRoute } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { Button, IconButton, SectionHeader, TabBar, TextInput, Badge } from "@/client/shared/ui/index.js";
@@ -21,9 +21,14 @@ import {
   deleteProjectSkill,
   fetchLibraryRenderers,
   fetchLibraryRenderer,
+  fetchProjectSystem,
+  saveProjectSystem,
+  copyLibrarySystemToProject,
+  fetchLibrarySystems,
+  fetchLibrarySystem,
 } from "@/client/entities/skill/index.js";
 
-type SettingsTab = "general" | "skills" | "renderer";
+type SettingsTab = "general" | "system" | "skills" | "renderer";
 
 export function ProjectSettingsView() {
   const ui = useUIState();
@@ -50,6 +55,7 @@ export function ProjectSettingsView() {
 
   const tabLabels: Record<SettingsTab, string> = {
     general: t("settings.general"),
+    system: t("settings.system"),
     skills: t("settings.skills"),
     renderer: t("settings.renderer"),
   };
@@ -68,6 +74,7 @@ export function ProjectSettingsView() {
         <TabBar
           tabs={[
             { key: "general", label: tabLabels.general },
+            { key: "system", label: tabLabels.system },
             { key: "skills", label: tabLabels.skills },
             { key: "renderer", label: tabLabels.renderer },
           ]}
@@ -80,6 +87,7 @@ export function ProjectSettingsView() {
       {/* Content */}
       <div className="flex-1 min-h-0">
         {tab === "general" && <GeneralTab slug={slug} project={project} />}
+        {tab === "system" && <SystemTab slug={slug} />}
         {tab === "skills" && <SkillsTab slug={slug} />}
         {tab === "renderer" && <RendererTab slug={slug} />}
       </div>
@@ -142,6 +150,174 @@ function GeneralTab({ slug, project }: { slug: string; project: { name: string; 
             {saving ? t("settings.saving") : t("settings.save")}
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// --- ProjectLibraryTab (shared by System and Renderer tabs) ---
+
+interface ProjectLibraryTabConfig {
+  fetchCurrent: (slug: string) => Promise<string | null>;
+  saveCurrent: (slug: string, content: string) => Promise<void>;
+  applyFromLibrary: (slug: string, name: string) => Promise<void>;
+  fetchLibraryList: () => Promise<{ name: string }[]>;
+  fetchLibraryItem: (name: string) => Promise<string>;
+  icon: React.ComponentType<{ size: number; strokeWidth: number; className?: string }>;
+  language: "markdown" | "typescript";
+  showTokenCount?: boolean;
+  fileExt: string;
+  labels: {
+    currentName: string;
+    hasContent: string;
+    noContent: string;
+    libraryHeader: string;
+    noLibrary: string;
+    emptyMessage: string;
+    emptyHint: string;
+    emptyHintNoLibrary: string;
+  };
+  renderLibraryItem?: (item: { name: string }, isActive: boolean) => React.ReactNode;
+}
+
+function ProjectLibraryTab({ slug, config }: { slug: string; config: ProjectLibraryTabConfig }) {
+  const { t } = useI18n();
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [libraryItems, setLibraryItems] = useState<{ name: string }[]>([]);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const Icon = config.icon;
+
+  useEffect(() => {
+    setLoading(true);
+    void Promise.all([
+      config.fetchCurrent(slug).catch(() => null),
+      config.fetchLibraryList().catch(() => [] as { name: string }[]),
+    ]).then(([src, items]) => {
+      setContent(src);
+      setLibraryItems(items);
+      setLoading(false);
+    });
+  }, [slug, config]);
+
+  const handleSave = async (newContent: string) => {
+    await config.saveCurrent(slug, newContent);
+    setContent(newContent);
+  };
+
+  const handlePreview = async (name: string) => {
+    setPreviewing(name);
+    setPreviewContent(null);
+    try {
+      setPreviewContent(await config.fetchLibraryItem(name));
+    } catch {
+      setPreviewing(null);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!previewContent || !previewing) return;
+    setApplying(true);
+    try {
+      await config.applyFromLibrary(slug, previewing);
+      setContent(previewContent);
+      setPreviewing(null);
+      setPreviewContent(null);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-full text-fg-3 text-sm">{t("settings.loading")}</div>;
+  }
+
+  return (
+    <div className="flex h-full">
+      <div className="w-72 flex-shrink-0 border-r border-edge/6 flex flex-col bg-base/40">
+        <div className="p-3">
+          <button
+            onClick={() => { setPreviewing(null); setPreviewContent(null); }}
+            className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
+              !previewing ? "bg-elevated text-accent" : "text-fg-2 hover:text-fg hover:bg-elevated/50"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium">
+              <Icon size={12} strokeWidth={2} />
+              {config.labels.currentName}
+            </div>
+            <div className="text-xs text-fg-3 mt-0.5">
+              {content !== null ? config.labels.hasContent : config.labels.noContent}
+            </div>
+          </button>
+        </div>
+
+        {libraryItems.length > 0 && (
+          <>
+            <div className="px-4 pt-2 pb-1.5">
+              <div className="text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em]">
+                {config.labels.libraryHeader}
+              </div>
+              <div className="mt-1.5 h-px bg-gradient-to-r from-edge/8 to-transparent" />
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+              {libraryItems.map((item) => (
+                <button
+                  key={item.name}
+                  onClick={() => handlePreview(item.name)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
+                    previewing === item.name ? "bg-elevated text-accent" : "text-fg-2 hover:text-fg hover:bg-elevated/50"
+                  }`}
+                >
+                  {config.renderLibraryItem
+                    ? config.renderLibraryItem(item, previewing === item.name)
+                    : <div className="font-medium truncate">{item.name}{config.fileExt}</div>}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {libraryItems.length === 0 && (
+          <div className="flex-1 flex items-center justify-center text-fg-3 text-xs px-4 text-center">
+            {config.labels.noLibrary}
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 p-4 flex flex-col min-h-0">
+        {previewing ? (
+          previewContent !== null ? (
+            <>
+              <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-mono text-fg-2">{previewing}{config.fileExt}</span>
+                  <span className="text-[11px] text-fg-3 px-1.5 py-0.5 rounded bg-elevated border border-edge/6">{t("settings.preview")}</span>
+                </div>
+                <Button variant="accent" onClick={handleApply} disabled={applying}>
+                  {applying ? t("settings.applying") : t("settings.applyToProject")}
+                </Button>
+              </div>
+              <div className="flex-1 min-h-0">
+                <SkillEditor key={previewing} content={previewContent} language={config.language} readOnly showTokenCount={config.showTokenCount} />
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full text-fg-3 text-sm">{t("settings.loading")}</div>
+          )
+        ) : content !== null ? (
+          <SkillEditor key={`current-${slug}`} content={content} onSave={handleSave} language={config.language} showTokenCount={config.showTokenCount} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <Icon size={32} strokeWidth={1.5} className="text-fg-3" />
+            <div className="text-fg-3 text-sm">{config.labels.emptyMessage}</div>
+            <div className="text-fg-3 text-xs">
+              {libraryItems.length > 0 ? config.labels.emptyHint : config.labels.emptyHintNoLibrary}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -324,17 +500,39 @@ function SkillsTab({ slug }: { slug: string }) {
   );
 }
 
+// --- System Tab ---
+
+function SystemTab({ slug }: { slug: string }) {
+  const { t } = useI18n();
+  const config = useMemo((): ProjectLibraryTabConfig => ({
+    fetchCurrent: (s) => fetchProjectSystem(s).then((d) => d.content || null),
+    saveCurrent: saveProjectSystem,
+    applyFromLibrary: copyLibrarySystemToProject,
+    fetchLibraryList: fetchLibrarySystems,
+    fetchLibraryItem: (name) => fetchLibrarySystem(name).then((d) => d.content),
+    icon: FileText,
+    language: "markdown",
+    showTokenCount: true,
+    fileExt: ".md",
+    labels: {
+      currentName: "SYSTEM.md",
+      hasContent: t("settings.projectSystem"),
+      noContent: t("settings.notCreatedYet"),
+      libraryHeader: t("settings.systemLibrary"),
+      noLibrary: t("settings.noLibrarySystems"),
+      emptyMessage: t("settings.noSystemYet"),
+      emptyHint: t("settings.selectSystemToPreview"),
+      emptyHintNoLibrary: t("settings.createInLibraryFirst"),
+    },
+  }), [t]);
+  return <ProjectLibraryTab slug={slug} config={config} />;
+}
+
 // --- Renderer Tab ---
 
 function RendererTab({ slug }: { slug: string }) {
   const { t } = useI18n();
   const skillState = useSkillState();
-  const [source, setSource] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [libraryRenderers, setLibraryRenderers] = useState<{ name: string }[]>([]);
-  const [previewing, setPreviewing] = useState<string | null>(null);
-  const [previewSource, setPreviewSource] = useState<string | null>(null);
-  const [applying, setApplying] = useState(false);
 
   const recommendedRenderers = useMemo(() => {
     const set = new Set<string>();
@@ -345,171 +543,34 @@ function RendererTab({ slug }: { slug: string }) {
     return set;
   }, [skillState.skills]);
 
-  useEffect(() => {
-    setLoading(true);
-    void Promise.all([
-      fetchRendererSource(slug).then((data) => data.source).catch(() => null),
-      fetchLibraryRenderers().catch(() => [] as { name: string }[]),
-    ]).then(([src, renderers]) => {
-      setSource(src);
-      setLibraryRenderers(renderers);
-      setLoading(false);
-    });
-  }, [slug]);
-
-  const handleSave = async (newSource: string) => {
-    await saveRendererSource(slug, newSource);
-    setSource(newSource);
-  };
-
-  const handlePreview = async (name: string) => {
-    setPreviewing(name);
-    setPreviewSource(null);
-    try {
-      const data = await fetchLibraryRenderer(name);
-      setPreviewSource(data.source);
-    } catch {
-      setPreviewing(null);
-    }
-  };
-
-  const handleApply = async () => {
-    if (!previewSource || !previewing) return;
-    setApplying(true);
-    try {
-      await saveRendererSource(slug, previewSource);
-      setSource(previewSource);
-      setPreviewing(null);
-      setPreviewSource(null);
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleBackToCurrent = () => {
-    setPreviewing(null);
-    setPreviewSource(null);
-  };
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-full text-fg-3 text-sm">{t("settings.loading")}</div>;
-  }
-
-  return (
-    <div className="flex h-full">
-      {/* Left: Current + Library renderers */}
-      <div className="w-72 flex-shrink-0 border-r border-edge/6 flex flex-col bg-base/40">
-        {/* Current renderer */}
-        <div className="p-3">
-          <button
-            onClick={handleBackToCurrent}
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
-              !previewing
-                ? "bg-elevated text-accent"
-                : "text-fg-2 hover:text-fg hover:bg-elevated/50"
-            }`}
-          >
-            <div className="flex items-center gap-2 font-medium">
-              <Code size={12} strokeWidth={2} />
-              {t("settings.rendererTs")}
-            </div>
-            <div className="text-xs text-fg-3 mt-0.5">
-              {source !== null ? t("settings.projectRenderer") : t("settings.notCreatedYet")}
-            </div>
-          </button>
-        </div>
-
-        {/* Library section */}
-        {libraryRenderers.length > 0 && (
-          <>
-            <div className="px-4 pt-2 pb-1.5">
-              <div className="text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em]">
-                {t("settings.rendererLibrary")}
-              </div>
-              <div className="mt-1.5 h-px bg-gradient-to-r from-edge/8 to-transparent" />
-            </div>
-            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-              {libraryRenderers.map((r) => (
-                <button
-                  key={r.name}
-                  onClick={() => handlePreview(r.name)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
-                    previewing === r.name
-                      ? "bg-elevated text-accent"
-                      : "text-fg-2 hover:text-fg hover:bg-elevated/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 font-medium truncate">
-                    <span className="truncate">{r.name}.ts</span>
-                    {recommendedRenderers.has(r.name) && (
-                      <Badge variant="accent">{t("settings.recommended")}</Badge>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {libraryRenderers.length === 0 && (
-          <div className="flex-1 flex items-center justify-center text-fg-3 text-xs px-4 text-center">
-            {t("settings.noLibraryRenderers")}
-          </div>
+  const config = useMemo((): ProjectLibraryTabConfig => ({
+    fetchCurrent: (s) => fetchRendererSource(s).then((d) => d.source),
+    saveCurrent: saveRendererSource,
+    applyFromLibrary: (s, name) =>
+      fetchLibraryRenderer(name).then((d) => saveRendererSource(s, d.source)),
+    fetchLibraryList: fetchLibraryRenderers,
+    fetchLibraryItem: (name) => fetchLibraryRenderer(name).then((d) => d.source),
+    icon: Code,
+    language: "typescript",
+    fileExt: ".ts",
+    labels: {
+      currentName: t("settings.rendererTs"),
+      hasContent: t("settings.projectRenderer"),
+      noContent: t("settings.notCreatedYet"),
+      libraryHeader: t("settings.rendererLibrary"),
+      noLibrary: t("settings.noLibraryRenderers"),
+      emptyMessage: t("settings.noRendererYet"),
+      emptyHint: t("settings.selectRendererToPreview"),
+      emptyHintNoLibrary: t("settings.createInLibraryFirst"),
+    },
+    renderLibraryItem: (item) => (
+      <div className="flex items-center gap-2 font-medium truncate">
+        <span className="truncate">{item.name}.ts</span>
+        {recommendedRenderers.has(item.name) && (
+          <Badge variant="accent">{t("settings.recommended")}</Badge>
         )}
       </div>
-
-      {/* Right: Editor or Preview */}
-      <div className="flex-1 p-4 flex flex-col min-h-0">
-        {previewing ? (
-          /* Library renderer preview */
-          previewSource !== null ? (
-            <>
-              <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-mono text-fg-2">{previewing}.ts</span>
-                  <span className="text-[11px] text-fg-3 px-1.5 py-0.5 rounded bg-elevated border border-edge/6">{t("settings.preview")}</span>
-                </div>
-                <Button
-                  variant="accent"
-                  onClick={handleApply}
-                  disabled={applying}
-                >
-                  {applying ? t("settings.applying") : t("settings.applyToProject")}
-                </Button>
-              </div>
-              <div className="flex-1 min-h-0">
-                <SkillEditor
-                  key={previewing}
-                  content={previewSource}
-                  language="typescript"
-                  readOnly
-                />
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full text-fg-3 text-sm">{t("settings.loading")}</div>
-          )
-        ) : source !== null ? (
-          /* Current renderer editor */
-          <SkillEditor
-            key={slug}
-            content={source}
-            onSave={handleSave}
-            language="typescript"
-          />
-        ) : (
-          /* No renderer yet */
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <Code size={32} strokeWidth={1.5} className="text-fg-3" />
-            <div className="text-fg-3 text-sm">{t("settings.noRendererYet")}</div>
-            <div className="text-fg-3 text-xs">
-              {libraryRenderers.length > 0
-                ? t("settings.selectRendererToPreview")
-                : t("settings.createInLibraryFirst")}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    ),
+  }), [t, recommendedRenderers]);
+  return <ProjectLibraryTab slug={slug} config={config} />;
 }

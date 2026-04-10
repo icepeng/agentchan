@@ -108,5 +108,57 @@ export function createLibraryRoutes() {
     }
   });
 
+  // --- Systems (SYSTEM.md templates) ---
+
+  app.get("/systems", async (c) => {
+    return c.json(await c.get("libraryService").listSystems());
+  });
+
+  app.post("/systems", async (c) => {
+    const { name, content } = await c.req.json<{ name: string; content: string }>();
+    if (!name?.trim()) return c.json({ error: "name is required" }, 400);
+    if (typeof content !== "string") return c.json({ error: "content is required" }, 400);
+
+    try {
+      await c.get("libraryService").createSystem(name.trim(), content);
+      return c.json({ ok: true }, 201);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create system template";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  app.get("/systems/:name", async (c) => {
+    const name = c.req.param("name");
+    const content = await c.get("libraryService").getSystem(name);
+    if (content === null) return c.json({ error: "System template not found" }, 404);
+    return c.json({ content });
+  });
+
+  app.put("/systems/:name", async (c) => {
+    const name = c.req.param("name");
+    const { content } = await c.req.json<{ content: string }>();
+    if (typeof content !== "string") return c.json({ error: "content is required" }, 400);
+
+    try {
+      await c.get("libraryService").updateSystem(name, content);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update system template";
+      return c.json({ error: message }, 404);
+    }
+  });
+
+  app.delete("/systems/:name", async (c) => {
+    const name = c.req.param("name");
+    try {
+      await c.get("libraryService").deleteSystem(name);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete system template";
+      return c.json({ error: message }, 404);
+    }
+  });
+
   return app;
 }

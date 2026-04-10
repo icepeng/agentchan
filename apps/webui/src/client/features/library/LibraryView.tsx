@@ -15,16 +15,21 @@ import {
   createLibraryRenderer,
   updateLibraryRenderer,
   deleteLibraryRenderer,
+  fetchLibrarySystems,
+  fetchLibrarySystem,
+  createLibrarySystem,
+  updateLibrarySystem,
+  deleteLibrarySystem,
 } from "@/client/entities/skill/index.js";
 
-type Tab = "skills" | "renderers";
+type Tab = "skills" | "renderers" | "systems";
 
 interface SkillItem {
   name: string;
   description: string;
 }
 
-interface RendererItem {
+interface NameItem {
   name: string;
 }
 
@@ -48,20 +53,20 @@ const skillsConfig: LibraryEditorConfig<SkillItem> = {
   },
 };
 
-const renderersConfig: LibraryEditorConfig<RendererItem> = {
+const renderersConfig: LibraryEditorConfig<NameItem> = {
   fetchList: fetchLibraryRenderers,
   fetchItem: (name) => fetchLibraryRenderer(name).then((d) => d.source),
   createItem: createLibraryRenderer,
   updateItem: updateLibraryRenderer,
   deleteItem: deleteLibraryRenderer,
-  getTemplate: () => `interface RenderContext {
-  outputFiles: { path: string; content: string; modifiedAt: number }[];
-  skills: { name: string; description: string; metadata?: Record<string, string> }[];
-  baseUrl: string;
-}
+  getTemplate: () => `type ProjectFile = TextFile | BinaryFile;
+interface TextFile { type: "text"; path: string; content: string; frontmatter: Record<string, unknown> | null; modifiedAt: number; }
+interface BinaryFile { type: "binary"; path: string; modifiedAt: number; }
+interface RenderContext { files: ProjectFile[]; baseUrl: string; }
 
 export function render(ctx: RenderContext): string {
-  return ctx.outputFiles.map(f => \`<pre>\${f.content}</pre>\`).join("\\n");
+  const textFiles = ctx.files.filter((f): f is TextFile => f.type === "text");
+  return textFiles.map(f => \`<pre>\${f.content}</pre>\`).join("\\n");
 }
 `,
   getName: (item) => item.name,
@@ -71,6 +76,24 @@ export function render(ctx: RenderContext): string {
     newTitle: "library.newRendererTitle",
     namePlaceholder: "library.rendererNamePlaceholder",
     selectToEdit: "library.selectRendererToEdit",
+  },
+};
+
+const systemsConfig: LibraryEditorConfig<NameItem> = {
+  fetchList: fetchLibrarySystems,
+  fetchItem: (name) => fetchLibrarySystem(name).then((d) => d.content),
+  createItem: createLibrarySystem,
+  updateItem: updateLibrarySystem,
+  deleteItem: deleteLibrarySystem,
+  getTemplate: (name) => `# ${name}\n\n`,
+  getName: (item) => item.name,
+  language: "markdown",
+  showTokenCount: true,
+  labels: {
+    newButton: "library.newSystem",
+    newTitle: "library.newSystemTitle",
+    namePlaceholder: "library.systemNamePlaceholder",
+    selectToEdit: "library.selectSystemToEdit",
   },
 };
 
@@ -103,6 +126,17 @@ function RenderersView() {
   );
 }
 
+function SystemsView() {
+  return (
+    <LibraryEditorView
+      config={systemsConfig}
+      renderItem={(system) => (
+        <div className="font-medium truncate">{system.name}.md</div>
+      )}
+    />
+  );
+}
+
 // -- Main ---
 
 export function LibraryView() {
@@ -125,6 +159,7 @@ export function LibraryView() {
           tabs={[
             { key: "skills" as Tab, label: t("library.skillsTab") },
             { key: "renderers" as Tab, label: t("library.renderersTab") },
+            { key: "systems" as Tab, label: t("library.systemsTab") },
           ]}
           active={tab}
           onChange={setTab}
@@ -134,7 +169,9 @@ export function LibraryView() {
 
       {/* Content */}
       <div className="flex-1 min-h-0">
-        {tab === "skills" ? <SkillsView /> : <RenderersView />}
+        {tab === "skills" && <SkillsView />}
+        {tab === "renderers" && <RenderersView />}
+        {tab === "systems" && <SystemsView />}
       </div>
     </div>
   );

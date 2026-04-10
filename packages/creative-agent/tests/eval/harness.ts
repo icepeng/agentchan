@@ -15,6 +15,7 @@ export {
   expectNoSkillActivation,
   expectNoWriteDuplication,
   expectAppendNewlineSeparation,
+  expectAssistantText,
 } from "./assertions.js";
 
 export interface TokenStats {

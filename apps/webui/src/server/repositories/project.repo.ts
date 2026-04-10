@@ -144,6 +144,17 @@ export function createProjectRepo(projectsDir: string) {
       return project;
     },
 
+    async getSystem(slug: string): Promise<string | null> {
+      const path = join(projectDir(slug), "SYSTEM.md");
+      if (!existsSync(path)) return null;
+      return readFile(path, "utf-8");
+    },
+
+    async saveSystem(slug: string, content: string): Promise<void> {
+      await ensureProjectDir(slug);
+      await Bun.write(join(projectDir(slug), "SYSTEM.md"), content);
+    },
+
     async scanWorkspaceFiles(projectSlug: string): Promise<ProjectFile[]> {
       const filesDir = join(projectDir(projectSlug), "files");
       return scanWorkspaceFiles(filesDir);

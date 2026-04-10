@@ -10,8 +10,8 @@ import {
 
 export type PageRoute =
   | { page: "main" }
-  | { page: "library"; tab?: "skills" | "renderers" }
-  | { page: "project-settings"; slug: string; tab?: "skills" | "renderer" | "general" }
+  | { page: "library"; tab?: "skills" | "renderers" | "systems" }
+  | { page: "project-settings"; slug: string; tab?: "general" | "system" | "skills" | "renderer" }
   | { page: "settings"; tab?: "appearance" | "api-keys" };
 
 // --- State ---

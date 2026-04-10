@@ -100,3 +100,55 @@ export function updateLibraryRenderer(name: string, source: string): Promise<voi
 export function deleteLibraryRenderer(name: string): Promise<void> {
   return json(`/library/renderers/${encodeURIComponent(name)}`, { method: "DELETE" });
 }
+
+// --- Library Systems (SYSTEM.md templates) ---
+
+export function fetchLibrarySystems(): Promise<{ name: string }[]> {
+  return json("/library/systems");
+}
+
+export function fetchLibrarySystem(name: string): Promise<{ content: string }> {
+  return json(`/library/systems/${encodeURIComponent(name)}`);
+}
+
+export function createLibrarySystem(name: string, content: string): Promise<void> {
+  return json("/library/systems", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, content }),
+  });
+}
+
+export function updateLibrarySystem(name: string, content: string): Promise<void> {
+  return json(`/library/systems/${encodeURIComponent(name)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export function deleteLibrarySystem(name: string): Promise<void> {
+  return json(`/library/systems/${encodeURIComponent(name)}`, { method: "DELETE" });
+}
+
+// --- Project System (SYSTEM.md) ---
+
+export function fetchProjectSystem(projectSlug: string): Promise<{ content: string }> {
+  return json(`/projects/${encodeURIComponent(projectSlug)}/system`);
+}
+
+export function saveProjectSystem(projectSlug: string, content: string): Promise<void> {
+  return json(`/projects/${encodeURIComponent(projectSlug)}/system`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export function copyLibrarySystemToProject(projectSlug: string, libraryName: string): Promise<void> {
+  return json(`/projects/${encodeURIComponent(projectSlug)}/system/copy-from-library`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: libraryName }),
+  });
+}

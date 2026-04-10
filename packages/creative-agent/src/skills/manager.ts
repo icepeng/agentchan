@@ -18,8 +18,8 @@ type ActivateSkillInput = Static<typeof ActivateSkillParams>;
 
 /**
  * Payload handed to the runPrompt-supplied callback when a skill is activated.
- * The caller mints a `meta:"skill-load"` TreeNode from this and forwards the
- * body to `agent.steer()`.
+ * The caller mints a `meta:"skill-load"` TreeNode from this for UI display.
+ * The skill body itself is returned directly in the tool result — no steer needed.
  */
 export interface SkillLoadEvent {
   skillName: string;
@@ -27,9 +27,9 @@ export interface SkillLoadEvent {
 }
 
 /**
- * Provides the `activate_skill` tool. The runPrompt caller wires an
- * `onSkillLoad` callback that translates each load into a TreeNode and
- * forwards it to the agent via `agent.steer()`.
+ * Provides the `activate_skill` tool. The skill body is returned directly
+ * in the tool result. The optional `onSkillLoad` callback lets the caller
+ * mint a `meta:"skill-load"` TreeNode for UI display.
  */
 export class SkillManager {
   private skills: Map<string, SkillRecord>;
@@ -76,7 +76,7 @@ Important:
         await this.onSkillLoad?.({ skillName: skill.meta.name, content });
 
         log.info("agent", `skill activated: ${params.name}`);
-        return textResult(`Skill "${params.name}" loaded.`);
+        return textResult(text);
       },
     };
   }

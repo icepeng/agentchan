@@ -22,6 +22,9 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       return projectRepo.scanWorkspaceFiles(slug);
     },
 
+    async getSystem(slug: string) { return projectRepo.getSystem(slug); },
+    async saveSystem(slug: string, content: string) { return projectRepo.saveSystem(slug, content); },
+
     async ensureInitialProject(): Promise<void> {
       const projects = await projectRepo.list();
       if (projects.length > 0) return;

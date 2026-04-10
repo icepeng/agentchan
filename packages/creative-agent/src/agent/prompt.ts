@@ -3,7 +3,6 @@ import { nanoid } from "nanoid";
 import type {
   Message,
   AssistantMessage,
-  UserMessage,
 } from "@mariozechner/pi-ai";
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
 
@@ -219,12 +218,6 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     conversationId,
   );
 
-  // pi-agent-core forwards the same UserMessage object reference from
-  // steeringQueue.enqueue → currentContext.messages.push → _state.messages.push.
-  // That lets us identify steered skill-load messages by *object identity*
-  // (WeakSet), avoiding any string-based detection downstream.
-  const skillLoadMessages = new WeakSet<UserMessage>();
-
   // Each activate_skill call splices a new node between the last node and
   // the assistant response, so the chain advances on every callback.
   let lastNodeId = args.promptParentId;
@@ -235,17 +228,6 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     await persistAndInsertNode(ctx, slug, conversationId, tree, node);
     emit({ type: "user_node", node });
     lastNodeId = node.id;
-
-    // Single text block today (skills are markdown). The same object goes
-    // into both the WeakSet and agent.steer so identity matching works.
-    const text = content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
-    const steerMsg: UserMessage = {
-      role: "user",
-      content: text,
-      timestamp: Date.now(),
-    };
-    skillLoadMessages.add(steerMsg);
-    agent.steer(steerMsg);
   });
 
   const usageEntries: TokenUsage[] = [];
@@ -271,7 +253,6 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     const msg = all[i];
     // Drop the leading user prompt — already persisted before the agent ran.
     if (i === historyLength && msg.role === "user") continue;
-    if (msg.role === "user" && skillLoadMessages.has(msg)) continue;
     newMessages.push(msg);
   }
 
