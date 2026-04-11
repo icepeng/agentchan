@@ -1,7 +1,6 @@
 ---
 name: world-building
 description: 소설의 세계관을 구축한다. 시대, 지리, 사회 구조, 규칙, 감각 팔레트를 정의한다. 세계관 설정, 배경 구축에서 활성화한다.
-license: MIT
 metadata:
   author: agentchan
   version: "1.0"

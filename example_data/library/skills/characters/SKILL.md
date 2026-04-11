@@ -1,7 +1,6 @@
 ---
 name: characters
 description: 아키타입과 동기 프레임워크를 사용하여 소설의 주요 캐릭터를 설계한다. 캐릭터 개발, 인물 설계, 캐릭터 시트 작성에서 활성화한다.
-license: MIT
 metadata:
   author: agentchan
   version: "1.0"

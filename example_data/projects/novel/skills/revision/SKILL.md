@@ -1,7 +1,6 @@
 ---
 name: revision
 description: 완성된 원고의 일관성을 점검하고, 문체를 교정하며, 최종 원고를 편집한다. 퇴고, 교정, 원고 편집에서 활성화한다.
-license: MIT
 metadata:
   author: agentchan
   version: "1.0"

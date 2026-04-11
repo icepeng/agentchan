@@ -1,7 +1,6 @@
 ---
 name: chapter-writing
 description: 아웃라인에 따라 소설 챕터를 집필한다. 문체 가이드와 챕터 템플릿을 사용한다. 챕터 작성, 소설 집필에서 활성화한다.
-license: MIT
 metadata:
   author: agentchan
   version: "1.0"
