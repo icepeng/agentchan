@@ -13,8 +13,19 @@ export function createProjectRoutes() {
   });
 
   app.post("/", async (c) => {
-    const { name } = await c.req.json<{ name: string }>();
+    const { name, fromTemplate } = await c.req.json<{ name: string; fromTemplate?: string }>();
     if (!name?.trim()) return c.json({ error: "Name is required" }, 400);
+
+    if (fromTemplate) {
+      try {
+        const project = await c.get("projectService").createFromTemplate(name.trim(), fromTemplate);
+        return c.json(project, 201);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to create from template";
+        return c.json({ error: message }, 400);
+      }
+    }
+
     return c.json(await c.get("projectService").create(name.trim()), 201);
   });
 
@@ -135,21 +146,6 @@ export function createProjectRoutes() {
 
     const { content } = await c.req.json<{ content: string }>();
     if (typeof content !== "string") return c.json({ error: "content is required" }, 400);
-
-    await c.get("projectService").saveSystem(slug, content);
-    return c.json({ ok: true });
-  });
-
-  app.post("/:slug/system/copy-from-library", async (c) => {
-    const slug = c.req.param("slug");
-    const existing = await c.get("projectService").get(slug);
-    if (!existing) return c.json({ error: "Project not found" }, 404);
-
-    const { name } = await c.req.json<{ name: string }>();
-    if (!name?.trim()) return c.json({ error: "name is required" }, 400);
-
-    const content = await c.get("libraryService").getSystem(name.trim());
-    if (content === null) return c.json({ error: "Library system template not found" }, 404);
 
     await c.get("projectService").saveSystem(slug, content);
     return c.json({ ok: true });

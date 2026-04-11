@@ -1,10 +1,11 @@
-import { useReducer, useRef, useEffect, useCallback } from "react";
+import { useReducer, useRef, useEffect, useCallback, useState } from "react";
 import { Check, Plus, Settings, X } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator } from "@/client/shared/ui/index.js";
+import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "./useProject.js";
 
 // -- Shared menu styles ---
@@ -18,13 +19,13 @@ const MENU_ITEM_CLASS =
 
 type TabsMode =
   | { type: "idle" }
-  | { type: "creating"; value: string; error: boolean }
+  | { type: "creating"; value: string; error: boolean; templateName?: string }
   | { type: "editing"; slug: string; value: string }
   | { type: "confirming"; slug: string }
   | { type: "duplicating"; sourceSlug: string; value: string; error: boolean };
 
 type TabsAction =
-  | { type: "START_CREATE" }
+  | { type: "START_CREATE"; templateName?: string }
   | { type: "START_EDIT"; slug: string; name: string }
   | { type: "START_CONFIRM"; slug: string }
   | { type: "START_DUPLICATE"; sourceSlug: string }
@@ -35,7 +36,7 @@ type TabsAction =
 function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
   switch (action.type) {
     case "START_CREATE":
-      return { type: "creating", value: "", error: false };
+      return { type: "creating", value: "", error: false, templateName: action.templateName };
     case "START_EDIT":
       return { type: "editing", slug: action.slug, value: action.name };
     case "START_CONFIRM":
@@ -64,6 +65,7 @@ export function ProjectTabs() {
   const uiDispatch = useUIDispatch();
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
+  const [templates, setTemplates] = useState<TemplateMeta[] | null>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
@@ -71,6 +73,11 @@ export function ProjectTabs() {
   const isCreating = mode.type === "creating";
   const isEditing = mode.type === "editing";
   const isDuplicating = mode.type === "duplicating";
+
+  const loadTemplates = useCallback(() => {
+    if (templates !== null) return;
+    void fetchTemplates().then(setTemplates);
+  }, [templates]);
 
   useEffect(() => {
     if (isCreating || isDuplicating) createInputRef.current?.focus();
@@ -91,7 +98,7 @@ export function ProjectTabs() {
     }
     submittingRef.current = true;
     try {
-      await createProject(name);
+      await createProject(name, mode.templateName);
       modeDispatch({ type: "RESET" });
     } finally {
       submittingRef.current = false;
@@ -300,7 +307,7 @@ export function ProjectTabs() {
           className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
         />
       ) : (
-        <Menu.Root>
+        <Menu.Root onOpenChange={(open) => { if (open) loadTemplates(); }}>
           <Menu.Trigger
             render={
               <button
@@ -321,6 +328,25 @@ export function ProjectTabs() {
                   <Plus size={12} strokeWidth={2.5} />
                   {t("project.newOptionsEmpty")}
                 </Menu.Item>
+                {templates && templates.length > 0 && (
+                  <>
+                    <div className="my-1 border-t border-edge/8" role="separator" />
+                    <Menu.Group>
+                      <Menu.GroupLabel className="px-4 py-1 text-[10px] uppercase tracking-wider text-fg-4">
+                        {t("project.newOptionsFromTemplate")}
+                      </Menu.GroupLabel>
+                      {templates.map((s) => (
+                        <Menu.Item
+                          key={s.name}
+                          onClick={() => modeDispatch({ type: "START_CREATE", templateName: s.name })}
+                          className={`${MENU_ITEM_CLASS} truncate`}
+                        >
+                          {s.name}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Group>
+                  </>
+                )}
                 {projects.length > 0 && (
                   <>
                     <div className="my-1 border-t border-edge/8" role="separator" />

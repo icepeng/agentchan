@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft, BookOpen, Code, FileText, Plus } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ArrowLeft, Code, FileText, Plus } from "lucide-react";
 import { useUIState, useUIDispatch, type PageRoute } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { Button, IconButton, SectionHeader, TabBar, TextInput, Badge } from "@/client/shared/ui/index.js";
-import { SkillEditor, LibraryBrowser } from "@/client/features/library/index.js";
+import { Button, IconButton, SectionHeader, TabBar, TextInput } from "@/client/shared/ui/index.js";
+import { SkillEditor } from "@/client/features/library/index.js";
 import {
   useProjectState,
   useProjectDispatch,
@@ -19,13 +19,8 @@ import {
   createProjectSkill,
   updateProjectSkill,
   deleteProjectSkill,
-  fetchLibraryRenderers,
-  fetchLibraryRenderer,
   fetchProjectSystem,
   saveProjectSystem,
-  copyLibrarySystemToProject,
-  fetchLibrarySystems,
-  fetchLibrarySystem,
 } from "@/client/entities/skill/index.js";
 
 type SettingsTab = "general" | "system" | "skills" | "renderer";
@@ -155,174 +150,6 @@ function GeneralTab({ slug, project }: { slug: string; project: { name: string; 
   );
 }
 
-// --- ProjectLibraryTab (shared by System and Renderer tabs) ---
-
-interface ProjectLibraryTabConfig {
-  fetchCurrent: (slug: string) => Promise<string | null>;
-  saveCurrent: (slug: string, content: string) => Promise<void>;
-  applyFromLibrary: (slug: string, name: string) => Promise<void>;
-  fetchLibraryList: () => Promise<{ name: string }[]>;
-  fetchLibraryItem: (name: string) => Promise<string>;
-  icon: React.ComponentType<{ size: number; strokeWidth: number; className?: string }>;
-  language: "markdown" | "typescript";
-  showTokenCount?: boolean;
-  fileExt: string;
-  labels: {
-    currentName: string;
-    hasContent: string;
-    noContent: string;
-    libraryHeader: string;
-    noLibrary: string;
-    emptyMessage: string;
-    emptyHint: string;
-    emptyHintNoLibrary: string;
-  };
-  renderLibraryItem?: (item: { name: string }, isActive: boolean) => React.ReactNode;
-}
-
-function ProjectLibraryTab({ slug, config }: { slug: string; config: ProjectLibraryTabConfig }) {
-  const { t } = useI18n();
-  const [content, setContent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [libraryItems, setLibraryItems] = useState<{ name: string }[]>([]);
-  const [previewing, setPreviewing] = useState<string | null>(null);
-  const [previewContent, setPreviewContent] = useState<string | null>(null);
-  const [applying, setApplying] = useState(false);
-  const Icon = config.icon;
-
-  useEffect(() => {
-    setLoading(true);
-    void Promise.all([
-      config.fetchCurrent(slug).catch(() => null),
-      config.fetchLibraryList().catch(() => [] as { name: string }[]),
-    ]).then(([src, items]) => {
-      setContent(src);
-      setLibraryItems(items);
-      setLoading(false);
-    });
-  }, [slug, config]);
-
-  const handleSave = async (newContent: string) => {
-    await config.saveCurrent(slug, newContent);
-    setContent(newContent);
-  };
-
-  const handlePreview = async (name: string) => {
-    setPreviewing(name);
-    setPreviewContent(null);
-    try {
-      setPreviewContent(await config.fetchLibraryItem(name));
-    } catch {
-      setPreviewing(null);
-    }
-  };
-
-  const handleApply = async () => {
-    if (!previewContent || !previewing) return;
-    setApplying(true);
-    try {
-      await config.applyFromLibrary(slug, previewing);
-      setContent(previewContent);
-      setPreviewing(null);
-      setPreviewContent(null);
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-full text-fg-3 text-sm">{t("settings.loading")}</div>;
-  }
-
-  return (
-    <div className="flex h-full">
-      <div className="w-72 flex-shrink-0 border-r border-edge/6 flex flex-col bg-base/40">
-        <div className="p-3">
-          <button
-            onClick={() => { setPreviewing(null); setPreviewContent(null); }}
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
-              !previewing ? "bg-elevated text-accent" : "text-fg-2 hover:text-fg hover:bg-elevated/50"
-            }`}
-          >
-            <div className="flex items-center gap-2 font-medium">
-              <Icon size={12} strokeWidth={2} />
-              {config.labels.currentName}
-            </div>
-            <div className="text-xs text-fg-3 mt-0.5">
-              {content !== null ? config.labels.hasContent : config.labels.noContent}
-            </div>
-          </button>
-        </div>
-
-        {libraryItems.length > 0 && (
-          <>
-            <div className="px-4 pt-2 pb-1.5">
-              <div className="text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em]">
-                {config.labels.libraryHeader}
-              </div>
-              <div className="mt-1.5 h-px bg-gradient-to-r from-edge/8 to-transparent" />
-            </div>
-            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-              {libraryItems.map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => handlePreview(item.name)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
-                    previewing === item.name ? "bg-elevated text-accent" : "text-fg-2 hover:text-fg hover:bg-elevated/50"
-                  }`}
-                >
-                  {config.renderLibraryItem
-                    ? config.renderLibraryItem(item, previewing === item.name)
-                    : <div className="font-medium truncate">{item.name}{config.fileExt}</div>}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {libraryItems.length === 0 && (
-          <div className="flex-1 flex items-center justify-center text-fg-3 text-xs px-4 text-center">
-            {config.labels.noLibrary}
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 p-4 flex flex-col min-h-0">
-        {previewing ? (
-          previewContent !== null ? (
-            <>
-              <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-mono text-fg-2">{previewing}{config.fileExt}</span>
-                  <span className="text-[11px] text-fg-3 px-1.5 py-0.5 rounded bg-elevated border border-edge/6">{t("settings.preview")}</span>
-                </div>
-                <Button variant="accent" onClick={handleApply} disabled={applying}>
-                  {applying ? t("settings.applying") : t("settings.applyToProject")}
-                </Button>
-              </div>
-              <div className="flex-1 min-h-0">
-                <SkillEditor key={previewing} content={previewContent} language={config.language} readOnly showTokenCount={config.showTokenCount} />
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full text-fg-3 text-sm">{t("settings.loading")}</div>
-          )
-        ) : content !== null ? (
-          <SkillEditor key={`current-${slug}`} content={content} onSave={handleSave} language={config.language} showTokenCount={config.showTokenCount} />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-3">
-            <Icon size={32} strokeWidth={1.5} className="text-fg-3" />
-            <div className="text-fg-3 text-sm">{config.labels.emptyMessage}</div>
-            <div className="text-fg-3 text-xs">
-              {libraryItems.length > 0 ? config.labels.emptyHint : config.labels.emptyHintNoLibrary}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // --- Skills Tab ---
 
 function SkillsTab({ slug }: { slug: string }) {
@@ -332,7 +159,6 @@ function SkillsTab({ slug }: { slug: string }) {
   const skills = skillState.skills;
   const [selected, setSelected] = useState<string | null>(null);
   const [content, setContent] = useState("");
-  const [browsing, setBrowsing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
@@ -349,7 +175,6 @@ function SkillsTab({ slug }: { slug: string }) {
     const data = await fetchProjectSkill(slug, name);
     setSelected(name);
     setContent(data.content);
-    setBrowsing(false);
     setCreating(false);
   };
 
@@ -378,40 +203,15 @@ function SkillsTab({ slug }: { slug: string }) {
     await handleSelect(name);
   };
 
-  const handleCopied = async () => {
-    await loadSkills();
-  };
-
-  if (browsing) {
-    return (
-      <div className="h-full">
-        <LibraryBrowser
-          projectSlug={slug}
-          existingSkills={skills.map((s) => s.name)}
-          onCopied={handleCopied}
-          onClose={() => setBrowsing(false)}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full">
       {/* Left: List */}
       <div className="w-72 flex-shrink-0 border-r border-edge/6 flex flex-col bg-base/40">
         <div className="p-3 space-y-1">
           <button
-            onClick={() => setBrowsing(true)}
-            className="w-full px-3 py-2 rounded-xl text-sm border border-dashed border-accent/20 hover:border-accent/40 hover:bg-accent/5 text-accent transition-all flex items-center gap-2"
-          >
-            <BookOpen size={12} strokeWidth={2} />
-            {t("settings.fromLibrary")}
-          </button>
-          <button
             onClick={() => {
               setCreating(true);
               setSelected(null);
-              setBrowsing(false);
             }}
             className="w-full px-3 py-2 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all flex items-center gap-2"
           >
@@ -500,77 +300,74 @@ function SkillsTab({ slug }: { slug: string }) {
   );
 }
 
-// --- System Tab ---
+function FileEditorTab({ slug, fetchContent, saveContent, language, showTokenCount, emptyIcon, emptyText }: {
+  slug: string;
+  fetchContent: (slug: string) => Promise<string | null>;
+  saveContent: (slug: string, content: string) => Promise<void>;
+  language: "markdown" | "typescript";
+  showTokenCount?: boolean;
+  emptyIcon: React.ReactNode;
+  emptyText: string;
+}) {
+  const { t } = useI18n();
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchContent(slug)
+      .then((c) => { if (!cancelled) setContent(c); })
+      .catch(() => { if (!cancelled) setContent(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [slug, fetchContent]);
+
+  const handleSave = async (newContent: string) => {
+    await saveContent(slug, newContent);
+    setContent(newContent);
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-full text-fg-3 text-sm">{t("settings.loading")}</div>;
+  }
+
+  return (
+    <div className="flex-1 p-4 h-full">
+      {content !== null ? (
+        <SkillEditor key={`${language}-${slug}`} content={content} onSave={handleSave} language={language} showTokenCount={showTokenCount} />
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full gap-3">
+          {emptyIcon}
+          <div className="text-fg-3 text-sm">{emptyText}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const fetchSystem = (slug: string) => fetchProjectSystem(slug).then((d) => d.content || null);
+const fetchRenderer = (slug: string) => fetchRendererSource(slug).then((d) => d.source);
 
 function SystemTab({ slug }: { slug: string }) {
   const { t } = useI18n();
-  const config = useMemo((): ProjectLibraryTabConfig => ({
-    fetchCurrent: (s) => fetchProjectSystem(s).then((d) => d.content || null),
-    saveCurrent: saveProjectSystem,
-    applyFromLibrary: copyLibrarySystemToProject,
-    fetchLibraryList: fetchLibrarySystems,
-    fetchLibraryItem: (name) => fetchLibrarySystem(name).then((d) => d.content),
-    icon: FileText,
-    language: "markdown",
-    showTokenCount: true,
-    fileExt: ".md",
-    labels: {
-      currentName: "SYSTEM.md",
-      hasContent: t("settings.projectSystem"),
-      noContent: t("settings.notCreatedYet"),
-      libraryHeader: t("settings.systemLibrary"),
-      noLibrary: t("settings.noLibrarySystems"),
-      emptyMessage: t("settings.noSystemYet"),
-      emptyHint: t("settings.selectSystemToPreview"),
-      emptyHintNoLibrary: t("settings.createInLibraryFirst"),
-    },
-  }), [t]);
-  return <ProjectLibraryTab slug={slug} config={config} />;
+  return (
+    <FileEditorTab
+      slug={slug} fetchContent={fetchSystem} saveContent={saveProjectSystem}
+      language="markdown" showTokenCount
+      emptyIcon={<FileText size={32} strokeWidth={1.5} className="text-fg-3" />}
+      emptyText={t("settings.noSystemYet")}
+    />
+  );
 }
-
-// --- Renderer Tab ---
 
 function RendererTab({ slug }: { slug: string }) {
   const { t } = useI18n();
-  const skillState = useSkillState();
-
-  const recommendedRenderers = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of skillState.skills) {
-      const rec = s.metadata?.["recommended-renderer"];
-      if (rec) set.add(rec);
-    }
-    return set;
-  }, [skillState.skills]);
-
-  const config = useMemo((): ProjectLibraryTabConfig => ({
-    fetchCurrent: (s) => fetchRendererSource(s).then((d) => d.source),
-    saveCurrent: saveRendererSource,
-    applyFromLibrary: (s, name) =>
-      fetchLibraryRenderer(name).then((d) => saveRendererSource(s, d.source)),
-    fetchLibraryList: fetchLibraryRenderers,
-    fetchLibraryItem: (name) => fetchLibraryRenderer(name).then((d) => d.source),
-    icon: Code,
-    language: "typescript",
-    fileExt: ".ts",
-    labels: {
-      currentName: t("settings.rendererTs"),
-      hasContent: t("settings.projectRenderer"),
-      noContent: t("settings.notCreatedYet"),
-      libraryHeader: t("settings.rendererLibrary"),
-      noLibrary: t("settings.noLibraryRenderers"),
-      emptyMessage: t("settings.noRendererYet"),
-      emptyHint: t("settings.selectRendererToPreview"),
-      emptyHintNoLibrary: t("settings.createInLibraryFirst"),
-    },
-    renderLibraryItem: (item) => (
-      <div className="flex items-center gap-2 font-medium truncate">
-        <span className="truncate">{item.name}.ts</span>
-        {recommendedRenderers.has(item.name) && (
-          <Badge variant="accent">{t("settings.recommended")}</Badge>
-        )}
-      </div>
-    ),
-  }), [t, recommendedRenderers]);
-  return <ProjectLibraryTab slug={slug} config={config} />;
+  return (
+    <FileEditorTab
+      slug={slug} fetchContent={fetchRenderer} saveContent={saveRendererSource}
+      language="typescript"
+      emptyIcon={<Code size={32} strokeWidth={1.5} className="text-fg-3" />}
+      emptyText={t("settings.noRendererYet")}
+    />
+  );
 }

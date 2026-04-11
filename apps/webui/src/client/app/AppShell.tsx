@@ -7,9 +7,9 @@ import { ProjectSettingsPage } from "@/client/pages/ProjectSettingsPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/features/onboarding/index.js";
 
-// Library page is lazy-loaded to keep CodeMirror out of the main bundle.
-const LibraryPage = lazy(() =>
-  import("@/client/pages/LibraryPage.js").then((m) => ({ default: m.LibraryPage })),
+// Templates page is lazy-loaded to keep it out of the main bundle.
+const TemplatesPage = lazy(() =>
+  import("@/client/pages/TemplatesPage.js").then((m) => ({ default: m.TemplatesPage })),
 );
 
 function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
@@ -18,8 +18,8 @@ function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
   onToggleAgentPanel: () => void;
 }) {
   switch (page) {
-    case "library":
-      return <LibraryPage />;
+    case "templates":
+      return <TemplatesPage />;
     case "project-settings":
       return <ProjectSettingsPage />;
     case "settings":

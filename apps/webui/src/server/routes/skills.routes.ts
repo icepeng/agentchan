@@ -10,19 +10,17 @@ export function createSkillRoutes() {
     return c.json(await c.get("skillService").listProjectSkills(slug));
   });
 
-  // Add skill to project (create new or copy from library)
+  // Add skill to project
   app.post("/", async (c) => {
     const slug = c.req.param("slug")!;
-    const body = await c.req.json<{ name?: string; content?: string; fromLibrary?: string }>();
+    const body = await c.req.json<{ name: string; content: string }>();
+
+    if (!body.name?.trim() || typeof body.content !== "string") {
+      return c.json({ error: "name and content are required" }, 400);
+    }
 
     try {
-      if (body.fromLibrary) {
-        await c.get("skillService").copySkillToProject(body.fromLibrary, slug);
-      } else if (body.name && typeof body.content === "string") {
-        await c.get("skillService").createProjectSkill(slug, body.name.trim(), body.content);
-      } else {
-        return c.json({ error: "Provide { name, content } or { fromLibrary }" }, 400);
-      }
+      await c.get("skillService").createProjectSkill(slug, body.name.trim(), body.content);
       return c.json({ ok: true }, 201);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to add skill";

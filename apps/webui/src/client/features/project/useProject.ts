@@ -57,13 +57,16 @@ export function useProject() {
   );
 
   const createProject = useCallback(
-    async (name: string) => {
-      const project = await apiCreate(name);
+    async (name: string, fromTemplate?: string) => {
+      const project = await apiCreate(name, fromTemplate);
       projectDispatch({ type: "ADD_PROJECT", project });
-      // Select the new project
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
       sessionDispatch({ type: "CLEAR" });
       skillDispatch({ type: "CLEAR" });
+      if (fromTemplate) {
+        const skills = await fetchSkills(project.slug);
+        skillDispatch({ type: "SET_SKILLS", skills });
+      }
       return project;
     },
     [sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],

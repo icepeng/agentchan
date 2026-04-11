@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
+import type { TemplateRepo } from "../repositories/template.repo.js";
 
-export function createProjectService(projectRepo: ProjectRepo, projectsDir: string) {
+export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
 
   return {
@@ -18,6 +19,10 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       return projectRepo.delete(slug);
     },
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
+    async createFromTemplate(name: string, templateName: string) {
+      const templateDir = templateRepo.getSourceDir(templateName);
+      return projectRepo.createFromTemplate(name, templateDir);
+    },
     async scanWorkspaceFiles(slug: string) {
       return projectRepo.scanWorkspaceFiles(slug);
     },

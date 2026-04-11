@@ -31,6 +31,35 @@ export function createProjectRepo(projectsDir: string) {
     return slug;
   }
 
+  async function createFromSource(name: string, srcDir: string): Promise<Project> {
+    const slug = uniqueSlug(name);
+    const now = Date.now();
+    const project: Project = { slug, name, createdAt: now, updatedAt: now };
+
+    await ensureProjectDir(slug);
+    await Bun.write(projectMetaPath(slug), JSON.stringify(project, null, 2));
+
+    const destDir = projectDir(slug);
+    const copies: Promise<void>[] = [];
+
+    for (const sub of ["skills", "files"] as const) {
+      const src = join(srcDir, sub);
+      if (existsSync(src)) {
+        copies.push(cp(src, join(destDir, sub), { recursive: true }));
+      }
+    }
+
+    for (const file of ["renderer.ts", "SYSTEM.md"] as const) {
+      const src = join(srcDir, file);
+      if (existsSync(src)) {
+        copies.push(cp(src, join(destDir, file)));
+      }
+    }
+
+    await Promise.all(copies);
+    return project;
+  }
+
   return {
     async list(): Promise<Project[]> {
       if (!existsSync(projectsDir)) {
@@ -102,46 +131,10 @@ export function createProjectRepo(projectsDir: string) {
     },
 
     async duplicate(sourceSlug: string, name: string): Promise<Project> {
-      const srcMeta = projectMetaPath(sourceSlug);
-      if (!existsSync(srcMeta)) throw new Error(`Source project not found: ${sourceSlug}`);
-
-      const slug = uniqueSlug(name);
-      const now = Date.now();
-
-      const project: Project = {
-        slug,
-        name,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      await ensureProjectDir(slug);
-      await Bun.write(projectMetaPath(slug), JSON.stringify(project, null, 2));
-
-      const srcDir = projectDir(sourceSlug);
-      const destDir = projectDir(slug);
-      const copies: Promise<void>[] = [];
-
-      for (const sub of ["skills", "files"] as const) {
-        const src = join(srcDir, sub);
-        if (existsSync(src)) {
-          copies.push(cp(src, join(destDir, sub), { recursive: true }));
-        }
+      if (!existsSync(projectMetaPath(sourceSlug))) {
+        throw new Error(`Source project not found: ${sourceSlug}`);
       }
-
-      const srcRenderer = join(srcDir, "renderer.ts");
-      if (existsSync(srcRenderer)) {
-        copies.push(cp(srcRenderer, join(destDir, "renderer.ts")));
-      }
-
-      const srcSystem = join(srcDir, "SYSTEM.md");
-      if (existsSync(srcSystem)) {
-        copies.push(cp(srcSystem, join(destDir, "SYSTEM.md")));
-      }
-
-      await Promise.all(copies);
-
-      return project;
+      return createFromSource(name, projectDir(sourceSlug));
     },
 
     async getSystem(slug: string): Promise<string | null> {
@@ -153,6 +146,10 @@ export function createProjectRepo(projectsDir: string) {
     async saveSystem(slug: string, content: string): Promise<void> {
       await ensureProjectDir(slug);
       await Bun.write(join(projectDir(slug), "SYSTEM.md"), content);
+    },
+
+    async createFromTemplate(name: string, templateDir: string): Promise<Project> {
+      return createFromSource(name, templateDir);
     },
 
     async scanWorkspaceFiles(projectSlug: string): Promise<ProjectFile[]> {

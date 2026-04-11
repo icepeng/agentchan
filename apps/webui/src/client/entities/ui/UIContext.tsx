@@ -10,7 +10,7 @@ import {
 
 export type PageRoute =
   | { page: "main" }
-  | { page: "library"; tab?: "skills" | "renderers" | "systems" }
+  | { page: "templates" }
   | { page: "project-settings"; slug: string; tab?: "general" | "system" | "skills" | "renderer" }
   | { page: "settings"; tab?: "appearance" | "api-keys" };
 

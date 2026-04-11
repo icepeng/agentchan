@@ -7,11 +7,11 @@ export function fetchProjects(): Promise<Project[]> {
   return json("/projects");
 }
 
-export function createProject(name: string): Promise<Project> {
+export function createProject(name: string, fromTemplate?: string): Promise<Project> {
   return json("/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, ...(fromTemplate ? { fromTemplate } : {}) }),
   });
 }
 

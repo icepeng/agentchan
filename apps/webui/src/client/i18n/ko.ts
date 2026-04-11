@@ -2,7 +2,7 @@ import type { TranslationKey } from "./en.js";
 
 export const translations: Record<TranslationKey, string> = {
   // Sidebar
-  "sidebar.library": "라이브러리",
+  "sidebar.templates": "템플릿",
   "sidebar.projects": "프로젝트",
   "sidebar.projectSettings": "프로젝트 설정",
 
@@ -70,8 +70,9 @@ export const translations: Record<TranslationKey, string> = {
   "project.deleteFailed": "프로젝트 삭제 실패: {{error}}",
   "project.duplicateSettings": "새 프로젝트에 설정 복사",
   "project.duplicateSettingsNamePlaceholder": "새 프로젝트 이름...",
-  "project.newOptionsEmpty": "빈 프로젝트로 시작",
+  "project.newOptionsEmpty": "빈 프로젝트",
   "project.newOptionsCopyFrom": "다른 프로젝트에서 복제",
+  "project.newOptionsFromTemplate": "템플릿에서",
 
   // Project settings
   "settings.back": "뒤로",
@@ -83,57 +84,23 @@ export const translations: Record<TranslationKey, string> = {
   "settings.notes": "노트",
   "settings.save": "저장",
   "settings.saving": "저장 중...",
-  "settings.fromLibrary": "라이브러리에서",
   "settings.newSkill": "새 스킬",
   "settings.noSkills": "스킬 없음",
   "settings.selectSkillToEdit": "편집할 스킬을 선택하세요",
   "settings.rendererTs": "renderer.ts",
   "settings.projectRenderer": "프로젝트 렌더러",
   "settings.notCreatedYet": "아직 생성되지 않음",
-  "settings.rendererLibrary": "라이브러리",
-  "settings.preview": "미리보기",
-  "settings.applyToProject": "프로젝트에 적용",
-  "settings.recommended": "추천",
-  "settings.applying": "적용 중...",
   "settings.loading": "로딩 중...",
   "settings.noRendererYet": "renderer.ts가 아직 없습니다",
-  "settings.selectRendererToPreview": "미리볼 라이브러리 렌더러를 선택하세요",
-  "settings.createInLibraryFirst": "먼저 라이브러리에서 생성하세요",
-  "settings.noLibraryRenderers": "라이브러리 렌더러 없음",
   "settings.system": "시스템",
   "settings.projectSystem": "프로젝트 시스템 프롬프트",
-  "settings.systemLibrary": "라이브러리",
   "settings.noSystemYet": "SYSTEM.md가 아직 없습니다",
-  "settings.selectSystemToPreview": "미리볼 라이브러리 시스템 템플릿을 선택하세요",
-  "settings.noLibrarySystems": "라이브러리 시스템 템플릿 없음",
 
-  // Library page
-  "library.title": "라이브러리",
-  "library.skillsTab": "스킬",
-  "library.renderersTab": "렌더러",
-  "library.newSkill": "새 스킬",
-  "library.newRenderer": "새 렌더러",
-  "library.newSkillTitle": "새 스킬",
-  "library.newRendererTitle": "새 렌더러",
-  "library.skillNamePlaceholder": "스킬-이름 (소문자, 하이픈)",
-  "library.rendererNamePlaceholder": "렌더러-이름",
-  "library.cancel": "취소",
-  "library.create": "생성",
-  "library.selectSkillToEdit": "편집할 스킬을 선택하세요",
-  "library.selectRendererToEdit": "편집할 렌더러를 선택하세요",
-  "library.systemsTab": "시스템",
-  "library.newSystem": "새 시스템",
-  "library.newSystemTitle": "새 시스템",
-  "library.systemNamePlaceholder": "시스템-이름",
-  "library.selectSystemToEdit": "편집할 시스템 템플릿을 선택하세요",
-
-  // Library browser
-  "libraryBrowser.title": "라이브러리에서 추가",
-  "libraryBrowser.noLibrarySkills": "라이브러리 스킬 없음",
-  "libraryBrowser.allAlreadyAdded": "모든 라이브러리 스킬이 이미 추가됨",
-  "libraryBrowser.add": "추가",
-  "libraryBrowser.added": "적용됨",
-  "libraryBrowser.copying": "복사 중...",
+  // Templates page
+  "templates.title": "템플릿",
+  "templates.description": "템플릿으로 새 프로젝트를 시작하세요.",
+  "templates.createProject": "프로젝트 생성",
+  "templates.empty": "사용 가능한 템플릿이 없습니다",
 
   // Skill/Renderer editor
   "editor.unsaved": "저장되지 않은 변경",

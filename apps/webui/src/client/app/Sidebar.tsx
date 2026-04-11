@@ -34,18 +34,18 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Library */}
+      {/* Templates */}
       <div className="px-2 border-t border-edge/6 pt-2 pb-1">
         <button
-          onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "library" } })}
+          onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "templates" } })}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left transition-all duration-150 ${
-            ui.currentPage.page === "library"
+            ui.currentPage.page === "templates"
               ? "bg-elevated text-accent"
               : "text-fg-2 hover:text-fg hover:bg-elevated/50"
           }`}
         >
           <BookOpen size={14} strokeWidth={2} />
-          {t("sidebar.library")}
+          {t("sidebar.templates")}
         </button>
       </div>
 
