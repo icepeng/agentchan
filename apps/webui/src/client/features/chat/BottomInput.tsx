@@ -70,7 +70,7 @@ export function BottomInput() {
   };
 
   return (
-    <div className="border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4">
+    <div className="relative z-20 border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4">
       <div className="max-w-4xl mx-auto">
         <div className="relative">
           {slash.isOpen && (

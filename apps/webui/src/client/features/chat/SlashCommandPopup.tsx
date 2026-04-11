@@ -24,7 +24,7 @@ export function SlashCommandPopup({ commands, selectedIndex, onSelect, onHover }
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 right-0 mb-2 bg-elevated border border-white/8 rounded-xl shadow-lg shadow-void/50 overflow-y-auto max-h-[240px] animate-fade z-50"
+      className="absolute bottom-full left-0 right-0 mb-2 bg-elevated/95 backdrop-blur-md border border-edge/12 rounded-xl shadow-xl shadow-void/60 overflow-y-auto max-h-[240px] animate-fade z-50"
     >
       {commands.map((cmd, i) => (
         <button
