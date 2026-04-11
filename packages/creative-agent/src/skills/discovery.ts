@@ -96,7 +96,6 @@ function buildSkillRecord(
     meta: {
       name: skillName,
       description,
-      ...(raw.license ? { license: raw.license as string } : {}),
       ...(raw.metadata ? { metadata: raw.metadata as Record<string, string> } : {}),
       ...(isTruthy(disableInvokeRaw) ? { disableModelInvocation: true } : {}),
     },

@@ -1,7 +1,6 @@
 export interface SkillMetadata {
   name: string;
   description: string;
-  license?: string;
   metadata?: Record<string, string>;
   /** Hide from the model-facing catalog so the model never self-activates. */
   disableModelInvocation?: boolean;

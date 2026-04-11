@@ -1,7 +1,6 @@
 ---
 name: outline
 description: 소설의 전제를 확인하고 3막 비트 시트 기반의 플롯 아웃라인을 작성한다. 장르, 로그라인, 주제 정의 및 아웃라인 구성에서 활성화한다.
-license: MIT
 metadata:
   author: agentchan
   version: "1.0"
