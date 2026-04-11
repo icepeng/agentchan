@@ -128,70 +128,58 @@ function SkillChipBubble({
     return matches.length > 0 ? matches : ["unknown"];
   }, [firstText]);
 
+  // Slash command: content[1] holds the serialized command text
+  const slashInfo = useMemo(() => {
+    const block = node.content[1];
+    if (!block || block.type !== "text") return null;
+    const m = block.text.match(
+      /^<command-name>\/([a-z0-9][a-z0-9-]*)<\/command-name>(?:\s*<command-args>([\s\S]*?)<\/command-args>)?/,
+    );
+    return m ? { name: m[1], args: m[2] ?? "" } : null;
+  }, [node.content]);
+
+  const chipRow = (
+    <div className={`flex items-center gap-2 text-xs text-fg-3 ${slashInfo ? "mt-1" : "py-1"} opacity-70`}>
+      <span>{"\u2699"}</span>
+      <span>
+        {t("chat.skillLoaded")}:{" "}
+        <span className="font-mono text-accent/80">{names.join(", ")}</span>
+      </span>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="text-accent/60 hover:text-accent transition-colors ml-1"
+      >
+        {expanded ? t("chat.hideBody") : t("chat.showBody")}
+      </button>
+    </div>
+  );
+
   return (
-    <BubbleWrap variant={variant}>
-      <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-70">
-        <span>{"\u2699"}</span>
-        <span>
-          {t("chat.skillLoaded")}:{" "}
-          <span className="font-mono text-accent/80">{names.join(", ")}</span>
-        </span>
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="text-accent/60 hover:text-accent transition-colors ml-1"
-        >
-          {expanded ? t("chat.hideBody") : t("chat.showBody")}
-        </button>
-      </div>
+    <BubbleWrap variant={variant} padding={slashInfo ? "loose" : "tight"}>
+      {slashInfo ? (
+        <div className="flex items-start gap-2.5">
+          <UserAvatar />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-warm">
+                {t("chat.you")}
+              </span>
+            </div>
+            <div className="text-sm text-fg">
+              <span className="font-mono text-accent">/{slashInfo.name}</span>
+              {slashInfo.args && <span className="ml-1 whitespace-pre-wrap">{slashInfo.args}</span>}
+            </div>
+            {chipRow}
+          </div>
+        </div>
+      ) : chipRow}
       {expanded && (
         <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
           <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
-            <MessageContent content={node.content} />
+            <MessageContent content={[node.content[0]]} />
           </div>
         </div>
       )}
-    </BubbleWrap>
-  );
-}
-
-// ── Slash Invocation Bubble ──────────────────
-// Body is now in a sibling skill-load node (rendered by SkillChipBubble),
-// so this bubble only needs to display the parsed `/name args` line.
-
-function SlashInvocationBubble({
-  node,
-  variant = "compact",
-}: {
-  node: TreeNode;
-  variant?: "compact" | "wide";
-}) {
-  const { t } = useI18n();
-  const firstBlock = node.content[0];
-  const text =
-    firstBlock && firstBlock.type === "text" ? firstBlock.text : "";
-  const { name, args } = useMemo(() => {
-    const m = text.match(
-      /^<command-name>\/([a-z0-9][a-z0-9-]*)<\/command-name>(?:\s*<command-args>([\s\S]*?)<\/command-args>)?/,
-    );
-    return { name: m?.[1] ?? "unknown", args: m?.[2] ?? "" };
-  }, [text]);
-
-  return (
-    <BubbleWrap variant={variant} padding="loose" className="group animate-fade-slide">
-      <div className="flex items-start gap-2.5">
-        <UserAvatar />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-warm">
-              {t("chat.you")}
-            </span>
-          </div>
-          <div className="text-sm text-fg">
-            <span className="font-mono text-accent">/{name}</span>
-            {args && <span className="ml-1 whitespace-pre-wrap">{args}</span>}
-          </div>
-        </div>
-      </div>
     </BubbleWrap>
   );
 }
@@ -239,14 +227,6 @@ export function MessageBubble({
 
   if (node.role === "user" && node.meta === "skill-load") {
     return <SkillChipBubble node={node} variant={variant} />;
-  }
-
-  if (
-    node.role === "user" &&
-    node.content[0]?.type === "text" &&
-    node.content[0].text.startsWith("<command-name>")
-  ) {
-    return <SlashInvocationBubble node={node} variant={variant} />;
   }
 
   if (node.meta === "compact-summary") {

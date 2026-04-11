@@ -100,7 +100,6 @@ function buildSkillRecord(
       ...(raw.metadata ? { metadata: raw.metadata as Record<string, string> } : {}),
       ...(isTruthy(disableInvokeRaw) ? { disableModelInvocation: true } : {}),
     },
-    location: resolve(location),
     baseDir: resolve(location, ".."),
     body: body.trim(),
   };

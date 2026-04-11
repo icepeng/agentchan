@@ -6,11 +6,11 @@
  */
 
 import { join } from "node:path";
-import type { ConversationContext } from "../conversation/context.js";
-import { createConversationStorage } from "../conversation/storage.js";
+import { createConversationStorage, type ConversationStorage } from "../conversation/storage.js";
 import type { ResolvedAgentConfig } from "./config.js";
 
-export interface AgentContext extends ConversationContext {
+export interface AgentContext {
+  storage: ConversationStorage;
   /** Absolute path to the projects root — agent functions resolve per-project skill paths from here. */
   projectsDir: string;
   resolveAgentConfig: () => ResolvedAgentConfig;

@@ -8,7 +8,6 @@ import type { ContentBlock, TreeNode } from "../types.js";
 import { buildSkillContent } from "../skills/skill-content.js";
 import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
-import { findSlashInvocableSkill } from "../slash/catalog.js";
 
 /**
  * Format one or more skill bodies into the canonical injection text.
@@ -25,12 +24,10 @@ export function buildSkillInjectionContent(
 /**
  * Build the user TreeNode(s) for a raw user prompt.
  *
- * Slash → skill returns two nodes (chip first, slash text as its child)
- * so regenerate/branch from descendants always replay the skill body via
- * history. Plain prompts return a single node.
+ * Slash → single node with skill body + command text, meta "skill-load".
+ * Plain prompts return a single node.
  *
- * `llmText` is the text fed to `agent.prompt()`; for the two-node case the
- * chip is left in history and convert.ts merges consecutive user messages.
+ * `llmText` is the text fed to `agent.prompt()`.
  */
 export function buildUserNodeForPrompt(
   rawText: string,
@@ -38,8 +35,8 @@ export function buildUserNodeForPrompt(
   skills: Map<string, SkillRecord>,
   parentNodeId: string | null,
 ): { nodes: TreeNode[]; llmText: string } {
-  const slashBranch = tryBuildSlashSkillNodes(rawText, projectDir, skills, parentNodeId);
-  if (slashBranch) return slashBranch;
+  const slashNode = tryBuildSlashSkillNode(rawText, projectDir, skills, parentNodeId);
+  if (slashNode) return slashNode;
 
   const node: TreeNode = {
     id: nanoid(12),
@@ -51,7 +48,7 @@ export function buildUserNodeForPrompt(
   return { nodes: [node], llmText: rawText };
 }
 
-function tryBuildSlashSkillNodes(
+function tryBuildSlashSkillNode(
   rawText: string,
   projectDir: string,
   skills: Map<string, SkillRecord>,
@@ -61,27 +58,23 @@ function tryBuildSlashSkillNodes(
   const parsed = parseSlashInput(rawText);
   if (!parsed) return null;
 
-  const skill = findSlashInvocableSkill(skills, parsed.name);
+  const skill = skills.get(parsed.name);
   if (!skill) return null;
 
   const skillText = buildSkillInjectionContent([skill], projectDir);
-  const skillNode: TreeNode = {
+  const userText = serializeCommand(parsed.name, parsed.args);
+  const node: TreeNode = {
     id: nanoid(12),
     parentId: parentNodeId,
     role: "user",
-    content: [{ type: "text", text: skillText }],
+    content: [
+      { type: "text", text: skillText },
+      { type: "text", text: userText },
+    ],
     createdAt: Date.now(),
     meta: "skill-load",
   };
-  const userText = serializeCommand(parsed.name, parsed.args);
-  const userNode: TreeNode = {
-    id: nanoid(12),
-    parentId: skillNode.id,
-    role: "user",
-    content: [{ type: "text", text: userText }],
-    createdAt: Date.now(),
-  };
-  return { nodes: [skillNode, userNode], llmText: userText };
+  return { nodes: [node], llmText: userText };
 }
 
 /**

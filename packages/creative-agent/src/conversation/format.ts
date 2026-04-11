@@ -26,6 +26,13 @@ export interface ParsedConversation {
   nodes: TreeNode[];
 }
 
+/** Branch marker appended by switchBranch (append-only alternative to file rewrite). */
+export interface BranchMarker {
+  _marker: "branch";
+  nodeId: string;
+  activeChildId: string;
+}
+
 export function parseConversationFile(content: string): ParsedConversation {
   const lines = content.split("\n").filter((line) => line.trim());
   if (lines.length === 0) return { headerLine: null, header: null, nodes: [] };
@@ -42,7 +49,27 @@ export function parseConversationFile(content: string): ParsedConversation {
     }
   } catch { /* not valid JSON — treat all as nodes */ }
 
-  const nodes = lines.slice(startIdx).map((line) => JSON.parse(line) as TreeNode);
+  const nodes: TreeNode[] = [];
+  const branchMarkers: BranchMarker[] = [];
+
+  for (let i = startIdx; i < lines.length; i++) {
+    const parsed = JSON.parse(lines[i]);
+    if (parsed._marker === "branch") {
+      branchMarkers.push(parsed as BranchMarker);
+    } else {
+      nodes.push(parsed as TreeNode);
+    }
+  }
+
+  // Apply branch markers to set activeChildId on the referenced nodes
+  if (branchMarkers.length > 0) {
+    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+    for (const marker of branchMarkers) {
+      const node = nodeMap.get(marker.nodeId);
+      if (node) node.activeChildId = marker.activeChildId;
+    }
+  }
+
   return { headerLine, header, nodes };
 }
 

@@ -3,9 +3,13 @@ import { existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { nanoid } from "nanoid";
 import type { TreeNode, TreeNodeWithChildren, Conversation } from "../types.js";
-import { computeActivePath } from "./tree.js";
+import {
+  computeActivePath,
+  switchBranch as switchBranchInTree,
+} from "./tree.js";
 import {
   type ConversationHeader,
+  type BranchMarker,
   type ParsedConversation,
   parseConversationFile,
   buildTreeMap,
@@ -13,7 +17,7 @@ import {
   serializeConversation,
 } from "./format.js";
 
-// --- Storage interface ---
+// --- Public types ---
 
 export interface LoadedConversation {
   conversation: Conversation;
@@ -21,34 +25,47 @@ export interface LoadedConversation {
   activePath: string[];
 }
 
+export interface ConversationSnapshot {
+  conversation: Conversation;
+  nodes: TreeNodeWithChildren[];
+  activePath: string[];
+}
+
+export interface DeleteSubtreeResult {
+  rootNodeId: string;
+  activeLeafId: string;
+  activePath: string[];
+}
+
+export interface SwitchBranchResult {
+  activePath: string[];
+  activeLeafId: string;
+}
+
+// --- Storage interface ---
+
 export interface ConversationStorage {
   // Conversation CRUD
   listConversations(projectSlug: string): Promise<Conversation[]>;
   getConversation(projectSlug: string, id: string): Promise<Conversation | null>;
   loadConversationWithTree(projectSlug: string, id: string): Promise<LoadedConversation | null>;
+  loadSnapshot(projectSlug: string, id: string): Promise<ConversationSnapshot | null>;
   createConversation(projectSlug: string, provider: string, model: string, compactedFrom?: string): Promise<Conversation>;
   deleteConversation(projectSlug: string, id: string): Promise<void>;
 
   // Tree node operations
   appendNode(projectSlug: string, conversationId: string, node: TreeNode): Promise<void>;
-  /**
-   * Batch variant — writes multiple nodes in one underlying `appendFile`
-   * call. Use this when several nodes are persisted back-to-back (e.g.
-   * catalog + seed at conversation start) to cut syscalls and keep ordering
-   * deterministic. A no-op when `nodes` is empty.
-   */
   appendNodes(projectSlug: string, conversationId: string, nodes: TreeNode[]): Promise<void>;
-  loadTree(projectSlug: string, conversationId: string): Promise<Map<string, TreeNodeWithChildren>>;
-  persistActiveChildUpdates(
-    projectSlug: string,
-    conversationId: string,
-    nodes: Map<string, TreeNodeWithChildren>,
-  ): Promise<void>;
   deleteSubtree(
     projectSlug: string,
     conversationId: string,
     nodeId: string,
-  ): Promise<{ rootNodeId: string; activeLeafId: string; activePath: string[] }>;
+  ): Promise<DeleteSubtreeResult>;
+  switchBranch(
+    projectSlug: string,
+    conversationId: string,
+    nodeId: string,
+  ): Promise<SwitchBranchResult | null>;
 }
 
 // --- JSONL Implementation ---
@@ -67,18 +84,18 @@ export function createConversationStorage(projectsDir: string): ConversationStor
     await mkdir(conversationsDir(slug), { recursive: true });
   }
 
-  /**
-   * Serialize and write one or more nodes in a single `appendFile` call.
-   * Caller must ensure `nodes.length > 0`.
-   */
+  async function appendJsonLines(path: string, items: unknown[]): Promise<void> {
+    const body = items.map((item) => JSON.stringify(item) + "\n").join("");
+    await appendFile(path, body);
+  }
+
   async function writeNodeLines(
     projectSlug: string,
     conversationId: string,
     nodes: TreeNode[],
   ): Promise<void> {
     await ensureConversationsDir(projectSlug);
-    const body = nodes.map((n) => JSON.stringify(n) + "\n").join("");
-    await appendFile(conversationPath(projectSlug, conversationId), body);
+    await appendJsonLines(conversationPath(projectSlug, conversationId), nodes);
   }
 
   /** Read, parse, and build tree from a single conversation file. */
@@ -130,6 +147,16 @@ export function createConversationStorage(projectsDir: string): ConversationStor
       return { conversation, tree: data.tree, activePath };
     },
 
+    async loadSnapshot(projectSlug: string, id: string): Promise<ConversationSnapshot | null> {
+      const loaded = await this.loadConversationWithTree(projectSlug, id);
+      if (!loaded) return null;
+      return {
+        conversation: loaded.conversation,
+        nodes: [...loaded.tree.values()],
+        activePath: loaded.activePath,
+      };
+    },
+
     async createConversation(
       projectSlug: string,
       provider: string,
@@ -172,31 +199,6 @@ export function createConversationStorage(projectsDir: string): ConversationStor
     async appendNodes(projectSlug: string, conversationId: string, nodes: TreeNode[]): Promise<void> {
       if (nodes.length === 0) return;
       await writeNodeLines(projectSlug, conversationId, nodes);
-    },
-
-    async loadTree(
-      projectSlug: string,
-      conversationId: string,
-    ): Promise<Map<string, TreeNodeWithChildren>> {
-      const path = conversationPath(projectSlug, conversationId);
-      try {
-        const content = await readFile(path, "utf-8");
-        const { nodes } = parseConversationFile(content);
-        return buildTreeMap(nodes);
-      } catch {
-        return new Map();
-      }
-    },
-
-    async persistActiveChildUpdates(
-      projectSlug: string,
-      conversationId: string,
-      nodes: Map<string, TreeNodeWithChildren>,
-    ): Promise<void> {
-      const path = conversationPath(projectSlug, conversationId);
-      const content = await readFile(path, "utf-8");
-      const { headerLine } = parseConversationFile(content);
-      await writeFile(path, serializeConversation(headerLine, nodes), "utf-8");
     },
 
     async deleteSubtree(
@@ -246,6 +248,30 @@ export function createConversationStorage(projectsDir: string): ConversationStor
       const activeLeafId = activePath.length > 0 ? activePath[activePath.length - 1] : "";
 
       return { rootNodeId, activeLeafId, activePath };
+    },
+
+    async switchBranch(
+      projectSlug: string,
+      conversationId: string,
+      nodeId: string,
+    ): Promise<SwitchBranchResult | null> {
+      const loaded = await this.loadConversationWithTree(projectSlug, conversationId);
+      if (!loaded) return null;
+      const tree = loaded.tree;
+      if (!tree.has(nodeId)) return null;
+
+      const { updatedNodes, newLeafId } = switchBranchInTree(tree, nodeId);
+      const markers = updatedNodes
+        .filter((n) => n.activeChildId)
+        .map((n): BranchMarker => ({ _marker: "branch", nodeId: n.id, activeChildId: n.activeChildId! }));
+      if (markers.length > 0) {
+        const path = conversationPath(projectSlug, conversationId);
+        await appendJsonLines(path, markers);
+      }
+
+      const { rootNodeId } = loaded.conversation;
+      const activePath = rootNodeId ? computeActivePath(tree, rootNodeId) : [];
+      return { activePath, activeLeafId: newLeafId };
     },
   };
 }

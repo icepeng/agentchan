@@ -9,7 +9,6 @@ export interface SkillMetadata {
 
 export interface SkillRecord {
   meta: SkillMetadata;
-  location: string;   // Absolute path to SKILL.md
   baseDir: string;    // Parent directory of SKILL.md
   body: string;       // Markdown body (tier 2 content)
 }

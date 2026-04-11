@@ -18,9 +18,7 @@ import {
 import { setupCreativeAgent } from "./orchestrator.js";
 import { piToStoredMessages, extractUsage } from "./convert.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
-import * as log from "../logger.js";
 import { type AgentContext, projectDirOf } from "./context.js";
-import type { ResolvedAgentConfig } from "./config.js";
 import {
   buildUserNodeForPrompt,
   joinUserNodeText,
@@ -212,7 +210,8 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
   const history = flattenPathToMessages(tree, historyPath);
 
   const { agent, historyLength } = await setupCreativeAgent(
-    buildAgentOptions(cfg, projectDir),
+    cfg,
+    projectDir,
     history,
     conversationId,
   );
@@ -287,17 +286,3 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
   }
 }
 
-function buildAgentOptions(cfg: ResolvedAgentConfig, projectDir: string) {
-  return {
-    provider: cfg.provider,
-    model: cfg.model,
-    projectDir,
-    apiKey: cfg.apiKey,
-    temperature: cfg.temperature,
-    maxTokens: cfg.maxTokens,
-    contextWindow: cfg.contextWindow,
-    thinkingLevel: cfg.thinkingLevel,
-    ...(cfg.baseUrl ? { baseUrl: cfg.baseUrl } : {}),
-    ...(cfg.apiFormat ? { apiFormat: cfg.apiFormat } : {}),
-  };
-}

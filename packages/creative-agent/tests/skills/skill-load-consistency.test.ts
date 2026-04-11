@@ -11,7 +11,7 @@ import {
   SYSTEM_REMINDER_OPEN,
   SYSTEM_REMINDER_CLOSE,
 } from "../../src/skills/catalog.js";
-import { SkillManager } from "../../src/skills/manager.js";
+import { createActivateSkillTool } from "../../src/skills/manager.js";
 import type { TreeNode } from "../../src/types.js";
 
 // Two skill-injection paths must produce identical `<skill_content>` text:
@@ -75,7 +75,7 @@ function assertSkillLoadShape(node: TreeNode, expectedSkillName: string): void {
 }
 
 describe("skill-load shape — two injection paths", () => {
-  test("slash invocation path: buildUserNodeForPrompt returns [chip, userText]", async () => {
+  test("slash invocation path: buildUserNodeForPrompt returns single merged node", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const result = buildUserNodeForPrompt(
       "/invocable-character hello world",
@@ -84,27 +84,35 @@ describe("skill-load shape — two injection paths", () => {
       "leaf-id",
     );
 
-    expect(result.nodes).toHaveLength(2);
-    const [chipNode, userNode] = result.nodes;
+    expect(result.nodes).toHaveLength(1);
+    const [node] = result.nodes;
 
-    assertSkillLoadShape(chipNode, "invocable-character");
-    expect(chipNode.parentId).toBe("leaf-id");
+    expect(node.role).toBe("user");
+    expect(node.meta).toBe("skill-load");
+    expect(node.parentId).toBe("leaf-id");
+    expect(node.content).toHaveLength(2);
 
-    expect(userNode.role).toBe("user");
-    expect(userNode.meta).toBeUndefined();
-    expect(userNode.parentId).toBe(chipNode.id);
-    const userText = getText(userNode);
-    expect(userText).toContain("<command-name>/invocable-character</command-name>");
-    expect(userText).toContain("<command-args>hello world</command-args>");
+    // content[0] = skill body
+    const skillText = getText(node);
+    expect(skillText.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
+    expect(skillText).toContain('name="invocable-character"');
+    expect(skillText).toContain("</skill_content>");
 
-    expect(result.llmText).toBe(userText);
+    // content[1] = serialized command
+    const cmdBlock = node.content[1];
+    expect(cmdBlock.type).toBe("text");
+    const cmdText = (cmdBlock as { type: "text"; text: string }).text;
+    expect(cmdText).toContain("<command-name>/invocable-character</command-name>");
+    expect(cmdText).toContain("<command-args>hello world</command-args>");
+
+    expect(result.llmText).toBe(cmdText);
   });
 
   test("activate_skill path: tool result contains skill body directly", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
-    const manager = new SkillManager(skills, projectDir);
+    const tool = createActivateSkillTool(skills, projectDir);
 
-    const result = await manager.createTool().execute("test-call-id", { name: "invocable-character" });
+    const result = await tool.execute("test-call-id", { name: "invocable-character" });
     const text = getToolResultText(result);
     expect(text.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
     expect(text).toContain('name="invocable-character"');
@@ -113,7 +121,7 @@ describe("skill-load shape — two injection paths", () => {
 });
 
 describe("skill-load wire format consistency across paths", () => {
-  test("slash and activate_skill produce byte-identical text for the same skill", async () => {
+  test("slash and activate_skill produce byte-identical skill body text", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
 
     const slashResult = buildUserNodeForPrompt(
@@ -122,13 +130,14 @@ describe("skill-load wire format consistency across paths", () => {
       skills,
       null,
     );
-    const slashChipText = getText(slashResult.nodes[0]);
+    // content[0] is the skill body in the merged node
+    const slashSkillText = getText(slashResult.nodes[0]);
 
-    const manager = new SkillManager(skills, projectDir);
-    const toolResult = await manager.createTool().execute("test-call-id", { name: "invocable-character" });
+    const tool = createActivateSkillTool(skills, projectDir);
+    const toolResult = await tool.execute("test-call-id", { name: "invocable-character" });
     const activatedText = getToolResultText(toolResult);
 
-    expect(slashChipText).toBe(activatedText);
+    expect(slashSkillText).toBe(activatedText);
   });
 });
 

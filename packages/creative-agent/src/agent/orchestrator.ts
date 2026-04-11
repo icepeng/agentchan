@@ -13,10 +13,11 @@ import { readFile } from "node:fs/promises";
 import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { generateCatalog } from "../skills/catalog.js";
-import { SkillManager } from "../skills/manager.js";
+import { createActivateSkillTool } from "../skills/manager.js";
 import { type SkillMetadata } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
 import { microCompact, KEEP_RECENT } from "./compact.js";
+import type { ResolvedAgentConfig } from "./config.js";
 import { analyzeContext } from "./context-analysis.js";
 import { createGoogleCacheHook, clearGoogleCache } from "./google-cache.js";
 import { formatTokens } from "@agentchan/estimate-tokens";
@@ -24,21 +25,6 @@ import * as log from "../logger.js";
 import type { StoredMessage } from "../types.js";
 
 // --- Public types ---
-
-export interface CreativeAgentOptions {
-  provider: string;
-  model: string;
-  projectDir: string;
-  apiKey?: string;
-  temperature?: number;
-  maxTokens?: number;
-  contextWindow?: number;
-  thinkingLevel?: "off" | "low" | "medium" | "high";
-  /** Override base URL for the API endpoint (used by custom providers). */
-  baseUrl?: string;
-  /** Override API format, e.g. "openai-completions" (used by custom providers). */
-  apiFormat?: string;
-}
 
 export interface CreativeAgentSetup {
   agent: Agent;
@@ -173,19 +159,19 @@ export async function getSkills(projectDir: string): Promise<SkillMetadata[]> {
  * AgentEvent for streaming and calls agent.prompt() to start.
  */
 export async function setupCreativeAgent(
-  options: CreativeAgentOptions,
+  config: ResolvedAgentConfig,
+  projectDir: string,
   history: StoredMessage[],
   conversationId: string,
 ): Promise<CreativeAgentSetup> {
-  const skills = await discoverProjectSkills(join(options.projectDir, "skills"));
-  const manager = new SkillManager(skills, options.projectDir);
+  const skills = await discoverProjectSkills(join(projectDir, "skills"));
 
   // Build tools
-  const tools: any[] = createProjectTools(options.projectDir);
-  if (skills.size > 0) tools.push(manager.createTool());
+  const tools: any[] = createProjectTools(projectDir);
+  if (skills.size > 0) tools.push(createActivateSkillTool(skills, projectDir));
 
   // Compose system prompt: DEFAULT + SYSTEM.md + skill catalog
-  const systemMd = await tryReadFile(join(options.projectDir, "SYSTEM.md"));
+  const systemMd = await tryReadFile(join(projectDir, "SYSTEM.md"));
   const catalog = generateCatalog([...skills.values()]);
   const systemPrompt = composeSystemPrompt(DEFAULT_SYSTEM_PROMPT, systemMd, catalog);
 
@@ -194,18 +180,18 @@ export async function setupCreativeAgent(
   const historyLength = piMessages.length;
 
   // Create Agent
-  const thinkingLevel = mapThinkingLevel(options.thinkingLevel);
-  const model = resolveModel(options.provider, options.model,
-    options.baseUrl ? { baseUrl: options.baseUrl, apiFormat: options.apiFormat } : undefined,
+  const thinkingLevel = mapThinkingLevel(config.thinkingLevel);
+  const model = resolveModel(config.provider, config.model,
+    config.baseUrl ? { baseUrl: config.baseUrl, apiFormat: config.apiFormat } : undefined,
   );
-  if (options.contextWindow !== undefined) {
-    model.contextWindow = options.contextWindow;
+  if (config.contextWindow !== undefined) {
+    model.contextWindow = config.contextWindow;
   }
 
   // Explicit context caching for models that lack implicit caching
-  const needsExplicitCache = options.model === "gemini-3.1-pro-preview";
+  const needsExplicitCache = config.model === "gemini-3.1-pro-preview";
   const googleCacheHook = needsExplicitCache
-    ? createGoogleCacheHook(options.apiKey ?? getEnvApiKey("google") ?? "", conversationId)
+    ? createGoogleCacheHook(config.apiKey ?? getEnvApiKey("google") ?? "", conversationId)
     : undefined;
 
   const agent = new Agent({
@@ -219,7 +205,7 @@ export async function setupCreativeAgent(
     convertToLlm: (msgs: AgentMessage[]) => msgs as Message[],
     transformContext: (msgs: AgentMessage[]) =>
       Promise.resolve(microCompact(msgs, KEEP_RECENT, historyLength)),
-    getApiKey: (provider: string) => options.apiKey ?? getEnvApiKey(provider),
+    getApiKey: (provider: string) => config.apiKey ?? getEnvApiKey(provider),
     sessionId: conversationId,
     toolExecution: "parallel",
     steeringMode: "all",
@@ -233,14 +219,14 @@ export async function setupCreativeAgent(
       return streamSimple(m, ctx, opts);
     },
     ...(googleCacheHook && { onPayload: googleCacheHook }),
-    ...(options.temperature !== undefined && { temperature: options.temperature }),
-    ...(options.maxTokens !== undefined && { maxTokens: options.maxTokens }),
+    ...(config.temperature !== undefined && { temperature: config.temperature }),
+    ...(config.maxTokens !== undefined && { maxTokens: config.maxTokens }),
     ...(thinkingLevel && { reasoning: thinkingLevel }),
   });
 
   log.info(
     "agent",
-    `setup: ${options.provider}/${options.model}, ${skills.size} skills, ${tools.length} tools, ${historyLength} history msgs`,
+    `setup: ${config.provider}/${config.model}, ${skills.size} skills, ${tools.length} tools, ${historyLength} history msgs`,
   );
 
   const toolStartTimes = new Map<string, number>();

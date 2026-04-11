@@ -16,23 +16,17 @@ const ActivateSkillParams = Type.Object({
 type ActivateSkillInput = Static<typeof ActivateSkillParams>;
 
 /**
- * Provides the `activate_skill` tool. The skill body is returned directly
+ * Create the `activate_skill` tool. The skill body is returned directly
  * in the tool result — the normal tool_call→tool_result exchange carries
  * everything; no separate node or callback needed.
  */
-export class SkillManager {
-  private skills: Map<string, SkillRecord>;
-  private projectDir: string;
-
-  constructor(skills: Map<string, SkillRecord>, projectDir: string) {
-    this.skills = skills;
-    this.projectDir = projectDir;
-  }
-
-  createTool(): AgentTool<typeof ActivateSkillParams, void> {
-    return {
-      name: ACTIVATE_SKILL_TOOL_NAME,
-      description: `Execute a skill within the main conversation
+export function createActivateSkillTool(
+  skills: Map<string, SkillRecord>,
+  projectDir: string,
+): AgentTool<typeof ActivateSkillParams, void> {
+  return {
+    name: ACTIVATE_SKILL_TOOL_NAME,
+    description: `Execute a skill within the main conversation
 
 When users ask you to perform tasks, check if any of the available skills match. Skills provide specialized capabilities and domain knowledge.
 
@@ -40,29 +34,24 @@ Important:
 - Available skills are listed in \`<system-reminder>\` messages in the conversation.
 - When a listed skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke it BEFORE generating any other response about the task.
 - If you see a <skill_content> tag with equal name in the conversation, the skill has ALREADY been loaded. Follow the instructions directly instead of calling this tool again.`,
-      parameters: ActivateSkillParams,
-      label: "Activate skill",
+    parameters: ActivateSkillParams,
+    label: "Activate skill",
 
-      execute: async (_toolCallId: string, params: ActivateSkillInput) => {
-        const skill = this.skills.get(params.name);
-        if (!skill) {
-          log.warn("agent", `unknown skill: "${params.name}"`);
-          const invocable = [...this.skills.values()]
-            .filter((s) => !s.meta.disableModelInvocation)
-            .map((s) => s.meta.name);
-          return textResult(
-            `Unknown skill: "${params.name}". Available skills: ${invocable.join(", ")}`,
-          );
-        }
+    // eslint-disable-next-line @typescript-eslint/require-await -- AgentTool requires async
+    execute: async (_toolCallId: string, params: ActivateSkillInput) => {
+      const skill = skills.get(params.name);
+      if (!skill) {
+        log.warn("agent", `unknown skill: "${params.name}"`);
+        const invocable = [...skills.values()]
+          .filter((s) => !s.meta.disableModelInvocation)
+          .map((s) => s.meta.name);
+        return textResult(
+          `Unknown skill: "${params.name}". Available skills: ${invocable.join(", ")}`,
+        );
+      }
 
-        log.info("agent", `skill activated: ${params.name}`);
-        return textResult(buildSkillContent(skill, this.projectDir));
-      },
-    };
-  }
-
-  update(skills: Map<string, SkillRecord>, projectDir: string): void {
-    this.skills = skills;
-    this.projectDir = projectDir;
-  }
+      log.info("agent", `skill activated: ${params.name}`);
+      return textResult(buildSkillContent(skill, projectDir));
+    },
+  };
 }
