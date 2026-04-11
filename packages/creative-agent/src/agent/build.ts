@@ -74,7 +74,7 @@ function tryBuildSlashSkillNode(
     createdAt: Date.now(),
     meta: "skill-load",
   };
-  return { nodes: [node], llmText: userText };
+  return { nodes: [node], llmText: skillText + "\n" + userText };
 }
 
 /**

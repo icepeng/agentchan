@@ -105,7 +105,12 @@ describe("skill-load shape — two injection paths", () => {
     expect(cmdText).toContain("<command-name>/invocable-character</command-name>");
     expect(cmdText).toContain("<command-args>hello world</command-args>");
 
-    expect(result.llmText).toBe(cmdText);
+    // llmText includes both skill body and command — consistent with
+    // regenerate path (joinUserNodeText joins all content blocks).
+    expect(result.llmText).toContain(SKILL_CONTENT_PREFIX);
+    expect(result.llmText).toContain('name="invocable-character"');
+    expect(result.llmText).toContain("<command-name>/invocable-character</command-name>");
+    expect(result.llmText).toContain("<command-args>hello world</command-args>");
   });
 
   test("activate_skill path: tool result contains skill body directly", async () => {
