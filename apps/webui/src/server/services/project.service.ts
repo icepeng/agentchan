@@ -21,7 +21,7 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
     async createFromTemplate(name: string, templateName: string) {
       const templateDir = templateRepo.getSourceDir(templateName);
-      return projectRepo.createFromTemplate(name, templateDir);
+      return projectRepo.createFromSource(name, templateDir);
     },
     async scanWorkspaceFiles(slug: string) {
       return projectRepo.scanWorkspaceFiles(slug);

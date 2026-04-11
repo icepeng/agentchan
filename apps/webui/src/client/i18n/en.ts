@@ -66,10 +66,9 @@ export const translations = {
   "project.confirmDelete": "Confirm delete",
   "project.cancelDelete": "Cancel",
   "project.deleteFailed": "Failed to delete project: {{error}}",
-  "project.duplicateSettings": "Copy settings to new project",
-  "project.duplicateSettingsNamePlaceholder": "New project name...",
+  "project.duplicate": "Duplicate project",
+  "project.duplicateNamePlaceholder": "New project name...",
   "project.newOptionsEmpty": "Empty project",
-  "project.newOptionsCopyFrom": "Copy from another project",
   "project.newOptionsFromTemplate": "From template",
 
   // Project settings

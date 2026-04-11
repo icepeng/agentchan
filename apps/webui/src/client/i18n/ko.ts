@@ -68,10 +68,9 @@ export const translations: Record<TranslationKey, string> = {
   "project.confirmDelete": "삭제 확인",
   "project.cancelDelete": "취소",
   "project.deleteFailed": "프로젝트 삭제 실패: {{error}}",
-  "project.duplicateSettings": "새 프로젝트에 설정 복사",
-  "project.duplicateSettingsNamePlaceholder": "새 프로젝트 이름...",
+  "project.duplicate": "프로젝트 복제",
+  "project.duplicateNamePlaceholder": "새 프로젝트 이름...",
   "project.newOptionsEmpty": "빈 프로젝트",
-  "project.newOptionsCopyFrom": "다른 프로젝트에서 복제",
   "project.newOptionsFromTemplate": "템플릿에서",
 
   // Project settings

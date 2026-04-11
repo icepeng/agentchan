@@ -42,7 +42,7 @@ export function createProjectRepo(projectsDir: string) {
     const destDir = projectDir(slug);
     const copies: Promise<void>[] = [];
 
-    for (const sub of ["skills", "files"] as const) {
+    for (const sub of ["skills", "files", "conversations"] as const) {
       const src = join(srcDir, sub);
       if (existsSync(src)) {
         copies.push(cp(src, join(destDir, sub), { recursive: true }));
@@ -148,9 +148,7 @@ export function createProjectRepo(projectsDir: string) {
       await Bun.write(join(projectDir(slug), "SYSTEM.md"), content);
     },
 
-    async createFromTemplate(name: string, templateDir: string): Promise<Project> {
-      return createFromSource(name, templateDir);
-    },
+    createFromSource,
 
     async scanWorkspaceFiles(projectSlug: string): Promise<ProjectFile[]> {
       const filesDir = join(projectDir(projectSlug), "files");

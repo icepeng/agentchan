@@ -79,7 +79,11 @@ export function useProject() {
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
       sessionDispatch({ type: "CLEAR" });
       skillDispatch({ type: "CLEAR" });
-      const skills = await fetchSkills(project.slug);
+      const [conversations, skills] = await Promise.all([
+        fetchConversations(project.slug),
+        fetchSkills(project.slug),
+      ]);
+      sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
       skillDispatch({ type: "SET_SKILLS", skills });
       return project;
     },
