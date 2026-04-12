@@ -31,21 +31,36 @@ type ProjectFile = TextFile | BinaryFile;
 interface RenderContext { files: ProjectFile[]; baseUrl: string; }
 ```
 
-## 워크플로우: 신규 생성
+## 워크플로우
 
-1. `ls("files")`로 프로젝트 파일 구조를 파악
-2. 대표 파일 2~3개를 `read`하여 내용과 frontmatter 확인
-3. 탐지 휴리스틱으로 렌더링 유형 결정 (아래 참조)
-4. `read("skills/build-renderer/references/renderer-patterns.md")`로 해당 패턴 참조
-5. 패턴을 참고하여 프로젝트에 맞는 renderer.ts 생성
-6. `write("renderer.ts", code)`로 프로젝트 루트에 저장
-7. 사용자에게 생성된 렌더러의 구조와 특징을 설명
+### 1. 현황 파악
 
-## 워크플로우: 기존 수정
+- 먼저 `renderer.ts`가 이미 존재하는지 확인: `read("renderer.ts")` 시도
+  - 존재하면 기존 코드를 반드시 읽고 이해한 후 진행 (무조건 덮어쓰지 않음)
+  - 존재하지 않으면 신규 생성 흐름
+- `ls("files")`로 프로젝트 파일 구조를 파악
+- 대표 파일 2~3개를 `read`하여 내용과 frontmatter 확인
 
-1. `read("renderer.ts")`로 현재 렌더러 코드 확인
-2. 사용자 요청 파악 (색상 변경, 레이아웃 수정, 새 요소 추가 등)
-3. 변경 범위가 작으면 `edit`, 전면 개편이면 `write`
+### 2. 사용자 의도 확인
+
+작성을 시작하기 전에 사용자에게 원하는 스타일을 물어본다:
+- 탐지 휴리스틱 결과를 바탕으로 추천 유형을 제시 (예: "캐릭터 파일과 장면 파일이 있어서 채팅형을 추천합니다")
+- 색감, 레이아웃, 특수 요소 등 선호사항 확인
+- 기존 renderer.ts가 있다면: 전면 재작성 vs 부분 수정 여부 확인
+
+### 3. 작성
+
+- `read("skills/build-renderer/references/renderer-patterns.md")`로 해당 패턴 참조
+- 패턴을 참고하여 프로젝트에 맞는 renderer.ts 생성
+- `write("renderer.ts", code)`로 프로젝트 루트에 저장
+- 기존 수정 시: 변경 범위가 작으면 `edit`, 전면 개편이면 `write`
+
+### 4. 검증
+
+- `validate-renderer` 도구를 호출하여 transpile + 실행 검증
+- 실패 시: 에러 메시지(transpile/export/runtime 단계 구분)를 분석하고 자동으로 수정 → 다시 `validate-renderer` -- 성공할 때까지 반복
+- 성공 시: 반환된 HTML을 검토하여 구조가 의도대로인지 확인
+- 사용자에게 좌측 패널의 최종 시각 결과를 확인해달라고 요청
 
 ## 탐지 휴리스틱
 

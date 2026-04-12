@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 
 import { createProjectTools } from "../tools/index.js";
+import { createValidateRendererTool } from "../tools/validate-renderer.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { generateCatalog } from "../skills/catalog.js";
 import { createActivateSkillTool } from "../skills/manager.js";
@@ -179,6 +180,7 @@ export async function setupCreativeAgent(
   // Build tools
   const tools: any[] = createProjectTools(projectDir);
   if (envSkills.size > 0) tools.push(createActivateSkillTool(envSkills, projectDir));
+  if (sessionMode === "meta") tools.push(createValidateRendererTool(projectDir));
 
   // Compose system prompt: DEFAULT + system file + skill catalog
   const systemFile = sessionMode === "meta" ? "system.meta.md" : "SYSTEM.md";
