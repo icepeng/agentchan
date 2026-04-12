@@ -13,7 +13,6 @@ import { useConversation } from "./useConversation.js";
 import { useSlashCommands } from "./useSlashCommands.js";
 import { SlashCommandPopup } from "./SlashCommandPopup.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
-import { EditModeToggle } from "@/client/features/editor/EditModeToggle.js";
 
 interface BottomInputProps {
   variant?: "standalone" | "embedded";
@@ -136,16 +135,13 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
             rows={1}
             className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 max-h-[200px] font-body"
           />
-          <div className="m-1.5 flex items-center gap-1">
-            <EditModeToggle />
-            <button
-              onClick={handleSubmit}
-              disabled={!text.trim() || isStreaming}
-              className="p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"
-            >
-              <ArrowUp size={16} strokeWidth={2.5} />
-            </button>
-          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={!text.trim() || isStreaming}
+            className="m-1.5 p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"
+          >
+            <ArrowUp size={16} strokeWidth={2.5} />
+          </button>
         </div>
       </div>
       <p className="mt-1.5 text-center text-[11px] text-fg-3 tracking-wide">
