@@ -16,7 +16,7 @@ import { generateCatalog } from "../skills/catalog.js";
 import { createActivateSkillTool } from "../skills/manager.js";
 import { type SkillMetadata } from "../skills/types.js";
 import { storedToPiMessages } from "./convert.js";
-import { microCompact, KEEP_RECENT } from "./compact.js";
+import { microCompact, clearCompactState } from "./compact.js";
 import type { ResolvedAgentConfig } from "./config.js";
 import { analyzeContext } from "./context-analysis.js";
 import { createGoogleCacheHook, clearGoogleCache } from "./google-cache.js";
@@ -143,6 +143,7 @@ export function resolveModel(
  */
 export function clearConversationAgentState(conversationId: string): void {
   clearGoogleCache(conversationId);
+  clearCompactState(conversationId);
 }
 
 export async function getSkills(projectDir: string): Promise<SkillMetadata[]> {
@@ -204,7 +205,10 @@ export async function setupCreativeAgent(
     },
     convertToLlm: (msgs: AgentMessage[]) => msgs as Message[],
     transformContext: (msgs: AgentMessage[]) =>
-      Promise.resolve(microCompact(msgs, KEEP_RECENT, historyLength)),
+      Promise.resolve(microCompact(msgs, {
+        conversationId,
+        protectFromIndex: historyLength,
+      })),
     getApiKey: (provider: string) => config.apiKey ?? getEnvApiKey(provider),
     sessionId: conversationId,
     toolExecution: "parallel",
