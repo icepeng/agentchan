@@ -1,21 +1,31 @@
-import { useReducer, useRef, useEffect, useCallback } from "react";
+import { useReducer, useRef, useEffect, useCallback, useState } from "react";
+import { Check, Plus, Settings, X } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
+import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator } from "@/client/shared/ui/index.js";
+import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "./useProject.js";
+import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
+
+// -- Shared menu styles ---
+
+const MENU_POPUP_CLASS =
+  "bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50";
+const MENU_ITEM_CLASS =
+  "px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10 data-[highlighted]:text-accent";
 
 // -- State Machine ---
 
 type TabsMode =
   | { type: "idle" }
-  | { type: "creating"; value: string; error: boolean }
+  | { type: "creating"; value: string; error: boolean; templateName?: string }
   | { type: "editing"; slug: string; value: string }
   | { type: "confirming"; slug: string }
   | { type: "duplicating"; sourceSlug: string; value: string; error: boolean };
 
 type TabsAction =
-  | { type: "START_CREATE" }
+  | { type: "START_CREATE"; templateName?: string }
   | { type: "START_EDIT"; slug: string; name: string }
   | { type: "START_CONFIRM"; slug: string }
   | { type: "START_DUPLICATE"; sourceSlug: string }
@@ -26,7 +36,7 @@ type TabsAction =
 function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
   switch (action.type) {
     case "START_CREATE":
-      return { type: "creating", value: "", error: false };
+      return { type: "creating", value: "", error: false, templateName: action.templateName };
     case "START_EDIT":
       return { type: "editing", slug: action.slug, value: action.name };
     case "START_CONFIRM":
@@ -51,10 +61,9 @@ function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
 
 export function ProjectTabs() {
   const { t } = useI18n();
-  const ui = useUIState();
-  const uiDispatch = useUIDispatch();
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
+  const [templates, setTemplates] = useState<TemplateMeta[] | null>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
@@ -62,6 +71,11 @@ export function ProjectTabs() {
   const isCreating = mode.type === "creating";
   const isEditing = mode.type === "editing";
   const isDuplicating = mode.type === "duplicating";
+
+  const loadTemplates = useCallback(() => {
+    if (templates !== null) return;
+    void fetchTemplates().then(setTemplates);
+  }, [templates]);
 
   useEffect(() => {
     if (isCreating || isDuplicating) createInputRef.current?.focus();
@@ -82,7 +96,7 @@ export function ProjectTabs() {
     }
     submittingRef.current = true;
     try {
-      await createProject(name);
+      await createProject(name, mode.templateName);
       modeDispatch({ type: "RESET" });
     } finally {
       submittingRef.current = false;
@@ -133,20 +147,17 @@ export function ProjectTabs() {
     }
   };
 
+  const [settingsSlug, setSettingsSlug] = useState<string | null>(null);
+
   const handleOpenSettings = useCallback(
     (slug: string) => {
       if (activeProjectSlug !== slug) {
         void selectProject(slug);
       }
-      uiDispatch({
-        type: "NAVIGATE",
-        route: { page: "project-settings", slug },
-      });
+      setSettingsSlug(slug);
     },
-    [activeProjectSlug, selectProject, uiDispatch],
+    [activeProjectSlug, selectProject],
   );
-
-  const settingsSlug = ui.currentPage.page === "project-settings" ? ui.currentPage.slug : null;
 
   return (
     <div className="px-2 py-1 space-y-0.5">
@@ -182,18 +193,14 @@ export function ProjectTabs() {
                 className="p-0.5 hover:text-fg cursor-pointer transition-colors"
                 title={t("project.confirmDelete")}
               >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M3 8l4 4 6-7" />
-                </svg>
+                <Check size={12} strokeWidth={2} />
               </span>
               <span
                 onClick={() => modeDispatch({ type: "RESET" })}
                 className="p-0.5 hover:text-fg-2 cursor-pointer transition-colors"
                 title={t("project.cancelDelete")}
               >
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M3 3l6 6M9 3l-6 6" />
-                </svg>
+                <X size={10} strokeWidth={1.5} />
               </span>
             </div>
           );
@@ -230,10 +237,7 @@ export function ProjectTabs() {
                 } p-0.5 hover:text-accent transition-all cursor-pointer`}
                 title={t("sidebar.projectSettings")}
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-                </svg>
+                <Settings size={10} strokeWidth={2} />
               </span>
               {isActive && projects.length > 1 && (
                 <span
@@ -243,20 +247,18 @@ export function ProjectTabs() {
                   }}
                   className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-danger transition-all cursor-pointer"
                 >
-                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                    <path d="M3 3l6 6M9 3l-6 6" />
-                  </svg>
+                  <X size={10} strokeWidth={1.5} />
                 </span>
               )}
             </ContextMenu.Trigger>
             <ContextMenu.Portal>
               <ContextMenu.Positioner sideOffset={4}>
-                <ContextMenu.Popup className="bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50">
+                <ContextMenu.Popup className={MENU_POPUP_CLASS}>
                   <ContextMenu.Item
                     onClick={() => modeDispatch({ type: "START_DUPLICATE", sourceSlug: project.slug })}
-                    className="px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10 data-[highlighted]:text-accent"
+                    className={MENU_ITEM_CLASS}
                   >
-                    {t("project.duplicateSettings")}
+                    {t("project.duplicate")}
                   </ContextMenu.Item>
                 </ContextMenu.Popup>
               </ContextMenu.Positioner>
@@ -278,7 +280,7 @@ export function ProjectTabs() {
             if (mode.type === "duplicating" && !mode.value.trim()) modeDispatch({ type: "RESET" });
             else void handleDuplicate();
           }}
-          placeholder={t("project.duplicateSettingsNamePlaceholder")}
+          placeholder={t("project.duplicateNamePlaceholder")}
           className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
         />
       )}
@@ -300,16 +302,52 @@ export function ProjectTabs() {
           className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
         />
       ) : (
-        <button
-          onClick={() => modeDispatch({ type: "START_CREATE" })}
-          className="w-full px-3 py-2.5 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all duration-200 flex items-center gap-2"
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-          </svg>
-          {t("project.new")}
-        </button>
+        <Menu.Root onOpenChange={(open) => { if (open) loadTemplates(); }}>
+          <Menu.Trigger
+            render={
+              <button
+                className="w-full px-3 py-2.5 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all duration-200 flex items-center gap-2"
+              />
+            }
+          >
+            <Plus size={12} strokeWidth={2.5} />
+            {t("project.new")}
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner sideOffset={6} align="start">
+              <Menu.Popup className={`${MENU_POPUP_CLASS} min-w-[220px]`}>
+                <Menu.Item
+                  onClick={() => modeDispatch({ type: "START_CREATE" })}
+                  className={`${MENU_ITEM_CLASS} flex items-center gap-2`}
+                >
+                  <Plus size={12} strokeWidth={2.5} />
+                  {t("project.newOptionsEmpty")}
+                </Menu.Item>
+                {templates && templates.length > 0 && (
+                  <>
+                    <div className="my-1 border-t border-edge/8" role="separator" />
+                    <Menu.Group>
+                      <Menu.GroupLabel className="px-4 py-1 text-[10px] uppercase tracking-wider text-fg-4">
+                        {t("project.newOptionsFromTemplate")}
+                      </Menu.GroupLabel>
+                      {templates.map((s) => (
+                        <Menu.Item
+                          key={s.name}
+                          onClick={() => modeDispatch({ type: "START_CREATE", templateName: s.name })}
+                          className={`${MENU_ITEM_CLASS} truncate`}
+                        >
+                          {s.name}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Group>
+                  </>
+                )}
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
       )}
+      <ProjectSettingsModal slug={settingsSlug} onClose={() => setSettingsSlug(null)} />
     </div>
   );
 }

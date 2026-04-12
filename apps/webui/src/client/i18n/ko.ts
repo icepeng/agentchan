@@ -2,7 +2,7 @@ import type { TranslationKey } from "./en.js";
 
 export const translations: Record<TranslationKey, string> = {
   // Sidebar
-  "sidebar.library": "라이브러리",
+  "sidebar.templates": "템플릿",
   "sidebar.projects": "프로젝트",
   "sidebar.projectSettings": "프로젝트 설정",
 
@@ -45,6 +45,9 @@ export const translations: Record<TranslationKey, string> = {
   "chat.compactSummary": "이전 세션에서 요약됨",
   "chat.compactShowDetails": "자세히 보기",
   "chat.compactHideDetails": "접기",
+  "chat.skillLoaded": "스킬 로드됨",
+  "chat.showBody": "보기",
+  "chat.hideBody": "숨기기",
 
   // Empty state
   "empty.subtitle": "크리에이티브 라이팅 스튜디오",
@@ -65,8 +68,10 @@ export const translations: Record<TranslationKey, string> = {
   "project.confirmDelete": "삭제 확인",
   "project.cancelDelete": "취소",
   "project.deleteFailed": "프로젝트 삭제 실패: {{error}}",
-  "project.duplicateSettings": "새 프로젝트에 설정 복사",
-  "project.duplicateSettingsNamePlaceholder": "새 프로젝트 이름...",
+  "project.duplicate": "프로젝트 복제",
+  "project.duplicateNamePlaceholder": "새 프로젝트 이름...",
+  "project.newOptionsEmpty": "빈 프로젝트",
+  "project.newOptionsFromTemplate": "템플릿에서",
 
   // Project settings
   "settings.back": "뒤로",
@@ -75,50 +80,26 @@ export const translations: Record<TranslationKey, string> = {
   "settings.renderer": "렌더러",
   "settings.projectConfig": "프로젝트 설정",
   "settings.name": "이름",
-  "settings.outputDir": "출력 디렉토리",
   "settings.notes": "노트",
   "settings.save": "저장",
   "settings.saving": "저장 중...",
-  "settings.fromLibrary": "라이브러리에서",
   "settings.newSkill": "새 스킬",
   "settings.noSkills": "스킬 없음",
   "settings.selectSkillToEdit": "편집할 스킬을 선택하세요",
   "settings.rendererTs": "renderer.ts",
   "settings.projectRenderer": "프로젝트 렌더러",
   "settings.notCreatedYet": "아직 생성되지 않음",
-  "settings.rendererLibrary": "라이브러리",
-  "settings.preview": "미리보기",
-  "settings.applyToProject": "프로젝트에 적용",
-  "settings.recommended": "추천",
-  "settings.applying": "적용 중...",
   "settings.loading": "로딩 중...",
   "settings.noRendererYet": "renderer.ts가 아직 없습니다",
-  "settings.selectRendererToPreview": "미리볼 라이브러리 렌더러를 선택하세요",
-  "settings.createInLibraryFirst": "먼저 라이브러리에서 생성하세요",
-  "settings.noLibraryRenderers": "라이브러리 렌더러 없음",
+  "settings.system": "시스템",
+  "settings.projectSystem": "프로젝트 시스템 프롬프트",
+  "settings.noSystemYet": "SYSTEM.md가 아직 없습니다",
 
-  // Library page
-  "library.title": "라이브러리",
-  "library.skillsTab": "스킬",
-  "library.renderersTab": "렌더러",
-  "library.newSkill": "새 스킬",
-  "library.newRenderer": "새 렌더러",
-  "library.newSkillTitle": "새 스킬",
-  "library.newRendererTitle": "새 렌더러",
-  "library.skillNamePlaceholder": "스킬-이름 (소문자, 하이픈)",
-  "library.rendererNamePlaceholder": "렌더러-이름",
-  "library.cancel": "취소",
-  "library.create": "생성",
-  "library.selectSkillToEdit": "편집할 스킬을 선택하세요",
-  "library.selectRendererToEdit": "편집할 렌더러를 선택하세요",
-
-  // Library browser
-  "libraryBrowser.title": "라이브러리에서 추가",
-  "libraryBrowser.noLibrarySkills": "라이브러리 스킬 없음",
-  "libraryBrowser.allAlreadyAdded": "모든 라이브러리 스킬이 이미 추가됨",
-  "libraryBrowser.add": "추가",
-  "libraryBrowser.added": "적용됨",
-  "libraryBrowser.copying": "복사 중...",
+  // Templates page
+  "templates.title": "템플릿",
+  "templates.description": "템플릿으로 새 프로젝트를 시작하세요.",
+  "templates.createProject": "프로젝트 생성",
+  "templates.empty": "사용 가능한 템플릿이 없습니다",
 
   // Skill/Renderer editor
   "editor.unsaved": "저장되지 않은 변경",
@@ -156,6 +137,18 @@ export const translations: Record<TranslationKey, string> = {
   "globalSettings.activeProvider": "활성 프로바이더 및 모델",
   "globalSettings.activeProviderDesc": "대화에 사용할 프로바이더와 모델을 선택하세요",
 
+  // Custom Providers
+  "customApi.providers": "커스텀 프로바이더",
+  "customApi.providersDesc": "자체 엔드포인트로 커스텀 API 프로바이더를 추가합니다.",
+  "customApi.addProvider": "프로바이더 추가",
+  "customApi.providerName": "프로바이더 이름",
+  "customApi.providerNamePlaceholder": "my-provider",
+  "customApi.url": "API URL",
+  "customApi.urlPlaceholder": "https://api.example.com/v1",
+  "customApi.requestModel": "모델 ID (쉼표로 구분)",
+  "customApi.requestModelPlaceholder": "gpt-4o, gpt-4o-mini",
+  "customApi.format": "API 포맷",
+
   // Parameters
   "params.label": "파라미터",
   "params.temperature": "온도",
@@ -177,6 +170,24 @@ export const translations: Record<TranslationKey, string> = {
   // Common
   "common.cancel": "취소",
   "common.create": "생성",
+  "common.save": "저장",
   "common.newSkillTitle": "새 스킬",
   "common.skillNamePlaceholder": "스킬-이름 (소문자, 하이픈)",
+
+  // Project settings modal
+  "projectModal.title": "프로젝트 설정",
+
+  // Edit mode
+  "editMode.switchToEdit": "편집 모드",
+  "editMode.switchToChat": "채팅 모드",
+  "editMode.selectFile": "편집할 파일을 선택하세요",
+  "editMode.unsavedTitle": "저장되지 않은 변경",
+  "editMode.unsavedMessage": "저장되지 않은 변경사항이 있습니다. 어떻게 할까요?",
+  "editMode.save": "저장",
+  "editMode.discard": "버리기",
+  "editMode.cancel": "취소",
+  "editMode.imagePreview": "이미지 미리보기",
+  "editMode.deleteFile": "삭제",
+  "editMode.deleteConfirmTitle": "파일 삭제",
+  "editMode.deleteConfirmMessage": "\"{{name}}\" 파일을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
 };

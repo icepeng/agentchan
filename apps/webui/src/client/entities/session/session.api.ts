@@ -12,7 +12,9 @@ export function fetchConversations(projectSlug: string): Promise<Conversation[]>
   return json(projectBase(projectSlug));
 }
 
-export function createConversation(projectSlug: string): Promise<Conversation> {
+export function createConversation(
+  projectSlug: string,
+): Promise<{ conversation: Conversation; nodes: TreeNode[] }> {
   return json(projectBase(projectSlug), { method: "POST" });
 }
 

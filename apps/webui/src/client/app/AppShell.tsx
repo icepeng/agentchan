@@ -1,10 +1,15 @@
-import { useUIState, useUIDispatch } from "./context/UIContext.js";
+import { Suspense, lazy, useEffect } from "react";
+import { Menu } from "lucide-react";
+import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
-import { LibraryPage } from "@/client/pages/LibraryPage.js";
-import { ProjectSettingsPage } from "@/client/pages/ProjectSettingsPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/features/onboarding/index.js";
+
+// Templates page is lazy-loaded to keep it out of the main bundle.
+const TemplatesPage = lazy(() =>
+  import("@/client/pages/TemplatesPage.js").then((m) => ({ default: m.TemplatesPage })),
+);
 
 function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
   page: string;
@@ -12,10 +17,8 @@ function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
   onToggleAgentPanel: () => void;
 }) {
   switch (page) {
-    case "library":
-      return <LibraryPage />;
-    case "project-settings":
-      return <ProjectSettingsPage />;
+    case "templates":
+      return <TemplatesPage />;
     case "settings":
       return <AppSettingsPage />;
     default:
@@ -27,6 +30,18 @@ export function AppShell() {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
 
+  // Ctrl+E / Cmd+E to toggle edit mode (main page only)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "e" && ui.currentPage.page === "main") {
+        e.preventDefault();
+        uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [ui.currentPage.page, ui.viewMode, uiDispatch]);
+
   return (
     <div className="flex h-full bg-void text-fg font-body">
       {/* Mobile sidebar toggle */}
@@ -34,13 +49,7 @@ export function AppShell() {
         onClick={() => uiDispatch({ type: "TOGGLE_SIDEBAR" })}
         className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-elevated border border-edge/6 hover:border-edge/12 lg:hidden transition-all duration-150"
       >
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" className="text-fg-2">
-          <path
-            fillRule="evenodd"
-            d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <Menu size={18} strokeWidth={2.5} className="text-fg-2" />
       </button>
 
       {/* Sidebar */}
@@ -62,11 +71,13 @@ export function AppShell() {
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <PageContent
-          page={ui.currentPage.page}
-          agentPanelOpen={ui.agentPanelOpen}
-          onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
-        />
+        <Suspense fallback={<div className="flex-1" />}>
+          <PageContent
+            page={ui.currentPage.page}
+            agentPanelOpen={ui.agentPanelOpen}
+            onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
+          />
+        </Suspense>
       </div>
 
       <OnboardingWizard />

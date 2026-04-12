@@ -2,7 +2,7 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
-import { textResult } from "./util.js";
+import { textResult } from "../tool-result.js";
 
 const AppendParams = Type.Object({
   file_path: Type.String({

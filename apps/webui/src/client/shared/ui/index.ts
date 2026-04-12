@@ -1,7 +1,6 @@
 export { Button } from "./Button.js";
 export { Dialog } from "./Dialog.js";
 export { Badge } from "./Badge.js";
-export { TextEditor, type EditorLanguage } from "./TextEditor.js";
 export { Select } from "./Select.js";
 export { FormField } from "./FormField.js";
 export { TabBar } from "./TabBar.js";

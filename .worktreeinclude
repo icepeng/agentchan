@@ -1,3 +1,4 @@
 apps/webui/data/settings.db
 research/
 .env
+CLAUDE.local.md

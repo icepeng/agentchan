@@ -42,8 +42,9 @@ export type SessionAction =
   | { type: "SET_ACTIVE_CONVERSATION"; conversation: Conversation; nodes: TreeNode[]; activePath: string[] }
   | { type: "ADD_NODE"; node: TreeNode }
   | { type: "ADD_NODES"; nodes: TreeNode[] }
+  | { type: "APPEND_USER_NODE"; node: TreeNode }
   | { type: "SET_ACTIVE_PATH"; activePath: string[] }
-  | { type: "NEW_CONVERSATION"; conversation: Conversation }
+  | { type: "NEW_CONVERSATION"; conversation: Conversation; nodes?: TreeNode[] }
   | { type: "DELETE_CONVERSATION"; id: string }
   | { type: "SET_REPLY_TO"; nodeId: string | null }
   | { type: "STREAM_COMPLETE"; nodes: TreeNode[]; conversation?: Conversation }
@@ -140,19 +141,36 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
       return { ...state, nodes: newNodes };
     }
 
+    case "APPEND_USER_NODE": {
+      // Insert + extend activePath atomically. Using SET_ACTIVE_PATH from a
+      // streaming callback would race when multiple user nodes arrive in the
+      // same turn (e.g. slash → skill: chip + user-text), because the
+      // sessionStateRef snapshot is taken before React re-renders.
+      const newNodes = new Map(state.nodes);
+      insertNode(newNodes, action.node);
+      return {
+        ...state,
+        nodes: newNodes,
+        activePath: [...state.activePath, action.node.id],
+      };
+    }
+
     case "SET_ACTIVE_PATH":
       return { ...state, activePath: action.activePath };
 
-    case "NEW_CONVERSATION":
+    case "NEW_CONVERSATION": {
+      const seeded = action.nodes ?? [];
+      const nodeMap = buildNodeMap(seeded);
       return {
         ...state,
         conversations: [action.conversation, ...state.conversations],
         activeConversationId: action.conversation.id,
-        nodes: new Map(),
-        activePath: [],
+        nodes: nodeMap,
+        activePath: seeded.map((n) => n.id),
         replyToNodeId: null,
         sessionUsage: { ...emptyUsage },
       };
+    }
 
     case "DELETE_CONVERSATION": {
       const remaining = state.conversations.filter((c) => c.id !== action.id);

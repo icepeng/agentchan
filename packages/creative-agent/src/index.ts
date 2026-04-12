@@ -1,56 +1,51 @@
-// Tools
-export { createBashTool } from "./tools/bash.js";
-export { createReadTool } from "./tools/read.js";
-export { createWriteTool } from "./tools/write.js";
-export { createAppendTool } from "./tools/append.js";
-export { createEditTool } from "./tools/edit.js";
-export { createGrepTool } from "./tools/grep.js";
-export { createLsTool } from "./tools/ls.js";
-export { createProjectTools } from "./tools/index.js";
-
 // Skills
-export { discoverSkills, discoverProjectSkills } from "./skills/discovery.js";
-export { generateCatalog } from "./skills/catalog.js";
-export { SkillManager } from "./skills/manager.js";
-export type { SkillRecord, SkillMetadata } from "./skills/types.js";
-export { RESTRICTED_TOOLS, collectGrantedRestrictedTools } from "./skills/types.js";
+export { discoverProjectSkills } from "./skills/discovery.js";
+export type { SkillMetadata } from "./skills/types.js";
 
-// Session
-export {
-  computeActivePath,
-  flattenPathToMessages,
-  pathToNode,
-  switchBranch,
-  generateTitle,
-} from "./session/tree.js";
-export {
-  createSessionStorage,
-  slugify,
-  type SessionStorage,
-  type LoadedConversation,
-} from "./session/storage.js";
+// Slug utility
+export { slugify } from "./slug.js";
 
 // Types
-export type { ContentBlock, StoredMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
+export type { AgentMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
+export type { ModelInfo, CustomApiFormat, ProviderInfo, CustomProviderDef, ThinkingLevel } from "./config-types.js";
 
-// Agent
+// Agent — orchestrator
 export {
-  setupCreativeAgent,
-  clearSkillManager,
   getSkills,
   resolveModel,
-  type CreativeAgentOptions,
-  type CreativeAgentSetup,
 } from "./agent/orchestrator.js";
-export { microCompact, KEEP_RECENT, fullCompact, formatCompactSummary, type FullCompactOptions, type FullCompactResult } from "./agent/compact.js";
-export { storedToPiMessages, piToStoredMessages, extractUsage } from "./agent/convert.js";
 
 // Re-export pi-ai/pi-agent-core types needed by consumers
 export type { AgentEvent } from "@mariozechner/pi-agent-core";
-export type { AssistantMessage, AssistantMessageEvent, Message, ToolCall } from "@mariozechner/pi-ai";
+export type { ToolCall } from "@mariozechner/pi-ai";
 
-// Logger
-export * as log from "./logger.js";
+// Conversation — storage
+export type {
+  ConversationSnapshot,
+  DeleteSubtreeResult,
+  SwitchBranchResult,
+  ConversationStorage,
+} from "./conversation/index.js";
+export { createConversationStorage } from "./conversation/index.js";
+
+// Agent — context, config, and LLM-touching ops
+export {
+  createAgentContext,
+  createConversation,
+  deleteConversation,
+  compactConversation,
+  runPrompt,
+  runRegenerate,
+  type AgentContext,
+  type ResolvedAgentConfig,
+  type CreatedConversation,
+  type CompactResult,
+  type SessionEvent,
+} from "./agent/index.js";
+
+// Workspace
+export type { ProjectFile } from "./workspace/types.js";
+export { scanWorkspaceFiles } from "./workspace/scan.js";
 
 // Re-export pi-ai model registry functions for consumers (webui config)
 export { getProviders, getModels } from "@mariozechner/pi-ai";

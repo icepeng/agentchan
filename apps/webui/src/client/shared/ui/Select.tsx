@@ -1,4 +1,5 @@
 import { Select as BaseSelect } from "@base-ui/react/select";
+import { ChevronDown } from "lucide-react";
 
 interface SelectProps {
   value: string;
@@ -21,12 +22,7 @@ export function Select({ value, onChange, options, className, size = "sm" }: Sel
         >
           <BaseSelect.Value />
           <BaseSelect.Icon>
-            <svg
-              className="pointer-events-none text-fg-3"
-              width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"
-            >
-              <path d="M3 4.5L6 7.5L9 4.5" />
-            </svg>
+            <ChevronDown size={12} strokeWidth={1.5} className="pointer-events-none text-fg-3" />
           </BaseSelect.Icon>
         </BaseSelect.Trigger>
         <BaseSelect.Portal>

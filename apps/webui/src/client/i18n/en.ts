@@ -1,6 +1,6 @@
 export const translations = {
   // Sidebar
-  "sidebar.library": "Library",
+  "sidebar.templates": "Templates",
   "sidebar.projects": "Projects",
   "sidebar.projectSettings": "Project settings",
 
@@ -43,6 +43,9 @@ export const translations = {
   "chat.compactSummary": "Summarized from previous session",
   "chat.compactShowDetails": "show details",
   "chat.compactHideDetails": "hide details",
+  "chat.skillLoaded": "Skill loaded",
+  "chat.showBody": "show",
+  "chat.hideBody": "hide",
 
   // Empty state
   "empty.subtitle": "creative writing studio",
@@ -63,8 +66,10 @@ export const translations = {
   "project.confirmDelete": "Confirm delete",
   "project.cancelDelete": "Cancel",
   "project.deleteFailed": "Failed to delete project: {{error}}",
-  "project.duplicateSettings": "Copy settings to new project",
-  "project.duplicateSettingsNamePlaceholder": "New project name...",
+  "project.duplicate": "Duplicate project",
+  "project.duplicateNamePlaceholder": "New project name...",
+  "project.newOptionsEmpty": "Empty project",
+  "project.newOptionsFromTemplate": "From template",
 
   // Project settings
   "settings.back": "Back",
@@ -73,50 +78,26 @@ export const translations = {
   "settings.renderer": "Renderer",
   "settings.projectConfig": "Project Configuration",
   "settings.name": "Name",
-  "settings.outputDir": "Output Directory",
   "settings.notes": "Notes",
   "settings.save": "Save",
   "settings.saving": "Saving...",
-  "settings.fromLibrary": "From library",
   "settings.newSkill": "New skill",
   "settings.noSkills": "No skills",
   "settings.selectSkillToEdit": "Select a skill to edit",
   "settings.rendererTs": "renderer.ts",
   "settings.projectRenderer": "Project renderer",
   "settings.notCreatedYet": "Not created yet",
-  "settings.rendererLibrary": "Library",
-  "settings.preview": "preview",
-  "settings.applyToProject": "Apply to project",
-  "settings.recommended": "Recommended",
-  "settings.applying": "Applying...",
   "settings.loading": "Loading...",
   "settings.noRendererYet": "No renderer.ts yet",
-  "settings.selectRendererToPreview": "Select a library renderer to preview",
-  "settings.createInLibraryFirst": "Create one in the Library first",
-  "settings.noLibraryRenderers": "No library renderers",
+  "settings.system": "System",
+  "settings.projectSystem": "Project system prompt",
+  "settings.noSystemYet": "No SYSTEM.md yet",
 
-  // Library page
-  "library.title": "Library",
-  "library.skillsTab": "Skills",
-  "library.renderersTab": "Renderers",
-  "library.newSkill": "New skill",
-  "library.newRenderer": "New renderer",
-  "library.newSkillTitle": "New Skill",
-  "library.newRendererTitle": "New Renderer",
-  "library.skillNamePlaceholder": "skill-name (lowercase, hyphens)",
-  "library.rendererNamePlaceholder": "renderer-name",
-  "library.cancel": "Cancel",
-  "library.create": "Create",
-  "library.selectSkillToEdit": "Select a skill to edit",
-  "library.selectRendererToEdit": "Select a renderer to edit",
-
-  // Library browser
-  "libraryBrowser.title": "Add from Library",
-  "libraryBrowser.noLibrarySkills": "No library skills",
-  "libraryBrowser.allAlreadyAdded": "All library skills already added",
-  "libraryBrowser.add": "Add",
-  "libraryBrowser.added": "Added",
-  "libraryBrowser.copying": "Copying...",
+  // Templates page
+  "templates.title": "Templates",
+  "templates.description": "Create a new project from a template.",
+  "templates.createProject": "Create project",
+  "templates.empty": "No templates available",
 
   // Skill/Renderer editor
   "editor.unsaved": "unsaved changes",
@@ -154,6 +135,18 @@ export const translations = {
   "globalSettings.activeProvider": "Active Provider & Model",
   "globalSettings.activeProviderDesc": "Select which provider and model to use for conversations",
 
+  // Custom Providers
+  "customApi.providers": "Custom Providers",
+  "customApi.providersDesc": "Add custom API providers with your own endpoints.",
+  "customApi.addProvider": "Add Provider",
+  "customApi.providerName": "Provider Name",
+  "customApi.providerNamePlaceholder": "my-provider",
+  "customApi.url": "API URL",
+  "customApi.urlPlaceholder": "https://api.example.com/v1",
+  "customApi.requestModel": "Model IDs (comma-separated)",
+  "customApi.requestModelPlaceholder": "gpt-4o, gpt-4o-mini",
+  "customApi.format": "API Format",
+
   // Parameters
   "params.label": "Parameters",
   "params.temperature": "Temperature",
@@ -175,8 +168,26 @@ export const translations = {
   // Common (shared across settings and library new-skill forms)
   "common.cancel": "Cancel",
   "common.create": "Create",
+  "common.save": "Save",
   "common.newSkillTitle": "New Skill",
   "common.skillNamePlaceholder": "skill-name (lowercase, hyphens)",
+
+  // Project settings modal
+  "projectModal.title": "Project Settings",
+
+  // Edit mode
+  "editMode.switchToEdit": "Edit mode",
+  "editMode.switchToChat": "Chat mode",
+  "editMode.selectFile": "Select a file to edit",
+  "editMode.unsavedTitle": "Unsaved Changes",
+  "editMode.unsavedMessage": "You have unsaved changes. What would you like to do?",
+  "editMode.save": "Save",
+  "editMode.discard": "Discard",
+  "editMode.cancel": "Cancel",
+  "editMode.imagePreview": "Image preview",
+  "editMode.deleteFile": "Delete",
+  "editMode.deleteConfirmTitle": "Delete File",
+  "editMode.deleteConfirmMessage": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
 } as const satisfies Record<string, string>;
 
 export type TranslationKey = keyof typeof translations;

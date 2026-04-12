@@ -13,30 +13,31 @@ export function createProjectRoutes() {
   });
 
   app.post("/", async (c) => {
-    const { name } = await c.req.json<{ name: string }>();
+    const { name, fromTemplate } = await c.req.json<{ name: string; fromTemplate?: string }>();
     if (!name?.trim()) return c.json({ error: "Name is required" }, 400);
+
+    if (fromTemplate) {
+      try {
+        const project = await c.get("projectService").createFromTemplate(name.trim(), fromTemplate);
+        return c.json(project, 201);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to create from template";
+        return c.json({ error: message }, 400);
+      }
+    }
+
     return c.json(await c.get("projectService").create(name.trim()), 201);
   });
 
   app.put("/:slug", async (c) => {
     const slug = c.req.param("slug");
-    const body = await c.req.json<{
-      name?: string;
-      outputDir?: string;
-      notes?: string;
-    }>();
+    const body = await c.req.json<{ name?: string; notes?: string }>();
 
     const existing = await c.get("projectService").get(slug);
     if (!existing) return c.json({ error: "Project not found" }, 404);
 
-    const updates: { name?: string; outputDir?: string; notes?: string } = {};
+    const updates: { name?: string; notes?: string } = {};
     if (body.name?.trim()) updates.name = body.name.trim();
-    if (body.outputDir !== undefined) {
-      if (body.outputDir && (body.outputDir.includes("..") || body.outputDir.includes("\\") || body.outputDir.startsWith("/"))) {
-        return c.json({ error: "Invalid outputDir" }, 400);
-      }
-      updates.outputDir = body.outputDir;
-    }
     if (body.notes !== undefined) updates.notes = body.notes;
 
     const updated = await c.get("projectService").update(slug, updates);
@@ -71,13 +72,12 @@ export function createProjectRoutes() {
     }
   });
 
-  app.get("/:slug/output/files", async (c) => {
+  app.get("/:slug/workspace/files", async (c) => {
     const slug = c.req.param("slug");
     const existing = await c.get("projectService").get(slug);
     if (!existing) return c.json({ error: "Project not found" }, 404);
 
-    const outputDir = existing.outputDir || "output";
-    const files = await c.get("projectService").readOutputFiles(slug, outputDir);
+    const files = await c.get("projectService").scanWorkspaceFiles(slug);
     return c.json({ files });
   });
 
@@ -88,13 +88,13 @@ export function createProjectRoutes() {
     return c.json({ js });
   });
 
-  // Static file serving with extensionless image fallback
+  // Static file serving from files/ workspace with extensionless image fallback
   app.get("/:slug/files/:path{.+}", async (c) => {
     const slug = c.req.param("slug");
     const filePath = c.req.param("path");
     if (!filePath) return c.json({ error: "Invalid path" }, 400);
 
-    const resolved = c.get("projectService").serveProjectFile(slug, filePath);
+    const resolved = c.get("projectService").serveWorkspaceFile(slug, filePath);
     if (!resolved) return c.json({ error: "Invalid path" }, 400);
 
     const file = Bun.file(resolved.fullPath);
@@ -111,23 +111,64 @@ export function createProjectRoutes() {
     return c.json({ error: "File not found" }, 404);
   });
 
-  app.get("/:slug/renderer", async (c) => {
-    const slug = c.req.param("slug");
-    const source = await c.get("projectService").readRendererSource(slug);
-    if (source === null) return c.json({ error: "renderer.ts not found" }, 404);
-    return c.json({ source });
-  });
+  // --- Project tree (for edit mode) ---
 
-  app.put("/:slug/renderer", async (c) => {
+  app.get("/:slug/tree", async (c) => {
     const slug = c.req.param("slug");
     const existing = await c.get("projectService").get(slug);
     if (!existing) return c.json({ error: "Project not found" }, 404);
 
-    const { source } = await c.req.json<{ source: string }>();
-    if (typeof source !== "string") return c.json({ error: "source is required" }, 400);
+    const entries = await c.get("projectService").scanProjectTree(slug);
+    return c.json({ entries });
+  });
 
-    await c.get("projectService").writeRendererSource(slug, source);
-    return c.json({ ok: true });
+  // --- Generic file read/write ---
+
+  app.get("/:slug/file", async (c) => {
+    const slug = c.req.param("slug");
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
+    const content = await c.get("projectService").readProjectFile(slug, path);
+    if (content === null) return c.json({ error: "File not found" }, 404);
+    return c.json({ content });
+  });
+
+  app.put("/:slug/file", async (c) => {
+    const slug = c.req.param("slug");
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    const { content } = await c.req.json<{ content: string }>();
+    if (typeof content !== "string") return c.json({ error: "content is required" }, 400);
+
+    try {
+      await c.get("projectService").writeProjectFile(slug, path, content);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to write file";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  app.delete("/:slug/file", async (c) => {
+    const slug = c.req.param("slug");
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    try {
+      await c.get("projectService").deleteProjectFile(slug, path);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete file";
+      return c.json({ error: message }, 400);
+    }
   });
 
   app.route("/:slug/conversations", createConversationRoutes());

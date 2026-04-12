@@ -1,15 +1,21 @@
 import { useState, useRef, useEffect } from "react";
+import { ArrowUp, ChevronsLeft } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useConfigState } from "@/client/entities/config/index.js";
-import { useUIState, useUIDispatch } from "@/client/app/context/UIContext.js";
+import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { useStreaming } from "./useStreaming.js";
 import { useConversation } from "./useConversation.js";
 import { useSlashCommands } from "./useSlashCommands.js";
 import { SlashCommandPopup } from "./SlashCommandPopup.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
+import { EditModeToggle } from "@/client/features/editor/EditModeToggle.js";
 
-export function BottomInput() {
+interface BottomInputProps {
+  variant?: "standalone" | "embedded";
+}
+
+export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const session = useSessionState();
   const config = useConfigState();
   const ui = useUIState();
@@ -68,30 +74,26 @@ export function BottomInput() {
     }
   };
 
-  return (
-    <div className="border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="relative">
-          {slash.isOpen && (
-            <SlashCommandPopup
-              commands={slash.filteredCommands}
-              selectedIndex={slash.selectedIndex}
-              onSelect={slash.selectCommand}
-              onHover={slash.setSelectedIndex}
-            />
-          )}
+  const inputContent = (
+    <div className={variant === "standalone" ? "max-w-4xl mx-auto" : ""}>
+      <div className="relative">
+        {slash.isOpen && (
+          <SlashCommandPopup
+            commands={slash.filteredCommands}
+            selectedIndex={slash.selectedIndex}
+            onSelect={slash.selectCommand}
+            onHover={slash.setSelectedIndex}
+          />
+        )}
         <div className="relative flex items-end gap-2 bg-surface rounded-2xl border border-edge/8 input-glow transition-all duration-200">
-          {/* Agent panel toggle (when collapsed) */}
-          {!ui.agentPanelOpen && (
+          {/* Agent panel toggle (when collapsed, standalone only) */}
+          {variant === "standalone" && !ui.agentPanelOpen && (
             <button
               onClick={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
               className="m-1.5 p-2 rounded-lg text-fg-3 hover:text-accent hover:bg-accent/8 transition-all"
               title={t("empty.showAgentPanel")}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M11 17l-5-5 5-5" />
-                <path d="M18 17l-5-5 5-5" />
-              </svg>
+              <ChevronsLeft size={16} strokeWidth={2} />
             </button>
           )}
 
@@ -106,51 +108,54 @@ export function BottomInput() {
                 : t("input.placeholder")
             }
             rows={1}
-            disabled={isStreaming}
-            className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 disabled:opacity-40 max-h-[200px] font-body"
+            className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 max-h-[200px] font-body"
           />
-          <button
-            onClick={handleSubmit}
-            disabled={!text.trim() || isStreaming}
-            className="m-1.5 p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <div className="m-1.5 flex items-center gap-1">
+            <EditModeToggle />
+            <button
+              onClick={handleSubmit}
+              disabled={!text.trim() || isStreaming}
+              className="p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"
             >
-              <path d="M12 19V5" />
-              <path d="M5 12l7-7 7 7" />
-            </svg>
-          </button>
+              <ArrowUp size={16} strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
-        </div>
-        <p className="mt-1.5 text-center text-[11px] text-fg-3 tracking-wide">
-          {config.provider}/{config.model}
-          {config.temperature !== undefined && ` · t=${config.temperature}`}
-          {config.thinkingLevel && config.thinkingLevel !== "off" && ` · think=${config.thinkingLevel}`}
-          {(session.sessionUsage.inputTokens > 0 || session.sessionUsage.outputTokens > 0) && (
-            <span>
-              {" · "}
-              {formatTokens(session.sessionUsage.inputTokens)} {t("input.tokenIn")} / {formatTokens(session.sessionUsage.outputTokens)} {t("input.tokenOut")}
-              {session.sessionUsage.cost ? ` · ${formatCost(session.sessionUsage.cost)}` : ""}
-            </span>
-          )}
-          {contextPercent !== null && (
-            <span
-              className={contextPercent >= 80 ? "text-amber-400" : ""}
-              title={`${formatTokens(contextTokens)} / ${formatTokens(contextWindow)} tokens`}
-            >
-              {" · "}{t("input.context")} {contextPercent}%
-            </span>
-          )}
-        </p>
       </div>
+      <p className="mt-1.5 text-center text-[11px] text-fg-3 tracking-wide">
+        {config.provider}/{config.model}
+        {config.temperature !== undefined && ` · t=${config.temperature}`}
+        {config.thinkingLevel && config.thinkingLevel !== "off" && ` · think=${config.thinkingLevel}`}
+        {(session.sessionUsage.inputTokens > 0 || session.sessionUsage.outputTokens > 0) && (
+          <span>
+            {" · "}
+            {formatTokens(session.sessionUsage.inputTokens)} {t("input.tokenIn")} / {formatTokens(session.sessionUsage.outputTokens)} {t("input.tokenOut")}
+            {session.sessionUsage.cost ? ` · ${formatCost(session.sessionUsage.cost)}` : ""}
+          </span>
+        )}
+        {contextPercent !== null && (
+          <span
+            className={contextPercent >= 80 ? "text-amber-400" : ""}
+            title={`${formatTokens(contextTokens)} / ${formatTokens(contextWindow)} tokens`}
+          >
+            {" · "}{t("input.context")} {contextPercent}%
+          </span>
+        )}
+      </p>
+    </div>
+  );
+
+  if (variant === "embedded") {
+    return (
+      <div className="border-t border-edge/6 p-3">
+        {inputContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative z-20 border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4">
+      {inputContent}
     </div>
   );
 }

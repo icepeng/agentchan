@@ -57,13 +57,16 @@ export function useProject() {
   );
 
   const createProject = useCallback(
-    async (name: string) => {
-      const project = await apiCreate(name);
+    async (name: string, fromTemplate?: string) => {
+      const project = await apiCreate(name, fromTemplate);
       projectDispatch({ type: "ADD_PROJECT", project });
-      // Select the new project
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
       sessionDispatch({ type: "CLEAR" });
       skillDispatch({ type: "CLEAR" });
+      if (fromTemplate) {
+        const skills = await fetchSkills(project.slug);
+        skillDispatch({ type: "SET_SKILLS", skills });
+      }
       return project;
     },
     [sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
@@ -76,7 +79,11 @@ export function useProject() {
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
       sessionDispatch({ type: "CLEAR" });
       skillDispatch({ type: "CLEAR" });
-      const skills = await fetchSkills(project.slug);
+      const [conversations, skills] = await Promise.all([
+        fetchConversations(project.slug),
+        fetchSkills(project.slug),
+      ]);
+      sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
       skillDispatch({ type: "SET_SKILLS", skills });
       return project;
     },
@@ -97,9 +104,8 @@ export function useProject() {
       await apiDelete(slug);
       projectDispatch({ type: "DELETE_PROJECT", slug });
       if (projectState.activeProjectSlug === slug) {
-        const projects = await apiFetchProjects();
-        if (projects.length > 0) {
-          const fallback = projects[0];
+        const fallback = projectState.projects.find((p) => p.slug !== slug);
+        if (fallback) {
           localStorage.setItem("agentchan-last-project", fallback.slug);
           projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: fallback.slug, currentConversationId: sessionState.activeConversationId });
           sessionDispatch({ type: "CLEAR" });
@@ -113,7 +119,7 @@ export function useProject() {
         }
       }
     },
-    [projectState.activeProjectSlug, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
+    [projectState.activeProjectSlug, projectState.projects, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
   );
 
   return {

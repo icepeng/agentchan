@@ -1,11 +1,9 @@
 import { join } from "node:path";
 import { getSkills } from "@agentchan/creative-agent";
 import type { ProjectSkillRepo } from "../repositories/project-skill.repo.js";
-import type { LibraryRepo } from "../repositories/library.repo.js";
 
 export function createSkillService(
   projectSkillRepo: ProjectSkillRepo,
-  libraryRepo: LibraryRepo,
   projectsDir: string,
 ) {
   return {
@@ -27,11 +25,6 @@ export function createSkillService(
 
     async deleteProjectSkill(slug: string, name: string) {
       return projectSkillRepo.delete(slug, name);
-    },
-
-    async copySkillToProject(skillName: string, slug: string) {
-      const srcDir = libraryRepo.getSkillSourceDir(skillName);
-      return projectSkillRepo.copyFrom(srcDir, slug, skillName);
     },
   };
 }

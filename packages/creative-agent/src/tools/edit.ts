@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
-import { textResult } from "./util.js";
+import { textResult } from "../tool-result.js";
 
 const EditParams = Type.Object({
   file_path: Type.String({

@@ -3,14 +3,14 @@ import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
+import { createAgentContext, type ResolvedAgentConfig } from "@agentchan/creative-agent";
 import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, isDev } from "./paths.js";
 import type { AppEnv } from "./types.js";
 
 // --- Repositories ---
 import { createSettingsRepo } from "./repositories/settings.repo.js";
 import { createProjectRepo } from "./repositories/project.repo.js";
-import { createConversationRepo } from "./repositories/conversation.repo.js";
-import { createLibraryRepo } from "./repositories/library.repo.js";
+import { createTemplateRepo } from "./repositories/template.repo.js";
 import { createProjectSkillRepo } from "./repositories/project-skill.repo.js";
 
 // --- Services ---
@@ -18,31 +18,51 @@ import { createConfigService } from "./services/config.service.js";
 import { createProjectService } from "./services/project.service.js";
 import { createConversationService } from "./services/conversation.service.js";
 import { createAgentService } from "./services/agent.service.js";
-import { createLibraryService } from "./services/library.service.js";
+import { createTemplateService } from "./services/template.service.js";
 import { createSkillService } from "./services/skill.service.js";
 
 // --- Routes ---
 import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
-import { createLibraryRoutes } from "./routes/library.routes.js";
+import { createTemplateRoutes } from "./routes/template.routes.js";
 
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
 const projectRepo = createProjectRepo(PROJECTS_DIR);
-const conversationRepo = createConversationRepo(PROJECTS_DIR);
-const libraryRepo = createLibraryRepo(LIBRARY_DIR);
+const templateRepo = createTemplateRepo(join(LIBRARY_DIR, "templates"));
 const projectSkillRepo = createProjectSkillRepo(PROJECTS_DIR);
 
 // ===== 2. Services =====
 const configService = createConfigService(settingsRepo);
-const projectService = createProjectService(projectRepo, PROJECTS_DIR);
-const conversationService = createConversationService(conversationRepo, configService, PROJECTS_DIR);
-const agentService = createAgentService(configService, conversationRepo, PROJECTS_DIR);
-const libraryService = createLibraryService(libraryRepo);
-const skillService = createSkillService(projectSkillRepo, libraryRepo, PROJECTS_DIR);
+const templateService = createTemplateService(templateRepo);
+const projectService = createProjectService(projectRepo, templateRepo, PROJECTS_DIR);
+const skillService = createSkillService(projectSkillRepo, PROJECTS_DIR);
+
+// ===== 2b. Agent context (stateless handle) =====
+const agentContext = createAgentContext({
+  projectsDir: PROJECTS_DIR,
+  resolveAgentConfig: (): ResolvedAgentConfig => {
+    const cfg = configService.getConfig();
+    const providerInfo = configService.findProvider(cfg.provider);
+    return {
+      provider: cfg.provider,
+      model: cfg.model,
+      apiKey: configService.getApiKey(cfg.provider) ?? "",
+      temperature: cfg.temperature,
+      maxTokens: cfg.maxTokens,
+      contextWindow: cfg.contextWindow,
+      thinkingLevel: cfg.thinkingLevel,
+      ...(providerInfo?.custom
+        ? { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }
+        : {}),
+    };
+  },
+});
+const conversationService = createConversationService(agentContext);
+const agentService = createAgentService(agentContext);
 
 // ===== 3. Bootstrap =====
-await libraryRepo.ensureLibrary();
+await templateRepo.ensureDir();
 await projectService.ensureInitialProject();
 
 // ===== 4. Hono App =====
@@ -63,7 +83,7 @@ app.use("/api/*", async (c, next) => {
   c.set("projectService", projectService);
   c.set("conversationService", conversationService);
   c.set("agentService", agentService);
-  c.set("libraryService", libraryService);
+  c.set("templateService", templateService);
   c.set("skillService", skillService);
   await next();
 });
@@ -71,7 +91,7 @@ app.use("/api/*", async (c, next) => {
 // ===== 5. Routes =====
 app.route("/api/projects", createProjectRoutes());
 app.route("/api/config", createConfigRoutes());
-app.route("/api/library", createLibraryRoutes());
+app.route("/api/templates", createTemplateRoutes());
 
 // Serve static files in production
 if (existsSync(CLIENT_DIR)) {

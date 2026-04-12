@@ -36,7 +36,7 @@ export default defineConfig(
 
   {
     files: ["apps/webui/src/**/*.{ts,tsx}"],
-    extends: [reactHooks.configs.flat.recommended],
+    extends: [reactHooks.configs.flat["recommended-latest"]],
   },
 
   { files: ["**/*.{js,mjs,cjs}"], ...tseslint.configs.disableTypeChecked },

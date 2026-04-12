@@ -1,15 +1,16 @@
 import { existsSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { join } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
+import type { TemplateRepo } from "../repositories/template.repo.js";
 
-export function createProjectService(projectRepo: ProjectRepo, projectsDir: string) {
+export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
 
   return {
     async list() { return projectRepo.list(); },
     async get(slug: string) { return projectRepo.get(slug); },
     async create(name: string) { return projectRepo.create(name); },
-    async update(slug: string, updates: { name?: string; outputDir?: string; notes?: string }) {
+    async update(slug: string, updates: { name?: string; notes?: string }) {
       return projectRepo.update(slug, updates);
     },
     async delete(slug: string) {
@@ -18,8 +19,28 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       return projectRepo.delete(slug);
     },
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
-    async readOutputFiles(slug: string, outputDirName?: string) {
-      return projectRepo.readOutputFiles(slug, outputDirName);
+    async createFromTemplate(name: string, templateName: string) {
+      const templateDir = templateRepo.getSourceDir(templateName);
+      return projectRepo.createFromSource(name, templateDir);
+    },
+    async scanWorkspaceFiles(slug: string) {
+      return projectRepo.scanWorkspaceFiles(slug);
+    },
+
+    async scanProjectTree(slug: string) {
+      return projectRepo.scanProjectTree(slug);
+    },
+
+    async readProjectFile(slug: string, filePath: string) {
+      return projectRepo.readProjectFile(slug, filePath);
+    },
+
+    async writeProjectFile(slug: string, filePath: string, content: string) {
+      return projectRepo.writeProjectFile(slug, filePath, content);
+    },
+
+    async deleteProjectFile(slug: string, filePath: string) {
+      return projectRepo.deleteProjectFile(slug, filePath);
     },
 
     async ensureInitialProject(): Promise<void> {
@@ -35,22 +56,8 @@ export function createProjectService(projectRepo: ProjectRepo, projectsDir: stri
       return transpiler.transformSync(source);
     },
 
-    async readRendererSource(slug: string): Promise<string | null> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      if (!existsSync(rendererPath)) return null;
-      return Bun.file(rendererPath).text();
-    },
-
-    async writeRendererSource(slug: string, source: string): Promise<void> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      await Bun.write(rendererPath, source);
-    },
-
-    serveProjectFile(slug: string, filePath: string): { fullPath: string } | null {
-      const projectsBase = resolve(projectsDir);
-      const fullPath = resolve(projectsDir, slug, filePath);
-      if (!fullPath.startsWith(projectsBase + sep)) return null;
-      return { fullPath };
+    serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {
+      return projectRepo.resolveProjectFile(slug, `files/${filePath}`);
     },
   };
 }

@@ -19,9 +19,9 @@ export function useConversation() {
 
   const create = useCallback(async () => {
     if (!projectState.activeProjectSlug) return;
-    const conv = await apiCreate(projectState.activeProjectSlug);
-    sessionDispatch({ type: "NEW_CONVERSATION", conversation: conv });
-    return conv;
+    const { conversation, nodes } = await apiCreate(projectState.activeProjectSlug);
+    sessionDispatch({ type: "NEW_CONVERSATION", conversation, nodes });
+    return conversation;
   }, [projectState.activeProjectSlug, sessionDispatch]);
 
   const load = useCallback(

@@ -1,34 +1,46 @@
 import { useState, useMemo, useCallback } from "react";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
+import { useSkillState } from "@/client/entities/skill/index.js";
+import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useConversation } from "./useConversation.js";
-import { COMMANDS, type SlashCommand } from "./commands.js";
+import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry } from "./commands.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const configDispatch = useConfigDispatch();
+  const skillState = useSkillState();
+  const ui = useUIState();
+  const uiDispatch = useUIDispatch();
   const { create, compact } = useConversation();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const query = text.startsWith("/") ? text.slice(1) : "";
   const isOpen = text.startsWith("/") && !query.includes(" ");
 
-  const filteredCommands = useMemo(() => {
+  const entries = useMemo(
+    () => buildSlashEntries(skillState.skills),
+    [skillState.skills],
+  );
+
+  const filteredCommands = useMemo<SlashEntry[]>(() => {
     if (!isOpen) return [];
-    if (query === "") return COMMANDS;
-    return COMMANDS.filter((cmd) => cmd.name.startsWith(query.toLowerCase()));
-  }, [isOpen, query]);
+    if (query === "") return entries;
+    return entries.filter((cmd) => cmd.name.startsWith(query.toLowerCase()));
+  }, [isOpen, query, entries]);
 
   // Clamp selectedIndex when filtered list changes
   const clampedIndex = Math.min(selectedIndex, Math.max(filteredCommands.length - 1, 0));
 
-  const executeCommand = useCallback(
+  const executeLocalCommand = useCallback(
     async (name: string, arg: string) => {
       switch (name) {
         case "new":
-        case "clear":
           await create();
           break;
         case "compact":
           await compact();
+          break;
+        case "edit":
+          uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
           break;
         case "model": {
           const result = await updateConfig({ model: arg });
@@ -40,26 +52,22 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
           configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
           break;
         }
-        case "help":
-          // Show full command list by setting text to "/"
-          setText("/");
-          return;
       }
       setText("");
     },
-    [create, compact, configDispatch, setText],
+    [create, compact, configDispatch, uiDispatch, ui.viewMode, setText],
   );
 
   const selectCommand = useCallback(
-    (cmd: SlashCommand) => {
-      if (cmd.needsArg) {
-        setText("/" + cmd.name + " ");
-      } else {
-        void executeCommand(cmd.name, "");
-      }
+    (cmd: SlashEntry) => {
+      // Skill commands always allow free-form args; local commands ask
+      // explicitly via needsArg. Both cases just prefill the textbox.
+      const needsTextInsert = cmd.kind === "skill" || cmd.needsArg;
+      if (needsTextInsert) setText("/" + cmd.name + " ");
+      else void executeLocalCommand(cmd.name, "");
       setSelectedIndex(0);
     },
-    [executeCommand, setText],
+    [executeLocalCommand, setText],
   );
 
   const tryExecuteCommand = useCallback(
@@ -71,14 +79,14 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
       const cmdName = spaceIdx >= 0 ? withoutSlash.slice(0, spaceIdx) : withoutSlash;
       const arg = spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
 
-      const cmd = COMMANDS.find((c) => c.name === cmdName);
-      if (!cmd) return false;
-      if (cmd.needsArg && !arg) return false;
+      const local = LOCAL_COMMANDS.find((c) => c.name === cmdName);
+      if (!local) return false; // skill commands fall through to send()
+      if (local.needsArg && !arg) return false;
 
-      void executeCommand(cmdName, arg);
+      void executeLocalCommand(cmdName, arg);
       return true;
     },
-    [executeCommand],
+    [executeLocalCommand],
   );
 
   const handleKeyDown = useCallback(

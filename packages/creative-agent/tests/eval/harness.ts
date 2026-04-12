@@ -1,11 +1,22 @@
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
-import { setupCreativeAgent, clearSkillManager } from "../../src/agent/orchestrator.js";
-import { createFixture, cleanupFixture } from "./fixtures.js";
+import { setupCreativeAgent, clearConversationAgentState } from "../../src/agent/orchestrator.js";
+import { createAgentContext } from "../../src/agent/context.js";
+import { createConversation } from "../../src/agent/lifecycle.js";
+import type { StoredMessage } from "../../src/types.js";
+import { createFixture, cleanupFixture, type Fixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
 export type { CollectedToolCall } from "./assertions.js";
-export { expectToolCall, expectToolCallAny, expectNoToolCall, expectBashCall, expectNoWriteDuplication, expectAppendNewlineSeparation } from "./assertions.js";
+export {
+  expectToolCall,
+  expectToolCallAny,
+  expectNoToolCall,
+  expectNoSkillActivation,
+  expectNoWriteDuplication,
+  expectAppendNewlineSeparation,
+  expectAssistantText,
+} from "./assertions.js";
 
 export interface TokenStats {
   totalInputTokens: number;
@@ -15,8 +26,21 @@ export interface TokenStats {
 }
 
 export interface EvalHarnessOptions {
+  /**
+   * Copy an entire library/templates/{name}/ directory as the fixture.
+   * Mirrors "New project from template". Preferred for new eval tests.
+   */
+  template?: string;
   skillName?: string;
   skillNames?: string[];
+  /**
+   * @deprecated Prefer `template`. Copies SYSTEM.md + files/ from an
+   * example_data/projects/{name}/ — retained for legacy chat/impersonate-chat
+   * eval tests.
+   */
+  copyProjectFiles?: string;
+  /** Inline override for SYSTEM.md (wins over template / copyProjectFiles). */
+  systemMd?: string;
   provider?: string;
   model?: string;
   prePopulate?: Record<string, string>;
@@ -36,41 +60,55 @@ export class EvalHarness {
   private toolCallMap = new Map<string, CollectedToolCall>();
 
   private constructor(
-    readonly projectDir: string,
+    readonly fixture: Fixture,
     private agent: Agent,
     private conversationId: string,
     private timeoutMs: number,
     readonly systemPromptLength: number,
   ) {}
 
+  /** Convenience accessor — full path to the project under the temp projects dir. */
+  get projectDir(): string {
+    return this.fixture.projectDir;
+  }
+
   static async create(options: EvalHarnessOptions = {}): Promise<EvalHarness> {
-    const skillNames = options.skillNames ?? [options.skillName ?? "novel-writing"];
+    const hasSkillOption = options.skillName !== undefined || options.skillNames !== undefined;
+    const skillNames = hasSkillOption
+      ? (options.skillNames ?? [options.skillName!])
+      : [];
     const provider = options.provider ?? process.env.EVAL_PROVIDER ?? "google";
     const model = options.model ?? process.env.EVAL_MODEL ?? "gemini-3-flash-preview";
     const maxToolCalls = options.maxToolCalls ?? 30;
     const timeoutMs = options.timeoutMs ?? 120_000;
+    const apiKey = process.env[`${provider.toUpperCase()}_API_KEY`] ?? "";
 
-    const projectDir = await createFixture({
+    const fixture = await createFixture({
+      template: options.template,
       skillNames,
+      copyProjectFiles: options.copyProjectFiles,
+      systemMd: options.systemMd,
       prePopulate: options.prePopulate,
     });
 
-    const conversationId = `eval-${Date.now()}`;
-    const apiKey = process.env[`${provider.toUpperCase()}_API_KEY`];
+    // Drive the production conversation-bootstrap path. New conversations
+    // start empty — SYSTEM.md and skill catalog are in the system prompt.
+    const ctx = createAgentContext({
+      projectsDir: fixture.projectsDir,
+      resolveAgentConfig: () => ({ provider, model, apiKey, temperature: 0 }),
+    });
+    const created = await createConversation(ctx, fixture.slug);
+    const conversationId = created.conversation.id;
+    const history: StoredMessage[] = [];
 
     const { agent, systemPrompt } = await setupCreativeAgent(
-      {
-        provider,
-        model,
-        projectDir,
-        apiKey,
-        temperature: 0,
-      },
-      [],
+      { provider, model, apiKey, temperature: 0 },
+      fixture.projectDir,
+      history,
       conversationId,
     );
 
-    const harness = new EvalHarness(projectDir, agent, conversationId, timeoutMs, systemPrompt.length);
+    const harness = new EvalHarness(fixture, agent, conversationId, timeoutMs, systemPrompt.length);
 
     agent.subscribe((event: AgentEvent) => {
       if (event.type === "tool_execution_start") {
@@ -136,8 +174,8 @@ export class EvalHarness {
   }
 
   async cleanup(): Promise<void> {
-    clearSkillManager(this.conversationId);
-    await cleanupFixture(this.projectDir);
+    clearConversationAgentState(this.conversationId);
+    await cleanupFixture(this.fixture);
   }
 
   dumpTokenStats(): void {

@@ -11,7 +11,7 @@ if [ "$1" = "--force" ]; then
   rm -rf "$DATA_DIR/projects" "$DATA_DIR/library"
 fi
 
-if [ -d "$DATA_DIR/projects" ] && [ -d "$DATA_DIR/library/skills" ]; then
+if [ -d "$DATA_DIR/projects" ] && [ -d "$DATA_DIR/library/templates" ]; then
   echo "[copy-example-data] Data already exists (use --force to overwrite)"
   exit 0
 fi

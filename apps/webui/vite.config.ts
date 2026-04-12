@@ -19,6 +19,21 @@ export default defineConfig({
   build: {
     outDir: "dist/client",
     emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              // CodeMirror is only used by the lazy-loaded Library page.
+              // Force it into its own chunk so it's not in the main bundle.
+              name: "codemirror",
+              test: /node_modules[\\/](?:@codemirror|@lezer)[\\/]/,
+              priority: 20,
+            },
+          ],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

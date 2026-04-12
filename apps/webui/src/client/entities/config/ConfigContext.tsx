@@ -5,7 +5,7 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-import type { ProviderInfo, ThinkingLevel } from "./config.types.js";
+import type { ProviderInfo, ThinkingLevel } from "@agentchan/creative-agent";
 
 // --- State ---
 

@@ -1,6 +1,5 @@
 import { Hono } from "hono";
-import type { AppEnv } from "../types.js";
-import type { ServerConfig } from "../types.js";
+import type { AppEnv, ServerConfig, CustomProviderDef } from "../types.js";
 
 export function createConfigRoutes() {
   const app = new Hono<AppEnv>();
@@ -16,6 +15,21 @@ export function createConfigRoutes() {
 
   app.get("/providers", (c) => {
     return c.json(c.get("configService").getProviderList());
+  });
+
+  // --- Custom Providers ---
+
+  app.get("/custom-providers", (c) => {
+    return c.json(c.get("configService").getCustomProviders());
+  });
+
+  app.put("/custom-providers", async (c) => {
+    const provider = await c.req.json<CustomProviderDef>();
+    return c.json(c.get("configService").saveCustomProvider(provider));
+  });
+
+  app.delete("/custom-providers/:name", (c) => {
+    return c.json(c.get("configService").deleteCustomProvider(c.req.param("name")));
   });
 
   // --- API Keys ---

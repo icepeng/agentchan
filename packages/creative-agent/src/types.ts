@@ -1,19 +1,10 @@
-// --- Canonical content blocks (persistence format) ---
+// --- Re-export pi-ai/pi-agent-core message types as canonical persistence types ---
 
-export type ContentBlock =
-  | { type: "text"; text: string }
-  | { type: "tool_use"; id: string; name: string; input: Record<string, unknown>; providerMetadata?: Record<string, unknown> }
-  | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean }
-  | { type: "thinking"; text: string };
+import type { AgentMessage } from "@mariozechner/pi-agent-core";
 
-// --- Canonical message (for tree storage) ---
+export type { AgentMessage };
 
-export interface StoredMessage {
-  role: "user" | "assistant";
-  content: ContentBlock[];
-}
-
-// --- Token usage (grouped) ---
+// --- Token usage (grouped, agentchan-specific roll-up) ---
 
 export interface TokenUsage {
   inputTokens: number;
@@ -26,17 +17,26 @@ export interface TokenUsage {
 
 // --- Conversation tree node ---
 
+/**
+ * Node meta tags drive UI rendering decisions in MessageBubble.
+ *
+ * `skill-load` — user node carrying a skill body, rendered as a chip.
+ * `compact-summary` — system-generated summary node from a `compact` operation.
+ */
+export type NodeMeta = "skill-load" | "compact-summary";
+
+/**
+ * A node in the conversation tree. Wraps a pi-ai AgentMessage with tree
+ * metadata (id, parentId, activeChildId) and agentchan-specific fields.
+ */
 export interface TreeNode {
   id: string;
   parentId: string | null;
-  role: "user" | "assistant";
-  content: ContentBlock[];
+  message: AgentMessage;
   createdAt: number;
-  provider?: string;
-  model?: string;
   activeChildId?: string;
   usage?: TokenUsage;
-  meta?: string;
+  meta?: NodeMeta;
 }
 
 // --- Conversation metadata ---

@@ -1,9 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
-import { ThemeProvider } from "./features/settings/useTheme.js";
-import { I18nProvider } from "./i18n/index.js";
-import { AppProviders } from "./app/providers.js";
+import { ThemeProvider } from "@/client/features/settings/index.js";
+import { I18nProvider } from "@/client/i18n/index.js";
+import { AppProviders } from "@/client/app/index.js";
 import "./main.css";
 
 createRoot(document.getElementById("root")!).render(

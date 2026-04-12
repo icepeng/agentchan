@@ -1,7 +1,21 @@
+import { useState, useRef, useCallback, Suspense, lazy } from "react";
+import { ChevronsLeft } from "lucide-react";
 import { useProjectState } from "@/client/entities/project/index.js";
+import { useUIState } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
 import { AgentPanel, BottomInput, useConversation } from "@/client/features/chat/index.js";
+import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
+
+const EditModePanel = lazy(() =>
+  import("@/client/features/editor/index.js").then((m) => ({
+    default: m.EditModePanel,
+  })),
+);
+
+const DEFAULT_PANEL_WIDTH = 420;
+const MIN_PANEL_WIDTH = 280;
+const MAX_PANEL_RATIO = 0.6;
 
 interface ProjectPageProps {
   agentPanelOpen: boolean;
@@ -10,8 +24,21 @@ interface ProjectPageProps {
 
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
   const project = useProjectState();
+  const ui = useUIState();
   const { t } = useI18n();
   const { create } = useConversation();
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef(0);
+
+  const isEdit = ui.viewMode === "edit";
+
+  const handlePanelResize = useCallback((delta: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const maxWidth = container.getBoundingClientRect().width * MAX_PANEL_RATIO;
+    setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, dragStartRef.current - delta)));
+  }, []);
 
   return (
     <>
@@ -25,23 +52,42 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
       />
 
       {/* Top area: split pane */}
-      <div className="flex-1 flex min-h-0 relative z-10">
-        {/* Left: Rendered View */}
-        <div className={`flex-1 flex flex-col min-w-0 border-r border-edge/6 ${agentPanelOpen ? "" : "border-r-0"}`}>
-          {project.activeProjectSlug ? (
-            <RenderedView />
-          ) : (
-            <EmptyState onCreate={async () => {
-              await create();
-              if (!agentPanelOpen) onToggleAgentPanel();
-            }} />
-          )}
-        </div>
+      <div ref={containerRef} className="flex-1 flex min-h-0 relative z-10">
+        {isEdit ? (
+          // Edit mode: Tree + Editor | Chat Panel
+          <Suspense fallback={<div className="flex-1" />}>
+            <EditModePanel />
+          </Suspense>
+        ) : (
+          // Chat mode: Rendered View
+          <div className={`flex-1 flex flex-col min-w-0 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
+            {project.activeProjectSlug ? (
+              <RenderedView />
+            ) : (
+              <EmptyState onCreate={async () => {
+                await create();
+                if (!agentPanelOpen) onToggleAgentPanel();
+              }} />
+            )}
+          </div>
+        )}
+
+        {/* Resize handle */}
+        {agentPanelOpen && (
+          <ResizeHandle
+            onResizeStart={() => { dragStartRef.current = panelWidth; }}
+            onResize={handlePanelResize}
+          />
+        )}
 
         {/* Right: Agent Panel (collapsible) */}
         {agentPanelOpen ? (
-          <div className="w-[420px] flex-shrink-0 flex flex-col border-l border-edge/6 bg-base/40 hidden lg:flex">
+          <div
+            style={{ width: panelWidth }}
+            className="flex-shrink-0 flex flex-col bg-base/40 hidden lg:flex"
+          >
             <AgentPanel />
+            {isEdit && <BottomInput variant="embedded" />}
           </div>
         ) : (
           <button
@@ -49,20 +95,13 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
             className="hidden lg:flex flex-shrink-0 w-7 items-center justify-center border-l border-edge/6 bg-base/20 hover:bg-accent/8 text-fg-3 hover:text-accent transition-all duration-200 cursor-pointer group"
             title={t("empty.openAgentPanel")}
           >
-            <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              className="group-hover:scale-110 transition-transform"
-            >
-              <path d="M11 17l-5-5 5-5" />
-              <path d="M18 17l-5-5 5-5" />
-            </svg>
+            <ChevronsLeft size={14} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
           </button>
         )}
       </div>
 
-      {/* Bottom: Input */}
-      <BottomInput />
+      {/* Bottom: Input (chat mode only) */}
+      {!isEdit && <BottomInput variant="standalone" />}
     </>
   );
 }

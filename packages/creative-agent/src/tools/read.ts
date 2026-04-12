@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
-import { textResult, MAX_LINES, MAX_OUTPUT_BYTES } from "./util.js";
+import { textResult } from "../tool-result.js";
+import { MAX_LINES, MAX_OUTPUT_BYTES } from "./util.js";
 
 const ReadParams = Type.Object({
   file_path: Type.String({
