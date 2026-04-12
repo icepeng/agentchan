@@ -26,10 +26,21 @@ export interface TokenStats {
 }
 
 export interface EvalHarnessOptions {
+  /**
+   * Copy an entire library/templates/{name}/ directory as the fixture.
+   * Mirrors "New project from template". Preferred for new eval tests.
+   */
+  template?: string;
   skillName?: string;
   skillNames?: string[];
-  /** Copy SYSTEM.md + files/ from an example_data project. */
+  /**
+   * @deprecated Prefer `template`. Copies SYSTEM.md + files/ from an
+   * example_data/projects/{name}/ — retained for legacy chat/impersonate-chat
+   * eval tests.
+   */
   copyProjectFiles?: string;
+  /** Inline override for SYSTEM.md (wins over template / copyProjectFiles). */
+  systemMd?: string;
   provider?: string;
   model?: string;
   prePopulate?: Record<string, string>;
@@ -73,8 +84,10 @@ export class EvalHarness {
     const apiKey = process.env[`${provider.toUpperCase()}_API_KEY`] ?? "";
 
     const fixture = await createFixture({
+      template: options.template,
       skillNames,
       copyProjectFiles: options.copyProjectFiles,
+      systemMd: options.systemMd,
       prePopulate: options.prePopulate,
     });
 
@@ -89,13 +102,8 @@ export class EvalHarness {
     const history: StoredMessage[] = [];
 
     const { agent, systemPrompt } = await setupCreativeAgent(
-      {
-        provider,
-        model,
-        projectDir: fixture.projectDir,
-        apiKey,
-        temperature: 0,
-      },
+      { provider, model, apiKey, temperature: 0 },
+      fixture.projectDir,
       history,
       conversationId,
     );
