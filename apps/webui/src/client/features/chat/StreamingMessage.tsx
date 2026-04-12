@@ -1,4 +1,3 @@
-import { memo } from "react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
@@ -6,26 +5,19 @@ import { AgentAvatar } from "./Avatars.js";
 import { StreamingToolCall } from "./ToolCallDisplay.js";
 import { useSentenceAnimation } from "./useSentenceAnimation.js";
 
-/** Memoised so parseInlineMarkdown only runs when `text` actually changes. */
-const Sentence = memo(function Sentence({
-  text,
-  animating,
-}: {
-  text: string;
-  animating: boolean;
-}) {
+function Sentence({ text, animating }: { text: string; animating: boolean }) {
   return (
     <span className={animating ? "animate-sentence-fade" : undefined}>
       {parseInlineMarkdown(text)}
     </span>
   );
-});
-
-interface StreamingMessageProps {
-  variant?: "compact" | "wide";
 }
 
-export function StreamingMessage({ variant = "compact" }: StreamingMessageProps) {
+/**
+ * Renders streaming content (text, tool calls, error state).
+ * Does NOT render the outer BubbleWrap — the caller (MessageBubble) provides that.
+ */
+export function StreamingBubbleContent({ variant = "compact" }: { variant?: "compact" | "wide" }) {
   const session = useSessionState();
   const { t } = useI18n();
   const { confirmedSentences, animatingIndices } =
@@ -33,17 +25,8 @@ export function StreamingMessage({ variant = "compact" }: StreamingMessageProps)
 
   const isWide = variant === "wide";
 
-  const wrap = (bg: string, children: React.ReactNode) => {
-    const cls = `${isWide ? "px-4 py-4" : "px-3 py-3"} ${bg} animate-fade`;
-    return isWide ? (
-      <div className={cls}><div className="max-w-3xl mx-auto">{children}</div></div>
-    ) : (
-      <div className={cls}>{children}</div>
-    );
-  };
-
   if (session.streamError) {
-    return wrap("bg-danger/5 border-l-2 border-danger/30",
+    return (
       <div className={`flex items-start ${isWide ? "gap-3" : "gap-2.5"}`}>
         <AgentAvatar />
         <div className="flex-1 min-w-0">
@@ -57,23 +40,15 @@ export function StreamingMessage({ variant = "compact" }: StreamingMessageProps)
             <p className="text-xs text-fg-3 mt-1">{t("chat.streamErrorRetry")}</p>
           </div>
         </div>
-      </div>,
+      </div>
     );
-  }
-
-  if (
-    !session.isStreaming &&
-    !session.streamingText &&
-    session.streamingToolCalls.length === 0
-  ) {
-    return null;
   }
 
   const hasText = confirmedSentences.length > 0;
   const showCursor =
     session.isStreaming && session.streamingToolCalls.length === 0;
 
-  return wrap("bg-surface/40",
+  return (
     <div className={`flex items-start ${isWide ? "gap-3" : "gap-2.5"}`}>
       <AgentAvatar />
       <div className="flex-1 min-w-0">
@@ -105,6 +80,6 @@ export function StreamingMessage({ variant = "compact" }: StreamingMessageProps)
           ))}
         </div>
       </div>
-    </div>,
+    </div>
   );
 }
