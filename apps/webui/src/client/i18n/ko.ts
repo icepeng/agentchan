@@ -173,4 +173,18 @@ export const translations: Record<TranslationKey, string> = {
   "common.save": "저장",
   "common.newSkillTitle": "새 스킬",
   "common.skillNamePlaceholder": "스킬-이름 (소문자, 하이픈)",
+
+  // Project settings modal
+  "projectModal.title": "프로젝트 설정",
+
+  // Edit mode
+  "editMode.switchToEdit": "편집 모드",
+  "editMode.switchToChat": "채팅 모드",
+  "editMode.selectFile": "편집할 파일을 선택하세요",
+  "editMode.unsavedTitle": "저장되지 않은 변경",
+  "editMode.unsavedMessage": "저장되지 않은 변경사항이 있습니다. 어떻게 할까요?",
+  "editMode.save": "저장",
+  "editMode.discard": "버리기",
+  "editMode.cancel": "취소",
+  "editMode.imagePreview": "이미지 미리보기",
 };

@@ -19,6 +19,7 @@ export type SlashEntry = LocalSlashCommand | SkillSlashCommand;
 export const LOCAL_COMMANDS: LocalSlashCommand[] = [
   { kind: "local", name: "new", description: "Create new session", needsArg: false },
   { kind: "local", name: "compact", description: "Summarize and continue in new session", needsArg: false },
+  { kind: "local", name: "edit", description: "Toggle edit mode", needsArg: false },
   { kind: "local", name: "model", description: "Change model", needsArg: true, argPlaceholder: "<model-name>" },
   { kind: "local", name: "provider", description: "Change provider", needsArg: true, argPlaceholder: "<provider-name>" },
 ];

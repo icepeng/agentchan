@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { join } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 
@@ -27,8 +27,17 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       return projectRepo.scanWorkspaceFiles(slug);
     },
 
-    async getSystem(slug: string) { return projectRepo.getSystem(slug); },
-    async saveSystem(slug: string, content: string) { return projectRepo.saveSystem(slug, content); },
+    async scanProjectTree(slug: string) {
+      return projectRepo.scanProjectTree(slug);
+    },
+
+    async readProjectFile(slug: string, filePath: string) {
+      return projectRepo.readProjectFile(slug, filePath);
+    },
+
+    async writeProjectFile(slug: string, filePath: string, content: string) {
+      return projectRepo.writeProjectFile(slug, filePath, content);
+    },
 
     async ensureInitialProject(): Promise<void> {
       const projects = await projectRepo.list();
@@ -43,22 +52,8 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       return transpiler.transformSync(source);
     },
 
-    async readRendererSource(slug: string): Promise<string | null> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      if (!existsSync(rendererPath)) return null;
-      return Bun.file(rendererPath).text();
-    },
-
-    async writeRendererSource(slug: string, source: string): Promise<void> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      await Bun.write(rendererPath, source);
-    },
-
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {
-      const filesBase = resolve(projectsDir, slug, "files");
-      const fullPath = resolve(filesBase, filePath);
-      if (!fullPath.startsWith(filesBase + sep)) return null;
-      return { fullPath };
+      return projectRepo.resolveProjectFile(slug, `files/${filePath}`);
     },
   };
 }

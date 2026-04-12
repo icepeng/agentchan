@@ -111,44 +111,47 @@ export function createProjectRoutes() {
     return c.json({ error: "File not found" }, 404);
   });
 
-  app.get("/:slug/renderer", async (c) => {
-    const slug = c.req.param("slug");
-    const source = await c.get("projectService").readRendererSource(slug);
-    if (source === null) return c.json({ error: "renderer.ts not found" }, 404);
-    return c.json({ source });
-  });
+  // --- Project tree (for edit mode) ---
 
-  app.put("/:slug/renderer", async (c) => {
+  app.get("/:slug/tree", async (c) => {
     const slug = c.req.param("slug");
     const existing = await c.get("projectService").get(slug);
     if (!existing) return c.json({ error: "Project not found" }, 404);
 
-    const { source } = await c.req.json<{ source: string }>();
-    if (typeof source !== "string") return c.json({ error: "source is required" }, 400);
-
-    await c.get("projectService").writeRendererSource(slug, source);
-    return c.json({ ok: true });
+    const entries = await c.get("projectService").scanProjectTree(slug);
+    return c.json({ entries });
   });
 
-  // --- SYSTEM.md ---
+  // --- Generic file read/write ---
 
-  app.get("/:slug/system", async (c) => {
+  app.get("/:slug/file", async (c) => {
     const slug = c.req.param("slug");
-    const content = await c.get("projectService").getSystem(slug);
-    if (content === null) return c.json({ content: "" });
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
+    const content = await c.get("projectService").readProjectFile(slug, path);
+    if (content === null) return c.json({ error: "File not found" }, 404);
     return c.json({ content });
   });
 
-  app.put("/:slug/system", async (c) => {
+  app.put("/:slug/file", async (c) => {
     const slug = c.req.param("slug");
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
     const existing = await c.get("projectService").get(slug);
     if (!existing) return c.json({ error: "Project not found" }, 404);
 
     const { content } = await c.req.json<{ content: string }>();
     if (typeof content !== "string") return c.json({ error: "content is required" }, 400);
 
-    await c.get("projectService").saveSystem(slug, content);
-    return c.json({ ok: true });
+    try {
+      await c.get("projectService").writeProjectFile(slug, path, content);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to write file";
+      return c.json({ error: message }, 400);
+    }
   });
 
   app.route("/:slug/conversations", createConversationRoutes());

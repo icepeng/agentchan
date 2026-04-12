@@ -48,14 +48,3 @@ export function fetchTranspiledRenderer(projectSlug: string): Promise<{ js: stri
   return json(`/projects/${encodeURIComponent(projectSlug)}/renderer.js`);
 }
 
-export function fetchRendererSource(projectSlug: string): Promise<{ source: string }> {
-  return json(`/projects/${encodeURIComponent(projectSlug)}/renderer`);
-}
-
-export function saveRendererSource(projectSlug: string, source: string): Promise<void> {
-  return json(`/projects/${encodeURIComponent(projectSlug)}/renderer`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source }),
-  });
-}

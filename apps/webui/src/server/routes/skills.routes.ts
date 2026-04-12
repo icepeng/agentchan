@@ -28,31 +28,6 @@ export function createSkillRoutes() {
     }
   });
 
-  // Get skill content
-  app.get("/:name", async (c) => {
-    const slug = c.req.param("slug")!;
-    const name = c.req.param("name");
-    const content = await c.get("skillService").getProjectSkill(slug, name);
-    if (content === null) return c.json({ error: "Skill not found" }, 404);
-    return c.json({ content });
-  });
-
-  // Update skill content
-  app.put("/:name", async (c) => {
-    const slug = c.req.param("slug")!;
-    const name = c.req.param("name");
-    const { content } = await c.req.json<{ content: string }>();
-    if (typeof content !== "string") return c.json({ error: "content is required" }, 400);
-
-    try {
-      await c.get("skillService").updateProjectSkill(slug, name, content);
-      return c.json({ ok: true });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to update skill";
-      return c.json({ error: message }, 404);
-    }
-  });
-
   // Delete skill
   app.delete("/:name", async (c) => {
     const slug = c.req.param("slug")!;

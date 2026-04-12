@@ -1,9 +1,8 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
-import { ProjectSettingsPage } from "@/client/pages/ProjectSettingsPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/features/onboarding/index.js";
 
@@ -20,8 +19,6 @@ function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
   switch (page) {
     case "templates":
       return <TemplatesPage />;
-    case "project-settings":
-      return <ProjectSettingsPage />;
     case "settings":
       return <AppSettingsPage />;
     default:
@@ -32,6 +29,18 @@ function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
 export function AppShell() {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
+
+  // Ctrl+E / Cmd+E to toggle edit mode (main page only)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "e" && ui.currentPage.page === "main") {
+        e.preventDefault();
+        uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [ui.currentPage.page, ui.viewMode, uiDispatch]);
 
   return (
     <div className="flex h-full bg-void text-fg font-body">

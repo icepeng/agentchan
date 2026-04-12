@@ -1,9 +1,17 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import { useProjectState } from "@/client/entities/project/index.js";
+import { useUIState } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
 import { AgentPanel, BottomInput, useConversation } from "@/client/features/chat/index.js";
+import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
+
+const EditModePanel = lazy(() =>
+  import("@/client/features/editor/index.js").then((m) => ({
+    default: m.EditModePanel,
+  })),
+);
 
 const DEFAULT_PANEL_WIDTH = 420;
 const MIN_PANEL_WIDTH = 280;
@@ -16,44 +24,24 @@ interface ProjectPageProps {
 
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
   const project = useProjectState();
+  const ui = useUIState();
   const { t } = useI18n();
   const { create } = useConversation();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelWidthRef = useRef(DEFAULT_PANEL_WIDTH);
-  const cleanupRef = useRef<(() => void) | null>(null);
+
+  const isEdit = ui.viewMode === "edit";
 
   useEffect(() => {
     panelWidthRef.current = panelWidth;
   }, [panelWidth]);
 
-  useEffect(() => () => cleanupRef.current?.(), []);
-
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = panelWidthRef.current;
-
-    const onMouseMove = (ev: MouseEvent) => {
-      const container = containerRef.current;
-      if (!container) return;
-      const maxWidth = container.getBoundingClientRect().width * MAX_PANEL_RATIO;
-      setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, startWidth + (startX - ev.clientX))));
-    };
-
-    const cleanup = () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", cleanup);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      cleanupRef.current = null;
-    };
-
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", cleanup);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    cleanupRef.current = cleanup;
+  const handlePanelResize = useCallback((delta: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const maxWidth = container.getBoundingClientRect().width * MAX_PANEL_RATIO;
+    setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, panelWidthRef.current - delta)));
   }, []);
 
   return (
@@ -69,26 +57,28 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
 
       {/* Top area: split pane */}
       <div ref={containerRef} className="flex-1 flex min-h-0 relative z-10">
-        {/* Left: Rendered View */}
-        <div className={`flex-1 flex flex-col min-w-0 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
-          {project.activeProjectSlug ? (
-            <RenderedView />
-          ) : (
-            <EmptyState onCreate={async () => {
-              await create();
-              if (!agentPanelOpen) onToggleAgentPanel();
-            }} />
-          )}
-        </div>
+        {isEdit ? (
+          // Edit mode: Tree + Editor | Chat Panel
+          <Suspense fallback={<div className="flex-1" />}>
+            <EditModePanel />
+          </Suspense>
+        ) : (
+          // Chat mode: Rendered View
+          <div className={`flex-1 flex flex-col min-w-0 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
+            {project.activeProjectSlug ? (
+              <RenderedView />
+            ) : (
+              <EmptyState onCreate={async () => {
+                await create();
+                if (!agentPanelOpen) onToggleAgentPanel();
+              }} />
+            )}
+          </div>
+        )}
 
         {/* Resize handle */}
         {agentPanelOpen && (
-          <div
-            onMouseDown={handleResizeStart}
-            className="hidden lg:block flex-shrink-0 w-px bg-edge/6 cursor-col-resize relative z-20"
-          >
-            <div className="absolute inset-y-0 -left-[3px] -right-[3px] hover:bg-accent/12 active:bg-accent/20 transition-colors duration-150" />
-          </div>
+          <ResizeHandle onResize={handlePanelResize} />
         )}
 
         {/* Right: Agent Panel (collapsible) */}
@@ -98,6 +88,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
             className="flex-shrink-0 flex flex-col bg-base/40 hidden lg:flex"
           >
             <AgentPanel />
+            {isEdit && <BottomInput variant="embedded" />}
           </div>
         ) : (
           <button
@@ -110,8 +101,8 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
         )}
       </div>
 
-      {/* Bottom: Input */}
-      <BottomInput />
+      {/* Bottom: Input (chat mode only) */}
+      {!isEdit && <BottomInput variant="standalone" />}
     </>
   );
 }

@@ -1,12 +1,15 @@
 import { useState, useMemo, useCallback } from "react";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
 import { useSkillState } from "@/client/entities/skill/index.js";
+import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useConversation } from "./useConversation.js";
 import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry } from "./commands.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const configDispatch = useConfigDispatch();
   const skillState = useSkillState();
+  const ui = useUIState();
+  const uiDispatch = useUIDispatch();
   const { create, compact } = useConversation();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -36,6 +39,9 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
         case "compact":
           await compact();
           break;
+        case "edit":
+          uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
+          break;
         case "model": {
           const result = await updateConfig({ model: arg });
           configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
@@ -49,7 +55,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
       }
       setText("");
     },
-    [create, compact, configDispatch, setText],
+    [create, compact, configDispatch, uiDispatch, ui.viewMode, setText],
   );
 
   const selectCommand = useCallback(

@@ -2,11 +2,11 @@ import { useReducer, useRef, useEffect, useCallback, useState } from "react";
 import { Check, Plus, Settings, X } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
-import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator } from "@/client/shared/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "./useProject.js";
+import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 
 // -- Shared menu styles ---
 
@@ -61,8 +61,6 @@ function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
 
 export function ProjectTabs() {
   const { t } = useI18n();
-  const ui = useUIState();
-  const uiDispatch = useUIDispatch();
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
   const [templates, setTemplates] = useState<TemplateMeta[] | null>(null);
@@ -149,20 +147,17 @@ export function ProjectTabs() {
     }
   };
 
+  const [settingsSlug, setSettingsSlug] = useState<string | null>(null);
+
   const handleOpenSettings = useCallback(
     (slug: string) => {
       if (activeProjectSlug !== slug) {
         void selectProject(slug);
       }
-      uiDispatch({
-        type: "NAVIGATE",
-        route: { page: "project-settings", slug },
-      });
+      setSettingsSlug(slug);
     },
-    [activeProjectSlug, selectProject, uiDispatch],
+    [activeProjectSlug, selectProject],
   );
-
-  const settingsSlug = ui.currentPage.page === "project-settings" ? ui.currentPage.slug : null;
 
   return (
     <div className="px-2 py-1 space-y-0.5">
@@ -352,6 +347,7 @@ export function ProjectTabs() {
           </Menu.Portal>
         </Menu.Root>
       )}
+      <ProjectSettingsModal slug={settingsSlug} onClose={() => setSettingsSlug(null)} />
     </div>
   );
 }

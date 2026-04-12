@@ -171,6 +171,20 @@ export const translations = {
   "common.save": "Save",
   "common.newSkillTitle": "New Skill",
   "common.skillNamePlaceholder": "skill-name (lowercase, hyphens)",
+
+  // Project settings modal
+  "projectModal.title": "Project Settings",
+
+  // Edit mode
+  "editMode.switchToEdit": "Edit mode",
+  "editMode.switchToChat": "Chat mode",
+  "editMode.selectFile": "Select a file to edit",
+  "editMode.unsavedTitle": "Unsaved Changes",
+  "editMode.unsavedMessage": "You have unsaved changes. What would you like to do?",
+  "editMode.save": "Save",
+  "editMode.discard": "Discard",
+  "editMode.cancel": "Cancel",
+  "editMode.imagePreview": "Image preview",
 } as const satisfies Record<string, string>;
 
 export type TranslationKey = keyof typeof translations;

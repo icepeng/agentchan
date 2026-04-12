@@ -9,8 +9,13 @@ import { useConversation } from "./useConversation.js";
 import { useSlashCommands } from "./useSlashCommands.js";
 import { SlashCommandPopup } from "./SlashCommandPopup.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
+import { EditModeToggle } from "@/client/features/editor/EditModeToggle.js";
 
-export function BottomInput() {
+interface BottomInputProps {
+  variant?: "standalone" | "embedded";
+}
+
+export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const session = useSessionState();
   const config = useConfigState();
   const ui = useUIState();
@@ -69,21 +74,20 @@ export function BottomInput() {
     }
   };
 
-  return (
-    <div className="relative z-20 border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="relative">
-          {slash.isOpen && (
-            <SlashCommandPopup
-              commands={slash.filteredCommands}
-              selectedIndex={slash.selectedIndex}
-              onSelect={slash.selectCommand}
-              onHover={slash.setSelectedIndex}
-            />
-          )}
+  const inputContent = (
+    <div className={variant === "standalone" ? "max-w-4xl mx-auto" : ""}>
+      <div className="relative">
+        {slash.isOpen && (
+          <SlashCommandPopup
+            commands={slash.filteredCommands}
+            selectedIndex={slash.selectedIndex}
+            onSelect={slash.selectCommand}
+            onHover={slash.setSelectedIndex}
+          />
+        )}
         <div className="relative flex items-end gap-2 bg-surface rounded-2xl border border-edge/8 input-glow transition-all duration-200">
-          {/* Agent panel toggle (when collapsed) */}
-          {!ui.agentPanelOpen && (
+          {/* Agent panel toggle (when collapsed, standalone only) */}
+          {variant === "standalone" && !ui.agentPanelOpen && (
             <button
               onClick={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
               className="m-1.5 p-2 rounded-lg text-fg-3 hover:text-accent hover:bg-accent/8 transition-all"
@@ -106,36 +110,52 @@ export function BottomInput() {
             rows={1}
             className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 max-h-[200px] font-body"
           />
-          <button
-            onClick={handleSubmit}
-            disabled={!text.trim() || isStreaming}
-            className="m-1.5 p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"
-          >
-            <ArrowUp size={16} strokeWidth={2.5} />
-          </button>
-        </div>
-        </div>
-        <p className="mt-1.5 text-center text-[11px] text-fg-3 tracking-wide">
-          {config.provider}/{config.model}
-          {config.temperature !== undefined && ` · t=${config.temperature}`}
-          {config.thinkingLevel && config.thinkingLevel !== "off" && ` · think=${config.thinkingLevel}`}
-          {(session.sessionUsage.inputTokens > 0 || session.sessionUsage.outputTokens > 0) && (
-            <span>
-              {" · "}
-              {formatTokens(session.sessionUsage.inputTokens)} {t("input.tokenIn")} / {formatTokens(session.sessionUsage.outputTokens)} {t("input.tokenOut")}
-              {session.sessionUsage.cost ? ` · ${formatCost(session.sessionUsage.cost)}` : ""}
-            </span>
-          )}
-          {contextPercent !== null && (
-            <span
-              className={contextPercent >= 80 ? "text-amber-400" : ""}
-              title={`${formatTokens(contextTokens)} / ${formatTokens(contextWindow)} tokens`}
+          <div className="m-1.5 flex items-center gap-1">
+            <EditModeToggle />
+            <button
+              onClick={handleSubmit}
+              disabled={!text.trim() || isStreaming}
+              className="p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"
             >
-              {" · "}{t("input.context")} {contextPercent}%
-            </span>
-          )}
-        </p>
+              <ArrowUp size={16} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
       </div>
+      <p className="mt-1.5 text-center text-[11px] text-fg-3 tracking-wide">
+        {config.provider}/{config.model}
+        {config.temperature !== undefined && ` · t=${config.temperature}`}
+        {config.thinkingLevel && config.thinkingLevel !== "off" && ` · think=${config.thinkingLevel}`}
+        {(session.sessionUsage.inputTokens > 0 || session.sessionUsage.outputTokens > 0) && (
+          <span>
+            {" · "}
+            {formatTokens(session.sessionUsage.inputTokens)} {t("input.tokenIn")} / {formatTokens(session.sessionUsage.outputTokens)} {t("input.tokenOut")}
+            {session.sessionUsage.cost ? ` · ${formatCost(session.sessionUsage.cost)}` : ""}
+          </span>
+        )}
+        {contextPercent !== null && (
+          <span
+            className={contextPercent >= 80 ? "text-amber-400" : ""}
+            title={`${formatTokens(contextTokens)} / ${formatTokens(contextWindow)} tokens`}
+          >
+            {" · "}{t("input.context")} {contextPercent}%
+          </span>
+        )}
+      </p>
+    </div>
+  );
+
+  if (variant === "embedded") {
+    return (
+      <div className="border-t border-edge/6 p-3">
+        {inputContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative z-20 border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4">
+      {inputContent}
     </div>
   );
 }

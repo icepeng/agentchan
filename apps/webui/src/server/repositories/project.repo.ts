@@ -1,8 +1,16 @@
-import { readFile, mkdir, readdir, rename, rm, cp } from "node:fs/promises";
+import { readFile, mkdir, readdir, rename, rm, cp, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
 import type { Project } from "../types.js";
+
+export interface TreeEntry {
+  path: string;
+  type: "file" | "dir";
+  modifiedAt?: number;
+}
+
+const HIDDEN_ROOTS = new Set(["_project.json", "conversations"]);
 
 export function createProjectRepo(projectsDir: string) {
   function projectDir(slug: string): string {
@@ -137,22 +145,75 @@ export function createProjectRepo(projectsDir: string) {
       return createFromSource(name, projectDir(sourceSlug));
     },
 
-    async getSystem(slug: string): Promise<string | null> {
-      const path = join(projectDir(slug), "SYSTEM.md");
-      if (!existsSync(path)) return null;
-      return readFile(path, "utf-8");
-    },
-
-    async saveSystem(slug: string, content: string): Promise<void> {
-      await ensureProjectDir(slug);
-      await Bun.write(join(projectDir(slug), "SYSTEM.md"), content);
-    },
-
     createFromSource,
 
     async scanWorkspaceFiles(projectSlug: string): Promise<ProjectFile[]> {
       const filesDir = join(projectDir(projectSlug), "files");
       return scanWorkspaceFiles(filesDir);
+    },
+
+    async scanProjectTree(slug: string): Promise<TreeEntry[]> {
+      const root = projectDir(slug);
+      if (!existsSync(root)) return [];
+
+      const dirs: TreeEntry[] = [];
+      const filePaths: { relPath: string; absPath: string }[] = [];
+
+      async function walk(dir: string, prefix: string) {
+        const items = await readdir(dir, { withFileTypes: true });
+        for (const item of items) {
+          const relPath = prefix ? `${prefix}/${item.name}` : item.name;
+          if (!prefix && HIDDEN_ROOTS.has(item.name)) continue;
+          if (item.name.startsWith(".")) continue;
+
+          if (item.isDirectory()) {
+            dirs.push({ path: relPath, type: "dir" });
+            await walk(join(dir, item.name), relPath);
+          } else {
+            filePaths.push({ relPath, absPath: join(dir, item.name) });
+          }
+        }
+      }
+
+      await walk(root, "");
+
+      const stats = await Promise.all(filePaths.map((f) => stat(f.absPath)));
+      const files: TreeEntry[] = filePaths.map((f, i) => ({
+        path: f.relPath,
+        type: "file" as const,
+        modifiedAt: stats[i].mtimeMs,
+      }));
+
+      return [...dirs, ...files];
+    },
+
+    resolveProjectFile(slug: string, filePath: string): { fullPath: string } | null {
+      const root = resolve(projectsDir, slug);
+      const fullPath = resolve(root, filePath);
+      if (!fullPath.startsWith(root + sep)) return null;
+
+      // Block access to hidden roots
+      const topSegment = filePath.split(/[/\\]/)[0];
+      if (HIDDEN_ROOTS.has(topSegment)) return null;
+
+      return { fullPath };
+    },
+
+    async readProjectFile(slug: string, filePath: string): Promise<string | null> {
+      const resolved = this.resolveProjectFile(slug, filePath);
+      if (!resolved) return null;
+      try {
+        return await readFile(resolved.fullPath, "utf-8");
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw err;
+      }
+    },
+
+    async writeProjectFile(slug: string, filePath: string, content: string): Promise<void> {
+      const resolved = this.resolveProjectFile(slug, filePath);
+      if (!resolved) throw new Error(`Invalid path: ${filePath}`);
+      await Bun.write(resolved.fullPath, content);
     },
   };
 }
