@@ -32,7 +32,7 @@ function getUserContentBlocks(node: TreeNode): (TextContent | ImageContent)[] {
 // max-w-3xl content column; padding is "tight" (py-1) for chips/summaries
 // or "loose" (py-3/py-4) for full message rows.
 
-function BubbleWrap({
+export function BubbleWrap({
   variant,
   padding = "tight",
   className = "",
@@ -243,7 +243,6 @@ export function MessageBubble({
   const isWide = variant === "wide";
   const role = node.message.role;
 
-  // toolResult nodes are not rendered in the UI
   if (role === "toolResult") return null;
 
   if (role === "user" && node.meta === "skill-load") {
@@ -328,7 +327,7 @@ export function MessageBubble({
     <BubbleWrap
       variant={variant}
       padding="loose"
-      className={`group animate-fade-slide ${isUser ? "" : "bg-surface/40"}`}
+      className={`group ${isUser ? "animate-fade-slide" : "bg-surface/40"}`}
     >
       {content}
     </BubbleWrap>

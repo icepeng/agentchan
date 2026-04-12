@@ -33,6 +33,7 @@
   --animate-blink: blink 1s step-end infinite;
   --animate-glow: glow-pulse 2s ease-in-out infinite;
   --animate-shake: shake 0.3s ease-in-out;
+  --animate-sentence-fade: fade 0.15s ease-out both;
 }
 
 /* ── Keyframes ─────────────────────────────── */
