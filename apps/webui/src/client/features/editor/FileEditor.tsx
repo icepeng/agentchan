@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { EditorView, keymap } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
@@ -16,6 +16,7 @@ import { tags } from "@lezer/highlight";
 import { useI18n } from "@/client/i18n/index.js";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { isImagePath } from "@/client/entities/editor/index.js";
+import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
 
 // --- Obsidian Teal theme (from former TextEditor) ---
 
@@ -118,6 +119,7 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
   const onDocChangeRef = useRef(onDocChange);
   const onSaveRef = useRef(onSave);
   const dirtyRef = useRef(dirty);
+  const [tokenCount, setTokenCount] = useState<number | null>(null);
 
   useEffect(() => { onDocChangeRef.current = onDocChange; }, [onDocChange]);
   useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
@@ -140,9 +142,13 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged) {
-        onDocChangeRef.current(update.state.doc.toString());
+        const text = update.state.doc.toString();
+        onDocChangeRef.current(text);
+        setTokenCount(estimateTokens(text));
       }
     });
+
+    setTokenCount(estimateTokens(content));
 
     const state = EditorState.create({
       doc: content,
@@ -217,6 +223,11 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
       <div className="flex items-center gap-2 px-4 py-2 border-b border-edge/6 text-[11px] text-fg-3">
         <span className="font-mono truncate">{path}</span>
         {dirty && <span className="text-accent">•</span>}
+        {tokenCount !== null && (
+          <span className="ml-auto text-fg-4 tabular-nums">
+            {t("editor.approx")}{formatTokens(tokenCount)} {t("editor.tokens")}
+          </span>
+        )}
       </div>
       <div ref={containerRef} className="flex-1 min-h-0 [&_.cm-editor]:h-full" />
     </div>
