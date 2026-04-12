@@ -13,13 +13,13 @@
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/grep": "workspace:*",
-    "@google/genai": "^1.48.0",
-    "@mariozechner/pi-ai": "^0.64.0",
-    "@mariozechner/pi-agent-core": "^0.64.0",
-    "@sinclair/typebox": "^0.34.0",
-    "nanoid": "^5.1.0",
-    "picocolors": "^1.1.0",
-    "yaml": "^2.7.0"
+    "@google/genai": "^1.49.0",
+    "@mariozechner/pi-agent-core": "^0.66.1",
+    "@mariozechner/pi-ai": "^0.66.1",
+    "@sinclair/typebox": "^0.34.49",
+    "nanoid": "^5.1.7",
+    "picocolors": "^1.1.1",
+    "yaml": "^2.8.3"
   },
   "devDependencies": {}
 }
