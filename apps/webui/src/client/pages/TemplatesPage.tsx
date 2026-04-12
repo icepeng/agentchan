@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { BookOpen, Plus } from "lucide-react";
+import { ArrowLeft, BookOpen, Plus } from "lucide-react";
 import { useI18n } from "@/client/i18n/index.js";
 import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "@/client/features/project/index.js";
-import { ScrollArea } from "@/client/shared/ui/index.js";
+import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 
 export function TemplatesPage() {
   const { t } = useI18n();
@@ -31,12 +31,24 @@ export function TemplatesPage() {
   }, [nameInput, createProject, uiDispatch]);
 
   return (
-    <ScrollArea className="flex-1">
+    <div className="flex flex-col h-full bg-void">
+      {/* Header */}
+      <div className="flex items-center gap-4 px-6 py-4 border-b border-edge/6 bg-base/60">
+        <IconButton
+          onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "main" } })}
+          title={t("settings.back")}
+        >
+          <ArrowLeft size={16} strokeWidth={2} />
+        </IconButton>
+        <h2 className="font-display text-lg font-bold tracking-tight">
+          {t("templates.title")}
+        </h2>
+      </div>
+
+      {/* Content */}
+      <ScrollArea className="flex-1">
       <div className="max-w-2xl mx-auto px-8 py-12">
         <div className="mb-8">
-          <h1 className="font-display text-2xl font-bold tracking-tight mb-2">
-            {t("templates.title")}
-          </h1>
           <p className="text-sm text-fg-3">
             {t("templates.description")}
           </p>
@@ -103,6 +115,7 @@ export function TemplatesPage() {
           </div>
         )}
       </div>
-    </ScrollArea>
+      </ScrollArea>
+    </div>
   );
 }
