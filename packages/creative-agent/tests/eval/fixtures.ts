@@ -19,12 +19,6 @@ export interface FixtureOptions {
   skillNames?: string[];
   /** Write a SYSTEM.md at the project root (overrides template's). */
   systemMd?: string;
-  /**
-   * @deprecated Prefer `template`. Kept for eval tests that predate the
-   * Library→Template refactor (chat-no-duplicate, impersonate-chat-newline).
-   * Copies files/ + SYSTEM.md from example_data/projects/{name}.
-   */
-  copyProjectFiles?: string;
   prePopulate?: Record<string, string>;
 }
 
@@ -107,16 +101,6 @@ export async function createFixture(options: FixtureOptions): Promise<Fixture> {
       await cp(skillSrc, skillDst, { recursive: true });
     }),
   );
-
-  if (options.copyProjectFiles) {
-    const projSrc = join(MONOREPO_ROOT, "example_data", "projects", options.copyProjectFiles);
-    const filesSrc = join(projSrc, "files");
-    const systemSrc = join(projSrc, "SYSTEM.md");
-    const copies: Promise<void>[] = [];
-    copies.push(cp(filesSrc, join(projectDir, "files"), { recursive: true }));
-    copies.push(cp(systemSrc, join(projectDir, "SYSTEM.md")).catch(() => {}));
-    await Promise.all(copies);
-  }
 
   if (options.systemMd) {
     await writeFile(join(projectDir, "SYSTEM.md"), options.systemMd, "utf-8");

@@ -30,7 +30,7 @@ suite("character-chat: no duplicate response", () => {
   test(
     "scene opening — write should not be echoed in text",
     async () => {
-      harness = await EvalHarness.create({ copyProjectFiles: "chat" });
+      harness = await EvalHarness.create({ template: "character-chat" });
 
       await harness.prompt(
         "캐릭터챗을 시작합니다. 엘라라가 주점에서 손님을 맞이하는 장면을 바로 시작해 주세요.",
@@ -46,7 +46,7 @@ suite("character-chat: no duplicate response", () => {
     "follow-up reply — append should not be echoed in text",
     async () => {
       harness = await EvalHarness.create({
-        copyProjectFiles: "chat",
+        template: "character-chat",
         prePopulate: {
           "files/scenes/scene.md":
             `*표류목 등불 주점. 모닥불이 타오르고, 빗소리가 창을 두드린다.*\n\n` +

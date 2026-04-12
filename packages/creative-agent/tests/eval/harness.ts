@@ -33,13 +33,7 @@ export interface EvalHarnessOptions {
   template?: string;
   skillName?: string;
   skillNames?: string[];
-  /**
-   * @deprecated Prefer `template`. Copies SYSTEM.md + files/ from an
-   * example_data/projects/{name}/ — retained for legacy chat/impersonate-chat
-   * eval tests.
-   */
-  copyProjectFiles?: string;
-  /** Inline override for SYSTEM.md (wins over template / copyProjectFiles). */
+  /** Inline override for SYSTEM.md (wins over template). */
   systemMd?: string;
   provider?: string;
   model?: string;
@@ -86,7 +80,6 @@ export class EvalHarness {
     const fixture = await createFixture({
       template: options.template,
       skillNames,
-      copyProjectFiles: options.copyProjectFiles,
       systemMd: options.systemMd,
       prePopulate: options.prePopulate,
     });

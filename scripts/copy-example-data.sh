@@ -8,10 +8,10 @@ DATA_DIR="$ROOT/apps/webui/data"
 EXAMPLE_DIR="$ROOT/example_data"
 
 if [ "$1" = "--force" ]; then
-  rm -rf "$DATA_DIR/projects" "$DATA_DIR/library"
+  rm -rf "$DATA_DIR/library"
 fi
 
-if [ -d "$DATA_DIR/projects" ] && [ -d "$DATA_DIR/library/templates" ]; then
+if [ -d "$DATA_DIR/library/templates" ]; then
   echo "[copy-example-data] Data already exists (use --force to overwrite)"
   exit 0
 fi
