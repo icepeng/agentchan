@@ -15,14 +15,12 @@ import { discoverProjectSkills } from "../skills/discovery.js";
 import { generateCatalog } from "../skills/catalog.js";
 import { createActivateSkillTool } from "../skills/manager.js";
 import { type SkillMetadata } from "../skills/types.js";
-import { storedToPiMessages } from "./convert.js";
 import { microCompact, clearCompactState } from "./compact.js";
 import type { ResolvedAgentConfig } from "./config.js";
 import { analyzeContext } from "./context-analysis.js";
 import { createGoogleCacheHook, clearGoogleCache } from "./google-cache.js";
 import { formatTokens } from "@agentchan/estimate-tokens";
 import * as log from "../logger.js";
-import type { StoredMessage } from "../types.js";
 
 // --- Public types ---
 
@@ -162,7 +160,7 @@ export async function getSkills(projectDir: string): Promise<SkillMetadata[]> {
 export async function setupCreativeAgent(
   config: ResolvedAgentConfig,
   projectDir: string,
-  history: StoredMessage[],
+  history: AgentMessage[],
   conversationId: string,
 ): Promise<CreativeAgentSetup> {
   const skills = await discoverProjectSkills(join(projectDir, "skills"));
@@ -176,9 +174,8 @@ export async function setupCreativeAgent(
   const catalog = generateCatalog([...skills.values()]);
   const systemPrompt = composeSystemPrompt(DEFAULT_SYSTEM_PROMPT, systemMd, catalog);
 
-  // Convert history
-  const piMessages = storedToPiMessages(history);
-  const historyLength = piMessages.length;
+  // History is already AgentMessage[] — pass directly
+  const historyLength = history.length;
 
   // Create Agent
   const thinkingLevel = mapThinkingLevel(config.thinkingLevel);
@@ -200,7 +197,7 @@ export async function setupCreativeAgent(
       systemPrompt,
       model,
       tools,
-      messages: piMessages,
+      messages: history as Message[],
       thinkingLevel: thinkingLevel ?? ("off" as any),
     },
     convertToLlm: (msgs: AgentMessage[]) => msgs as Message[],

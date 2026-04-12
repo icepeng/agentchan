@@ -4,7 +4,7 @@ import type {
   Message,
   AssistantMessage,
 } from "@mariozechner/pi-ai";
-import type { AgentEvent } from "@mariozechner/pi-agent-core";
+import type { AgentEvent, AgentMessage } from "@mariozechner/pi-agent-core";
 
 import type {
   TokenUsage,
@@ -16,7 +16,6 @@ import {
   flattenPathToMessages,
 } from "../conversation/tree.js";
 import { setupCreativeAgent } from "./orchestrator.js";
-import { piToStoredMessages, extractUsage } from "./convert.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { type AgentContext, projectDirOf } from "./context.js";
 import {
@@ -50,6 +49,20 @@ export interface RegenerateInput {
   userNodeId: string;
 }
 
+// --- Helpers ---
+
+/** Extract usage stats from a completed AssistantMessage. */
+function extractUsage(msg: AssistantMessage): TokenUsage {
+  const usage = msg.usage;
+  return {
+    inputTokens: usage.input ?? 0,
+    outputTokens: usage.output ?? 0,
+    ...(usage.cacheRead ? { cachedInputTokens: usage.cacheRead } : {}),
+    ...(usage.cacheWrite ? { cacheCreationTokens: usage.cacheWrite } : {}),
+    ...(usage.cost?.total ? { cost: usage.cost.total } : {}),
+  };
+}
+
 // --- Public entry points ---
 
 export function runPrompt(
@@ -74,9 +87,7 @@ export function runPrompt(
       emit({ type: "user_node", node });
     }
 
-    // History anchor = the last node we just persisted. convert.ts merges
-    // consecutive user messages, so a slash-skill chip+text pair collapses
-    // into one user turn for the LLM.
+    // History anchor = the last node we just persisted.
     const last = userNodes[userNodes.length - 1];
     await runAgentTurn({
       ctx,
@@ -106,7 +117,7 @@ export function runRegenerate(
       emit({ type: "error", message: "User node not found" });
       return;
     }
-    const userText = joinUserNodeText(userNode.content);
+    const userText = joinUserNodeText(userNode.message);
     if (!userText) {
       emit({ type: "error", message: "No text content in user node" });
       return;
@@ -235,8 +246,9 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     unsubscribe();
   }
 
-  const newMessages: Message[] = [];
-  const all = agent.state.messages as Message[];
+  // Extract new messages from the agent (skip the echo'd user prompt)
+  const newMessages: AgentMessage[] = [];
+  const all = agent.state.messages;
   for (let i = historyLength; i < all.length; i++) {
     const msg = all[i];
     // Drop the leading user prompt — already persisted before the agent ran.
@@ -244,19 +256,14 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     newMessages.push(msg);
   }
 
-  const stored = piToStoredMessages(newMessages);
-
+  // Wrap each pi-ai Message directly as a TreeNode — no conversion needed
   const newNodes: TreeNode[] = [];
-  for (const msg of stored) {
+  for (const msg of newMessages) {
     const node: TreeNode = {
       id: nanoid(12),
       parentId: lastNodeId,
-      role: msg.role,
-      content: msg.content,
+      message: msg,
       createdAt: Date.now(),
-      ...(msg.role === "assistant"
-        ? { provider: cfg.provider, model: cfg.model }
-        : {}),
     };
     newNodes.push(node);
     lastNodeId = node.id;
@@ -267,7 +274,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     // Hang the rolled-up usage off the last assistant node so the frontend
     // can render context window utilization.
     for (let i = newNodes.length - 1; i >= 0; i--) {
-      if (newNodes[i].role === "assistant") {
+      if (newNodes[i].message.role === "assistant") {
         newNodes[i].usage = turnUsage;
         break;
       }
@@ -285,4 +292,3 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     emit({ type: "assistant_nodes", nodes: newNodes });
   }
 }
-

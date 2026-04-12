@@ -7,11 +7,11 @@
  */
 
 import { nanoid } from "nanoid";
+import type { Message, UserMessage, AssistantMessage } from "@mariozechner/pi-ai";
 
 import type { Conversation, TreeNode } from "../types.js";
 import { flattenPathToMessages } from "../conversation/tree.js";
 import { fullCompact } from "./compact.js";
-import { storedToPiMessages } from "./convert.js";
 import { resolveModel, clearConversationAgentState } from "./orchestrator.js";
 import { type AgentContext } from "./context.js";
 
@@ -65,10 +65,10 @@ export async function compactConversation(
     throw new Error(`API key not configured for provider: ${cfg.provider}`);
   }
 
+  // History is already AgentMessage[] — pass to fullCompact as Message[]
   const history = flattenPathToMessages(loaded.tree, loaded.activePath);
-  const piMessages = storedToPiMessages(history);
   const result = await fullCompact({
-    messages: piMessages,
+    messages: history as Message[],
     model: resolveModel(
       cfg.provider,
       cfg.model,
@@ -80,6 +80,7 @@ export async function compactConversation(
   });
 
   const summaryText = `This session continues from a previous conversation. Below is the context summary.\n\n${result.summary}`;
+  const now = Date.now();
   const newConv = await ctx.storage.createConversation(
     slug,
     cfg.provider,
@@ -90,24 +91,35 @@ export async function compactConversation(
   const userNode: TreeNode = {
     id: nanoid(12),
     parentId: null,
-    role: "user",
-    content: [{ type: "text", text: summaryText }],
-    createdAt: Date.now(),
+    message: {
+      role: "user",
+      content: summaryText,
+      timestamp: now,
+    } as UserMessage,
+    createdAt: now,
     meta: "compact-summary",
   };
+  // Synthetic assistant message for the compact bootstrap. Usage is zero here
+  // because the real compact cost lives on the TreeNode-level `usage` field.
   const assistantNode: TreeNode = {
     id: nanoid(12),
     parentId: userNode.id,
-    role: "assistant",
-    content: [
-      {
-        type: "text",
-        text: "Understood. I have the full context from the previous conversation and I'm ready to continue. What would you like to work on next?",
-      },
-    ],
-    createdAt: Date.now(),
-    provider: cfg.provider,
-    model: cfg.model,
+    message: {
+      role: "assistant",
+      content: [
+        {
+          type: "text",
+          text: "Understood. I have the full context from the previous conversation and I'm ready to continue. What would you like to work on next?",
+        },
+      ],
+      api: "anthropic-messages",
+      provider: cfg.provider,
+      model: cfg.model,
+      usage: { input: 0, output: 0, totalTokens: 0, cacheRead: 0, cacheWrite: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+      stopReason: "stop",
+      timestamp: now,
+    } as AssistantMessage,
+    createdAt: now,
     usage: {
       inputTokens: result.inputTokens,
       outputTokens: result.outputTokens,

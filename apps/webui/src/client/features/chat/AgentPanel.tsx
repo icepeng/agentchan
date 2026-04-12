@@ -17,6 +17,10 @@ import { StreamingMessage } from "./StreamingMessage.js";
 function ModelInfoPopover({ node }: { node: TreeNode }) {
   const { t } = useI18n();
 
+  const msg = node.message;
+  const model = msg.role === "assistant" ? msg.model : undefined;
+  const provider = msg.role === "assistant" ? msg.provider : undefined;
+
   const u = node.usage;
   const hasUsage = !!(u?.inputTokens || u?.outputTokens);
   const cost = u?.cost ?? null;
@@ -29,15 +33,15 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
   return (
     <Popover.Root>
       <Popover.Trigger className="text-[11px] text-fg-3 font-mono hover:text-accent transition-colors cursor-pointer">
-        {node.model}
+        {model}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="start" sideOffset={4}>
           <Popover.Popup className="bg-elevated border border-white/8 rounded-lg shadow-lg shadow-void/50 p-3 min-w-[220px] animate-fade text-[11px] z-50">
             <div className="text-fg-3 mb-2">
-              <div className="text-fg font-mono">{node.model}</div>
-              {node.provider && (
-                <div className="text-fg-3/70 mt-0.5">{node.provider}</div>
+              <div className="text-fg font-mono">{model}</div>
+              {provider && (
+                <div className="text-fg-3/70 mt-0.5">{provider}</div>
               )}
             </div>
             {hasUsage && (
@@ -156,8 +160,8 @@ export function AgentPanel() {
                 isStreaming={session.isStreaming}
                 variant="compact"
                 footer={
-                  !node.role || node.role !== "user"
-                    ? node.model ? <ModelInfoPopover node={node} /> : undefined
+                  node.message.role === "assistant" && node.message.model
+                    ? <ModelInfoPopover node={node} />
                     : undefined
                 }
               />

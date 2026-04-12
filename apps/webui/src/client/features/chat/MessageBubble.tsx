@@ -1,9 +1,30 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import type { TreeNode } from "@/client/entities/session/index.js";
+import type { TreeNode, TextContent, ImageContent, AssistantContentBlock } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
 import { MessageContent } from "./MessageContent.js";
+
+// ── Helpers ─────────────────────────────────────
+
+/** Extract text from a user message's content (string or array of text blocks). */
+function getUserText(node: TreeNode): string {
+  const msg = node.message;
+  if (msg.role !== "user") return "";
+  if (typeof msg.content === "string") return msg.content;
+  return msg.content
+    .filter((b): b is TextContent => b.type === "text")
+    .map((b) => b.text)
+    .join("\n");
+}
+
+/** Get content blocks from a user message as an array, normalizing string content. */
+function getUserContentBlocks(node: TreeNode): (TextContent | ImageContent)[] {
+  const msg = node.message;
+  if (msg.role !== "user") return [];
+  if (typeof msg.content === "string") return [{ type: "text", text: msg.content }];
+  return msg.content;
+}
 
 // ── Bubble Wrap ───────────────────────────────
 // All chat bubbles share the same outer wrapper rules. Wide variant adds a
@@ -82,6 +103,9 @@ function CompactSummaryBubble({
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
+  // Compact summary is stored as a user message with text content
+  const summaryText = getUserText(node);
+
   return (
     <BubbleWrap variant={variant}>
       <div className="flex items-center gap-2 text-xs text-fg-3 py-1.5">
@@ -97,7 +121,7 @@ function CompactSummaryBubble({
       {expanded && (
         <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
           <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
-            <MessageContent content={node.content} />
+            {summaryText}
           </div>
         </div>
       )}
@@ -119,8 +143,11 @@ function SkillChipBubble({
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const firstText =
-    node.content[0]?.type === "text" ? node.content[0].text : "";
+
+  const blocks = getUserContentBlocks(node);
+  const firstBlock = blocks[0];
+  const firstText = firstBlock && "text" in firstBlock ? firstBlock.text : "";
+
   const names = useMemo(() => {
     const matches = [...firstText.matchAll(/<skill_content name="([^"]+)"/g)].map(
       (m) => m[1],
@@ -128,15 +155,16 @@ function SkillChipBubble({
     return matches.length > 0 ? matches : ["unknown"];
   }, [firstText]);
 
-  // Slash command: content[1] holds the serialized command text
+  // Slash command: blocks[1] holds the serialized command text
   const slashInfo = useMemo(() => {
-    const block = node.content[1];
+    const block = blocks[1];
     if (!block || block.type !== "text") return null;
-    const m = block.text.match(
+    const text = "text" in block ? block.text : "";
+    const m = text.match(
       /^<command-name>\/([a-z0-9][a-z0-9-]*)<\/command-name>(?:\s*<command-args>([\s\S]*?)<\/command-args>)?/,
     );
     return m ? { name: m[1], args: m[2] ?? "" } : null;
-  }, [node.content]);
+  }, [blocks]);
 
   const chipRow = (
     <div className={`flex items-center gap-2 text-xs text-fg-3 ${slashInfo ? "mt-1" : "py-1"} opacity-70`}>
@@ -176,7 +204,7 @@ function SkillChipBubble({
       {expanded && (
         <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
           <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
-            <MessageContent content={[node.content[0]]} />
+            {firstText}
           </div>
         </div>
       )}
@@ -212,20 +240,12 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const { t } = useI18n();
   const isWide = variant === "wide";
+  const role = node.message.role;
 
-  const isToolResultOnly =
-    node.role === "user" &&
-    node.content.every((b) => b.type === "tool_result");
+  // toolResult nodes are not rendered in the UI
+  if (role === "toolResult") return null;
 
-  if (isToolResultOnly) {
-    return (
-      <BubbleWrap variant={variant}>
-        <MessageContent content={node.content} />
-      </BubbleWrap>
-    );
-  }
-
-  if (node.role === "user" && node.meta === "skill-load") {
+  if (role === "user" && node.meta === "skill-load") {
     return <SkillChipBubble node={node} variant={variant} />;
   }
 
@@ -233,7 +253,12 @@ export function MessageBubble({
     return <CompactSummaryBubble node={node} variant={variant} />;
   }
 
-  const isUser = node.role === "user";
+  const isUser = role === "user";
+
+  const displayContent: AssistantContentBlock[] =
+    node.message.role === "user"
+      ? [{ type: "text" as const, text: getUserText(node) }]
+      : node.message.content;
 
   const content = (
     <div className={`flex items-start ${isWide ? "gap-3" : "gap-2.5"}`}>
@@ -292,7 +317,7 @@ export function MessageBubble({
 
         {/* Content */}
         <div className="text-sm text-fg">
-          <MessageContent content={node.content} />
+          <MessageContent content={displayContent} />
         </div>
       </div>
     </div>

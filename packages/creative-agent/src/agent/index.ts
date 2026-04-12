@@ -31,7 +31,6 @@ export {
 export {
   buildSkillInjectionContent,
   buildUserNodeForPrompt,
-  buildSkillLoadNode,
   joinUserNodeText,
 } from "./build.js";
 

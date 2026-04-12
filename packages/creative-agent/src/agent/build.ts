@@ -4,7 +4,8 @@
  */
 
 import { nanoid } from "nanoid";
-import type { ContentBlock, TreeNode } from "../types.js";
+import type { UserMessage, TextContent } from "@mariozechner/pi-ai";
+import type { TreeNode } from "../types.js";
 import { buildSkillContent } from "../skills/skill-content.js";
 import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
@@ -38,12 +39,12 @@ export function buildUserNodeForPrompt(
   const slashNode = tryBuildSlashSkillNode(rawText, projectDir, skills, parentNodeId);
   if (slashNode) return slashNode;
 
+  const now = Date.now();
   const node: TreeNode = {
     id: nanoid(12),
     parentId: parentNodeId,
-    role: "user",
-    content: [{ type: "text", text: rawText }],
-    createdAt: Date.now(),
+    message: { role: "user", content: rawText, timestamp: now } as UserMessage,
+    createdAt: now,
   };
   return { nodes: [node], llmText: rawText };
 }
@@ -63,40 +64,31 @@ function tryBuildSlashSkillNode(
 
   const skillText = buildSkillInjectionContent([skill], projectDir);
   const userText = serializeCommand(parsed.name, parsed.args);
+  const now = Date.now();
   const node: TreeNode = {
     id: nanoid(12),
     parentId: parentNodeId,
-    role: "user",
-    content: [
-      { type: "text", text: skillText },
-      { type: "text", text: userText },
-    ],
-    createdAt: Date.now(),
+    message: {
+      role: "user",
+      content: [
+        { type: "text", text: skillText },
+        { type: "text", text: userText },
+      ],
+      timestamp: now,
+    } as UserMessage,
+    createdAt: now,
     meta: "skill-load",
   };
   return { nodes: [node], llmText: skillText + "\n" + userText };
 }
 
-/**
- * Build a `meta:"skill-load"` user TreeNode for an activate_skill load.
- * Used inside the runPrompt callback that wires SkillManager to the tree.
- */
-export function buildSkillLoadNode(
-  content: ContentBlock[],
-  parentNodeId: string | null,
-): TreeNode {
-  return {
-    id: nanoid(12),
-    parentId: parentNodeId,
-    role: "user",
-    content,
-    createdAt: Date.now(),
-    meta: "skill-load",
-  };
-}
-
-export function joinUserNodeText(content: ContentBlock[]): string {
+/** Extract user-visible text from a user node's message content. */
+export function joinUserNodeText(message: TreeNode["message"]): string {
+  if (message.role !== "user") return "";
+  const content = message.content;
+  if (typeof content === "string") return content;
   return content
-    .flatMap((b) => (b.type === "text" ? [b.text] : []))
+    .filter((b): b is TextContent => b.type === "text")
+    .map((b) => b.text)
     .join("\n");
 }

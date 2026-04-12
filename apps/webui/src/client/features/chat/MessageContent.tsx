@@ -1,7 +1,7 @@
-import type { ContentBlock } from "@/client/entities/session/index.js";
-import { ToolCallDisplay, ToolResultDisplay } from "./ToolCallDisplay.js";
+import type { AssistantContentBlock } from "@/client/entities/session/index.js";
+import { ToolCallDisplay } from "./ToolCallDisplay.js";
 
-export function MessageContent({ content }: { content: ContentBlock[] }) {
+export function MessageContent({ content }: { content: AssistantContentBlock[] }) {
   return (
     <>
       {content.map((block, i) => {
@@ -12,10 +12,17 @@ export function MessageContent({ content }: { content: ContentBlock[] }) {
                 {block.text}
               </div>
             );
-          case "tool_use":
+          case "toolCall":
             return <ToolCallDisplay key={i} block={block} />;
-          case "tool_result":
-            return <ToolResultDisplay key={i} block={block} />;
+          case "thinking":
+            return (
+              <details key={i} className="my-2 text-fg-3/60">
+                <summary className="text-xs cursor-pointer select-none">thinking…</summary>
+                <div className="mt-1 whitespace-pre-wrap text-xs leading-relaxed pl-2 border-l border-edge/10">
+                  {block.thinking}
+                </div>
+              </details>
+            );
           default:
             return null;
         }

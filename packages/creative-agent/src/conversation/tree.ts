@@ -1,4 +1,5 @@
-import type { TreeNodeWithChildren, StoredMessage } from "../types.js";
+import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { TreeNodeWithChildren } from "../types.js";
 
 /**
  * Compute the active path through the tree, following activeChildId at each node.
@@ -34,11 +35,8 @@ export function computeActivePath(
 export function flattenPathToMessages(
   nodes: Map<string, TreeNodeWithChildren>,
   path: string[],
-): StoredMessage[] {
-  return path.map((id) => {
-    const node = nodes.get(id)!;
-    return { role: node.role, content: node.content };
-  });
+): AgentMessage[] {
+  return path.map((id) => nodes.get(id)!.message);
 }
 
 /**

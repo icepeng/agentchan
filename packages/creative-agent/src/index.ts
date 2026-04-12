@@ -6,7 +6,7 @@ export type { SkillMetadata } from "./skills/types.js";
 export { slugify } from "./slug.js";
 
 // Types
-export type { ContentBlock, StoredMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
+export type { AgentMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
 export type { ModelInfo, CustomApiFormat, ProviderInfo, CustomProviderDef, ThinkingLevel } from "./config-types.js";
 
 // Agent — orchestrator

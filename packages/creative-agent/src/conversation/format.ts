@@ -5,6 +5,7 @@
  * conversation files; nothing else should depend on this module.
  */
 
+import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
 import type { TreeNode, TreeNodeWithChildren, Conversation } from "../types.js";
 import { computeActivePath, generateTitle } from "./tree.js";
 
@@ -85,6 +86,22 @@ export function buildTreeMap(nodes: TreeNode[]): Map<string, TreeNodeWithChildre
   return map;
 }
 
+// --- Helpers ---
+
+/** Extract user-visible text from a message for title generation. */
+function extractUserText(node: TreeNode): string {
+  const msg = node.message;
+  if (msg.role !== "user") return "";
+  if (typeof msg.content === "string") return msg.content;
+  if (Array.isArray(msg.content)) {
+    return msg.content
+      .filter((b): b is TextContent => b.type === "text")
+      .map((b) => b.text)
+      .join("\n");
+  }
+  return "";
+}
+
 // --- Derivation: header + nodes → Conversation metadata ---
 
 export function deriveConversation(
@@ -93,9 +110,9 @@ export function deriveConversation(
   nodes: TreeNode[],
   tree?: Map<string, TreeNodeWithChildren>,
 ): Conversation {
-  const firstUser = nodes.find((n) => n.role === "user");
+  const firstUser = nodes.find((n) => n.message.role === "user");
   const title = firstUser
-    ? generateTitle(firstUser.content.find((b) => b.type === "text" && "text" in b)?.text ?? "")
+    ? generateTitle(extractUserText(firstUser))
     : "New conversation";
 
   const createdAt = header?.createdAt ?? nodes[0]?.createdAt ?? Date.now();
@@ -114,10 +131,11 @@ export function deriveConversation(
   // Backward search — avoids copying the array
   let lastAssistant: TreeNode | undefined;
   for (let i = nodes.length - 1; i >= 0; i--) {
-    if (nodes[i].role === "assistant") { lastAssistant = nodes[i]; break; }
+    if (nodes[i].message.role === "assistant") { lastAssistant = nodes[i]; break; }
   }
-  const provider = lastAssistant?.provider ?? header?.provider ?? "";
-  const model = lastAssistant?.model ?? header?.model ?? "";
+  const assistantMsg = lastAssistant?.message as AssistantMessage | undefined;
+  const provider = assistantMsg?.provider ?? header?.provider ?? "";
+  const model = assistantMsg?.model ?? header?.model ?? "";
 
   return {
     id, title, createdAt, updatedAt, rootNodeId, activeLeafId, provider, model,
