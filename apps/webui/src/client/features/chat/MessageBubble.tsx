@@ -4,7 +4,6 @@ import type { TreeNode, TextContent, ImageContent, AssistantContentBlock } from 
 import { useI18n } from "@/client/i18n/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
 import { MessageContent } from "./MessageContent.js";
-import { StreamingBubbleContent } from "./StreamingMessage.js";
 
 // ── Helpers ─────────────────────────────────────
 
@@ -32,7 +31,7 @@ function getUserContentBlocks(node: TreeNode): (TextContent | ImageContent)[] {
 // max-w-3xl content column; padding is "tight" (py-1) for chips/summaries
 // or "loose" (py-3/py-4) for full message rows.
 
-function BubbleWrap({
+export function BubbleWrap({
   variant,
   padding = "tight",
   className = "",
@@ -223,9 +222,8 @@ export interface MessageBubbleActions {
 }
 
 export interface MessageBubbleProps {
-  node?: TreeNode;
-  streaming?: boolean;
-  siblings?: string[];
+  node: TreeNode;
+  siblings: string[];
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
   variant?: "compact" | "wide";
@@ -234,7 +232,6 @@ export interface MessageBubbleProps {
 
 export function MessageBubble({
   node,
-  streaming,
   siblings,
   actions,
   isStreaming,
@@ -243,22 +240,6 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const { t } = useI18n();
   const isWide = variant === "wide";
-
-  // Streaming mode — same BubbleWrap root so React reuses the DOM element
-  // when transitioning from streaming to completed (index-key matching).
-  if (streaming) {
-    return (
-      <BubbleWrap
-        variant={variant}
-        padding="loose"
-        className="group animate-fade-slide bg-surface/40"
-      >
-        <StreamingBubbleContent variant={variant} />
-      </BubbleWrap>
-    );
-  }
-
-  if (!node) return null;
   const role = node.message.role;
 
   if (role === "toolResult") return null;
@@ -293,7 +274,7 @@ export function MessageBubble({
             {isUser ? t("chat.you") : t("chat.agent")}
           </span>
           {footer}
-          {actions?.onSwitchBranch && siblings && (
+          {actions?.onSwitchBranch && (
             <BranchNavigator
               nodeId={node.id}
               siblings={siblings}
@@ -345,7 +326,7 @@ export function MessageBubble({
     <BubbleWrap
       variant={variant}
       padding="loose"
-      className={`group animate-fade-slide ${isUser ? "" : "bg-surface/40"}`}
+      className={`group ${isUser ? "animate-fade-slide" : "bg-surface/40"}`}
     >
       {content}
     </BubbleWrap>

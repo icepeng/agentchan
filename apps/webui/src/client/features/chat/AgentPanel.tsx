@@ -10,6 +10,7 @@ import { useConversation } from "./useConversation.js";
 import { useStreaming } from "./useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
 import { MessageBubble } from "./MessageBubble.js";
+import { StreamingMessage } from "./StreamingMessage.js";
 
 // ── Model Info Popover ───────────────────────
 
@@ -147,12 +148,12 @@ export function AgentPanel() {
           regenerate={regenerate}
           isStreaming={session.isStreaming}
         >
-          {session.activePath.map((nodeId, i) => {
+          {session.activePath.map((nodeId) => {
             const node = session.nodes.get(nodeId);
             if (!node) return null;
             return (
               <MessageBubble
-                key={i}
+                key={nodeId}
                 node={node}
                 siblings={getSiblings(node)}
                 actions={actions}
@@ -166,14 +167,9 @@ export function AgentPanel() {
               />
             );
           })}
-          {(session.isStreaming || session.streamingText || session.streamingToolCalls.length > 0) && (
-            <MessageBubble
-              key={session.activePath.length}
-              streaming
-              variant="compact"
-            />
-          )}
         </MessageActionsProvider>
+
+        <StreamingMessage variant="compact" />
 
         {session.activePath.length === 0 && !session.isStreaming && (
           <div className="flex items-center justify-center h-full">
