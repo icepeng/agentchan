@@ -7,6 +7,7 @@ import { Indicator } from "@/client/shared/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
+import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
 
 // -- Shared menu styles ---
 
@@ -148,6 +149,7 @@ export function ProjectTabs() {
   };
 
   const [settingsSlug, setSettingsSlug] = useState<string | null>(null);
+  const [saveAsTemplateSlug, setSaveAsTemplateSlug] = useState<string | null>(null);
 
   const handleOpenSettings = useCallback(
     (slug: string) => {
@@ -260,6 +262,12 @@ export function ProjectTabs() {
                   >
                     {t("project.duplicate")}
                   </ContextMenu.Item>
+                  <ContextMenu.Item
+                    onClick={() => setSaveAsTemplateSlug(project.slug)}
+                    className={MENU_ITEM_CLASS}
+                  >
+                    {t("project.saveAsTemplate")}
+                  </ContextMenu.Item>
                 </ContextMenu.Popup>
               </ContextMenu.Positioner>
             </ContextMenu.Portal>
@@ -332,8 +340,8 @@ export function ProjectTabs() {
                       </Menu.GroupLabel>
                       {templates.map((s) => (
                         <Menu.Item
-                          key={s.name}
-                          onClick={() => modeDispatch({ type: "START_CREATE", templateName: s.name })}
+                          key={s.slug}
+                          onClick={() => modeDispatch({ type: "START_CREATE", templateName: s.slug })}
                           className={`${MENU_ITEM_CLASS} truncate`}
                         >
                           {s.name}
@@ -348,6 +356,7 @@ export function ProjectTabs() {
         </Menu.Root>
       )}
       <ProjectSettingsModal slug={settingsSlug} onClose={() => setSettingsSlug(null)} />
+      <SaveAsTemplateModal slug={saveAsTemplateSlug} onClose={() => setSaveAsTemplateSlug(null)} />
     </div>
   );
 }

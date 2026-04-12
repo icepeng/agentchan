@@ -101,6 +101,21 @@ export const translations: Record<TranslationKey, string> = {
   "templates.createProject": "프로젝트 생성",
   "templates.empty": "사용 가능한 템플릿이 없습니다",
 
+  // Save as template
+  "project.saveAsTemplate": "템플릿으로 저장",
+  "template.saveTitle": "템플릿으로 저장",
+  "template.name": "템플릿 이름",
+  "template.templateDescription": "설명",
+  "template.namePlaceholder": "템플릿 이름...",
+  "template.descriptionPlaceholder": "선택적 설명...",
+  "template.files": "파일",
+  "template.save": "템플릿 저장",
+  "template.saving": "저장 중...",
+  "template.overwriteConfirm": "\"{{name}}\" 템플릿이 이미 존재합니다. 덮어쓰시겠습니까?",
+  "template.overwrite": "덮어쓰기",
+  "template.noPreview": "미리보기할 파일을 선택하세요",
+  "template.binaryFile": "바이너리 파일",
+
   // Skill/Renderer editor
   "editor.unsaved": "저장되지 않은 변경",
   "editor.saved": "저장됨",

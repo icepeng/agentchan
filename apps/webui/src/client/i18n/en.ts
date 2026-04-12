@@ -99,6 +99,21 @@ export const translations = {
   "templates.createProject": "Create project",
   "templates.empty": "No templates available",
 
+  // Save as template
+  "project.saveAsTemplate": "Save as template",
+  "template.saveTitle": "Save as Template",
+  "template.name": "Template Name",
+  "template.templateDescription": "Description",
+  "template.namePlaceholder": "Template name...",
+  "template.descriptionPlaceholder": "Optional description...",
+  "template.files": "Files",
+  "template.save": "Save Template",
+  "template.saving": "Saving...",
+  "template.overwriteConfirm": "\"{{name}}\" already exists. Overwrite?",
+  "template.overwrite": "Overwrite",
+  "template.noPreview": "Select a file to preview",
+  "template.binaryFile": "Binary file",
+
   // Skill/Renderer editor
   "editor.unsaved": "unsaved changes",
   "editor.saved": "saved",
