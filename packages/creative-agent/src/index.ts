@@ -1,6 +1,9 @@
 // Skills
 export { discoverProjectSkills } from "./skills/discovery.js";
-export type { SkillMetadata } from "./skills/types.js";
+export type { SkillMetadata, SkillEnvironment } from "./skills/types.js";
+
+// Slash command parsing
+export { parseSlashInput } from "./slash/parse.js";
 
 // Slug utility
 export { slugify } from "./slug.js";
@@ -25,6 +28,7 @@ export type {
   DeleteSubtreeResult,
   SwitchBranchResult,
   ConversationStorage,
+  SessionMode,
 } from "./conversation/index.js";
 export { createConversationStorage } from "./conversation/index.js";
 

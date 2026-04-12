@@ -1,6 +1,7 @@
 // --- Re-export pi-ai/pi-agent-core message types as canonical persistence types ---
 
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { SessionMode } from "./conversation/format.js";
 
 export type { AgentMessage };
 
@@ -51,6 +52,8 @@ export interface Conversation {
   provider: string;
   model: string;
   compactedFrom?: string;
+  /** Session mode. Omitted = creative (backward compatible). */
+  mode?: SessionMode;
 }
 
 // --- In-memory tree representation ---

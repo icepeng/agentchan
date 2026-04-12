@@ -1,5 +1,6 @@
 import {
   type AgentContext,
+  type SessionMode,
   createConversation,
   deleteConversation,
   compactConversation,
@@ -13,7 +14,7 @@ export function createConversationService(ctx: AgentContext) {
 
     getConversation: (slug: string, id: string) => ctx.storage.getConversation(slug, id),
 
-    create: (slug: string) => createConversation(ctx, slug),
+    create: (slug: string, mode?: SessionMode) => createConversation(ctx, slug, mode),
 
     delete: (slug: string, id: string) => deleteConversation(ctx, slug, id),
 

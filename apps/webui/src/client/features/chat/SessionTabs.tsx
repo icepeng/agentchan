@@ -1,4 +1,4 @@
-import { ChevronsRight, Plus, X } from "lucide-react";
+import { ChevronsRight, Plus, Settings, X } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -32,9 +32,11 @@ export function SessionTabs() {
                   : "text-fg-3 hover:text-fg-2 hover:bg-elevated/40 border border-transparent"
               }`}
             >
-              {isActive && (
+              {conv.mode === "meta" ? (
+                <Settings size={10} strokeWidth={2} className="flex-shrink-0 text-fg-4" />
+              ) : isActive ? (
                 <span className="w-1 h-1 rounded-full bg-accent flex-shrink-0" />
-              )}
+              ) : null}
               <span className="truncate">{conv.title}</span>
               <span
                 onClick={(e) => {
@@ -52,7 +54,7 @@ export function SessionTabs() {
 
         {/* New session */}
         <button
-          onClick={create}
+          onClick={() => create()}
           className="flex-shrink-0 p-1.5 rounded-md text-fg-3 hover:text-accent hover:bg-accent/8 transition-all duration-150"
           title={t("session.new")}
         >

@@ -11,12 +11,16 @@ import { computeActivePath, generateTitle } from "./tree.js";
 
 // --- Header ---
 
+export type SessionMode = "creative" | "meta";
+
 export interface ConversationHeader {
   _header: true;
   createdAt: number;
   provider: string;
   model: string;
   compactedFrom?: string;
+  /** Session mode. Omitted = creative (backward compatible). */
+  mode?: SessionMode;
 }
 
 // --- Parsing ---
@@ -140,6 +144,7 @@ export function deriveConversation(
   return {
     id, title, createdAt, updatedAt, rootNodeId, activeLeafId, provider, model,
     ...(header?.compactedFrom ? { compactedFrom: header.compactedFrom } : {}),
+    ...(header?.mode ? { mode: header.mode } : {}),
   };
 }
 

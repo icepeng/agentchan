@@ -12,3 +12,4 @@ export type {
   LoadedConversation,
 } from "./storage.js";
 export { createConversationStorage } from "./storage.js";
+export type { SessionMode } from "./format.js";

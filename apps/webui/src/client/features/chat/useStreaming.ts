@@ -48,24 +48,31 @@ export function useStreaming() {
     [sessionDispatch],
   );
 
+  /**
+   * Send a message. When `conversationId` is provided (e.g. first message to
+   * a just-created conversation), it bypasses the ref so it works before React
+   * re-renders.
+   */
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, conversationId?: string) => {
       const p = projectStateRef.current;
       const s = sessionStateRef.current;
-      if (!s.activeConversationId || !p.activeProjectSlug || s.isStreaming) return;
+      const convId = conversationId ?? s.activeConversationId;
+      if (!convId || !p.activeProjectSlug || s.isStreaming) return;
 
       const projectSlug = p.activeProjectSlug;
-      const conversationId = s.activeConversationId;
-      const parentNodeId = s.replyToNodeId ?? s.activePath[s.activePath.length - 1] ?? null;
+      const parentNodeId = conversationId
+        ? null
+        : s.replyToNodeId ?? s.activePath[s.activePath.length - 1] ?? null;
 
       sessionDispatch({ type: "STREAM_START" });
 
-      const callbacks = makeCallbacks(projectSlug, conversationId);
+      const callbacks = makeCallbacks(projectSlug, convId);
       callbacks.onUserNode = (node) => {
         sessionDispatch({ type: "APPEND_USER_NODE", node });
       };
 
-      await sendMessage(projectSlug, conversationId, parentNodeId, text, callbacks);
+      await sendMessage(projectSlug, convId, parentNodeId, text, callbacks);
     },
     [sessionDispatch, makeCallbacks],
   );

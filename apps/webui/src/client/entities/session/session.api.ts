@@ -14,8 +14,15 @@ export function fetchConversations(projectSlug: string): Promise<Conversation[]>
 
 export function createConversation(
   projectSlug: string,
+  mode?: "creative" | "meta",
 ): Promise<{ conversation: Conversation; nodes: TreeNode[] }> {
-  return json(projectBase(projectSlug), { method: "POST" });
+  return json(projectBase(projectSlug), {
+    method: "POST",
+    ...(mode && {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    }),
+  });
 }
 
 export function fetchConversation(projectSlug: string, id: string): Promise<{

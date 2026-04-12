@@ -1,1 +1,1 @@
-export type { SkillMetadata } from "@agentchan/creative-agent";
+export type { SkillMetadata, SkillEnvironment } from "@agentchan/creative-agent";

@@ -12,9 +12,11 @@ export function createConversationRoutes() {
   });
 
   // Create conversation
+  // Optional body { mode } — client specifies session mode directly.
   app.post("/", async (c) => {
     const slug = c.req.param("slug")!;
-    return c.json(await c.get("conversationService").create(slug), 201);
+    const body = await c.req.json<{ mode?: "meta" }>().catch(() => ({} as { mode?: "meta" }));
+    return c.json(await c.get("conversationService").create(slug, body.mode), 201);
   });
 
   // Load conversation tree
@@ -55,11 +57,10 @@ export function createConversationRoutes() {
     const { parentNodeId, text } =
       await c.req.json<{ parentNodeId: string | null; text: string }>();
 
-    const conv = await c.get("conversationService").getConversation(slug, conversationId);
-    if (!conv) return c.json({ error: "Conversation not found" }, 404);
-
     return streamSSE(c, async (stream) => {
-      await c.get("agentService").sendMessage(stream, slug, conversationId, parentNodeId, text);
+      await c.get("agentService").sendMessage(
+        stream, slug, conversationId, parentNodeId, text,
+      );
     });
   });
 

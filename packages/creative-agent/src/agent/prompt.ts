@@ -11,6 +11,7 @@ import type {
   TreeNode,
   TreeNodeWithChildren,
 } from "../types.js";
+import type { SessionMode } from "../conversation/format.js";
 import {
   pathToNode,
   flattenPathToMessages,
@@ -72,7 +73,7 @@ export function runPrompt(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const tree = await loadFreshTree(ctx, input.slug, input.conversationId);
+    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.conversationId);
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
 
     const { nodes: userNodes, llmText } = buildUserNodeForPrompt(
@@ -99,6 +100,7 @@ export function runPrompt(
       historyAnchorId: last.parentId,
       llmText,
       emit,
+      sessionMode: mode,
     });
   });
 }
@@ -110,7 +112,7 @@ export function runRegenerate(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const tree = await loadFreshTree(ctx, input.slug, input.conversationId);
+    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.conversationId);
 
     const userNode = tree.get(input.userNodeId);
     if (!userNode) {
@@ -133,6 +135,7 @@ export function runRegenerate(
       historyAnchorId: userNode.parentId,
       llmText: userText,
       emit,
+      sessionMode: mode,
     });
   });
 }
@@ -160,12 +163,12 @@ async function loadFreshTree(
   ctx: AgentContext,
   slug: string,
   conversationId: string,
-): Promise<Map<string, TreeNodeWithChildren>> {
+): Promise<{ tree: Map<string, TreeNodeWithChildren>; mode: SessionMode | undefined }> {
   const loaded = await ctx.storage.loadConversationWithTree(slug, conversationId);
   if (!loaded) {
     throw new Error(`Conversation not found: ${slug}/${conversationId}`);
   }
-  return loaded.tree;
+  return { tree: loaded.tree, mode: loaded.conversation.mode };
 }
 
 /**
@@ -201,6 +204,7 @@ interface AgentTurnArgs {
   historyAnchorId: string | null;
   llmText: string;
   emit: Emit;
+  sessionMode?: SessionMode;
 }
 
 async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
@@ -225,6 +229,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     projectDir,
     history,
     conversationId,
+    args.sessionMode,
   );
 
   let lastNodeId = args.promptParentId;

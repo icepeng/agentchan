@@ -10,6 +10,7 @@ import { nanoid } from "nanoid";
 import type { Message, UserMessage, AssistantMessage } from "@mariozechner/pi-ai";
 
 import type { Conversation, TreeNode } from "../types.js";
+import type { SessionMode } from "../conversation/format.js";
 import { flattenPathToMessages } from "../conversation/tree.js";
 import { fullCompact } from "./compact.js";
 import { resolveModel, clearConversationAgentState } from "./orchestrator.js";
@@ -32,9 +33,10 @@ export interface CompactResult {
 export async function createConversation(
   ctx: AgentContext,
   slug: string,
+  mode?: SessionMode,
 ): Promise<CreatedConversation> {
   const cfg = ctx.resolveAgentConfig();
-  const conv = await ctx.storage.createConversation(slug, cfg.provider, cfg.model);
+  const conv = await ctx.storage.createConversation(slug, cfg.provider, cfg.model, undefined, mode);
   return { conversation: conv };
 }
 
@@ -86,6 +88,7 @@ export async function compactConversation(
     cfg.provider,
     cfg.model,
     sourceId,
+    loaded.conversation.mode,
   );
 
   const userNode: TreeNode = {
