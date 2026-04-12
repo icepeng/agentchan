@@ -4,7 +4,7 @@ import { basename, dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { parseFrontmatter } from "../workspace/frontmatter.js";
 import * as log from "../logger.js";
-import type { SkillRecord } from "./types.js";
+import type { SkillEnvironment, SkillRecord } from "./types.js";
 
 function validateSkillName(
   name: string | undefined,
@@ -92,12 +92,17 @@ function buildSkillRecord(
   const disableInvokeRaw = raw["disable-model-invocation"];
   const isTruthy = (v: unknown): boolean => v === true || v === "true";
 
+  const envRaw = raw.environment as string | undefined;
+  const environment: SkillEnvironment | undefined =
+    envRaw === "meta" ? "meta" : envRaw === "creative" ? "creative" : undefined;
+
   return {
     meta: {
       name: skillName,
       description,
       ...(raw.metadata ? { metadata: raw.metadata as Record<string, string> } : {}),
       ...(isTruthy(disableInvokeRaw) ? { disableModelInvocation: true } : {}),
+      ...(environment ? { environment } : {}),
     },
     baseDir: resolve(location, ".."),
     body: body.trim(),

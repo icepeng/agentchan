@@ -64,6 +64,7 @@ export interface SSECallbacks {
   onToolExecEnd: (id: string, isError: boolean) => void;
   onUsageSummary: (usage: TokenUsage) => void;
   onAssistantNodes: (nodes: TreeNode[]) => void;
+  onSessionRedirect?: (conversation: Conversation) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -111,6 +112,11 @@ function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): v
       case "assistant_nodes":
         callbacks.onAssistantNodes(JSON.parse(data));
         break;
+      case "session_redirect": {
+        const parsed = JSON.parse(data);
+        callbacks.onSessionRedirect?.(parsed.conversation);
+        break;
+      }
       case "done":
         callbacks.onDone();
         break;

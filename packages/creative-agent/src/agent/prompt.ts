@@ -11,6 +11,7 @@ import type {
   TreeNode,
   TreeNodeWithChildren,
 } from "../types.js";
+import type { SessionMode } from "../conversation/format.js";
 import {
   pathToNode,
   flattenPathToMessages,
@@ -41,12 +42,14 @@ export interface PromptInput {
   conversationId: string;
   parentNodeId: string | null;
   text: string;
+  sessionMode?: SessionMode;
 }
 
 export interface RegenerateInput {
   slug: string;
   conversationId: string;
   userNodeId: string;
+  sessionMode?: SessionMode;
 }
 
 // --- Helpers ---
@@ -99,6 +102,7 @@ export function runPrompt(
       historyAnchorId: last.parentId,
       llmText,
       emit,
+      sessionMode: input.sessionMode,
     });
   });
 }
@@ -133,6 +137,7 @@ export function runRegenerate(
       historyAnchorId: userNode.parentId,
       llmText: userText,
       emit,
+      sessionMode: input.sessionMode,
     });
   });
 }
@@ -201,6 +206,7 @@ interface AgentTurnArgs {
   historyAnchorId: string | null;
   llmText: string;
   emit: Emit;
+  sessionMode?: SessionMode;
 }
 
 async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
@@ -225,6 +231,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     projectDir,
     history,
     conversationId,
+    args.sessionMode,
   );
 
   let lastNodeId = args.promptParentId;

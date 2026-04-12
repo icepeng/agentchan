@@ -3,6 +3,7 @@ import {
   type AgentEvent,
   type AgentContext,
   type SessionEvent,
+  type SessionMode,
   type ToolCall,
   runPrompt,
   runRegenerate,
@@ -21,12 +22,13 @@ export function createAgentService(ctx: AgentContext) {
       conversationId: string,
       parentNodeId: string | null,
       text: string,
+      sessionMode?: SessionMode,
     ) {
       const queue = createSerialWriter(stream);
       try {
         await runPrompt(
           ctx,
-          { slug, conversationId, parentNodeId, text },
+          { slug, conversationId, parentNodeId, text, sessionMode },
           (ev) => queue.push(ev),
         );
       } finally {
@@ -39,12 +41,13 @@ export function createAgentService(ctx: AgentContext) {
       slug: string,
       conversationId: string,
       userNodeId: string,
+      sessionMode?: SessionMode,
     ) {
       const queue = createSerialWriter(stream);
       try {
         await runRegenerate(
           ctx,
-          { slug, conversationId, userNodeId },
+          { slug, conversationId, userNodeId, sessionMode },
           (ev) => queue.push(ev),
         );
       } finally {

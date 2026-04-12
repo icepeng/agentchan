@@ -14,7 +14,8 @@ import { createProjectTools } from "../tools/index.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { generateCatalog } from "../skills/catalog.js";
 import { createActivateSkillTool } from "../skills/manager.js";
-import { type SkillMetadata } from "../skills/types.js";
+import type { SkillMetadata, SkillEnvironment, SkillRecord } from "../skills/types.js";
+import type { SessionMode } from "../conversation/format.js";
 import { microCompact, clearCompactState } from "./compact.js";
 import type { ResolvedAgentConfig } from "./config.js";
 import { analyzeContext } from "./context-analysis.js";
@@ -162,16 +163,27 @@ export async function setupCreativeAgent(
   projectDir: string,
   history: AgentMessage[],
   conversationId: string,
+  sessionMode?: SessionMode,
 ): Promise<CreativeAgentSetup> {
-  const skills = await discoverProjectSkills(join(projectDir, "skills"));
+  const allSkills = await discoverProjectSkills(join(projectDir, "skills"));
+  const env: SkillEnvironment = sessionMode === "meta" ? "meta" : "creative";
+
+  // Filter skills by environment
+  const envSkills = new Map<string, SkillRecord>();
+  for (const [name, skill] of allSkills) {
+    if ((skill.meta.environment ?? "creative") === env) {
+      envSkills.set(name, skill);
+    }
+  }
 
   // Build tools
   const tools: any[] = createProjectTools(projectDir);
-  if (skills.size > 0) tools.push(createActivateSkillTool(skills, projectDir));
+  if (envSkills.size > 0) tools.push(createActivateSkillTool(envSkills, projectDir));
 
-  // Compose system prompt: DEFAULT + SYSTEM.md + skill catalog
-  const systemMd = await tryReadFile(join(projectDir, "SYSTEM.md"));
-  const catalog = generateCatalog([...skills.values()]);
+  // Compose system prompt: DEFAULT + system file + skill catalog
+  const systemFile = sessionMode === "meta" ? "system.meta.md" : "SYSTEM.md";
+  const systemMd = await tryReadFile(join(projectDir, systemFile));
+  const catalog = generateCatalog([...envSkills.values()]);
   const systemPrompt = composeSystemPrompt(DEFAULT_SYSTEM_PROMPT, systemMd, catalog);
 
   // History is already AgentMessage[] — pass directly
@@ -227,7 +239,7 @@ export async function setupCreativeAgent(
 
   log.info(
     "agent",
-    `setup: ${config.provider}/${config.model}, ${skills.size} skills, ${tools.length} tools, ${historyLength} history msgs`,
+    `setup: ${config.provider}/${config.model} [${env}], ${envSkills.size} skills, ${tools.length} tools, ${historyLength} history msgs`,
   );
 
   const toolStartTimes = new Map<string, number>();

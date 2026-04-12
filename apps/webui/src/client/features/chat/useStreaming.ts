@@ -21,30 +21,38 @@ export function useStreaming() {
 
   /** Shared streaming callbacks — identical for send and regenerate. */
   const makeCallbacks = useCallback(
-    (projectSlug: string, conversationId: string): SSECallbacks => ({
-      onUserNode: () => {},
-      onTextDelta: (text) => sessionDispatch({ type: "STREAM_TEXT_DELTA", text }),
-      onToolUseStart: (id, name) => sessionDispatch({ type: "STREAM_TOOL_START", id, name }),
-      onToolUseDelta: (id, inputJson) => sessionDispatch({ type: "STREAM_TOOL_DELTA", id, inputJson }),
-      onToolUseEnd: (id) => sessionDispatch({ type: "STREAM_TOOL_END", id }),
-      onToolExecStart: (id, _name, parallel) => sessionDispatch({ type: "TOOL_EXEC_START", id, parallel }),
-      onToolExecEnd: (id) => sessionDispatch({ type: "TOOL_EXEC_END", id }),
-      onUsageSummary: (usage) =>
-        sessionDispatch({ type: "STREAM_USAGE_SUMMARY", ...usage }),
-      onAssistantNodes: (nodes) => {
-        sessionDispatch({ type: "STREAM_COMPLETE", nodes });
-        sessionDispatch({ type: "STREAM_RESET" });
-      },
-      onDone: () => {
-        void fetchConversation(projectSlug, conversationId).then((data) => {
-          sessionDispatch({ type: "SET_ACTIVE_CONVERSATION", conversation: data.conversation, nodes: data.nodes, activePath: data.activePath });
-        }).catch(() => { /* keep current state */ });
-      },
-      onError: (message) => {
-        console.error("Stream error:", message);
-        sessionDispatch({ type: "STREAM_ERROR", error: message });
-      },
-    }),
+    (projectSlug: string, conversationId: string): SSECallbacks => {
+      // Track the effective conversation ID — may change on session_redirect
+      let effectiveConvId = conversationId;
+      return {
+        onUserNode: () => {},
+        onTextDelta: (text) => sessionDispatch({ type: "STREAM_TEXT_DELTA", text }),
+        onToolUseStart: (id, name) => sessionDispatch({ type: "STREAM_TOOL_START", id, name }),
+        onToolUseDelta: (id, inputJson) => sessionDispatch({ type: "STREAM_TOOL_DELTA", id, inputJson }),
+        onToolUseEnd: (id) => sessionDispatch({ type: "STREAM_TOOL_END", id }),
+        onToolExecStart: (id, _name, parallel) => sessionDispatch({ type: "TOOL_EXEC_START", id, parallel }),
+        onToolExecEnd: (id) => sessionDispatch({ type: "TOOL_EXEC_END", id }),
+        onUsageSummary: (usage) =>
+          sessionDispatch({ type: "STREAM_USAGE_SUMMARY", ...usage }),
+        onSessionRedirect: (conversation) => {
+          effectiveConvId = conversation.id;
+          sessionDispatch({ type: "NEW_CONVERSATION", conversation });
+        },
+        onAssistantNodes: (nodes) => {
+          sessionDispatch({ type: "STREAM_COMPLETE", nodes });
+          sessionDispatch({ type: "STREAM_RESET" });
+        },
+        onDone: () => {
+          void fetchConversation(projectSlug, effectiveConvId).then((data) => {
+            sessionDispatch({ type: "SET_ACTIVE_CONVERSATION", conversation: data.conversation, nodes: data.nodes, activePath: data.activePath });
+          }).catch(() => { /* keep current state */ });
+        },
+        onError: (message) => {
+          console.error("Stream error:", message);
+          sessionDispatch({ type: "STREAM_ERROR", error: message });
+        },
+      };
+    },
     [sessionDispatch],
   );
 

@@ -58,8 +58,30 @@ export function createConversationRoutes() {
     const conv = await c.get("conversationService").getConversation(slug, conversationId);
     if (!conv) return c.json({ error: "Conversation not found" }, 404);
 
+    // Meta redirect: if a meta skill slash command is sent in a creative session,
+    // auto-create a meta session and redirect the message there.
+    const needsRedirect = conv.mode !== "meta"
+      && await c.get("conversationService").checkMetaRedirect(slug, text);
+
     return streamSSE(c, async (stream) => {
-      await c.get("agentService").sendMessage(stream, slug, conversationId, parentNodeId, text);
+      let targetConvId = conversationId;
+      let targetParentNodeId = parentNodeId;
+      let sessionMode = conv.mode;
+
+      if (needsRedirect) {
+        const metaConv = await c.get("conversationService").create(slug, "meta");
+        targetConvId = metaConv.conversation.id;
+        targetParentNodeId = null;
+        sessionMode = "meta";
+        await stream.writeSSE({
+          event: "session_redirect",
+          data: JSON.stringify({ conversation: metaConv.conversation }),
+        });
+      }
+
+      await c.get("agentService").sendMessage(
+        stream, slug, targetConvId, targetParentNodeId, text, sessionMode,
+      );
     });
   });
 
@@ -69,8 +91,10 @@ export function createConversationRoutes() {
     const conversationId = c.req.param("id");
     const { userNodeId } = await c.req.json<{ userNodeId: string }>();
 
+    const conv = await c.get("conversationService").getConversation(slug, conversationId);
+
     return streamSSE(c, async (stream) => {
-      await c.get("agentService").regenerate(stream, slug, conversationId, userNodeId);
+      await c.get("agentService").regenerate(stream, slug, conversationId, userNodeId, conv?.mode);
     });
   });
 

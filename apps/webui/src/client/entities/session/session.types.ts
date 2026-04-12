@@ -43,6 +43,7 @@ export interface Conversation {
   provider: string;
   model: string;
   compactedFrom?: string;
+  mode?: "creative" | "meta";
 }
 
 // --- Streaming state ---

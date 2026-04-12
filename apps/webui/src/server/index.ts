@@ -58,7 +58,7 @@ const agentContext = createAgentContext({
     };
   },
 });
-const conversationService = createConversationService(agentContext);
+const conversationService = createConversationService(agentContext, PROJECTS_DIR);
 const agentService = createAgentService(agentContext);
 
 // ===== 3. Bootstrap =====

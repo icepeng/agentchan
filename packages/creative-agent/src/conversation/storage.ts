@@ -9,6 +9,7 @@ import {
 } from "./tree.js";
 import {
   type ConversationHeader,
+  type SessionMode,
   type BranchMarker,
   type ParsedConversation,
   parseConversationFile,
@@ -50,7 +51,7 @@ export interface ConversationStorage {
   getConversation(projectSlug: string, id: string): Promise<Conversation | null>;
   loadConversationWithTree(projectSlug: string, id: string): Promise<LoadedConversation | null>;
   loadSnapshot(projectSlug: string, id: string): Promise<ConversationSnapshot | null>;
-  createConversation(projectSlug: string, provider: string, model: string, compactedFrom?: string): Promise<Conversation>;
+  createConversation(projectSlug: string, provider: string, model: string, compactedFrom?: string, mode?: SessionMode): Promise<Conversation>;
   deleteConversation(projectSlug: string, id: string): Promise<void>;
 
   // Tree node operations
@@ -162,6 +163,7 @@ export function createConversationStorage(projectsDir: string): ConversationStor
       provider: string,
       model: string,
       compactedFrom?: string,
+      mode?: SessionMode,
     ): Promise<Conversation> {
       await ensureConversationsDir(projectSlug);
       const id = nanoid(12);
@@ -170,6 +172,7 @@ export function createConversationStorage(projectsDir: string): ConversationStor
       const header: ConversationHeader = {
         _header: true, createdAt: now, provider, model,
         ...(compactedFrom ? { compactedFrom } : {}),
+        ...(mode ? { mode } : {}),
       };
       await writeFile(conversationPath(projectSlug, id), JSON.stringify(header) + "\n");
 
@@ -183,6 +186,7 @@ export function createConversationStorage(projectsDir: string): ConversationStor
         provider,
         model,
         ...(compactedFrom ? { compactedFrom } : {}),
+        ...(mode ? { mode } : {}),
       };
     },
 
