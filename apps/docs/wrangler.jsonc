@@ -1,0 +1,7 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agentchan-docs",
+  "main": "@tanstack/react-start/server-entry",
+  "compatibility_date": "2025-04-13",
+  "compatibility_flags": ["nodejs_compat"]
+}

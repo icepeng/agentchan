@@ -1,0 +1,19 @@
+{
+  "title": "문서",
+  "pages": [
+    "---소개---",
+    "index",
+    "---시작하기---",
+    "getting-started",
+    "---핵심 개념---",
+    "projects",
+    "system-prompt",
+    "skills",
+    "renderer",
+    "---사용하기---",
+    "agent-chat",
+    "templates",
+    "edit-mode",
+    "settings"
+  ]
+}
