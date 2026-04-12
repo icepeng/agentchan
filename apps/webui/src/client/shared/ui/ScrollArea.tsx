@@ -42,7 +42,7 @@ export function ScrollArea({
     <BaseScrollArea.Root className={`overflow-hidden ${className ?? ""}`}>
       <BaseScrollArea.Viewport
         ref={ref}
-        className={viewportClassName}
+        className={`h-full max-h-[inherit] ${viewportClassName ?? ""}`}
         style={hideScrollbar ? { scrollbarWidth: "none" } : undefined}
       >
         {orientation === "both"
