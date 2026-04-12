@@ -34,7 +34,7 @@ suite("impersonate-character-chat: append newline separation", () => {
     "follow-up append starts with \\n\\n",
     async () => {
       harness = await EvalHarness.create({
-        copyProjectFiles: "impersonate-chat",
+        template: "impersonate-chat",
         prePopulate: {
           "files/scenes/scene.md":
             `*표류목 등불 주점. 모닥불이 타오르고, 빗소리가 창을 두드린다.*\n\n` +

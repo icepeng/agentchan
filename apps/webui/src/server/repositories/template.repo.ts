@@ -1,9 +1,10 @@
-import { readFile, readdir, mkdir } from "node:fs/promises";
+import { readFile, readdir, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { assertSafePathSegment } from "../paths.js";
 
 export interface TemplateMeta {
+  slug: string;
   name: string;
   description?: string;
 }
@@ -23,7 +24,8 @@ export function createTemplateRepo(templatesDir: string) {
           const metaPath = join(templatesDir, entry.name, "_template.json");
           if (!existsSync(metaPath)) return null;
           const raw = await readFile(metaPath, "utf-8");
-          return JSON.parse(raw) as TemplateMeta;
+          const meta = JSON.parse(raw) as { name: string; description?: string };
+          return { slug: entry.name, ...meta } as TemplateMeta;
         }),
       );
       return results.filter((m): m is TemplateMeta => m !== null);
@@ -33,6 +35,24 @@ export function createTemplateRepo(templatesDir: string) {
       assertSafePathSegment(name);
       const dir = join(templatesDir, name);
       if (!existsSync(dir)) throw new Error(`Template not found: ${name}`);
+      return dir;
+    },
+
+    async exists(name: string): Promise<boolean> {
+      assertSafePathSegment(name);
+      return existsSync(join(templatesDir, name, "_template.json"));
+    },
+
+    async remove(name: string): Promise<void> {
+      assertSafePathSegment(name);
+      await rm(join(templatesDir, name), { recursive: true, force: true });
+    },
+
+    async ensureTemplateDir(name: string, meta: { name: string; description?: string }): Promise<string> {
+      assertSafePathSegment(name);
+      const dir = join(templatesDir, name);
+      await mkdir(dir, { recursive: true });
+      await Bun.write(join(dir, "_template.json"), JSON.stringify(meta, null, 2));
       return dir;
     },
   };

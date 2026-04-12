@@ -2,17 +2,17 @@
 
 ## Build & Dev
 - `bun install` — install dependencies (Bun workspaces)
-- `bun run dev` — start dev server (apps/webui): Hono backend :3000 + Vite client :4100
-- `bun run dev -- --port 3001` — custom port (client auto :4101). Worktree 등 병렬 작업 시 포트 충돌 방지용
+- `bun run dev` — start dev server (apps/webui) via portless: `https://agentchan.localhost` (worktree에서는 `branch.agentchan.localhost`)
+- `bun run dev -- --port 3001` — portless 없이 수동 포트 지정 (server :3001, client :4101)
 - `bun run build` — production build via Turbo
 - `bunx tsc --noEmit` — type-check (run from `apps/webui/` or `packages/creative-agent/`). Do NOT use `npx tsc`.
 - `bun run lint` — ESLint 전체 실행 (Turbo). 에러 방지 규칙만 적용 (포매팅/스타일 규칙 없음)
 
 ## Dev Server Management (for Claude Code)
-- 포트 3000은 사용자 전용. Claude Code는 3001~3099 범위에서 고유 포트 지정
-- 실행 전 `curl -s http://localhost:PORT/api/config`로 확인 → `cd apps/webui && bun scripts/dev.ts --port PORT` (반드시 `run_in_background: true`)
-- 클라이언트 포트 = 서버 포트 + 1100. 실행 실패 시 재시도 말고 원인 파악. 종료는 불필요 (`dev.ts`가 자동 정리)
-- **Worktree 자동화**: `SessionStart` hook (`scripts/setup-worktree.sh`)이 worktree 감지 시 `example_data/` → `apps/webui/data/` 복사 + 전용 포트 할당. `$DEV_PORT`/`$DEV_CLIENT_PORT` 환경변수로 포트 확인. 서버는 자동 실행되지 않으므로 필요 시 수동 기동
+- `bun run dev` → portless가 ephemeral 포트 자동 할당 + `agentchan.localhost` URL 매핑. 포트 충돌 없음
+- portless 없이 수동: `cd apps/webui && bun scripts/dev.ts --port PORT` (반드시 `run_in_background: true`)
+- 실행 실패 시 재시도 말고 원인 파악. 종료는 불필요 (`dev.ts`가 자동 정리)
+- **Worktree 자동화**: `SessionStart` hook (`scripts/setup-worktree.sh`)이 worktree 감지 시 `example_data/` → `apps/webui/data/` 복사. `bun run dev`로 서버 기동하면 portless가 branch 서브도메인 자동 할당 (e.g. `fix-ui.agentchan.localhost`)
 
 ## Monorepo Structure
 - `packages/creative-agent` — Creative agent library (@agentchan/creative-agent): tools (AgentTool), skills, session/tree, orchestration. Built on `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core`
@@ -106,6 +106,7 @@ apps/webui/data/
 - Library renderers in `data/library/renderers/` — managed via Library page UI
 - Output refreshes when agent streaming completes (isStreaming → false)
 - **렌더러는 순수 함수** — `files → HTML`. conversations, skills, SYSTEM.md, 에이전트 상태에 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터)
+- **Renderer Actions** — 렌더러 HTML에 `data-action` + `data-text` 속성으로 인터랙티브 액션 선언. `data-action="send"` (즉시 전송), `data-action="fill"` (입력창에 채우기). `data-text` 생략 시 `textContent` 사용. 빈 텍스트 무시, 스트리밍 중 send 무시. `entities/renderer-action/`이 cross-feature 브릿지
 
 ## Project Architecture (2-Concept + files/)
 시스템 개념은 2개뿐:
@@ -131,12 +132,11 @@ apps/webui/data/
 ```
 
 ## Example Data
-- `example_data/`는 git에 커밋되는 예시 데이터 (스킬, 렌더러, 시스템 템플릿, 프로젝트 등)
+- `example_data/`는 git에 커밋되는 예시 데이터 (라이브러리 템플릿)
 - `apps/webui/data/`는 gitignored 런타임 데이터 — 직접 수정하지 않는다
 - **예시 데이터의 내용 변경은 `example_data/`에만 가한다** (`apps/webui/data/`는 건드리지 않음)
 - 앱이 초기화 시 `example_data/`를 `apps/webui/data/`로 복사하므로, 소스 오브 트루스는 항상 `example_data/`
-- Library 구조: `library/skills/` + `library/renderers/` + `library/systems/` (SYSTEM.md 템플릿)
-- 프로젝트 예시: `projects/chat/`, `projects/impersonate-chat/`, `projects/novel/` — 각각 SYSTEM.md + files/ + renderer.ts 포함
+- Library 구조: `library/templates/` (프로젝트 프리셋 — SYSTEM.md + skills/ + renderer.ts + files/)
 - 메인 워킹 트리에서 동기는 `bash scripts/copy-example-data.sh [--force]` (worktree는 SessionStart hook이 자동 실행)
 
 ## Single Executable Build

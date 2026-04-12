@@ -5,7 +5,7 @@
   "type": "module",
   "sideEffects": ["**/*.css"],
   "scripts": {
-    "dev": "bun scripts/dev.ts",
+    "dev": "portless run --name agentchan bun scripts/dev.ts",
     "dev:server": "bun --watch src/server/index.ts",
     "dev:client": "vite",
     "build": "vite build",

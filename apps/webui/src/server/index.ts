@@ -34,7 +34,7 @@ const projectSkillRepo = createProjectSkillRepo(PROJECTS_DIR);
 
 // ===== 2. Services =====
 const configService = createConfigService(settingsRepo);
-const templateService = createTemplateService(templateRepo);
+const templateService = createTemplateService(templateRepo, PROJECTS_DIR);
 const projectService = createProjectService(projectRepo, templateRepo, PROJECTS_DIR);
 const skillService = createSkillService(projectSkillRepo, PROJECTS_DIR);
 

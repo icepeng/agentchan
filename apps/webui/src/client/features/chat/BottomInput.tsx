@@ -4,6 +4,10 @@ import { useSessionState } from "@/client/entities/session/index.js";
 import { useConfigState } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
+import {
+  useRendererActionState,
+  useRendererActionDispatch,
+} from "@/client/entities/renderer-action/index.js";
 import { useStreaming } from "./useStreaming.js";
 import { useConversation } from "./useConversation.js";
 import { useSlashCommands } from "./useSlashCommands.js";
@@ -23,6 +27,8 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const { t } = useI18n();
   const { send, isStreaming } = useStreaming();
   const { create } = useConversation();
+  const rendererAction = useRendererActionState();
+  const rendererActionDispatch = useRendererActionDispatch();
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashCommands(text, setText);
@@ -46,6 +52,26 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   useEffect(() => {
     textareaRef.current?.focus();
   }, [session.activeConversationId]);
+
+  // Handle renderer actions (send / fill)
+  useEffect(() => {
+    const action = rendererAction.pending;
+    if (!action) return;
+    rendererActionDispatch({ type: "CLEAR" });
+
+    if (action.type === "fill") {
+      setText(action.text);
+      textareaRef.current?.focus();
+    } else if (action.type === "send") {
+      if (!session.activeConversationId) {
+        // send() reads conversationId from a ref that hasn't updated yet after create(),
+        // so we fall back to filling the input — same as handleSubmit's no-conversation path
+        void create().then(() => setText(action.text));
+      } else {
+        void send(action.text);
+      }
+    }
+  }, [rendererAction.pending, rendererActionDispatch, session.activeConversationId, create, send]);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();

@@ -100,7 +100,7 @@ export function AgentPanel() {
 
   if (!session.activeConversationId) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col flex-1 min-h-0">
         <SessionTabs />
         <div className="flex-1 flex items-center justify-center">
           <p className="text-sm text-fg-3 tracking-wide">
@@ -119,7 +119,7 @@ export function AgentPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Session tabs */}
       <SessionTabs />
 

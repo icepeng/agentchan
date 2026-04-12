@@ -1,0 +1,4 @@
+{
+  "name": "Interactive Chat",
+  "description": "선택지 기반 인터랙티브 캐릭터 채팅. 매 응답마다 3개의 다음 행동 선택지를 제시합니다."
+}

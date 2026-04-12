@@ -84,7 +84,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
         {agentPanelOpen ? (
           <div
             style={{ width: panelWidth }}
-            className="flex-shrink-0 flex flex-col bg-base/40 hidden lg:flex"
+            className="flex-shrink-0 flex flex-col min-h-0 bg-base/40 hidden lg:flex"
           >
             <AgentPanel />
             {isEdit && <BottomInput variant="embedded" />}

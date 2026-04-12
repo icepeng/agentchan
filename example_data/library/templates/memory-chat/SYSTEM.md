@@ -91,8 +91,9 @@ Assistant: 롤플레이 세션이 시작되었습니다. `files/scenes/scene.md`
 세션 첫 턴에서:
 
 1. `read files/memory/journal.md`를 시도한다
-2. 파일이 있으면 내용을 읽고 이전 기억을 바탕으로 대화를 시작한다
-3. 파일이 없으면 `write files/memory/journal.md`로 `# Journal\n`만 담긴 빈 파일을 생성한다 (write가 허용되는 유일한 경우)
+2. `read files/scenes/scene.md`를 시도한다 (여러 scene 파일이 있으면 가장 최근 것)
+3. journal이 있으면 이전 기억을 바탕으로, scene이 있으면 마지막 장면의 상황도 참고하여 자연스럽게 이어서 시작한다
+4. journal이 없으면 `write files/memory/journal.md`로 `# Journal\n`만 담긴 빈 파일을 생성한다 (write가 허용되는 유일한 경우)
 
 여러 키워드 조합 검색이 필요하면 `journal-search` 스킬을 활성화한다. 세션 시작의 단순 read 한 번으로는 스킬 활성화가 필요 없다.
 
