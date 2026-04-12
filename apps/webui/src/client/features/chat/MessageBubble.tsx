@@ -228,8 +228,6 @@ export interface MessageBubbleProps {
   isStreaming?: boolean;
   variant?: "compact" | "wide";
   footer?: ReactNode;
-  /** Skip the entry animation (e.g. for nodes that were already visible during streaming). */
-  skipEntryAnimation?: boolean;
 }
 
 export function MessageBubble({
@@ -239,7 +237,6 @@ export function MessageBubble({
   isStreaming,
   variant = "compact",
   footer,
-  skipEntryAnimation,
 }: MessageBubbleProps) {
   const { t } = useI18n();
   const isWide = variant === "wide";
@@ -330,7 +327,7 @@ export function MessageBubble({
     <BubbleWrap
       variant={variant}
       padding="loose"
-      className={`group ${skipEntryAnimation ? "" : "animate-fade-slide"} ${isUser ? "" : "bg-surface/40"}`}
+      className={`group ${isUser ? "" : "bg-surface/40"}`}
     >
       {content}
     </BubbleWrap>

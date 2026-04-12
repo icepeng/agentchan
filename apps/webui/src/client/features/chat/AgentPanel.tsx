@@ -88,27 +88,21 @@ export function AgentPanel() {
   const { regenerate } = useStreaming();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Refs mutated during render (not in an effect) so the animation skip is
-  // ready in the same render cycle that first mounts the new MessageBubble.
-  const prevIsStreamingRef = useRef(false);
-  const prevPathRef = useRef(new Set<string>());
-  const streamedNodesRef = useRef(new Set<string>());
-  const prevConvoRef = useRef(session.activeConversationId);
+  // Tail-key matching: the streaming wrapper div and the completed MessageBubble
+  // share the same React key, so React reuses the DOM element and the entry
+  // animation (on the wrapper) doesn't re-trigger when streaming ends.
+  const prevStreamingRef = useRef(false);
+  const tailCountRef = useRef(0);
+  const tailKeysRef = useRef(new Map<string, string>());
 
-  if (prevConvoRef.current !== session.activeConversationId) {
-    streamedNodesRef.current = new Set();
-    prevConvoRef.current = session.activeConversationId;
+  if (!prevStreamingRef.current && session.isStreaming) {
+    tailCountRef.current++;
   }
-
-  if (prevIsStreamingRef.current && !session.isStreaming) {
-    for (const id of session.activePath) {
-      if (!prevPathRef.current.has(id)) {
-        streamedNodesRef.current.add(id);
-      }
-    }
+  if (prevStreamingRef.current && !session.isStreaming) {
+    const lastId = session.activePath.at(-1);
+    if (lastId) tailKeysRef.current.set(lastId, `tail-${tailCountRef.current}`);
   }
-  prevIsStreamingRef.current = session.isStreaming;
-  prevPathRef.current = new Set(session.activePath);
+  prevStreamingRef.current = session.isStreaming;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -174,25 +168,28 @@ export function AgentPanel() {
             const node = session.nodes.get(nodeId);
             if (!node) return null;
             return (
-              <MessageBubble
-                key={nodeId}
-                node={node}
-                siblings={getSiblings(node)}
-                actions={actions}
-                isStreaming={session.isStreaming}
-                variant="compact"
-                skipEntryAnimation={streamedNodesRef.current.has(nodeId)}
-                footer={
-                  node.message.role === "assistant" && node.message.model
-                    ? <ModelInfoPopover node={node} />
-                    : undefined
-                }
-              />
+              <div key={tailKeysRef.current.get(nodeId) ?? nodeId} className="animate-fade-slide">
+                <MessageBubble
+                  node={node}
+                  siblings={getSiblings(node)}
+                  actions={actions}
+                  isStreaming={session.isStreaming}
+                  variant="compact"
+                  footer={
+                    node.message.role === "assistant" && node.message.model
+                      ? <ModelInfoPopover node={node} />
+                      : undefined
+                  }
+                />
+              </div>
             );
           })}
+          {(session.isStreaming || session.streamingText || session.streamingToolCalls.length > 0) && (
+            <div key={`tail-${tailCountRef.current}`} className="animate-fade-slide">
+              <StreamingMessage variant="compact" />
+            </div>
+          )}
         </MessageActionsProvider>
-
-        <StreamingMessage variant="compact" />
 
         {session.activePath.length === 0 && !session.isStreaming && (
           <div className="flex items-center justify-center h-full">
