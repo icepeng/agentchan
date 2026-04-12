@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { source } from "@/lib/source";
 import { createFromSource } from "fumadocs-core/search/server";
 
-const server = createFromSource(source, {
-  language: "korean",
-});
+const server = createFromSource(source);
 
 export const Route = createFileRoute("/api/search")({
   server: {
