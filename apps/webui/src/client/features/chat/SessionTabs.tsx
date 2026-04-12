@@ -51,7 +51,7 @@ export function SessionTabs() {
 
         {/* New session */}
         <button
-          onClick={create}
+          onClick={() => create()}
           className="flex-shrink-0 p-1.5 rounded-md text-fg-3 hover:text-accent hover:bg-accent/8 transition-all duration-150"
           title={t("session.new")}
         >

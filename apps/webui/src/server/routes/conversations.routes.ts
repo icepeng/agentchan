@@ -12,9 +12,20 @@ export function createConversationRoutes() {
   });
 
   // Create conversation
+  // Optional body { text } — when provided, the server checks whether the
+  // text is a meta-environment slash command and picks the correct mode
+  // up front, preventing a duplicate session on the subsequent send.
   app.post("/", async (c) => {
     const slug = c.req.param("slug")!;
-    return c.json(await c.get("conversationService").create(slug), 201);
+    const body = await c.req.json<{ text?: string }>().catch(() => ({} as { text?: string }));
+
+    let mode: "meta" | undefined;
+    if (body.text) {
+      const isMeta = await c.get("conversationService").checkMetaRedirect(slug, body.text);
+      if (isMeta) mode = "meta";
+    }
+
+    return c.json(await c.get("conversationService").create(slug, mode), 201);
   });
 
   // Load conversation tree

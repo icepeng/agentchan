@@ -25,7 +25,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
-  const { send, isStreaming } = useStreaming();
+  const { send, sendFirst, isStreaming } = useStreaming();
   const { create } = useConversation();
   const rendererAction = useRendererActionState();
   const rendererActionDispatch = useRendererActionDispatch();
@@ -64,14 +64,14 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
       textareaRef.current?.focus();
     } else if (action.type === "send") {
       if (!session.activeConversationId) {
-        // send() reads conversationId from a ref that hasn't updated yet after create(),
-        // so we fall back to filling the input — same as handleSubmit's no-conversation path
-        void create().then(() => setText(action.text));
+        void create(action.text).then((conv) => {
+          if (conv) void sendFirst(action.text, conv.id);
+        });
       } else {
         void send(action.text);
       }
     }
-  }, [rendererAction.pending, rendererActionDispatch, session.activeConversationId, create, send]);
+  }, [rendererAction.pending, rendererActionDispatch, session.activeConversationId, create, send, sendFirst]);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();
@@ -80,14 +80,14 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     // Check slash command first
     if (slash.tryExecuteCommand(trimmed)) return;
 
-    // Auto-create conversation if none active
+    setText("");
+
     if (!session.activeConversationId) {
-      await create();
-      setText(trimmed);
+      const conv = await create(trimmed);
+      if (conv) await sendFirst(trimmed, conv.id);
       return;
     }
 
-    setText("");
     await send(trimmed);
   };
 

@@ -78,6 +78,25 @@ export function useStreaming() {
     [sessionDispatch, makeCallbacks],
   );
 
+  /** Send the first message to a just-created conversation.
+   *  Bypasses the ref so it works before React re-renders. */
+  const sendFirst = useCallback(
+    async (text: string, conversationId: string) => {
+      const projectSlug = projectStateRef.current.activeProjectSlug;
+      if (!projectSlug) return;
+
+      sessionDispatch({ type: "STREAM_START" });
+
+      const callbacks = makeCallbacks(projectSlug, conversationId);
+      callbacks.onUserNode = (node) => {
+        sessionDispatch({ type: "APPEND_USER_NODE", node });
+      };
+
+      await sendMessage(projectSlug, conversationId, null, text, callbacks);
+    },
+    [sessionDispatch, makeCallbacks],
+  );
+
   const regenerate = useCallback(
     async (userNodeId: string) => {
       const p = projectStateRef.current;
@@ -93,5 +112,5 @@ export function useStreaming() {
     [sessionDispatch, makeCallbacks],
   );
 
-  return { send, regenerate, isStreaming: sessionState.isStreaming };
+  return { send, sendFirst, regenerate, isStreaming: sessionState.isStreaming };
 }
