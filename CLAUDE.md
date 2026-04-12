@@ -106,6 +106,7 @@ apps/webui/data/
 - Library renderers in `data/library/renderers/` — managed via Library page UI
 - Output refreshes when agent streaming completes (isStreaming → false)
 - **렌더러는 순수 함수** — `files → HTML`. conversations, skills, SYSTEM.md, 에이전트 상태에 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터)
+- **Renderer Actions** — 렌더러 HTML에 `data-action` + `data-text` 속성으로 인터랙티브 액션 선언. `data-action="send"` (즉시 전송), `data-action="fill"` (입력창에 채우기). `data-text` 생략 시 `textContent` 사용. 빈 텍스트 무시, 스트리밍 중 send 무시. `entities/renderer-action/`이 cross-feature 브릿지
 
 ## Project Architecture (2-Concept + files/)
 시스템 개념은 2개뿐:
