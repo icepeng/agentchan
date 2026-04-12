@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
-import { defaultKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
 import {
   syntaxHighlighting,
   defaultHighlightStyle,
@@ -13,6 +13,15 @@ import {
 import { javascript } from "@codemirror/lang-javascript";
 import { markdown } from "@codemirror/lang-markdown";
 import { tags } from "@lezer/highlight";
+import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import {
+  autocompletion,
+  closeBrackets,
+  closeBracketsKeymap,
+  completionKeymap,
+  type CompletionContext,
+  type CompletionResult,
+} from "@codemirror/autocomplete";
 import { useI18n } from "@/client/i18n/index.js";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { isImagePath } from "@/client/entities/editor/index.js";
@@ -58,6 +67,85 @@ const obsidianTheme = EditorView.theme({
   },
   ".cm-foldGutter .cm-gutterElement": { color: "var(--color-fg-4)", padding: "0 4px" },
   ".cm-line": { padding: "0 8px" },
+  // Search panel
+  ".cm-panels": {
+    backgroundColor: "var(--color-elevated)",
+    color: "var(--color-fg-2)",
+    borderColor: "color-mix(in srgb, var(--color-edge) 10%, transparent)",
+  },
+  ".cm-panel.cm-search": {
+    padding: "8px 12px",
+    fontSize: "12px",
+    fontFamily: "var(--font-family-mono)",
+  },
+  ".cm-panel.cm-search input": {
+    backgroundColor: "var(--color-surface)",
+    color: "var(--color-fg)",
+    border: "1px solid color-mix(in srgb, var(--color-edge) 15%, transparent)",
+    borderRadius: "4px",
+    padding: "2px 6px",
+    outline: "none",
+  },
+  ".cm-panel.cm-search input:focus": {
+    borderColor: "var(--color-accent)",
+  },
+  ".cm-panel.cm-search button": {
+    backgroundColor: "transparent",
+    color: "var(--color-fg-3)",
+    border: "none",
+    cursor: "pointer",
+    padding: "2px 6px",
+    borderRadius: "4px",
+  },
+  ".cm-panel.cm-search button:hover": {
+    color: "var(--color-fg)",
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 10%, transparent)",
+  },
+  ".cm-panel.cm-search label": {
+    color: "var(--color-fg-3)",
+    fontSize: "12px",
+  },
+  ".cm-searchMatch": {
+    backgroundColor: "color-mix(in srgb, var(--color-warm) 20%, transparent)",
+  },
+  ".cm-searchMatch-selected": {
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)",
+  },
+  ".cm-selectionMatch": {
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 12%, transparent)",
+  },
+  // Autocomplete tooltip
+  ".cm-tooltip": {
+    backgroundColor: "var(--color-elevated)",
+    border: "1px solid color-mix(in srgb, var(--color-edge) 12%, transparent)",
+    borderRadius: "6px",
+    boxShadow: "0 4px 16px color-mix(in srgb, var(--color-void) 40%, transparent)",
+    overflow: "hidden",
+  },
+  ".cm-tooltip-autocomplete": {
+    fontSize: "12px",
+    fontFamily: "var(--font-family-mono)",
+  },
+  ".cm-tooltip-autocomplete > ul > li": {
+    padding: "4px 8px",
+    color: "var(--color-fg-2)",
+  },
+  ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
+    backgroundColor: "color-mix(in srgb, var(--color-accent) 15%, transparent)",
+    color: "var(--color-fg)",
+  },
+  ".cm-completionLabel": {
+    color: "var(--color-fg)",
+  },
+  ".cm-completionDetail": {
+    color: "var(--color-fg-4)",
+    fontStyle: "italic",
+    marginLeft: "8px",
+  },
+  ".cm-completionMatchedText": {
+    color: "var(--color-accent)",
+    textDecoration: "none",
+  },
 });
 
 const obsidianHighlight = HighlightStyle.define([
@@ -99,6 +187,43 @@ function getLanguageExtension(lang?: EditorLanguage) {
     case "markdown": return markdown();
     default: return [];
   }
+}
+
+// --- Renderer autocomplete ---
+
+function rendererCompletions(context: CompletionContext): CompletionResult | null {
+  const match = context.matchBefore(/\b(\w+)\.(\w*)$/);
+  if (!match) return null;
+
+  const text = match.text;
+  const dotPos = text.lastIndexOf(".");
+  const varName = text.substring(0, dotPos);
+  const from = match.from + dotPos + 1;
+
+  if (varName === "ctx") {
+    return {
+      from,
+      options: [
+        { label: "files", type: "property", detail: "ProjectFile[]" },
+        { label: "baseUrl", type: "property", detail: "string" },
+      ],
+    };
+  }
+
+  if (/^(f|file|entry|item|doc|textFile|tf)$/i.test(varName)) {
+    return {
+      from,
+      options: [
+        { label: "type", type: "property", detail: '"text" | "binary"' },
+        { label: "path", type: "property", detail: "string" },
+        { label: "content", type: "property", detail: "string (TextFile)" },
+        { label: "frontmatter", type: "property", detail: "Record<string, unknown> | null" },
+        { label: "modifiedAt", type: "property", detail: "number" },
+      ],
+    };
+  }
+
+  return null;
 }
 
 // --- Component ---
@@ -154,14 +279,29 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
       doc: content,
       extensions: [
         saveKeymap,
-        keymap.of([indentWithTab]),
-        keymap.of(defaultKeymap),
+        keymap.of([
+          ...closeBracketsKeymap,
+          ...completionKeymap,
+          ...searchKeymap,
+          ...historyKeymap,
+          indentWithTab,
+          ...defaultKeymap,
+        ]),
+        history(),
         getLanguageExtension(language),
         syntaxHighlighting(obsidianHighlight),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         bracketMatching(),
+        closeBrackets(),
         indentOnInput(),
         foldGutter(),
+        highlightActiveLine(),
+        highlightActiveLineGutter(),
+        search({ top: true }),
+        highlightSelectionMatches(),
+        ...(language === "typescript"
+          ? [autocompletion({ override: [rendererCompletions] })]
+          : []),
         obsidianTheme,
         EditorView.lineWrapping,
         updateListener,

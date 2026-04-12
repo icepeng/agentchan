@@ -132,12 +132,11 @@ apps/webui/data/
 ```
 
 ## Example Data
-- `example_data/`는 git에 커밋되는 예시 데이터 (스킬, 렌더러, 시스템 템플릿, 프로젝트 등)
+- `example_data/`는 git에 커밋되는 예시 데이터 (라이브러리 템플릿)
 - `apps/webui/data/`는 gitignored 런타임 데이터 — 직접 수정하지 않는다
 - **예시 데이터의 내용 변경은 `example_data/`에만 가한다** (`apps/webui/data/`는 건드리지 않음)
 - 앱이 초기화 시 `example_data/`를 `apps/webui/data/`로 복사하므로, 소스 오브 트루스는 항상 `example_data/`
-- Library 구조: `library/skills/` + `library/renderers/` + `library/systems/` (SYSTEM.md 템플릿)
-- 프로젝트 예시: `projects/chat/`, `projects/impersonate-chat/`, `projects/novel/` — 각각 SYSTEM.md + files/ + renderer.ts 포함
+- Library 구조: `library/templates/` (프로젝트 프리셋 — SYSTEM.md + skills/ + renderer.ts + files/)
 - 메인 워킹 트리에서 동기는 `bash scripts/copy-example-data.sh [--force]` (worktree는 SessionStart hook이 자동 실행)
 
 ## Single Executable Build
