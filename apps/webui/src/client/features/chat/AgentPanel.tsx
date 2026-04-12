@@ -5,6 +5,7 @@ import { useSessionState } from "@/client/entities/session/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
+import { ScrollArea } from "@/client/shared/ui/index.js";
 import { MessageActionsProvider } from "./MessageActionsContext.js";
 import { useConversation } from "./useConversation.js";
 import { useStreaming } from "./useStreaming.js";
@@ -140,7 +141,7 @@ export function AgentPanel() {
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <ScrollArea className="flex-1">
         <MessageActionsProvider
           switchBranch={switchBranch}
           branchFrom={setReplyTo}
@@ -180,7 +181,7 @@ export function AgentPanel() {
         )}
 
         <div ref={messagesEndRef} />
-      </div>
+      </ScrollArea>
     </div>
   );
 }

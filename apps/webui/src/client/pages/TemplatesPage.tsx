@@ -4,6 +4,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "@/client/features/project/index.js";
+import { ScrollArea } from "@/client/shared/ui/index.js";
 
 export function TemplatesPage() {
   const { t } = useI18n();
@@ -30,7 +31,7 @@ export function TemplatesPage() {
   }, [nameInput, createProject, uiDispatch]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <ScrollArea className="flex-1">
       <div className="max-w-2xl mx-auto px-8 py-12">
         <div className="mb-8">
           <h1 className="font-display text-2xl font-bold tracking-tight mb-2">
@@ -102,6 +103,6 @@ export function TemplatesPage() {
           </div>
         )}
       </div>
-    </div>
+    </ScrollArea>
   );
 }

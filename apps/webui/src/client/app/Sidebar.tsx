@@ -1,7 +1,7 @@
 import { BookOpen, Settings } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { IconButton } from "@/client/shared/ui/index.js";
+import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 import { ProjectTabs } from "@/client/features/project/index.js";
 import { ModelBar } from "@/client/features/settings/index.js";
 import { SkillList } from "./SkillList.js";
@@ -50,14 +50,14 @@ export function Sidebar() {
       </div>
 
       {/* Projects */}
-      <div className="flex-1 overflow-y-auto border-t border-edge/6 pt-1 pb-2">
+      <ScrollArea className="flex-1 border-t border-edge/6" viewportClassName="pt-1 pb-2">
         <div className="px-5 pt-3 pb-1">
           <label className="text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em]">
             {t("sidebar.projects")}
           </label>
         </div>
         <ProjectTabs />
-      </div>
+      </ScrollArea>
 
       {/* Bottom panel */}
       <div>
