@@ -7,9 +7,7 @@ metadata:
   version: "1.0"
 ---
 
-# 렌더러 빌드
-
-프로젝트의 files/ 구조와 파일 내용을 분석하여 맞춤형 renderer.ts를 생성한다.
+프로젝트의 files/ 구조와 파일 내용을 분석하여 맞춤형 renderer.ts를 작성한다.
 
 ## 계약
 
@@ -28,20 +26,62 @@ export function render(ctx: RenderContext): string {
 
 ## 워크플로우
 
-1. renderer.ts가 이미 존재하면 read로 읽고 이해한 후 진행. 없으면 신규 생성
-2. ls("files")로 파일 구조 파악, 대표 파일 2~3개를 read하여 frontmatter/콘텐츠 확인
-3. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다
-4. 아래 기법들을 참고하여 renderer.ts 작성
-5. validate-renderer 도구로 transpile + 실행 검증. 실패 시 에러를 분석하고 자동 수정 후 재검증
-6. 사용자에게 좌측 패널의 시각 결과 확인 요청
+1. renderer.ts를 read로 읽고 이해한 후 진행. 없으면 신규 생성
+2. SYSTEM.md를 읽어 프로젝트의 목적과 출력 형식을 파악
+3. 출력 파일(scenes/, chapters/ 등)이 있으면 우선으로 읽어 콘텐츠 구조를 이해. 필요하다면 나머지 파일(characters/, world/ 등)도 읽음
+4. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다
+5. 아래 기법들을 참고하여 renderer.ts를 작성 혹은 편집
+6. validate-renderer 도구로 transpile + 실행 검증. 실패 시 에러를 분석하고 자동 수정 후 재검증
+7. 사용자에게 좌측 패널의 시각 결과 확인 요청
 
 기존 renderer.ts 수정 시: 전면 재작성 vs 부분 수정 여부를 사용자에게 확인. 부분 수정이면 edit, 전면이면 write.
 
+## 디자인 원칙
+
+렌더러를 작성하기 전에 프로젝트의 맥락을 이해하고 명확한 미적 방향을 설정한다. 범용적인 디자인은 피하고, 콘텐츠의 성격에 맞는 의도적인 선택을 한다.
+
+디자인 사고:
+- 이 인터페이스의 목적은? 어떤 콘텐츠를 어떤 분위기로 보여줘야 하는가?
+- 톤을 선택한다: 미니멀, 에디토리얼, 레트로, 유기적/자연적, 럭셔리, 플레이풀 등. 핵심은 의도성이다.
+- 사용자가 기억할 하나의 특징적 요소는 무엇인가?
+
+타이포그래피:
+- `...` 대신 `…`, 직선 따옴표 대신 curly quotes `"` `"`
+- 숫자 컬럼에 `font-variant-numeric: tabular-nums`
+- 제목에 `text-wrap: balance`
+- 텍스트 컨테이너에 적절한 max-width와 line-height
+
+색상과 테마:
+- CSS 변수로 일관성 유지. 지배적 색상 + 날카로운 악센트가 균등 분배보다 효과적
+- `color-mix(in srgb, ...)` 패턴으로 반투명 틴트
+- 단조로운 단색 배경보다 그라디언트, 미묘한 텍스처, 레이어드 투명도로 깊이감 연출
+
+공간 구성:
+- 요소 간 일관된 간격과 리듬
+- 비대칭, 겹침, 여백의 의도적 활용
+- flex/grid 레이아웃 활용
+
+모션:
+- hover 상태에 시각 피드백 (hover/active/focus가 rest보다 두드러지게)
+- transition은 속성 명시 (transition: all 금지). transform/opacity 위주 (compositor-friendly)
+- 하나의 잘 조율된 효과가 산발적인 마이크로인터랙션보다 효과적
+
+콘텐츠 대응:
+- 긴 텍스트에 truncate/break-words. flex 자식에 min-w-0
+- 빈 상태에 안내 메시지. 짧은/평균/긴 입력 모두 대응
+- 이미지에 명시적 width/height (CLS 방지), onerror 처리
+
+접근성:
+- 의미 있는 시맨틱 HTML. 장식용 요소에 aria-hidden
+- img에 alt (장식용이면 alt="")
+
 ## 스타일링 규칙
 
-CSS 변수: `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조 teal), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
+CSS 변수: `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
 
-반투명 틴트: `color-mix(in srgb, var(--color-accent) 10%, transparent)`. 클래스 네이밍: 2글자 프리픽스 (cr-, nr- 등). 이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색). 이미지에 `onerror="this.style.display='none'"`. 렌더러는 자체 `<style>` 포함 필수. 빈 상태 메시지 필수. 사용자 콘텐츠에 escapeHtml 필수. document/window 등 DOM API 사용 금지.
+클래스 네이밍: 2글자 프리픽스 (cr-, nr- 등).
+이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
+렌더러는 자체 `<style>` 포함 필수. 사용자 콘텐츠에 escapeHtml 필수. document/window 등 DOM API 사용 금지.
 
 ## 참고 기법
 
@@ -140,7 +180,7 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
 .cr-avatar-img { width: 48px; height: 48px; border-radius: 14px; object-fit: cover; }
 ```
 
-### 마크다운 렌더링 (확장)
+### 마크다운 렌더링
 
 heading, blockquote, list 등을 변환하고 단락을 분리한다.
 
@@ -161,20 +201,4 @@ function renderMarkdown(text: string): string {
     return `<p>${block.replace(/\n/g, "<br/>")}</p>`;
   }).join("\n");
 }
-```
-
-### CSS-only 탭 시스템
-
-여러 카테고리의 파일을 탭으로 나눌 때 사용. 라디오 버튼으로 구현.
-
-```html
-<input type="radio" name="tab" id="tab-a" checked>
-<label for="tab-a">Tab A</label>
-<div class="tab-content" id="content-a">...</div>
-```
-
-```css
-input[type="radio"] { display: none; }
-.tab-content { display: none; }
-#tab-a:checked ~ #content-a { display: block; }
 ```
