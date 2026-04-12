@@ -9,6 +9,16 @@ metadata:
 
 프로젝트의 files/ 구조와 파일 내용을 분석하여 맞춤형 renderer.ts를 작성한다.
 
+## 워크플로우
+
+1. renderer.ts를 read로 읽고 이해한 후 진행. 없으면 신규 생성
+2. SYSTEM.md를 읽어 프로젝트의 목적과 출력 형식을 파악
+3. 출력 파일이 있으면 우선으로 읽어 콘텐츠 구조를 이해. 필요하다면 나머지 파일도 읽음
+4. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다. 기존 renderer.ts 수정 시: 전면 재작성 vs 부분 수정 여부를 사용자에게 확인한다.
+5. 사용자가 답변하면, 아래 기법들을 참고하여 renderer.ts를 작성 혹은 편집
+6. validate-renderer 도구로 transpile + 실행 검증. 실패 시 에러를 분석하고 자동 수정 후 재검증
+7. 사용자에게 좌측 패널의 시각 결과 확인 요청
+
 ## 계약
 
 renderer.ts는 외부 import 없이 단일 파일로 작성한다. 모든 타입을 파일 상단에 인라인 선언한다.
@@ -24,18 +34,6 @@ export function render(ctx: RenderContext): string {
 }
 ```
 
-## 워크플로우
-
-1. renderer.ts를 read로 읽고 이해한 후 진행. 없으면 신규 생성
-2. SYSTEM.md를 읽어 프로젝트의 목적과 출력 형식을 파악
-3. 출력 파일(scenes/, chapters/ 등)이 있으면 우선으로 읽어 콘텐츠 구조를 이해. 필요하다면 나머지 파일(characters/, world/ 등)도 읽음
-4. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다
-5. 아래 기법들을 참고하여 renderer.ts를 작성 혹은 편집
-6. validate-renderer 도구로 transpile + 실행 검증. 실패 시 에러를 분석하고 자동 수정 후 재검증
-7. 사용자에게 좌측 패널의 시각 결과 확인 요청
-
-기존 renderer.ts 수정 시: 전면 재작성 vs 부분 수정 여부를 사용자에게 확인. 부분 수정이면 edit, 전면이면 write.
-
 ## 디자인 원칙
 
 렌더러를 작성하기 전에 프로젝트의 맥락을 이해하고 명확한 미적 방향을 설정한다. 범용적인 디자인은 피하고, 콘텐츠의 성격에 맞는 의도적인 선택을 한다.
@@ -46,8 +44,6 @@ export function render(ctx: RenderContext): string {
 - 사용자가 기억할 하나의 특징적 요소는 무엇인가?
 
 타이포그래피:
-- `...` 대신 `…`, 직선 따옴표 대신 curly quotes `"` `"`
-- 숫자 컬럼에 `font-variant-numeric: tabular-nums`
 - 제목에 `text-wrap: balance`
 - 텍스트 컨테이너에 적절한 max-width와 line-height
 
@@ -71,15 +67,9 @@ export function render(ctx: RenderContext): string {
 - 빈 상태에 안내 메시지. 짧은/평균/긴 입력 모두 대응
 - 이미지에 명시적 width/height (CLS 방지), onerror 처리
 
-접근성:
-- 의미 있는 시맨틱 HTML. 장식용 요소에 aria-hidden
-- img에 alt (장식용이면 alt="")
-
 ## 스타일링 규칙
 
-CSS 변수: `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
-
-클래스 네이밍: 2글자 프리픽스 (cr-, nr- 등).
+CSS 변수 (덮어쓰기 금지): `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
 이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
 렌더러는 자체 `<style>` 포함 필수. 사용자 콘텐츠에 escapeHtml 필수. document/window 등 DOM API 사용 금지.
 
@@ -161,24 +151,30 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
 }
 ```
 
-### 말풍선 CSS
+### 인라인 감정 삽화
 
-캐릭터별 색상은 `--c` CSS 변수로 주입. 자동 스크롤이 필요하면 루트 div 끝에 `<div data-chat-anchor></div>` 추가.
+텍스트 안의 `[name:image-key]` 토큰을 감지하여 삽화 이미지로 치환한다. nameMap으로 캐릭터 디렉토리를 resolve한다.
 
-```css
-.cr-char { position: relative; margin-bottom: 24px; }
-.cr-bubble { padding: 12px 16px; border-radius: 2px 16px 16px 16px;
-  background: color-mix(in srgb, var(--c) 3%, transparent);
-  border-left: 2px solid color-mix(in srgb, var(--c) 12%, transparent); }
-.cr-user { display: flex; justify-content: flex-end; margin-bottom: 24px; }
-.cr-user-bubble { max-width: 72%; padding: 10px 16px; border-radius: 16px 16px 4px 16px;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 10%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 3%, transparent); }
-.cr-narr { margin: 20px 0; padding: 10px 20px 10px 16px;
-  border-left: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent); }
-.cr-narr-text { font-style: italic; color: var(--color-fg-2); }
-.cr-avatar-img { width: 48px; height: 48px; border-radius: 14px; object-fit: cover; }
+```typescript
+const INLINE_IMAGE = /\[([a-z0-9][a-z0-9-]*):([^\]]+)\]/g;
+
+function formatInline(
+  text: string, ctx: RenderContext, nameMap: Map<string, NameMapEntry>,
+): string {
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*(.+?)\*/g, '<em class="action">$1</em>');
+  html = html.replace(INLINE_IMAGE, (_m, name, key) => {
+    const entry = nameMap.get(name);
+    const dir = entry?.dir ?? name;
+    const url = resolveImageUrl(ctx, dir, key);
+    return `<div class="illustration"><img src="${url}" alt="${key}" onerror="this.parentElement.style.display='none'" /></div>`;
+  });
+  return html;
+}
 ```
+
+입력: `*미소를 짓는다* [elara:smile] "반갑습니다"` → italic + 삽화 이미지 + 텍스트
 
 ### 마크다운 렌더링
 
