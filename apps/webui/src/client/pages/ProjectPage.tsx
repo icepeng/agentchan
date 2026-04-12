@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { useUIState } from "@/client/entities/ui/index.js";
+import { useUIState, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
 import { AgentPanel, BottomInput, useConversation } from "@/client/features/chat/index.js";
@@ -90,13 +90,17 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
             {isEdit && <BottomInput variant="embedded" />}
           </div>
         ) : (
-          <button
-            onClick={onToggleAgentPanel}
-            className="hidden lg:flex flex-shrink-0 w-7 items-center justify-center border-l border-edge/6 bg-base/20 hover:bg-accent/8 text-fg-3 hover:text-accent transition-all duration-200 cursor-pointer group"
-            title={t("empty.openAgentPanel")}
-          >
-            <ChevronsLeft size={14} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
-          </button>
+          <div className="hidden lg:flex flex-shrink-0 w-8 flex-col items-center border-l border-edge/6 bg-base/20">
+            <EditModeToggle />
+            <div className="flex-1" />
+            <button
+              onClick={onToggleAgentPanel}
+              className="p-2 text-fg-3 hover:text-accent hover:bg-accent/8 transition-all duration-200 cursor-pointer group"
+              title={t("empty.openAgentPanel")}
+            >
+              <ChevronsLeft size={14} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
+            </button>
+          </div>
         )}
       </div>
 

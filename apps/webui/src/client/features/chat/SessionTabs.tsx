@@ -1,6 +1,6 @@
 import { ChevronsRight, Plus, X } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
-import { useUIDispatch } from "@/client/entities/ui/index.js";
+import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { useConversation } from "./useConversation.js";
@@ -60,7 +60,7 @@ export function SessionTabs() {
         </button>
       </ScrollArea>
 
-      {/* Close panel */}
+      <EditModeToggle />
       <button
         onClick={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
         className="flex-shrink-0 px-2 py-1.5 text-fg-3 hover:text-fg-2 transition-colors"
