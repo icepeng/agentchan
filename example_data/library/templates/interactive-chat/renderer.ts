@@ -38,7 +38,8 @@ function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
@@ -85,7 +86,6 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
       color: fm.color ? String(fm.color) : undefined,
     };
 
-    // Map all known names to this entry
     if (fm.names) {
       for (const raw of String(fm.names).split(",")) {
         const name = raw.trim();
@@ -94,8 +94,6 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
     }
     const dn = fm["display-name"];
     if (dn && !map.has(String(dn))) map.set(String(dn), entry);
-
-    // Also map the frontmatter name field
     if (fm.name && !map.has(String(fm.name))) map.set(String(fm.name), entry);
   }
   return map;
@@ -131,6 +129,22 @@ function formatInline(
   return result;
 }
 
+// ── Choices parsing ─────────────────────────
+
+function extractChoices(content: string): { cleaned: string; choices: string[] } {
+  const re = /\[CHOICES\]\s*\n([\s\S]*?)\n\s*\[\/CHOICES\]/g;
+  let lastChoices: string[] = [];
+  const cleaned = content.replace(re, (_match, body: string) => {
+    lastChoices = body
+      .split("\n")
+      .map((l: string) => l.trim())
+      .filter((l: string) => /^\d+\.\s+/.test(l))
+      .map((l: string) => l.replace(/^\d+\.\s+/, ""));
+    return "";
+  });
+  return { cleaned, choices: lastChoices };
+}
+
 // ── Parsing ──────────────────────────────────
 
 const IMAGE_TOKEN = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s*/;
@@ -148,7 +162,7 @@ function parseLine(raw: string): ChatLine | null {
   let imageKey: string | undefined;
   const tokenMatch = trimmed.match(IMAGE_TOKEN);
   if (tokenMatch) {
-    charDir = tokenMatch[1]; // Will be resolved via nameMap later
+    charDir = tokenMatch[1];
     imageKey = tokenMatch[2];
     rest = trimmed.slice(tokenMatch[0].length);
   }
@@ -292,11 +306,22 @@ function renderDivider(): string {
     </div>`;
 }
 
+function renderChoices(choices: string[]): string {
+  if (choices.length === 0) return "";
+  const buttons = choices
+    .map((c) => `<button class="cr-choice-btn" data-action="send" data-text="${escapeHtml(c)}">${escapeHtml(c)}</button>`)
+    .join("\n        ");
+  return `
+      <div class="cr-choices">
+        ${buttons}
+      </div>`;
+}
+
 function renderEmpty(): string {
   return `
     <div class="cr-empty">
       <div class="cr-empty-rule"></div>
-      <div class="cr-empty-text">무대가 기다리고 있습니다</div>
+      <div class="cr-empty-text">모험이 기다리고 있습니다</div>
       <div class="cr-empty-rule"></div>
     </div>`;
 }
@@ -332,6 +357,10 @@ const STYLES = `<style>
   .cr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; opacity: 0.3; }
   .cr-empty-rule { width: 28px; height: 1px; background: var(--color-fg-4); }
   .cr-empty-text { font-family: var(--font-family-display); font-size: 12px; color: var(--color-fg-3); letter-spacing: 0.08em; }
+  .cr-choices { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px; margin-bottom: 8px; }
+  .cr-choice-btn { width: 100%; padding: 10px 16px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--color-accent) 12%, transparent); background: color-mix(in srgb, var(--color-accent) 3%, transparent); color: var(--color-accent); font-family: var(--font-family-body); font-size: 13.5px; line-height: 1.5; text-align: left; cursor: pointer; transition: all 0.15s ease; }
+  .cr-choice-btn:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); border-color: color-mix(in srgb, var(--color-accent) 25%, transparent); }
+  .cr-choice-btn:active { transform: scale(0.98); }
 </style>`;
 
 // ── Main renderer ────────────────────────────
@@ -339,7 +368,6 @@ const STYLES = `<style>
 export function render(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
 
-  // Scene files = text files in scenes/ directory
   const sceneFiles = ctx.files.filter(
     (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
   );
@@ -350,7 +378,9 @@ export function render(ctx: RenderContext): string {
     .map((f) => f.content)
     .join("\n\n---\n\n");
 
-  const parsed = allContent
+  const { cleaned, choices } = extractChoices(allContent);
+
+  const parsed = cleaned
     .split("\n")
     .map(parseLine)
     .filter((l): l is ChatLine => l !== null)
@@ -379,6 +409,7 @@ export function render(ctx: RenderContext): string {
   return `${STYLES}
     <div class="cr-root">
       ${rendered}
+      ${renderChoices(choices)}
       <div data-chat-anchor></div>
     </div>`;
 }

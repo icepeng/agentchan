@@ -304,10 +304,7 @@ function renderEmpty(): string {
 // ── Styles ───────────────────────────────────
 
 const STYLES = `<style>
-  .cr-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; margin-bottom: 16px; }
-  .cr-action-btn { padding: 8px 16px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--color-accent) 15%, transparent); background: color-mix(in srgb, var(--color-accent) 4%, transparent); color: var(--color-accent); font-family: var(--font-family-body); font-size: 13px; cursor: pointer; transition: all 0.15s ease; }
-  .cr-action-btn:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); border-color: color-mix(in srgb, var(--color-accent) 30%, transparent); }
-  .cr-action-btn:active { transform: scale(0.97); }
+  .cr-action { }
   .cr-char { position: relative; margin-bottom: 24px; padding: 2px 0; }
   .cr-halo { position: absolute; left: -40px; top: 50%; transform: translateY(-50%); width: 220px; height: 120px; border-radius: 50%; background: radial-gradient(ellipse, var(--c) 0%, transparent 70%); opacity: 0.025; pointer-events: none; transition: opacity 0.5s ease; z-index: 0; }
   .cr-char:hover .cr-halo { opacity: 0.06; }
@@ -382,10 +379,6 @@ export function render(ctx: RenderContext): string {
   return `${STYLES}
     <div class="cr-root">
       ${rendered}
-      <div class="cr-actions">
-        <button class="cr-action-btn" data-action="send">계속</button>
-        <button class="cr-action-btn" data-action="fill" data-text="> ">직접 쓰기...</button>
-      </div>
       <div data-chat-anchor></div>
     </div>`;
 }
