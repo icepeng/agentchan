@@ -147,6 +147,7 @@ function PreviewPanel({ slug, selectedPath }: PreviewPanelProps) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 선택 변경 시 이전 콘텐츠 정리
     if (!selectedPath) { setContent(null); return; }
     if (isImagePath(selectedPath)) { setContent(null); return; }
 
@@ -224,6 +225,7 @@ export function SaveAsTemplateModal({ slug, onClose }: SaveAsTemplateModalProps)
   // Load file tree when slug changes
   useEffect(() => {
     if (!slug) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- slug 변경 시 폼 리셋 (Dialog는 항상 마운트 상태)
     setName("");
     setDescription("");
     setFileEntries([]);

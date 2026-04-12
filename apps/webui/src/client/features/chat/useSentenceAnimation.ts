@@ -40,6 +40,7 @@ export function useSentenceAnimation(
       for (let i = prevCount; i < currentCount; i++) {
         newIndices.add(i);
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- paint 전 동기 업데이트 필요 (useLayoutEffect)
       setAnimatingIndices(newIndices);
       animatedCountRef.current = currentCount;
 
@@ -53,6 +54,7 @@ export function useSentenceAnimation(
   useEffect(() => {
     if (!streamingText) {
       animatedCountRef.current = 0;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 스트리밍 종료 시 애니메이션 리셋
       setAnimatingIndices(new Set());
     }
   }, [streamingText]);

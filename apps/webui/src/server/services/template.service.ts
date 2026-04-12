@@ -46,7 +46,7 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
       const { name, description, excludeFiles, overwrite } = opts;
       const srcDir = join(projectsDir, projectSlug);
 
-      if (!overwrite && await templateRepo.exists(name)) {
+      if (!overwrite && templateRepo.exists(name)) {
         return { saved: false, conflict: true };
       }
       if (overwrite) {
