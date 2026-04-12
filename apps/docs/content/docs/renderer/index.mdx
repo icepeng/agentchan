@@ -1,0 +1,64 @@
+---
+title: 렌더러 개요
+description: 프로젝트별 시각적 출력 시스템
+---
+
+## 렌더러란?
+
+렌더러는 각 프로젝트의 `renderer.ts` 파일입니다. TypeScript 함수가 프로젝트 파일들을 HTML로 변환하여 왼쪽 패널에 시각적으로 표시합니다. 캐릭터 채팅의 말풍선, 소설의 원고 뷰어 등 프로젝트마다 고유한 시각적 표현을 가질 수 있습니다.
+
+## 동작 방식
+
+렌더러는 두 단계로 처리됩니다.
+
+- **서버**: TypeScript를 JavaScript로 트랜스파일만 수행합니다. 서버에서 렌더러를 실행하지는 않습니다.
+- **클라이언트**: 트랜스파일된 JS를 Blob URL로 dynamic import하여 `render(ctx)` 함수를 실행합니다.
+
+## 계약
+
+렌더러가 내보내야 하는 함수는 하나입니다.
+
+```typescript
+export function render(ctx: RenderContext): string
+```
+
+`RenderContext`를 받아 HTML 문자열을 반환합니다. 이 HTML이 왼쪽 패널에 표시됩니다.
+
+## 갱신 시점
+
+에이전트 스트리밍이 완료되면 렌더러 출력이 자동으로 갱신됩니다. 에이전트가 파일을 수정할 때마다 최신 상태가 반영됩니다.
+
+## 순수 함수
+
+렌더러는 순수 함수입니다. 입력은 오직 `RenderContext`이며, `files/` 디렉토리의 파일들만 접근할 수 있습니다. conversations, skills, SYSTEM.md, 에이전트 상태 등에는 접근할 수 없습니다.
+
+`files -> HTML` 변환만 담당합니다. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 정의하고 사용합니다.
+
+## 에러 처리
+
+`renderer.ts`가 없거나 `render()` 함수가 실패하면 에러 HTML이 표시됩니다. 렌더러를 작성하거나 수정한 후에는 출력 패널에서 결과를 확인하세요.
+
+## 렌더러 액션
+
+렌더러가 출력하는 HTML에 인터랙티브 액션을 선언할 수 있습니다. HTML 요소에 `data-action`과 `data-text` 속성을 추가합니다.
+
+- **`data-action="send"`** + `data-text="..."`: 클릭 시 텍스트를 즉시 에이전트에게 전송합니다.
+- **`data-action="fill"`** + `data-text="..."`: 클릭 시 입력창에 텍스트를 채웁니다.
+- `data-text`를 생략하면 요소의 `textContent`가 사용됩니다.
+
+```html
+<button data-action="send" data-text="다음 장면을 이어서 작성해줘">
+  계속하기
+</button>
+
+<button data-action="fill" data-text="/outline">
+  아웃라인 스킬
+</button>
+```
+
+## 렌더러 작성/수정
+
+렌더러를 만들거나 수정하는 두 가지 방법이 있습니다.
+
+- **Edit Mode에서 직접 편집**: 에이전트 패널 상단의 Edit Mode 토글을 켜면 `renderer.ts`를 직접 편집할 수 있습니다.
+- **build-renderer 스킬**: 채팅에서 `/build-renderer`를 입력하면 에이전트가 프로젝트 파일 구조를 분석하여 렌더러를 자동 생성/수정합니다.

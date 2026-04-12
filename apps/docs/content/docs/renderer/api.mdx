@@ -1,0 +1,141 @@
+---
+title: RenderContext API
+description: 렌더러 API 레퍼런스
+---
+
+## RenderContext 인터페이스
+
+렌더러의 `render()` 함수가 받는 컨텍스트 객체입니다.
+
+```typescript
+interface RenderContext {
+  files: ProjectFile[];
+  baseUrl: string;
+}
+```
+
+## ProjectFile 타입
+
+프로젝트 `files/` 디렉토리의 파일을 나타냅니다. 텍스트 파일과 바이너리 파일을 구분하는 union type입니다.
+
+```typescript
+interface TextFile {
+  type: "text";
+  path: string;
+  content: string;
+  frontmatter: Record<string, unknown> | null;
+  modifiedAt: number;
+}
+
+interface BinaryFile {
+  type: "binary";
+  path: string;
+  modifiedAt: number;
+}
+
+type ProjectFile = TextFile | BinaryFile;
+```
+
+## ctx.files
+
+프로젝트 `files/` 디렉토리의 모든 파일 목록입니다.
+
+- `.md` 파일은 YAML frontmatter가 자동으로 파싱되어 `frontmatter` 필드에 담깁니다. frontmatter가 없으면 `null`입니다.
+- 바이너리 파일(이미지 등)은 `BinaryFile`로 경로만 제공됩니다. `content` 필드가 없습니다.
+- `path`는 `files/` 기준 상대 경로입니다. 예: `characters/elara/profile.md`
+
+## ctx.baseUrl
+
+에셋 URL 구성용 베이스 URL입니다. 이미지 등 에셋 경로를 생성할 때 사용합니다.
+
+```typescript
+const avatarUrl = `${ctx.baseUrl}/files/characters/elara/assets/avatar`;
+```
+
+## 이미지 URL
+
+이미지 URL은 `${ctx.baseUrl}/files/${path}` 형식으로 구성합니다. 확장자 없이도 서버가 이미지 확장자(`.png`, `.jpg`, `.webp` 등)를 자동으로 탐색합니다.
+
+```typescript
+// 확장자 명시
+const img1 = `${ctx.baseUrl}/files/characters/elara/assets/avatar.png`;
+
+// 확장자 생략 — 서버가 자동 탐색
+const img2 = `${ctx.baseUrl}/files/characters/elara/assets/avatar`;
+```
+
+## 타입 선언 규칙
+
+렌더러는 독립적으로 트랜스파일되므로 외부 모듈을 import할 수 없습니다. 필요한 모든 타입을 **파일 상단에 inline으로 선언**해야 합니다.
+
+```typescript
+// renderer.ts 상단에 타입 선언
+interface RenderContext {
+  files: ProjectFile[];
+  baseUrl: string;
+}
+
+interface TextFile {
+  type: "text";
+  path: string;
+  content: string;
+  frontmatter: Record<string, unknown> | null;
+  modifiedAt: number;
+}
+
+interface BinaryFile {
+  type: "binary";
+  path: string;
+  modifiedAt: number;
+}
+
+type ProjectFile = TextFile | BinaryFile;
+
+// 렌더러 함수
+export function render(ctx: RenderContext): string {
+  // ...
+}
+```
+
+## 스타일 규칙
+
+렌더러가 반환하는 HTML에는 자체 `<style>` 태그를 포함해야 합니다. 앱의 CSS 변수를 사용하여 테마와 일관된 스타일을 적용할 수 있습니다.
+
+사용 가능한 CSS 변수:
+
+| 변수 | 용도 |
+|------|------|
+| `--color-fg` | 기본 텍스트 색상 |
+| `--color-fg-2` | 보조 텍스트 색상 |
+| `--color-accent` | 강조 색상 |
+| `--color-edge` | 테두리 색상 |
+| `--color-elevated` | 부유 요소 배경 |
+| `--font-family-display` | 디스플레이 폰트 |
+| `--font-family-mono` | 모노스페이스 폰트 |
+
+```html
+<style>
+  .chat-bubble {
+    color: var(--color-fg);
+    border: 1px solid var(--color-edge);
+    font-family: var(--font-family-display);
+  }
+  .character-name {
+    color: var(--color-accent);
+  }
+</style>
+```
+
+## 보안
+
+HTML 출력에 사용자 입력을 포함할 때는 반드시 HTML 이스케이프 처리를 해야 합니다. 렌더러 내에 escapeHtml 유틸리티를 작성하여 사용하세요.
+
+```typescript
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+```

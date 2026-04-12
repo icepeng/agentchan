@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default defineConfig(
-  { ignores: ["**/dist/", "**/data/", "example_data/", "research/", ".claude/", ".turbo/"] },
+  { ignores: ["**/dist/", "**/data/", "example_data/", "research/", ".claude/", ".turbo/", "**/.source/", "**/.output/"] },
 
   eslint.configs.recommended,
   tseslint.configs.recommended,
@@ -35,7 +35,7 @@ export default defineConfig(
   },
 
   {
-    files: ["apps/webui/src/**/*.{ts,tsx}"],
+    files: ["apps/webui/src/**/*.{ts,tsx}", "apps/docs/src/**/*.{ts,tsx}"],
     extends: [reactHooks.configs.flat["recommended-latest"]],
   },
 
