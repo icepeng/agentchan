@@ -91,6 +91,10 @@ export function AgentPanel() {
   // Tail-key matching: the streaming wrapper div and the completed MessageBubble
   // share the same React key, so React reuses the DOM element and the entry
   // animation (on the wrapper) doesn't re-trigger when streaming ends.
+  // Refs are mutated during render (not useEffect) to avoid a one-frame key
+  // mismatch that would re-mount the wrapper and replay the animation.
+  // StrictMode double-render is safe: the edge-detection consumes the transition
+  // on the first invocation, so the second sees no change.
   const prevStreamingRef = useRef(false);
   const tailCountRef = useRef(0);
   const tailKeysRef = useRef(new Map<string, string>());

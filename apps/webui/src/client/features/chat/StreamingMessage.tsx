@@ -15,7 +15,7 @@ const Sentence = memo(function Sentence({
   animating: boolean;
 }) {
   return (
-    <span className={animating ? "animate-sentence-settle" : undefined}>
+    <span className={animating ? "animate-sentence-fade" : undefined}>
       {parseInlineMarkdown(text)}
     </span>
   );
