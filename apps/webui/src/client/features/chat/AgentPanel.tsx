@@ -88,6 +88,28 @@ export function AgentPanel() {
   const { regenerate } = useStreaming();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Refs mutated during render (not in an effect) so the animation skip is
+  // ready in the same render cycle that first mounts the new MessageBubble.
+  const prevIsStreamingRef = useRef(false);
+  const prevPathRef = useRef(new Set<string>());
+  const streamedNodesRef = useRef(new Set<string>());
+  const prevConvoRef = useRef(session.activeConversationId);
+
+  if (prevConvoRef.current !== session.activeConversationId) {
+    streamedNodesRef.current = new Set();
+    prevConvoRef.current = session.activeConversationId;
+  }
+
+  if (prevIsStreamingRef.current && !session.isStreaming) {
+    for (const id of session.activePath) {
+      if (!prevPathRef.current.has(id)) {
+        streamedNodesRef.current.add(id);
+      }
+    }
+  }
+  prevIsStreamingRef.current = session.isStreaming;
+  prevPathRef.current = new Set(session.activePath);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [session.activePath, session.streamingText, session.streamingToolCalls]);
@@ -159,6 +181,7 @@ export function AgentPanel() {
                 actions={actions}
                 isStreaming={session.isStreaming}
                 variant="compact"
+                skipEntryAnimation={streamedNodesRef.current.has(nodeId)}
                 footer={
                   node.message.role === "assistant" && node.message.model
                     ? <ModelInfoPopover node={node} />

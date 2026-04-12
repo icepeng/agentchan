@@ -1,7 +1,25 @@
+import { memo } from "react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
+import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { AgentAvatar } from "./Avatars.js";
 import { StreamingToolCall } from "./ToolCallDisplay.js";
+import { useSentenceAnimation } from "./useSentenceAnimation.js";
+
+/** Memoised so parseInlineMarkdown only runs when `text` actually changes. */
+const Sentence = memo(function Sentence({
+  text,
+  animating,
+}: {
+  text: string;
+  animating: boolean;
+}) {
+  return (
+    <span className={animating ? "animate-sentence-settle" : undefined}>
+      {parseInlineMarkdown(text)}
+    </span>
+  );
+});
 
 interface StreamingMessageProps {
   variant?: "compact" | "wide";
@@ -10,6 +28,8 @@ interface StreamingMessageProps {
 export function StreamingMessage({ variant = "compact" }: StreamingMessageProps) {
   const session = useSessionState();
   const { t } = useI18n();
+  const { confirmedSentences, animatingIndices } =
+    useSentenceAnimation(session.streamingText, session.isStreaming);
 
   const isWide = variant === "wide";
 
@@ -49,6 +69,10 @@ export function StreamingMessage({ variant = "compact" }: StreamingMessageProps)
     return null;
   }
 
+  const hasText = confirmedSentences.length > 0;
+  const showCursor =
+    session.isStreaming && session.streamingToolCalls.length === 0;
+
   return wrap("bg-surface/40",
     <div className={`flex items-start ${isWide ? "gap-3" : "gap-2.5"}`}>
       <AgentAvatar />
@@ -62,13 +86,18 @@ export function StreamingMessage({ variant = "compact" }: StreamingMessageProps)
           )}
         </div>
         <div className="text-sm text-fg">
-          {session.streamingText && (
+          {hasText && (
             <div className="whitespace-pre-wrap break-words leading-relaxed">
-              {session.streamingText}
-              {session.isStreaming &&
-                session.streamingToolCalls.length === 0 && (
-                  <span className="inline-block w-0.5 h-4 bg-accent ml-0.5 rounded-full animate-blink" />
-                )}
+              {confirmedSentences.map((sentence, i) => (
+                <Sentence
+                  key={i}
+                  text={sentence}
+                  animating={animatingIndices.has(i)}
+                />
+              ))}
+              {showCursor && (
+                <span className="inline-block w-0.5 h-4 bg-accent ml-0.5 rounded-full animate-blink" />
+              )}
             </div>
           )}
           {session.streamingToolCalls.map((tc) => (
