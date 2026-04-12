@@ -185,6 +185,9 @@ export const translations = {
   "editMode.discard": "Discard",
   "editMode.cancel": "Cancel",
   "editMode.imagePreview": "Image preview",
+  "editMode.deleteFile": "Delete",
+  "editMode.deleteConfirmTitle": "Delete File",
+  "editMode.deleteConfirmMessage": "Are you sure you want to delete \"{{name}}\"? This cannot be undone.",
 } as const satisfies Record<string, string>;
 
 export type TranslationKey = keyof typeof translations;

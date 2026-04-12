@@ -1,4 +1,4 @@
-import { readFile, mkdir, readdir, rename, rm, cp, stat } from "node:fs/promises";
+import { readFile, mkdir, readdir, rename, rm, cp, stat, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
@@ -214,6 +214,19 @@ export function createProjectRepo(projectsDir: string) {
       const resolved = this.resolveProjectFile(slug, filePath);
       if (!resolved) throw new Error(`Invalid path: ${filePath}`);
       await Bun.write(resolved.fullPath, content);
+    },
+
+    async deleteProjectFile(slug: string, filePath: string): Promise<void> {
+      const resolved = this.resolveProjectFile(slug, filePath);
+      if (!resolved) throw new Error(`Invalid path: ${filePath}`);
+      try {
+        await unlink(resolved.fullPath);
+      } catch (err: unknown) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === "EPERM" || code === "EISDIR") throw new Error("Cannot delete directories");
+        if (code === "ENOENT") throw new Error("File not found");
+        throw err;
+      }
     },
   };
 }

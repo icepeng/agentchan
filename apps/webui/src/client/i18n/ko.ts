@@ -187,4 +187,7 @@ export const translations: Record<TranslationKey, string> = {
   "editMode.discard": "버리기",
   "editMode.cancel": "취소",
   "editMode.imagePreview": "이미지 미리보기",
+  "editMode.deleteFile": "삭제",
+  "editMode.deleteConfirmTitle": "파일 삭제",
+  "editMode.deleteConfirmMessage": "\"{{name}}\" 파일을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
 };

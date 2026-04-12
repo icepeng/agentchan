@@ -8,6 +8,7 @@ import {
   fetchProjectTree,
   readProjectFile,
   writeProjectFile,
+  deleteProjectFile,
 } from "@/client/entities/editor/index.js";
 
 export function useEditMode() {
@@ -28,6 +29,9 @@ export function useEditMode() {
 
   // Pending navigation while unsaved dialog is shown
   const [pendingPath, setPendingPath] = useState<string | null>(null);
+
+  // Pending delete confirmation
+  const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null);
 
   // Fetch tree when entering edit mode or switching project
   useEffect(() => {
@@ -107,6 +111,29 @@ export function useEditMode() {
     setPendingPath(null);
   }, []);
 
+  // Delete flow
+  const requestDeleteFile = useCallback((path: string) => {
+    setDeleteConfirmPath(path);
+  }, []);
+
+  const confirmDeleteFile = useCallback(async () => {
+    if (!slug || !deleteConfirmPath) return;
+    try {
+      await deleteProjectFile(slug, deleteConfirmPath);
+      if (selectedPathRef.current === deleteConfirmPath) {
+        editorDispatch({ type: "DESELECT_FILE" });
+      }
+      const { entries } = await fetchProjectTree(slug);
+      editorDispatch({ type: "SET_TREE", entries });
+    } finally {
+      setDeleteConfirmPath(null);
+    }
+  }, [slug, deleteConfirmPath, editorDispatch]);
+
+  const cancelDeleteFile = useCallback(() => {
+    setDeleteConfirmPath(null);
+  }, []);
+
   return {
     treeEntries: editor.treeEntries,
     selectedPath: editor.selectedPath,
@@ -120,5 +147,10 @@ export function useEditMode() {
     handleUnsavedSave,
     handleUnsavedDiscard,
     handleUnsavedCancel,
+    // Delete dialog
+    deleteConfirmPath,
+    requestDeleteFile,
+    confirmDeleteFile,
+    cancelDeleteFile,
   };
 }

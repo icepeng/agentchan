@@ -39,6 +39,10 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       return projectRepo.writeProjectFile(slug, filePath, content);
     },
 
+    async deleteProjectFile(slug: string, filePath: string) {
+      return projectRepo.deleteProjectFile(slug, filePath);
+    },
+
     async ensureInitialProject(): Promise<void> {
       const projects = await projectRepo.list();
       if (projects.length > 0) return;

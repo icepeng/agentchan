@@ -25,4 +25,5 @@ export type EditorAction =
   | { type: "SYNC_EXTERNAL_CONTENT"; content: string }
   | { type: "UPDATE_LOCAL_CONTENT"; content: string }
   | { type: "MARK_CLEAN" }
+  | { type: "DESELECT_FILE" }
   | { type: "CLEAR" };

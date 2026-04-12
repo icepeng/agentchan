@@ -16,3 +16,9 @@ export function writeProjectFile(slug: string, path: string, content: string): P
     body: JSON.stringify({ content }),
   });
 }
+
+export function deleteProjectFile(slug: string, path: string): Promise<void> {
+  return json(`/projects/${encodeURIComponent(slug)}/file?path=${encodeURIComponent(path)}`, {
+    method: "DELETE",
+  });
+}

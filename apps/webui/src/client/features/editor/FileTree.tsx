@@ -8,7 +8,9 @@ import {
   FolderClosed,
   Image,
 } from "lucide-react";
+import { ContextMenu } from "@base-ui/react/context-menu";
 import { IMAGE_EXTS, type TreeEntry } from "@/client/entities/editor/index.js";
+import { useI18n } from "@/client/i18n/index.js";
 
 interface TreeNode {
   name: string;
@@ -65,14 +67,20 @@ function FileIcon({ name }: { name: string }) {
   return <FileText size={13} strokeWidth={2} className="flex-shrink-0 opacity-60" />;
 }
 
+const MENU_POPUP_CLASS =
+  "bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50";
+const MENU_ITEM_CLASS =
+  "px-4 py-1.5 text-sm text-danger cursor-pointer outline-none data-[highlighted]:bg-danger/10";
+
 interface FileTreeProps {
   entries: TreeEntry[];
   selectedPath: string | null;
   dirty: boolean;
   onSelect: (path: string) => void;
+  onDelete: (path: string) => void;
 }
 
-export function FileTree({ entries, selectedPath, dirty, onSelect }: FileTreeProps) {
+export function FileTree({ entries, selectedPath, dirty, onSelect, onDelete }: FileTreeProps) {
   const tree = useMemo(() => buildTree(entries), [entries]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -97,6 +105,7 @@ export function FileTree({ entries, selectedPath, dirty, onSelect }: FileTreePro
           collapsed={collapsed}
           onToggle={toggle}
           onSelect={onSelect}
+          onDelete={onDelete}
         />
       ))}
     </div>
@@ -111,9 +120,11 @@ interface TreeItemProps {
   collapsed: Set<string>;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
+  onDelete: (path: string) => void;
 }
 
-function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, onSelect }: TreeItemProps) {
+function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, onSelect, onDelete }: TreeItemProps) {
+  const { t } = useI18n();
   const isDir = node.type === "dir";
   const isCollapsed = collapsed.has(node.path);
   const isSelected = node.path === selectedPath;
@@ -144,6 +155,7 @@ function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, o
             collapsed={collapsed}
             onToggle={onToggle}
             onSelect={onSelect}
+            onDelete={onDelete}
           />
         ))}
       </>
@@ -151,18 +163,36 @@ function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, o
   }
 
   return (
-    <button
-      onClick={() => onSelect(node.path)}
-      className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${
-        isSelected
-          ? "bg-accent/12 text-accent"
-          : "text-fg-2 hover:bg-accent/6 hover:text-fg"
-      }`}
-      style={{ paddingLeft: `${depth * 12 + 20}px` }}
-    >
-      <FileIcon name={node.name} />
-      <span className="truncate">{node.name}</span>
-      {isDirty && <span className="text-accent ml-auto flex-shrink-0">•</span>}
-    </button>
+    <ContextMenu.Root>
+      <ContextMenu.Trigger
+        render={
+          <button
+            onClick={() => onSelect(node.path)}
+            className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${
+              isSelected
+                ? "bg-accent/12 text-accent"
+                : "text-fg-2 hover:bg-accent/6 hover:text-fg"
+            }`}
+            style={{ paddingLeft: `${depth * 12 + 20}px` }}
+          />
+        }
+      >
+        <FileIcon name={node.name} />
+        <span className="truncate">{node.name}</span>
+        {isDirty && <span className="text-accent ml-auto flex-shrink-0">•</span>}
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Positioner sideOffset={4}>
+          <ContextMenu.Popup className={MENU_POPUP_CLASS}>
+            <ContextMenu.Item
+              onClick={() => onDelete(node.path)}
+              className={MENU_ITEM_CLASS}
+            >
+              {t("editMode.deleteFile")}
+            </ContextMenu.Item>
+          </ContextMenu.Popup>
+        </ContextMenu.Positioner>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { FileTree } from "./FileTree.js";
 import { FileEditor } from "./FileEditor.js";
 import { UnsavedDialog } from "./UnsavedDialog.js";
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog.js";
 import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
 import { useEditMode } from "./useEditMode.js";
 
@@ -22,6 +23,10 @@ export function EditModePanel() {
     handleUnsavedSave,
     handleUnsavedDiscard,
     handleUnsavedCancel,
+    deleteConfirmPath,
+    requestDeleteFile,
+    confirmDeleteFile,
+    cancelDeleteFile,
   } = useEditMode();
 
   const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
@@ -43,6 +48,7 @@ export function EditModePanel() {
           selectedPath={selectedPath}
           dirty={dirty}
           onSelect={selectFile}
+          onDelete={requestDeleteFile}
         />
       </div>
 
@@ -69,6 +75,13 @@ export function EditModePanel() {
         onSave={() => void handleUnsavedSave()}
         onDiscard={handleUnsavedDiscard}
         onCancel={handleUnsavedCancel}
+      />
+
+      {/* Delete confirmation dialog */}
+      <DeleteConfirmDialog
+        path={deleteConfirmPath}
+        onConfirm={() => void confirmDeleteFile()}
+        onCancel={cancelDeleteFile}
       />
     </>
   );

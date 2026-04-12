@@ -46,6 +46,14 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         fileContent: state.localContent,
         dirty: false,
       };
+    case "DESELECT_FILE":
+      return {
+        ...state,
+        selectedPath: null,
+        fileContent: null,
+        localContent: null,
+        dirty: false,
+      };
     case "CLEAR":
       return initialState;
     default:

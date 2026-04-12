@@ -154,6 +154,23 @@ export function createProjectRoutes() {
     }
   });
 
+  app.delete("/:slug/file", async (c) => {
+    const slug = c.req.param("slug");
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    try {
+      await c.get("projectService").deleteProjectFile(slug, path);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete file";
+      return c.json({ error: message }, 400);
+    }
+  });
+
   app.route("/:slug/conversations", createConversationRoutes());
   app.route("/:slug/skills", createSkillRoutes());
 
