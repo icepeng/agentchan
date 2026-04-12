@@ -6,9 +6,9 @@
  * - Properly kills process trees on Windows (taskkill /T /F)
  *
  * Usage:
- *   bun scripts/dev.ts                  # server :3000, client :4100
- *   bun scripts/dev.ts --port 3001      # server :3001, client :4101
- *   bun scripts/dev.ts --port 3002 --client-port 4200
+ *   portless run --name agentchan bun scripts/dev.ts   # agentchan.localhost (via portless)
+ *   bun scripts/dev.ts                                 # server :3000, client :4100 (no portless)
+ *   bun scripts/dev.ts --port 3001                     # server :3001, client :4101
  */
 import { watch, type FSWatcher } from "node:fs";
 import { resolve, relative, extname } from "node:path";
@@ -22,8 +22,25 @@ function getArg(name: string): string | undefined {
   return idx !== -1 ? cliArgs[idx + 1] : undefined;
 }
 
-const serverPort = Number(getArg("port") ?? 3000);
-const clientPort = Number(getArg("client-port") ?? serverPort + 1100);
+// Port resolution:
+//   --port flag       → manual mode (server=--port, client=--port+1100)
+//   PORTLESS_URL set  → portless mode (client=PORT from portless, server=PORT+1)
+//   otherwise         → defaults (server 3000, client 4100)
+const explicitPort = getArg("port");
+
+let serverPort: number;
+let clientPort: number;
+
+if (explicitPort) {
+  serverPort = Number(explicitPort);
+  clientPort = Number(getArg("client-port") ?? serverPort + 1100);
+} else if (process.env.PORTLESS_URL) {
+  clientPort = Number(process.env.PORT);
+  serverPort = clientPort + 1;
+} else {
+  serverPort = 3000;
+  clientPort = 4100;
+}
 const webRoot = resolve(import.meta.dir, "..");
 const monorepoRoot = resolve(webRoot, "../..");
 const killPortScript = resolve(webRoot, "scripts/kill-port.ts");
@@ -153,7 +170,11 @@ process.on("SIGTERM", cleanup);
 freePort(serverPort);
 freePort(clientPort);
 
-console.log(`Starting dev server — server :${serverPort}, client :${clientPort}`);
+const portlessUrl = process.env.PORTLESS_URL;
+console.log(
+  `Starting dev server — server :${serverPort}, client :${clientPort}` +
+    (portlessUrl ? ` (${portlessUrl})` : ""),
+);
 
 spawnServer();
 

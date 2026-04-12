@@ -2,17 +2,17 @@
 
 ## Build & Dev
 - `bun install` — install dependencies (Bun workspaces)
-- `bun run dev` — start dev server (apps/webui): Hono backend :3000 + Vite client :4100
-- `bun run dev -- --port 3001` — custom port (client auto :4101). Worktree 등 병렬 작업 시 포트 충돌 방지용
+- `bun run dev` — start dev server (apps/webui) via portless: `https://agentchan.localhost` (worktree에서는 `branch.agentchan.localhost`)
+- `bun run dev -- --port 3001` — portless 없이 수동 포트 지정 (server :3001, client :4101)
 - `bun run build` — production build via Turbo
 - `bunx tsc --noEmit` — type-check (run from `apps/webui/` or `packages/creative-agent/`). Do NOT use `npx tsc`.
 - `bun run lint` — ESLint 전체 실행 (Turbo). 에러 방지 규칙만 적용 (포매팅/스타일 규칙 없음)
 
 ## Dev Server Management (for Claude Code)
-- 포트 3000은 사용자 전용. Claude Code는 3001~3099 범위에서 고유 포트 지정
-- 실행 전 `curl -s http://localhost:PORT/api/config`로 확인 → `cd apps/webui && bun scripts/dev.ts --port PORT` (반드시 `run_in_background: true`)
-- 클라이언트 포트 = 서버 포트 + 1100. 실행 실패 시 재시도 말고 원인 파악. 종료는 불필요 (`dev.ts`가 자동 정리)
-- **Worktree 자동화**: `SessionStart` hook (`scripts/setup-worktree.sh`)이 worktree 감지 시 `example_data/` → `apps/webui/data/` 복사 + 전용 포트 할당. `$DEV_PORT`/`$DEV_CLIENT_PORT` 환경변수로 포트 확인. 서버는 자동 실행되지 않으므로 필요 시 수동 기동
+- `bun run dev` → portless가 ephemeral 포트 자동 할당 + `agentchan.localhost` URL 매핑. 포트 충돌 없음
+- portless 없이 수동: `cd apps/webui && bun scripts/dev.ts --port PORT` (반드시 `run_in_background: true`)
+- 실행 실패 시 재시도 말고 원인 파악. 종료는 불필요 (`dev.ts`가 자동 정리)
+- **Worktree 자동화**: `SessionStart` hook (`scripts/setup-worktree.sh`)이 worktree 감지 시 `example_data/` → `apps/webui/data/` 복사. `bun run dev`로 서버 기동하면 portless가 branch 서브도메인 자동 할당 (e.g. `fix-ui.agentchan.localhost`)
 
 ## Monorepo Structure
 - `packages/creative-agent` — Creative agent library (@agentchan/creative-agent): tools (AgentTool), skills, session/tree, orchestration. Built on `@mariozechner/pi-ai` + `@mariozechner/pi-agent-core`
