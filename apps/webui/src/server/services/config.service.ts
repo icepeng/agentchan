@@ -2,7 +2,7 @@ import { getProviders, getModels } from "@agentchan/creative-agent";
 import type { ServerConfig, ProviderInfo, CustomProviderDef } from "../types.js";
 import type { SettingsRepo } from "../repositories/settings.repo.js";
 
-const BUILTIN_PROVIDERS = new Set(["google", "google-vertex", "openai", "anthropic"]);
+const BUILTIN_PROVIDERS = new Set(["google", "google-vertex", "openai", "anthropic", "vercel-ai-gateway"]);
 
 const ALLOWED_MODELS = new Set([
   // Anthropic
@@ -20,6 +20,19 @@ const ALLOWED_MODELS = new Set([
   "gpt-5.1",
   "o4-mini",
   "o3-mini",
+  // Vercel AI Gateway
+  "anthropic/claude-opus-4-6",
+  "anthropic/claude-sonnet-4-6",
+  "anthropic/claude-haiku-4-5",
+  "openai/gpt-5.4",
+  "openai/gpt-5.4-mini",
+  "openai/o4-mini",
+  "openai/o3-mini",
+  "google/gemini-3.1-pro-preview",
+  "google/gemini-3-flash",
+  "google/gemini-3.1-flash-lite-preview",
+  "deepseek/deepseek-v3.2",
+  "xai/grok-4.1-fast-non-reasoning",
 ]);
 
 const DEFAULT_PROVIDER = "google";
@@ -92,7 +105,7 @@ export function createConfigService(settingsRepo: SettingsRepo) {
     let model: string;
     if (providerInfo?.custom) {
       // Custom providers: accept any saved model, fallback to default
-      model = savedModel ?? (providerInfo.defaultModel ?? "");
+      model = savedModel ?? (providerInfo?.defaultModel ?? "");
     } else {
       model = savedModel && ALLOWED_MODELS.has(savedModel) ? savedModel : (providerInfo?.defaultModel ?? "");
     }
