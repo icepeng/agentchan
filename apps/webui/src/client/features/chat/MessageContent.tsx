@@ -1,4 +1,5 @@
 import type { AssistantContentBlock } from "@/client/entities/session/index.js";
+import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { ToolCallDisplay } from "./ToolCallDisplay.js";
 
 export function MessageContent({ content }: { content: AssistantContentBlock[] }) {
@@ -9,7 +10,7 @@ export function MessageContent({ content }: { content: AssistantContentBlock[] }
           case "text":
             return (
               <div key={i} className="whitespace-pre-wrap break-words leading-relaxed">
-                {block.text}
+                {parseInlineMarkdown(block.text)}
               </div>
             );
           case "toolCall":

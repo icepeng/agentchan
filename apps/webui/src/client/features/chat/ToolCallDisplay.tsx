@@ -1,5 +1,5 @@
 import type { ToolCallContent, ToolCallState } from "@/client/entities/session/index.js";
-import { Indicator } from "@/client/shared/ui/index.js";
+import { Indicator, ScrollArea } from "@/client/shared/ui/index.js";
 
 export function ToolCallDisplay({ block }: { block: ToolCallContent }) {
   return (
@@ -8,9 +8,11 @@ export function ToolCallDisplay({ block }: { block: ToolCallContent }) {
         <Indicator />
         <span className="font-mono text-xs text-accent font-medium">{block.name}</span>
       </div>
-      <pre className="px-3 py-2.5 text-xs text-fg-3 overflow-x-auto max-h-40 font-mono leading-relaxed">
-        {JSON.stringify(block.arguments, null, 2)}
-      </pre>
+      <ScrollArea orientation="horizontal" className="max-h-40">
+        <pre className="px-3 py-2.5 text-xs text-fg-3 font-mono leading-relaxed">
+          {JSON.stringify(block.arguments, null, 2)}
+        </pre>
+      </ScrollArea>
     </div>
   );
 }
@@ -26,9 +28,11 @@ export function StreamingToolCall({ tc }: { tc: ToolCallState }) {
         )}
       </div>
       {tc.inputJson && (
-        <pre className="px-3 py-2.5 text-xs text-fg-3 overflow-x-auto max-h-40 font-mono leading-relaxed">
-          {tc.inputJson}
-        </pre>
+        <ScrollArea orientation="horizontal" className="max-h-40">
+          <pre className="px-3 py-2.5 text-xs text-fg-3 font-mono leading-relaxed">
+            {tc.inputJson}
+          </pre>
+        </ScrollArea>
       )}
     </div>
   );

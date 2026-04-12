@@ -4,6 +4,7 @@ import { useOutput } from "./useOutput.js";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useRendererActionDispatch } from "@/client/entities/renderer-action/index.js";
+import { ScrollArea } from "@/client/shared/ui/index.js";
 
 export function RenderedView() {
   const project = useProjectState();
@@ -70,8 +71,8 @@ export function RenderedView() {
   }, [actionDispatch]);
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto p-6">
+    <ScrollArea ref={containerRef} className="flex-1" viewportClassName="p-6">
       <div ref={contentRef} className="min-h-full" />
-    </div>
+    </ScrollArea>
   );
 }

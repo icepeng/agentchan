@@ -4,7 +4,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "@/client/features/project/index.js";
-import { IconButton } from "@/client/shared/ui/index.js";
+import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 
 export function TemplatesPage() {
   const { t } = useI18n();
@@ -46,7 +46,7 @@ export function TemplatesPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <ScrollArea className="flex-1">
       <div className="max-w-2xl mx-auto px-8 py-12">
         <div className="mb-8">
           <p className="text-sm text-fg-3">
@@ -115,7 +115,7 @@ export function TemplatesPage() {
           </div>
         )}
       </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

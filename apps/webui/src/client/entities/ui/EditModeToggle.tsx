@@ -1,5 +1,5 @@
 import { PenLine, Eye } from "lucide-react";
-import { useUIState, useUIDispatch, type ViewMode } from "@/client/entities/ui/index.js";
+import { useUIState, useUIDispatch, type ViewMode } from "./UIContext.js";
 import { useI18n } from "@/client/i18n/index.js";
 
 export function EditModeToggle() {
@@ -15,7 +15,7 @@ export function EditModeToggle() {
   return (
     <button
       onClick={() => uiDispatch({ type: "SET_VIEW_MODE", mode: nextMode })}
-      className="p-2 rounded-lg text-fg-3 hover:text-accent hover:bg-accent/8 transition-all hidden lg:flex"
+      className="p-2 rounded-lg text-fg-3 hover:text-accent hover:bg-accent/8 transition-all"
       title={label}
     >
       <Icon size={16} strokeWidth={2} />

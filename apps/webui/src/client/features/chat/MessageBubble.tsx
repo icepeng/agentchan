@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type { TreeNode, TextContent, ImageContent, AssistantContentBlock } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
+import { ScrollArea } from "@/client/shared/ui/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
 import { MessageContent } from "./MessageContent.js";
 
@@ -31,7 +32,7 @@ function getUserContentBlocks(node: TreeNode): (TextContent | ImageContent)[] {
 // max-w-3xl content column; padding is "tight" (py-1) for chips/summaries
 // or "loose" (py-3/py-4) for full message rows.
 
-function BubbleWrap({
+export function BubbleWrap({
   variant,
   padding = "tight",
   className = "",
@@ -120,9 +121,9 @@ function CompactSummaryBubble({
       </div>
       {expanded && (
         <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
-          <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
+          <ScrollArea className="max-h-[300px]" viewportClassName="whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
             {summaryText}
-          </div>
+          </ScrollArea>
         </div>
       )}
     </BubbleWrap>
@@ -203,9 +204,9 @@ function SkillChipBubble({
       ) : chipRow}
       {expanded && (
         <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
-          <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
+          <ScrollArea className="max-h-[300px]" viewportClassName="whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
             {firstText}
-          </div>
+          </ScrollArea>
         </div>
       )}
     </BubbleWrap>
@@ -242,7 +243,6 @@ export function MessageBubble({
   const isWide = variant === "wide";
   const role = node.message.role;
 
-  // toolResult nodes are not rendered in the UI
   if (role === "toolResult") return null;
 
   if (role === "user" && node.meta === "skill-load") {
@@ -327,7 +327,7 @@ export function MessageBubble({
     <BubbleWrap
       variant={variant}
       padding="loose"
-      className={`group animate-fade-slide ${isUser ? "" : "bg-surface/40"}`}
+      className={`group ${isUser ? "animate-fade-slide" : "bg-surface/40"}`}
     >
       {content}
     </BubbleWrap>

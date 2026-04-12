@@ -9,6 +9,7 @@ import { ContextMenu } from "@base-ui/react/context-menu";
 import { buildTree, FileIcon, type TreeNode } from "@/client/entities/editor/index.js";
 import type { TreeEntry } from "@/client/entities/editor/index.js";
 import { useI18n } from "@/client/i18n/index.js";
+import { ScrollArea } from "@/client/shared/ui/index.js";
 
 const MENU_POPUP_CLASS =
   "bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50";
@@ -40,7 +41,7 @@ export function FileTree({ entries, selectedPath, dirty, onSelect, onDelete, onR
   }, []);
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden py-2 text-[12px] select-none">
+    <ScrollArea className="h-full" viewportClassName="py-2 text-[12px] select-none">
       {tree.map((node) => (
         <TreeItem
           key={node.path}
@@ -55,7 +56,7 @@ export function FileTree({ entries, selectedPath, dirty, onSelect, onDelete, onR
           onReveal={onReveal}
         />
       ))}
-    </div>
+    </ScrollArea>
   );
 }
 

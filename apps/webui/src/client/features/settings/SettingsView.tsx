@@ -4,7 +4,7 @@ import { useUIState, useUIDispatch, type PageRoute } from "@/client/entities/ui/
 import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
 import type { ApiKeyStatus, CustomApiFormat } from "@/client/entities/config/index.js";
 import { useI18n, type LanguagePreference, type TranslationKey } from "@/client/i18n/index.js";
-import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput } from "@/client/shared/ui/index.js";
+import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput, ScrollArea } from "@/client/shared/ui/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
 
 type SettingsTab = "appearance" | "api-keys";
@@ -44,10 +44,10 @@ export function SettingsView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <ScrollArea className="flex-1 min-h-0">
         {tab === "appearance" && <AppearanceTab />}
         {tab === "api-keys" && <ApiKeysTab />}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

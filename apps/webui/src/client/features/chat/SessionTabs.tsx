@@ -1,7 +1,8 @@
 import { ChevronsRight, Plus, X } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
-import { useUIDispatch } from "@/client/entities/ui/index.js";
+import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
+import { ScrollArea } from "@/client/shared/ui/index.js";
 import { useConversation } from "./useConversation.js";
 
 export function SessionTabs() {
@@ -13,9 +14,11 @@ export function SessionTabs() {
   return (
     <div className="flex items-center border-b border-edge/6">
       {/* Scrollable tab area */}
-      <div
-        className="flex-1 flex items-center gap-0.5 px-1.5 py-1.5 overflow-x-auto min-w-0"
-        style={{ scrollbarWidth: "none" }}
+      <ScrollArea
+        orientation="horizontal"
+        hideScrollbar
+        className="flex-1 min-w-0"
+        viewportClassName="flex items-center gap-0.5 px-1.5 py-1.5"
       >
         {session.conversations.map((conv) => {
           const isActive = session.activeConversationId === conv.id;
@@ -55,9 +58,9 @@ export function SessionTabs() {
         >
           <Plus size={12} strokeWidth={2.5} />
         </button>
-      </div>
+      </ScrollArea>
 
-      {/* Close panel */}
+      <EditModeToggle />
       <button
         onClick={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
         className="flex-shrink-0 px-2 py-1.5 text-fg-3 hover:text-fg-2 transition-colors"
