@@ -120,6 +120,10 @@ const STYLES = `<style>
     margin-bottom: 32px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 10%, transparent);
     padding: 0 8px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-void);
   }
   .rb-tab-label {
     padding: 12px 4px;

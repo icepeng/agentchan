@@ -71,8 +71,8 @@ export function RenderedView() {
   }, [actionDispatch]);
 
   return (
-    <ScrollArea ref={containerRef} className="flex-1" viewportClassName="p-6">
-      <div ref={contentRef} className="min-h-full" />
+    <ScrollArea ref={containerRef} className="flex-1">
+      <div ref={contentRef} className="min-h-full p-6" />
     </ScrollArea>
   );
 }
