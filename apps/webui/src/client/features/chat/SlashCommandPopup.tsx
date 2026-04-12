@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { SlashEntry } from "./commands.js";
+import { ScrollArea } from "@/client/shared/ui/index.js";
 
 interface SlashCommandPopupProps {
   commands: SlashEntry[];
@@ -22,9 +23,9 @@ export function SlashCommandPopup({ commands, selectedIndex, onSelect, onHover }
   if (commands.length === 0) return null;
 
   return (
-    <div
+    <ScrollArea
       ref={listRef}
-      className="absolute bottom-full left-0 right-0 mb-2 bg-elevated/95 backdrop-blur-md border border-edge/12 rounded-xl shadow-xl shadow-void/60 overflow-y-auto max-h-[240px] animate-fade z-50"
+      className="absolute bottom-full left-0 right-0 mb-2 bg-elevated/95 backdrop-blur-md border border-edge/12 rounded-xl shadow-xl shadow-void/60 max-h-[240px] animate-fade z-50"
     >
       {commands.map((cmd, i) => (
         <button
@@ -49,6 +50,6 @@ export function SlashCommandPopup({ commands, selectedIndex, onSelect, onHover }
           )}
         </button>
       ))}
-    </div>
+    </ScrollArea>
   );
 }
