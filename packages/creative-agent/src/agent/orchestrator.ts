@@ -183,7 +183,7 @@ export async function setupCreativeAgent(
   if (sessionMode === "meta") tools.push(createValidateRendererTool(projectDir));
 
   // Compose system prompt: DEFAULT + system file + skill catalog
-  const systemFile = sessionMode === "meta" ? "system.meta.md" : "SYSTEM.md";
+  const systemFile = sessionMode === "meta" ? "SYSTEM.meta.md" : "SYSTEM.md";
   const systemMd = await tryReadFile(join(projectDir, systemFile));
   const catalog = generateCatalog([...envSkills.values()]);
   const systemPrompt = composeSystemPrompt(DEFAULT_SYSTEM_PROMPT, systemMd, catalog);
