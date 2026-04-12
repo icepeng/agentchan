@@ -1,12 +1,29 @@
-import { mkdtemp, cp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, cp, mkdir, readdir, stat, writeFile, rm } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 
 export interface FixtureOptions {
+  /**
+   * Copy the entire template directory (SYSTEM.md + _template.json + files/ +
+   * skills/ + renderer.ts). This mirrors the production "New project from
+   * template" flow and is the preferred way to stand up a realistic fixture.
+   * Mutually complementary with `skillNames` / `systemMd` (which override
+   * after the copy).
+   */
+  template?: string;
+  /**
+   * Copy individual skills into the fixture. Resolved via:
+   *   1. example_data/library/skills/{name}         (legacy path, usually absent)
+   *   2. example_data/library/templates/*∕skills/{name}  (current home — 0a7c200)
+   */
   skillNames?: string[];
-  /** Write a SYSTEM.md at the project root. */
+  /** Write a SYSTEM.md at the project root (overrides template's). */
   systemMd?: string;
-  /** Copy files/ from an example_data project (e.g. "chat"). */
+  /**
+   * @deprecated Prefer `template`. Kept for eval tests that predate the
+   * Library→Template refactor (chat-no-duplicate, impersonate-chat-newline).
+   * Copies files/ + SYSTEM.md from example_data/projects/{name}.
+   */
   copyProjectFiles?: string;
   prePopulate?: Record<string, string>;
 }
@@ -26,17 +43,70 @@ export interface Fixture {
 
 const MONOREPO_ROOT = join(import.meta.dir, "..", "..", "..", "..");
 
+async function dirExists(path: string): Promise<boolean> {
+  try {
+    const s = await stat(path);
+    return s.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve a skill name to its source directory.
+ *
+ * Commit 0a7c200 moved skills out of `library/skills/` into template-scoped
+ * `library/templates/*∕skills/`. The legacy location is kept as a first-try
+ * so eval tests authored before the refactor keep working.
+ */
+async function resolveSkillSrc(name: string): Promise<string> {
+  const legacy = join(MONOREPO_ROOT, "example_data", "library", "skills", name);
+  if (await dirExists(legacy)) return legacy;
+
+  const templatesDir = join(MONOREPO_ROOT, "example_data", "library", "templates");
+  const entries = await readdir(templatesDir, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const candidate = join(templatesDir, entry.name, "skills", name);
+    if (await dirExists(candidate)) return candidate;
+  }
+
+  throw new Error(
+    `Skill "${name}" not found in example_data/library/skills/ or example_data/library/templates/*/skills/`,
+  );
+}
+
 export async function createFixture(options: FixtureOptions): Promise<Fixture> {
   const projectsDir = await mkdtemp(join(tmpdir(), "eval-"));
   const slug = "test";
   const projectDir = join(projectsDir, slug);
 
-  const names = options.skillNames ?? [];
-  for (const name of names) {
-    const skillSrc = join(MONOREPO_ROOT, "example_data", "library", "skills", name);
-    const skillDst = join(projectDir, "skills", name);
-    await cp(skillSrc, skillDst, { recursive: true });
+  if (options.template) {
+    const templateSrc = join(
+      MONOREPO_ROOT,
+      "example_data",
+      "library",
+      "templates",
+      options.template,
+    );
+    // cp recursively copies the entire template — SYSTEM.md, _template.json,
+    // renderer.ts, files/, skills/ — all in one shot. This mirrors the
+    // production "New project from template" flow.
+    await cp(templateSrc, projectDir, { recursive: true });
+  } else {
+    // Ensure the target dir exists for non-template fixtures (the project dir
+    // is normally created by the cp above).
+    await mkdir(projectDir, { recursive: true });
   }
+
+  const names = options.skillNames ?? [];
+  await Promise.all(
+    names.map(async (name) => {
+      const skillSrc = await resolveSkillSrc(name);
+      const skillDst = join(projectDir, "skills", name);
+      await cp(skillSrc, skillDst, { recursive: true });
+    }),
+  );
 
   if (options.copyProjectFiles) {
     const projSrc = join(MONOREPO_ROOT, "example_data", "projects", options.copyProjectFiles);
@@ -52,6 +122,8 @@ export async function createFixture(options: FixtureOptions): Promise<Fixture> {
     await writeFile(join(projectDir, "SYSTEM.md"), options.systemMd, "utf-8");
   }
 
+  // Ensure files/scenes/ exists for chat/impersonate-chat scenarios that
+  // expect to write into it. Templates ship without a scenes/ seed.
   await mkdir(join(projectDir, "files", "scenes"), { recursive: true });
 
   if (options.prePopulate) {
