@@ -25,7 +25,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
-  const { send, sendFirst, isStreaming } = useStreaming();
+  const { send, isStreaming } = useStreaming();
   const { create } = useConversation();
   const rendererAction = useRendererActionState();
   const rendererActionDispatch = useRendererActionDispatch();
@@ -64,14 +64,14 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
       textareaRef.current?.focus();
     } else if (action.type === "send") {
       if (!session.activeConversationId) {
-        void create(action.text).then((conv) => {
-          if (conv) void sendFirst(action.text, conv.id);
+        void create().then((conv) => {
+          if (conv) void send(action.text, conv.id);
         });
       } else {
         void send(action.text);
       }
     }
-  }, [rendererAction.pending, rendererActionDispatch, session.activeConversationId, create, send, sendFirst]);
+  }, [rendererAction.pending, rendererActionDispatch, session.activeConversationId, create, send]);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();
@@ -83,8 +83,8 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     setText("");
 
     if (!session.activeConversationId) {
-      const conv = await create(trimmed);
-      if (conv) await sendFirst(trimmed, conv.id);
+      const conv = await create();
+      if (conv) await send(trimmed, conv.id);
       return;
     }
 

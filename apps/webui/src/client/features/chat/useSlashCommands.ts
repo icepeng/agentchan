@@ -1,16 +1,20 @@
 import { useState, useMemo, useCallback } from "react";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
 import { useSkillState } from "@/client/entities/skill/index.js";
+import { useSessionState } from "@/client/entities/session/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useConversation } from "./useConversation.js";
-import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry } from "./commands.js";
+import { useStreaming } from "./useStreaming.js";
+import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry, type SkillSlashCommand } from "./commands.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const configDispatch = useConfigDispatch();
   const skillState = useSkillState();
+  const session = useSessionState();
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { create, compact } = useConversation();
+  const { send } = useStreaming();
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const query = text.startsWith("/") ? text.slice(1) : "";
@@ -80,13 +84,33 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
       const arg = spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
 
       const local = LOCAL_COMMANDS.find((c) => c.name === cmdName);
-      if (!local) return false; // skill commands fall through to send()
-      if (local.needsArg && !arg) return false;
+      if (local) {
+        if (local.needsArg && !arg) return false;
+        void executeLocalCommand(cmdName, arg);
+        return true;
+      }
 
-      void executeLocalCommand(cmdName, arg);
-      return true;
+      // Meta skill: auto-create meta session and send the command there.
+      // If already in a meta session, fall through to normal send.
+      const entry = entries.find(
+        (e): e is SkillSlashCommand => e.kind === "skill" && e.name === cmdName,
+      );
+      if (entry?.environment === "meta") {
+        const activeConv = session.conversations.find(
+          (c) => c.id === session.activeConversationId,
+        );
+        if (activeConv?.mode === "meta") return false;
+
+        setText("");
+        void create("meta").then((conv) => {
+          if (conv) void send(input, conv.id);
+        });
+        return true;
+      }
+
+      return false; // skill commands fall through to send()
     },
-    [executeLocalCommand],
+    [executeLocalCommand, entries, session.conversations, session.activeConversationId, create, send, setText],
   );
 
   const handleKeyDown = useCallback(

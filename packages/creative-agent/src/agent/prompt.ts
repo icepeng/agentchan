@@ -42,14 +42,12 @@ export interface PromptInput {
   conversationId: string;
   parentNodeId: string | null;
   text: string;
-  sessionMode?: SessionMode;
 }
 
 export interface RegenerateInput {
   slug: string;
   conversationId: string;
   userNodeId: string;
-  sessionMode?: SessionMode;
 }
 
 // --- Helpers ---
@@ -75,7 +73,7 @@ export function runPrompt(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const tree = await loadFreshTree(ctx, input.slug, input.conversationId);
+    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.conversationId);
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
 
     const { nodes: userNodes, llmText } = buildUserNodeForPrompt(
@@ -102,7 +100,7 @@ export function runPrompt(
       historyAnchorId: last.parentId,
       llmText,
       emit,
-      sessionMode: input.sessionMode,
+      sessionMode: mode,
     });
   });
 }
@@ -114,7 +112,7 @@ export function runRegenerate(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const tree = await loadFreshTree(ctx, input.slug, input.conversationId);
+    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.conversationId);
 
     const userNode = tree.get(input.userNodeId);
     if (!userNode) {
@@ -137,7 +135,7 @@ export function runRegenerate(
       historyAnchorId: userNode.parentId,
       llmText: userText,
       emit,
-      sessionMode: input.sessionMode,
+      sessionMode: mode,
     });
   });
 }
@@ -165,12 +163,12 @@ async function loadFreshTree(
   ctx: AgentContext,
   slug: string,
   conversationId: string,
-): Promise<Map<string, TreeNodeWithChildren>> {
+): Promise<{ tree: Map<string, TreeNodeWithChildren>; mode: SessionMode | undefined }> {
   const loaded = await ctx.storage.loadConversationWithTree(slug, conversationId);
   if (!loaded) {
     throw new Error(`Conversation not found: ${slug}/${conversationId}`);
   }
-  return loaded.tree;
+  return { tree: loaded.tree, mode: loaded.conversation.mode };
 }
 
 /**

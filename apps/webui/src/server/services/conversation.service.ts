@@ -1,15 +1,12 @@
-import { join } from "node:path";
 import {
   type AgentContext,
   type SessionMode,
   createConversation,
   deleteConversation,
   compactConversation,
-  discoverProjectSkills,
-  parseSlashInput,
 } from "@agentchan/creative-agent";
 
-export function createConversationService(ctx: AgentContext, projectsDir: string) {
+export function createConversationService(ctx: AgentContext) {
   return {
     list: (slug: string) => ctx.storage.listConversations(slug),
 
@@ -29,18 +26,6 @@ export function createConversationService(ctx: AgentContext, projectsDir: string
 
     switchBranch: (slug: string, conversationId: string, nodeId: string) =>
       ctx.storage.switchBranch(slug, conversationId, nodeId),
-
-    /**
-     * Check if a slash command targets a meta-environment skill.
-     * Returns true when the message should be redirected to a new meta session.
-     */
-    async checkMetaRedirect(slug: string, text: string): Promise<boolean> {
-      const parsed = parseSlashInput(text);
-      if (!parsed) return false;
-      const skills = await discoverProjectSkills(join(projectsDir, slug, "skills"));
-      const skill = skills.get(parsed.name);
-      return skill?.meta.environment === "meta";
-    },
   };
 }
 

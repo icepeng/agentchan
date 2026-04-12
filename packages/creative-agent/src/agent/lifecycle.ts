@@ -88,6 +88,7 @@ export async function compactConversation(
     cfg.provider,
     cfg.model,
     sourceId,
+    loaded.conversation.mode,
   );
 
   const userNode: TreeNode = {

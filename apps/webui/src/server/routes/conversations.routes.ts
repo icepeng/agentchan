@@ -12,20 +12,11 @@ export function createConversationRoutes() {
   });
 
   // Create conversation
-  // Optional body { text } — when provided, the server checks whether the
-  // text is a meta-environment slash command and picks the correct mode
-  // up front, preventing a duplicate session on the subsequent send.
+  // Optional body { mode } — client specifies session mode directly.
   app.post("/", async (c) => {
     const slug = c.req.param("slug")!;
-    const body = await c.req.json<{ text?: string }>().catch(() => ({} as { text?: string }));
-
-    let mode: "meta" | undefined;
-    if (body.text) {
-      const isMeta = await c.get("conversationService").checkMetaRedirect(slug, body.text);
-      if (isMeta) mode = "meta";
-    }
-
-    return c.json(await c.get("conversationService").create(slug, mode), 201);
+    const body = await c.req.json<{ mode?: "meta" }>().catch(() => ({} as { mode?: "meta" }));
+    return c.json(await c.get("conversationService").create(slug, body.mode), 201);
   });
 
   // Load conversation tree
@@ -66,32 +57,9 @@ export function createConversationRoutes() {
     const { parentNodeId, text } =
       await c.req.json<{ parentNodeId: string | null; text: string }>();
 
-    const conv = await c.get("conversationService").getConversation(slug, conversationId);
-    if (!conv) return c.json({ error: "Conversation not found" }, 404);
-
-    // Meta redirect: if a meta skill slash command is sent in a creative session,
-    // auto-create a meta session and redirect the message there.
-    const needsRedirect = conv.mode !== "meta"
-      && await c.get("conversationService").checkMetaRedirect(slug, text);
-
     return streamSSE(c, async (stream) => {
-      let targetConvId = conversationId;
-      let targetParentNodeId = parentNodeId;
-      let sessionMode = conv.mode;
-
-      if (needsRedirect) {
-        const metaConv = await c.get("conversationService").create(slug, "meta");
-        targetConvId = metaConv.conversation.id;
-        targetParentNodeId = null;
-        sessionMode = "meta";
-        await stream.writeSSE({
-          event: "session_redirect",
-          data: JSON.stringify({ conversation: metaConv.conversation }),
-        });
-      }
-
       await c.get("agentService").sendMessage(
-        stream, slug, targetConvId, targetParentNodeId, text, sessionMode,
+        stream, slug, conversationId, parentNodeId, text,
       );
     });
   });
@@ -102,10 +70,8 @@ export function createConversationRoutes() {
     const conversationId = c.req.param("id");
     const { userNodeId } = await c.req.json<{ userNodeId: string }>();
 
-    const conv = await c.get("conversationService").getConversation(slug, conversationId);
-
     return streamSSE(c, async (stream) => {
-      await c.get("agentService").regenerate(stream, slug, conversationId, userNodeId, conv?.mode);
+      await c.get("agentService").regenerate(stream, slug, conversationId, userNodeId);
     });
   });
 

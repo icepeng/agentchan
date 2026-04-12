@@ -1,4 +1,4 @@
-import type { SkillMetadata } from "@/client/entities/skill/index.js";
+import type { SkillMetadata, SkillEnvironment } from "@/client/entities/skill/index.js";
 
 export interface LocalSlashCommand {
   kind: "local";
@@ -12,6 +12,7 @@ export interface SkillSlashCommand {
   kind: "skill";
   name: string;
   description: string;
+  environment?: SkillEnvironment;
 }
 
 export type SlashEntry = LocalSlashCommand | SkillSlashCommand;
@@ -28,7 +29,7 @@ export const LOCAL_COMMANDS: LocalSlashCommand[] = [
 // are only reachable through the slash path.
 export function buildSlashEntries(skills: SkillMetadata[]): SlashEntry[] {
   const skillEntries: SkillSlashCommand[] = skills
-    .map((s) => ({ kind: "skill" as const, name: s.name, description: s.description }))
+    .map((s) => ({ kind: "skill" as const, name: s.name, description: s.description, environment: s.environment }))
     .sort((a, b) => a.name.localeCompare(b.name));
   return [...LOCAL_COMMANDS, ...skillEntries];
 }
