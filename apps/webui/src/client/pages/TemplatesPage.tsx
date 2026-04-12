@@ -17,11 +17,11 @@ export function TemplatesPage() {
     void fetchTemplates().then(setTemplates);
   }, []);
 
-  const handleCreate = useCallback(async (templateName: string) => {
+  const handleCreate = useCallback(async (templateSlug: string) => {
     if (!nameInput.trim()) return;
-    setCreating(templateName);
+    setCreating(templateSlug);
     try {
-      await createProject(nameInput.trim(), templateName);
+      await createProject(nameInput.trim(), templateSlug);
       uiDispatch({ type: "NAVIGATE", route: { page: "main" } });
     } finally {
       setCreating(null);
@@ -50,7 +50,7 @@ export function TemplatesPage() {
           <div className="grid gap-3">
             {templates.map((tpl) => (
               <div
-                key={tpl.name}
+                key={tpl.slug}
                 className="group border border-edge/8 rounded-xl bg-elevated/50 hover:bg-elevated hover:border-edge/16 transition-all duration-150"
               >
                 <div className="px-5 py-4 flex items-start justify-between gap-4">
@@ -65,14 +65,14 @@ export function TemplatesPage() {
                     )}
                   </div>
 
-                  {creating === tpl.name ? (
+                  {creating === tpl.slug ? (
                     <div className="flex items-center gap-2 shrink-0">
                       <input
                         type="text"
                         value={nameInput}
                         onChange={(e) => setNameInput(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") void handleCreate(tpl.name);
+                          if (e.key === "Enter") void handleCreate(tpl.slug);
                           if (e.key === "Escape") { setCreating(null); setNameInput(""); }
                         }}
                         placeholder={t("project.namePlaceholder")}
@@ -80,7 +80,7 @@ export function TemplatesPage() {
                         autoFocus
                       />
                       <button
-                        onClick={() => void handleCreate(tpl.name)}
+                        onClick={() => void handleCreate(tpl.slug)}
                         disabled={!nameInput.trim()}
                         className="px-3 py-1.5 text-xs font-medium bg-accent text-void rounded-lg hover:bg-accent/90 disabled:opacity-40 transition-all duration-150"
                       >
@@ -89,7 +89,7 @@ export function TemplatesPage() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setCreating(tpl.name); setNameInput(""); }}
+                      onClick={() => { setCreating(tpl.slug); setNameInput(""); }}
                       className="shrink-0 p-1.5 rounded-lg text-fg-3 opacity-0 group-hover:opacity-100 hover:text-accent hover:bg-accent/8 transition-all duration-150"
                       title={t("templates.createProject")}
                     >

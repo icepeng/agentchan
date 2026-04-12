@@ -72,6 +72,38 @@ export function createProjectRoutes() {
     }
   });
 
+  app.post("/:slug/save-as-template", async (c) => {
+    const slug = c.req.param("slug");
+    const { name, description, excludeFiles = [], overwrite = false } =
+      await c.req.json<{
+        name: string;
+        description?: string;
+        excludeFiles?: string[];
+        overwrite?: boolean;
+      }>();
+
+    if (!name?.trim()) return c.json({ error: "Name is required" }, 400);
+
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    try {
+      const result = await c.get("templateService").saveProjectAsTemplate(slug, {
+        name: name.trim(),
+        description: description?.trim(),
+        excludeFiles,
+        overwrite,
+      });
+      if (result.conflict) {
+        return c.json({ error: "exists" }, 409);
+      }
+      return c.json({ ok: true }, 201);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to save as template";
+      return c.json({ error: message }, 400);
+    }
+  });
+
   app.get("/:slug/workspace/files", async (c) => {
     const slug = c.req.param("slug");
     const existing = await c.get("projectService").get(slug);
