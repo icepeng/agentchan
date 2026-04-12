@@ -154,6 +154,23 @@ export function createProjectRoutes() {
     }
   });
 
+  app.post("/:slug/file/reveal", async (c) => {
+    const slug = c.req.param("slug");
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    try {
+      c.get("projectService").revealFileInExplorer(slug, path);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to reveal file";
+      return c.json({ error: message }, 400);
+    }
+  });
+
   app.delete("/:slug/file", async (c) => {
     const slug = c.req.param("slug");
     const path = c.req.query("path");

@@ -22,3 +22,9 @@ export function deleteProjectFile(slug: string, path: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export function revealProjectFile(slug: string, path: string): Promise<void> {
+  return json(`/projects/${encodeURIComponent(slug)}/file/reveal?path=${encodeURIComponent(path)}`, {
+    method: "POST",
+  });
+}

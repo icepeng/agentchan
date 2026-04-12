@@ -27,6 +27,7 @@ export function EditModePanel() {
     requestDeleteFile,
     confirmDeleteFile,
     cancelDeleteFile,
+    revealFile,
   } = useEditMode();
 
   const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
@@ -49,6 +50,7 @@ export function EditModePanel() {
           dirty={dirty}
           onSelect={selectFile}
           onDelete={requestDeleteFile}
+          onReveal={revealFile}
         />
       </div>
 

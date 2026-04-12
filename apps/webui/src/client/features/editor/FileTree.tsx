@@ -70,6 +70,8 @@ function FileIcon({ name }: { name: string }) {
 const MENU_POPUP_CLASS =
   "bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50";
 const MENU_ITEM_CLASS =
+  "px-4 py-1.5 text-sm text-fg-2 cursor-pointer outline-none data-[highlighted]:bg-accent/10";
+const MENU_ITEM_DANGER_CLASS =
   "px-4 py-1.5 text-sm text-danger cursor-pointer outline-none data-[highlighted]:bg-danger/10";
 
 interface FileTreeProps {
@@ -78,9 +80,10 @@ interface FileTreeProps {
   dirty: boolean;
   onSelect: (path: string) => void;
   onDelete: (path: string) => void;
+  onReveal: (path: string) => void;
 }
 
-export function FileTree({ entries, selectedPath, dirty, onSelect, onDelete }: FileTreeProps) {
+export function FileTree({ entries, selectedPath, dirty, onSelect, onDelete, onReveal }: FileTreeProps) {
   const tree = useMemo(() => buildTree(entries), [entries]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -106,6 +109,7 @@ export function FileTree({ entries, selectedPath, dirty, onSelect, onDelete }: F
           onToggle={toggle}
           onSelect={onSelect}
           onDelete={onDelete}
+          onReveal={onReveal}
         />
       ))}
     </div>
@@ -121,9 +125,10 @@ interface TreeItemProps {
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
   onDelete: (path: string) => void;
+  onReveal: (path: string) => void;
 }
 
-function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, onSelect, onDelete }: TreeItemProps) {
+function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, onSelect, onDelete, onReveal }: TreeItemProps) {
   const { t } = useI18n();
   const isDir = node.type === "dir";
   const isCollapsed = collapsed.has(node.path);
@@ -156,6 +161,7 @@ function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, o
             onToggle={onToggle}
             onSelect={onSelect}
             onDelete={onDelete}
+            onReveal={onReveal}
           />
         ))}
       </>
@@ -185,8 +191,14 @@ function TreeItem({ node, depth, selectedPath, dirtyPath, collapsed, onToggle, o
         <ContextMenu.Positioner sideOffset={4}>
           <ContextMenu.Popup className={MENU_POPUP_CLASS}>
             <ContextMenu.Item
-              onClick={() => onDelete(node.path)}
+              onClick={() => onReveal(node.path)}
               className={MENU_ITEM_CLASS}
+            >
+              {t("editMode.revealInExplorer")}
+            </ContextMenu.Item>
+            <ContextMenu.Item
+              onClick={() => onDelete(node.path)}
+              className={MENU_ITEM_DANGER_CLASS}
             >
               {t("editMode.deleteFile")}
             </ContextMenu.Item>

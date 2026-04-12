@@ -9,6 +9,7 @@ import {
   readProjectFile,
   writeProjectFile,
   deleteProjectFile,
+  revealProjectFile,
 } from "@/client/entities/editor/index.js";
 
 export function useEditMode() {
@@ -134,6 +135,11 @@ export function useEditMode() {
     setDeleteConfirmPath(null);
   }, []);
 
+  const revealFile = useCallback((path: string) => {
+    if (!slug) return;
+    void revealProjectFile(slug, path);
+  }, [slug]);
+
   return {
     treeEntries: editor.treeEntries,
     selectedPath: editor.selectedPath,
@@ -152,5 +158,7 @@ export function useEditMode() {
     requestDeleteFile,
     confirmDeleteFile,
     cancelDeleteFile,
+    // Reveal in explorer
+    revealFile,
   };
 }

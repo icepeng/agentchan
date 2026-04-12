@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 
@@ -58,6 +58,20 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
 
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {
       return projectRepo.resolveProjectFile(slug, `files/${filePath}`);
+    },
+
+    revealFileInExplorer(slug: string, filePath: string): void {
+      const resolved = projectRepo.resolveProjectFile(slug, filePath);
+      if (!resolved) throw new Error(`Invalid path: ${filePath}`);
+
+      const { fullPath } = resolved;
+      const cmd =
+        process.platform === "win32"
+          ? ["explorer", "/select,", fullPath]
+          : process.platform === "darwin"
+            ? ["open", "-R", fullPath]
+            : ["xdg-open", dirname(fullPath)];
+      Bun.spawn(cmd, { stdio: ["ignore", "ignore", "ignore"] });
     },
   };
 }
