@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useLayoutEffect } from "react";
 
 interface ResizeHandleProps {
   onResizeStart?: () => void;
@@ -9,8 +9,10 @@ interface ResizeHandleProps {
 export function ResizeHandle({ onResizeStart, onResize, onResizeEnd }: ResizeHandleProps) {
   const cleanupRef = useRef<(() => void) | null>(null);
   const callbacksRef = useRef({ onResizeStart, onResize, onResizeEnd });
-  // eslint-disable-next-line react-hooks/refs -- 드래그 이벤트 핸들러에 최신 콜백을 동기적으로 반영해야 함
-  callbacksRef.current = { onResizeStart, onResize, onResizeEnd };
+
+  useLayoutEffect(() => {
+    callbacksRef.current = { onResizeStart, onResize, onResizeEnd };
+  });
 
   useEffect(() => () => cleanupRef.current?.(), []);
 
