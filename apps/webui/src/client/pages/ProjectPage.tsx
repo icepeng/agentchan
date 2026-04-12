@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, Suspense, lazy } from "react";
+import { useState, useRef, useCallback, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { useUIState } from "@/client/entities/ui/index.js";
@@ -29,19 +29,15 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   const { create } = useConversation();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
-  const panelWidthRef = useRef(DEFAULT_PANEL_WIDTH);
+  const dragStartRef = useRef(0);
 
   const isEdit = ui.viewMode === "edit";
-
-  useEffect(() => {
-    panelWidthRef.current = panelWidth;
-  }, [panelWidth]);
 
   const handlePanelResize = useCallback((delta: number) => {
     const container = containerRef.current;
     if (!container) return;
     const maxWidth = container.getBoundingClientRect().width * MAX_PANEL_RATIO;
-    setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, panelWidthRef.current - delta)));
+    setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, dragStartRef.current - delta)));
   }, []);
 
   return (
@@ -78,7 +74,10 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
 
         {/* Resize handle */}
         {agentPanelOpen && (
-          <ResizeHandle onResize={handlePanelResize} />
+          <ResizeHandle
+            onResizeStart={() => { dragStartRef.current = panelWidth; }}
+            onResize={handlePanelResize}
+          />
         )}
 
         {/* Right: Agent Panel (collapsible) */}

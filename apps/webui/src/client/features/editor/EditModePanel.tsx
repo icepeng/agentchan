@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { FileTree } from "./FileTree.js";
 import { FileEditor } from "./FileEditor.js";
 import { UnsavedDialog } from "./UnsavedDialog.js";
@@ -25,11 +25,10 @@ export function EditModePanel() {
   } = useEditMode();
 
   const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
-  const treeWidthRef = useRef(DEFAULT_TREE_WIDTH);
-  useEffect(() => { treeWidthRef.current = treeWidth; }, [treeWidth]);
+  const dragStartRef = useRef(0);
 
   const handleTreeResize = useCallback((delta: number) => {
-    setTreeWidth(Math.max(MIN_TREE_WIDTH, Math.min(MAX_TREE_WIDTH, treeWidthRef.current + delta)));
+    setTreeWidth(Math.max(MIN_TREE_WIDTH, Math.min(MAX_TREE_WIDTH, dragStartRef.current + delta)));
   }, []);
 
   return (
@@ -48,7 +47,10 @@ export function EditModePanel() {
       </div>
 
       {/* Tree resize handle */}
-      <ResizeHandle onResize={handleTreeResize} />
+      <ResizeHandle
+        onResizeStart={() => { dragStartRef.current = treeWidth; }}
+        onResize={handleTreeResize}
+      />
 
       {/* Editor panel */}
       <div className="flex-1 flex flex-col min-w-0 bg-surface/30">

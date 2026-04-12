@@ -1,39 +1,43 @@
 import { useCallback, useRef, useEffect } from "react";
 
 interface ResizeHandleProps {
+  onResizeStart?: () => void;
   onResize: (delta: number) => void;
+  onResizeEnd?: () => void;
 }
 
-export function ResizeHandle({ onResize }: ResizeHandleProps) {
+export function ResizeHandle({ onResizeStart, onResize, onResizeEnd }: ResizeHandleProps) {
   const cleanupRef = useRef<(() => void) | null>(null);
+  const callbacksRef = useRef({ onResizeStart, onResize, onResizeEnd });
+  callbacksRef.current = { onResizeStart, onResize, onResizeEnd };
 
   useEffect(() => () => cleanupRef.current?.(), []);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      const startX = e.clientX;
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
 
-      const onMouseMove = (ev: MouseEvent) => {
-        onResize(ev.clientX - startX);
-      };
+    callbacksRef.current.onResizeStart?.();
 
-      const cleanup = () => {
-        document.removeEventListener("mousemove", onMouseMove);
-        document.removeEventListener("mouseup", cleanup);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-        cleanupRef.current = null;
-      };
+    const onMouseMove = (ev: MouseEvent) => {
+      callbacksRef.current.onResize(ev.clientX - startX);
+    };
 
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", cleanup);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-      cleanupRef.current = cleanup;
-    },
-    [onResize],
-  );
+    const cleanup = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", cleanup);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      cleanupRef.current = null;
+      callbacksRef.current.onResizeEnd?.();
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", cleanup);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    cleanupRef.current = cleanup;
+  }, []);
 
   return (
     <div
