@@ -87,7 +87,7 @@ export function AgentPanel() {
   const { regenerate } = useStreaming();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-useEffect(() => {
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [session.activePath, session.streamingText, session.streamingToolCalls]);
 
