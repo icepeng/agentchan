@@ -59,6 +59,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     rendererActionDispatch({ type: "CLEAR" });
 
     if (action.type === "fill") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- renderer action은 외부 시스템 이벤트 처리
       setText(action.text);
       textareaRef.current?.focus();
     } else if (action.type === "send") {

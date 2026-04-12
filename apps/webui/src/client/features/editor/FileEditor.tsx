@@ -273,6 +273,7 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
       }
     });
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 에디터 생성 시 초기 토큰 수 설정
     setTokenCount(estimateTokens(content));
 
     const state = EditorState.create({

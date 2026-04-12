@@ -20,7 +20,7 @@ export function parseInlineMarkdown(text: string): ReactNode {
   let key = 0;
 
   for (const match of text.matchAll(INLINE_RE)) {
-    const idx = match.index!;
+    const idx = match.index;
 
     // Push plain text before this match
     if (idx > lastIndex) {

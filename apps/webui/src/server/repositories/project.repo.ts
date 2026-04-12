@@ -223,8 +223,8 @@ export function createProjectRepo(projectsDir: string) {
         await unlink(resolved.fullPath);
       } catch (err: unknown) {
         const code = (err as NodeJS.ErrnoException).code;
-        if (code === "EPERM" || code === "EISDIR") throw new Error("Cannot delete directories");
-        if (code === "ENOENT") throw new Error("File not found");
+        if (code === "EPERM" || code === "EISDIR") throw new Error("Cannot delete directories", { cause: err });
+        if (code === "ENOENT") throw new Error("File not found", { cause: err });
         throw err;
       }
     },

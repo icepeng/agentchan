@@ -38,7 +38,7 @@ export function createTemplateRepo(templatesDir: string) {
       return dir;
     },
 
-    async exists(name: string): Promise<boolean> {
+    exists(name: string): boolean {
       assertSafePathSegment(name);
       return existsSync(join(templatesDir, name, "_template.json"));
     },

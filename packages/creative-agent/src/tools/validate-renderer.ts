@@ -25,9 +25,7 @@ export function createValidateRendererTool(
     parameters: ValidateRendererParams,
     label: "Validate renderer",
 
-    async execute(
-      _toolCallId: string,
-    ): Promise<AgentToolResult<void>> {
+    async execute(): Promise<AgentToolResult<void>> {
       // 1. Read renderer.ts
       const rendererPath = join(projectDir, "renderer.ts");
       let source: string;
