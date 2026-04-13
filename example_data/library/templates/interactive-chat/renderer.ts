@@ -224,6 +224,12 @@ interface CharacterInfo {
   avatarHtml: string;
 }
 
+interface PersonaInfo {
+  displayName: string;
+  color: string;
+  avatarHtml: string;
+}
+
 function resolveCharacterInfo(
   charDir: string | undefined,
   imageKey: string | undefined,
@@ -256,6 +262,29 @@ function fallbackColor(name: string, map: Map<string, string>): string {
   return c;
 }
 
+function resolvePersona(
+  ctx: RenderContext,
+  nameMap: Map<string, NameMapEntry>,
+): PersonaInfo | null {
+  const personaFile = ctx.files.find(
+    (f): f is TextFile =>
+      f.type === "text" &&
+      f.frontmatter?.role === "persona" &&
+      !!f.frontmatter?.["display-name"],
+  );
+  if (!personaFile) return null;
+
+  const fm = personaFile.frontmatter!;
+  const displayName = String(fm["display-name"]);
+  const dir = personaFile.path.substring(0, personaFile.path.lastIndexOf("/"));
+  const imageKey = fm["avatar-image"] ? String(fm["avatar-image"]) : undefined;
+  const isolatedColorMap = new Map<string, string>();
+  const info = resolveCharacterInfo(dir, imageKey, displayName, ctx, nameMap, isolatedColorMap);
+  const color = fm.color ? String(fm.color) : info.color;
+
+  return { displayName, color, avatarHtml: info.avatarHtml };
+}
+
 // ── Render blocks ────────────────────────────
 
 function renderCharacter(
@@ -281,8 +310,28 @@ function renderCharacter(
     </div>`;
 }
 
-function renderUser(lines: string[], ctx: RenderContext, nameMap: Map<string, NameMapEntry>): string {
+function renderUser(
+  lines: string[],
+  ctx: RenderContext,
+  nameMap: Map<string, NameMapEntry>,
+  persona: PersonaInfo | null,
+): string {
   const content = lines.map((l) => formatInline(l, ctx, nameMap)).join("<br/>");
+
+  if (persona) {
+    return `
+    <div class="cr-user" style="--c: ${persona.color}">
+      <div class="cr-user-halo"></div>
+      <div class="cr-user-body">
+        <div class="cr-user-content">
+          <div class="cr-user-name">${escapeHtml(persona.displayName)}</div>
+          <div class="cr-user-bubble cr-user-bubble--persona">${content}</div>
+        </div>
+        ${persona.avatarHtml}
+      </div>
+    </div>`;
+  }
+
   return `
     <div class="cr-user">
       <div class="cr-user-bubble">${content}</div>
@@ -343,9 +392,19 @@ const STYLES = `<style>
   .cr-char:hover .cr-name { opacity: 0.8; }
   .cr-bubble { padding: 12px 16px; border-radius: 2px 16px 16px 16px; background: color-mix(in srgb, var(--c) 3%, transparent); border-left: 2px solid color-mix(in srgb, var(--c) 12%, transparent); font-size: 14px; line-height: 1.75; color: var(--color-fg); transition: background 0.3s ease, border-left-color 0.3s ease; }
   .cr-char:hover .cr-bubble { background: color-mix(in srgb, var(--c) 5%, transparent); border-left-color: color-mix(in srgb, var(--c) 22%, transparent); }
-  .cr-user { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+  .cr-user { position: relative; display: flex; justify-content: flex-end; margin-bottom: 24px; }
   .cr-user-bubble { max-width: 72%; padding: 10px 16px; border-radius: 16px 16px 4px 16px; border: 1px solid color-mix(in srgb, var(--color-accent) 10%, transparent); background: color-mix(in srgb, var(--color-accent) 3%, transparent); font-size: 14px; line-height: 1.65; color: color-mix(in srgb, var(--color-accent) 80%, transparent); transition: border-color 0.2s ease, background 0.2s ease; }
   .cr-user:hover .cr-user-bubble { border-color: color-mix(in srgb, var(--color-accent) 22%, transparent); background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+  .cr-user-halo { position: absolute; right: -40px; top: 50%; transform: translateY(-50%); width: 220px; height: 120px; border-radius: 50%; background: radial-gradient(ellipse, var(--c) 0%, transparent 70%); opacity: 0.025; pointer-events: none; transition: opacity 0.5s ease; z-index: 0; }
+  .cr-user:hover .cr-user-halo { opacity: 0.06; }
+  .cr-user-body { display: flex; align-items: flex-start; gap: 14px; position: relative; z-index: 1; justify-content: flex-end; }
+  .cr-user-content { max-width: 78%; min-width: 0; text-align: right; }
+  .cr-user-name { font-family: var(--font-family-display); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--c); opacity: 0.55; margin-bottom: 6px; transition: opacity 0.2s ease; }
+  .cr-user:hover .cr-user-name { opacity: 0.8; }
+  .cr-user-bubble--persona { max-width: 100%; border-radius: 16px 2px 16px 16px; background: color-mix(in srgb, var(--c) 3%, transparent); border: none; border-right: 2px solid color-mix(in srgb, var(--c) 12%, transparent); color: var(--color-fg); font-size: 14px; line-height: 1.75; transition: background 0.3s ease, border-right-color 0.3s ease; }
+  .cr-user:hover .cr-user-bubble--persona { background: color-mix(in srgb, var(--c) 5%, transparent); border-right-color: color-mix(in srgb, var(--c) 22%, transparent); }
+  .cr-user:hover .cr-avatar-img { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent), 0 0 24px color-mix(in srgb, var(--c) 12%, transparent); }
+  .cr-user:hover .cr-avatar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent), 0 0 24px color-mix(in srgb, var(--c) 12%, transparent); }
   .cr-narr { margin: 20px 0; padding: 10px 20px 10px 16px; border-left: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent); }
   .cr-narr-text { font-size: 13.5px; font-style: italic; color: var(--color-fg-2); line-height: 1.8; }
   .cr-div { display: flex; align-items: center; justify-content: center; margin: 44px 0; gap: 7px; color: var(--color-fg-4); }
@@ -380,6 +439,9 @@ export function render(ctx: RenderContext): string {
 
   const { cleaned, choices } = extractChoices(allContent);
 
+  const fallbackColorMap = new Map<string, string>();
+  const persona = resolvePersona(ctx, nameMap);
+
   const parsed = cleaned
     .split("\n")
     .map(parseLine)
@@ -389,13 +451,11 @@ export function render(ctx: RenderContext): string {
 
   if (groups.length === 0) return STYLES + renderEmpty();
 
-  const fallbackColorMap = new Map<string, string>();
-
   const rendered = groups
     .map((g) => {
       switch (g.type) {
         case "user":
-          return renderUser(g.lines, ctx, nameMap);
+          return renderUser(g.lines, ctx, nameMap, persona);
         case "character":
           return renderCharacter(g, ctx, nameMap, fallbackColorMap);
         case "narration":
