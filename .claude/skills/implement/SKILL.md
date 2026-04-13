@@ -89,7 +89,7 @@ $ARGUMENTS가 이미 충분히 상세하면 중복 질문은 생략하되, **검
 - bunx tsc --noEmit (apps/webui/)
 - bunx tsc --noEmit (packages/creative-agent/) — creative-agent 변경 시
 - bun run lint
-- bun test
+- bun run test
 ```
 
 ---
@@ -127,7 +127,7 @@ bun run lint
 ```
 
 ```bash
-bun test
+bun run test
 ```
 
 creative-agent 변경 시:
@@ -186,7 +186,7 @@ agent-browser open <URL> && agent-browser wait --load networkidle && agent-brows
    - `agent-browser console` — 브라우저 콘솔 에러
    - `agent-browser network requests --status 4xx,5xx` — 실패한 네트워크 요청
 2. **수정**: 코드에서 원인을 찾아 수정
-3. **빌드 재검증**: `bunx tsc --noEmit` + `bun run lint` + `bun test`
+3. **빌드 재검증**: `bunx tsc --noEmit` + `bun run lint` + `bun run test`
 4. **재검증**: 실패한 시나리오 다시 실행
 
 3회 실패 시 사용자에게 증거(스크린샷, 콘솔 에러, 네트워크 로그)와 함께 보고하고, 어떻게 진행할지 물어본다.
@@ -218,7 +218,7 @@ bun run lint
 ```
 
 ```bash
-bun test
+bun run test
 ```
 
 Simplify가 도입한 문제가 있으면 수정한다.
@@ -256,7 +256,7 @@ bun run lint
 ```
 
 ```bash
-bun test
+bun run test
 ```
 
 두 조건 모두 해당하지 않으면 이 Phase를 건너뛴다.
