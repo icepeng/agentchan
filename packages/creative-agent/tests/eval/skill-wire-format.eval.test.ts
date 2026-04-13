@@ -109,7 +109,7 @@ suite("skill wire format: instruction following baseline", () => {
       });
 
       // The model should read the outline and/or skill resources
-      expectToolCallAny(harness.toolCalls, ["read", "ls"], {
+      expectToolCallAny(harness.toolCalls, ["read", "tree"], {
         file_path: /outline/,
       });
     },

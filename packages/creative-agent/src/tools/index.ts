@@ -5,7 +5,7 @@ import { createWriteTool } from "./write.js";
 import { createAppendTool } from "./append.js";
 import { createEditTool } from "./edit.js";
 import { createGrepTool } from "./grep.js";
-import { createLsTool } from "./ls.js";
+import { createTreeTool } from "./tree.js";
 
 /**
  * Create the standard set of project-scoped tools.
@@ -19,6 +19,6 @@ export function createProjectTools(projectDir: string): AgentTool<any, any>[] {
     createAppendTool(projectDir),
     createEditTool(projectDir),
     createGrepTool(projectDir),
-    createLsTool(projectDir),
+    createTreeTool(projectDir),
   ];
 }

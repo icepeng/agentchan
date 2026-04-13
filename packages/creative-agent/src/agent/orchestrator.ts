@@ -40,6 +40,7 @@ const DEFAULT_SYSTEM_PROMPT = `You are a creative AI assistant with access to fi
 
 # Using your tools
 
+- To see the project directory structure, use tree.
 - To search file contents by pattern, use grep.
 - To run a helper script shipped with a skill (e.g. compile, validate, analyze), use script.
 
