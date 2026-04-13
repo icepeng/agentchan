@@ -43,6 +43,18 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       return projectRepo.deleteProjectFile(slug, filePath);
     },
 
+    async deleteProjectDir(slug: string, dirPath: string) {
+      return projectRepo.deleteProjectDir(slug, dirPath);
+    },
+
+    async renameProjectEntry(slug: string, fromPath: string, toPath: string) {
+      return projectRepo.renameProjectEntry(slug, fromPath, toPath);
+    },
+
+    async createProjectDir(slug: string, dirPath: string) {
+      return projectRepo.createProjectDir(slug, dirPath);
+    },
+
     async ensureInitialProject(): Promise<void> {
       const projects = await projectRepo.list();
       if (projects.length > 0) return;

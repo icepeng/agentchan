@@ -26,4 +26,5 @@ export type EditorAction =
   | { type: "UPDATE_LOCAL_CONTENT"; content: string }
   | { type: "MARK_CLEAN" }
   | { type: "DESELECT_FILE" }
+  | { type: "RENAME_SELECTED"; newPath: string }
   | { type: "CLEAR" };

@@ -220,6 +220,57 @@ export function createProjectRoutes() {
     }
   });
 
+  app.delete("/:slug/dir", async (c) => {
+    const slug = c.req.param("slug");
+    const path = c.req.query("path");
+    if (!path) return c.json({ error: "path query parameter is required" }, 400);
+
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    try {
+      await c.get("projectService").deleteProjectDir(slug, path);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete directory";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  app.post("/:slug/file/rename", async (c) => {
+    const slug = c.req.param("slug");
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    const { from, to } = await c.req.json<{ from: string; to: string }>();
+    if (!from || !to) return c.json({ error: "from and to are required" }, 400);
+
+    try {
+      await c.get("projectService").renameProjectEntry(slug, from, to);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to rename";
+      return c.json({ error: message }, 400);
+    }
+  });
+
+  app.post("/:slug/dir", async (c) => {
+    const slug = c.req.param("slug");
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    const { path } = await c.req.json<{ path: string }>();
+    if (!path) return c.json({ error: "path is required" }, 400);
+
+    try {
+      await c.get("projectService").createProjectDir(slug, path);
+      return c.json({ ok: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create directory";
+      return c.json({ error: message }, 400);
+    }
+  });
+
   app.route("/:slug/conversations", createConversationRoutes());
   app.route("/:slug/skills", createSkillRoutes());
 
