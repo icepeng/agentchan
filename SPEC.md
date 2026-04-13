@@ -271,7 +271,7 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 
 **제약:**
 - A1. 시스템 프롬프트 = DEFAULT_SYSTEM_PROMPT + SYSTEM.md + skill catalog
-- A2. 도구 = 파일 도구 (read, write, edit, append, grep, ls) + script + skill 활성화 도구
+- A2. 도구 = 파일 도구 (read, write, edit, append, grep, tree) + script + skill 활성화 도구
 - A3. 파일 도구는 projectDir에 scope (path traversal 차단)
 - A4. 에이전트는 렌더러, UI, conversation 저장소에 직접 접근 불가. 파일 도구를 통해서만 상호작용
 - A5. compaction: system prompt 보존, 대화 히스토리의 오래된 tool result는 placeholder 교체
