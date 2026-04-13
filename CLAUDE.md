@@ -153,6 +153,7 @@ apps/webui/data/
 - 앱이 초기화 시 `example_data/`를 `apps/webui/data/`로 복사하므로, 소스 오브 트루스는 항상 `example_data/`
 - 구조: `example_data/library/templates/{name}/` (프로젝트 프리셋 — _template.json + SYSTEM.md + skills/ + renderer.ts + files/)
 - 메인 워킹 트리에서 동기는 `bash scripts/copy-example-data.sh [--force]` (worktree는 SessionStart hook이 자동 실행)
+- **세션 중 `example_data/` 수정 시**: SessionStart hook은 세션 시작 시 1회만 실행되므로, 세션 중 변경분은 `bash scripts/copy-example-data.sh --force`를 수동 재실행해야 `data/`에 반영됨
 
 ## Single Executable Build
 - `bun run build:exe` — Vite client build → Bun `--compile` server → sidecar 복사 (public/, data/)
