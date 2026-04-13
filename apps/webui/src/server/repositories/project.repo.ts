@@ -48,22 +48,10 @@ export function createProjectRepo(projectsDir: string) {
     await Bun.write(projectMetaPath(slug), JSON.stringify(project, null, 2));
 
     const destDir = projectDir(slug);
-    const copies: Promise<void>[] = [];
-
-    for (const sub of ["skills", "files", "conversations"] as const) {
-      const src = join(srcDir, sub);
-      if (existsSync(src)) {
-        copies.push(cp(src, join(destDir, sub), { recursive: true }));
-      }
-    }
-
-    for (const file of ["renderer.ts", "SYSTEM.md"] as const) {
-      const src = join(srcDir, file);
-      if (existsSync(src)) {
-        copies.push(cp(src, join(destDir, file)));
-      }
-    }
-
+    const entries = await readdir(srcDir, { withFileTypes: true });
+    const copies = entries
+      .filter((e) => e.name !== "_template.json")
+      .map((e) => cp(join(srcDir, e.name), join(destDir, e.name), { recursive: e.isDirectory() }));
     await Promise.all(copies);
     return project;
   }
