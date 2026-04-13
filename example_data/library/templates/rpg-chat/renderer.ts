@@ -421,21 +421,25 @@ function renderUser(
 
   if (persona) {
     return `
-    <div class="cr-user" style="--c: ${persona.color}">
-      <div class="cr-user-halo"></div>
-      <div class="cr-user-body">
-        <div class="cr-user-content">
-          <div class="cr-user-name">${escapeHtml(persona.displayName)}</div>
-          <div class="cr-user-bubble cr-user-bubble--persona">${content}</div>
-        </div>
+    <div class="cr-char" style="--c: ${persona.color}">
+      <div class="cr-halo"></div>
+      <div class="cr-char-body">
         ${persona.avatarHtml}
+        <div class="cr-char-content">
+          <div class="cr-name">${escapeHtml(persona.displayName)}</div>
+          <div class="cr-bubble">${content}</div>
+        </div>
       </div>
     </div>`;
   }
 
   return `
-    <div class="cr-user">
-      <div class="cr-user-bubble">${content}</div>
+    <div class="cr-char cr-char--anon" style="--c: var(--color-accent)">
+      <div class="cr-char-body">
+        <div class="cr-char-content">
+          <div class="cr-bubble">${content}</div>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -579,243 +583,40 @@ function renderEmpty(): string {
 // ── Styles ───────────────────────────────────
 
 const STYLES = `<style>
+  .cr-action { font-style: normal; }
   /* ── Chat: Character message ── */
-  .cr-char {
-    position: relative;
-    margin-bottom: 24px;
-    padding: 2px 0;
-  }
-  .cr-halo {
-    position: absolute;
-    left: -40px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 220px;
-    height: 120px;
-    border-radius: 50%;
-    background: radial-gradient(ellipse, var(--c) 0%, transparent 70%);
-    opacity: 0.025;
-    pointer-events: none;
-    transition: opacity 0.5s ease;
-    z-index: 0;
-  }
-  .cr-char:hover .cr-halo { opacity: 0.06; }
-  .cr-char-body {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    position: relative;
-    z-index: 1;
-  }
-  .cr-avatar-img {
-    flex-shrink: 0;
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
-    object-fit: cover;
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--c) 12%, transparent),
-      0 0 12px color-mix(in srgb, var(--c) 6%, transparent);
-    transition: box-shadow 0.3s ease;
-    margin-top: 2px;
-  }
-  .cr-char:hover .cr-avatar-img {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent),
-      0 0 24px color-mix(in srgb, var(--c) 12%, transparent);
-  }
-  .cr-avatar {
-    flex-shrink: 0;
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 15px;
-    font-weight: 700;
-    background: color-mix(in srgb, var(--c) 10%, transparent);
-    color: var(--c);
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--c) 12%, transparent),
-      0 0 12px color-mix(in srgb, var(--c) 6%, transparent);
-    transition: box-shadow 0.3s ease;
-    margin-top: 2px;
-  }
-  .cr-char:hover .cr-avatar {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent),
-      0 0 24px color-mix(in srgb, var(--c) 12%, transparent);
-  }
-  .cr-char-content { max-width: 78%; min-width: 0; }
-  .cr-name {
-    font-family: var(--font-family-display);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: color-mix(in srgb, var(--c) 60%, var(--color-fg));
-    opacity: 0.8;
-    margin-bottom: 6px;
-    transition: opacity 0.2s ease;
-  }
-  .cr-char:hover .cr-name { opacity: 0.8; }
-  .cr-bubble {
-    padding: 12px 16px;
-    border-radius: 2px 16px 16px 16px;
-    background: color-mix(in srgb, var(--c) 3%, transparent);
-    border-left: 2px solid color-mix(in srgb, var(--c) 12%, transparent);
-    font-size: 14px;
-    line-height: 1.75;
-    color: var(--color-fg);
-    transition: background 0.3s ease, border-left-color 0.3s ease;
-  }
-  .cr-char:hover .cr-bubble {
-    background: color-mix(in srgb, var(--c) 5%, transparent);
-    border-left-color: color-mix(in srgb, var(--c) 22%, transparent);
-  }
-
-  /* ── Chat: User message ── */
-  .cr-user {
-    position: relative;
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 24px;
-  }
-  .cr-user-bubble {
-    max-width: 72%;
-    padding: 10px 16px;
-    border-radius: 16px 16px 4px 16px;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 10%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 3%, transparent);
-    font-size: 14px;
-    line-height: 1.65;
-    color: color-mix(in srgb, var(--color-accent) 80%, transparent);
-    transition: border-color 0.2s ease, background 0.2s ease;
-  }
-  .cr-user:hover .cr-user-bubble {
-    border-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 6%, transparent);
-  }
-  .cr-user-halo {
-    position: absolute;
-    right: -40px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 220px;
-    height: 120px;
-    border-radius: 50%;
-    background: radial-gradient(ellipse, var(--c) 0%, transparent 70%);
-    opacity: 0.025;
-    pointer-events: none;
-    transition: opacity 0.5s ease;
-    z-index: 0;
-  }
-  .cr-user:hover .cr-user-halo { opacity: 0.06; }
-  .cr-user-body {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    position: relative;
-    z-index: 1;
-    justify-content: flex-end;
-  }
-  .cr-user-content { max-width: 78%; min-width: 0; text-align: right; }
-  .cr-user-name {
-    font-family: var(--font-family-display);
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--c);
-    opacity: 0.55;
-    margin-bottom: 6px;
-    transition: opacity 0.2s ease;
-  }
-  .cr-user:hover .cr-user-name { opacity: 0.8; }
-  .cr-user-bubble--persona {
-    max-width: 100%;
-    border-radius: 16px 2px 16px 16px;
-    background: color-mix(in srgb, var(--c) 3%, transparent);
-    border: none;
-    border-right: 2px solid color-mix(in srgb, var(--c) 12%, transparent);
-    color: var(--color-fg);
-    font-size: 14px;
-    line-height: 1.75;
-    transition: background 0.3s ease, border-right-color 0.3s ease;
-  }
-  .cr-user:hover .cr-user-bubble--persona {
-    background: color-mix(in srgb, var(--c) 5%, transparent);
-    border-right-color: color-mix(in srgb, var(--c) 22%, transparent);
-  }
-  .cr-user:hover .cr-avatar-img {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent),
-      0 0 24px color-mix(in srgb, var(--c) 12%, transparent);
-  }
-  .cr-user:hover .cr-avatar {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--c) 25%, transparent),
-      0 0 24px color-mix(in srgb, var(--c) 12%, transparent);
-  }
+  .cr-char { position: relative; margin-bottom: 32px; padding: 2px 0; }
+  .cr-halo { position: absolute; left: -40px; top: 50%; transform: translateY(-50%); width: 220px; height: 120px; border-radius: 50%; background: radial-gradient(ellipse, var(--c) 0%, transparent 70%); opacity: 0.05; pointer-events: none; transition: opacity 0.5s ease; z-index: 0; }
+  .cr-char:hover .cr-halo { opacity: 0.1; }
+  .cr-char-body { display: flex; align-items: flex-start; gap: 12px; position: relative; z-index: 1; }
+  .cr-avatar-img { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; object-fit: cover; box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 15%, transparent); transition: box-shadow 0.3s ease; margin-top: 2px; }
+  .cr-char:hover .cr-avatar-img { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent); }
+  .cr-avatar { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; background: color-mix(in srgb, var(--c) 10%, transparent); color: var(--c); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 15%, transparent); transition: box-shadow 0.3s ease; margin-top: 2px; }
+  .cr-char:hover .cr-avatar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent); }
+  .cr-char-content { max-width: 85%; min-width: 0; }
+  .cr-name { font-family: var(--font-family-display); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c); opacity: 0.8; margin-bottom: 4px; transition: opacity 0.2s ease; }
+  .cr-char:hover .cr-name { opacity: 1; }
+  .cr-bubble { padding: 8px 12px; border-radius: 8px; background: transparent; border: none; font-size: 16px; line-height: 1.8; color: var(--color-fg); transition: background 0.3s ease; }
+  .cr-char:hover .cr-bubble { background: color-mix(in srgb, var(--c) 3%, transparent); }
+  .cr-char--anon .cr-bubble { padding-left: 0; }
 
   /* ── Chat: Narration ── */
-  .cr-narr {
-    margin: 20px 0;
-    padding: 10px 20px 10px 16px;
-    border-left: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent);
-  }
-  .cr-narr-text {
-    font-size: 13.5px;
-    font-style: italic;
-    color: var(--color-fg-2);
-    line-height: 1.8;
-  }
+  .cr-narr { margin-bottom: 32px; padding: 0 12px; }
+  .cr-narr-text { font-size: 15px; color: var(--color-fg-2); line-height: 1.8; }
 
   /* ── Chat: Divider ── */
-  .cr-div {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 44px 0;
-    gap: 7px;
-    color: var(--color-fg-4);
-  }
-  .cr-dot {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: currentColor;
-  }
+  .cr-div { display: flex; align-items: center; justify-content: center; margin: 56px 0; gap: 7px; color: var(--color-fg-4); }
+  .cr-dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
   .cr-dot:nth-child(2) { opacity: 0.35; }
 
   /* ── Chat: Inline illustration ── */
   .cr-illustration { margin: 12px 0; text-align: center; }
-  .cr-illustration-img {
-    max-width: 100%;
-    max-height: 360px;
-    border-radius: 12px;
-    object-fit: contain;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  }
+  .cr-illustration-img { max-width: 100%; max-height: 360px; border-radius: 8px; object-fit: contain; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
 
   /* ── Chat: Empty state ── */
-  .cr-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 14px;
-    opacity: 0.3;
-  }
+  .cr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; opacity: 0.3; }
   .cr-empty-rule { width: 28px; height: 1px; background: var(--color-fg-4); }
-  .cr-empty-text {
-    font-family: var(--font-family-display);
-    font-size: 12px;
-    color: var(--color-fg-3);
-    letter-spacing: 0.08em;
-  }
+  .cr-empty-text { font-family: var(--font-family-display); font-size: 12px; color: var(--color-fg-3); letter-spacing: 0.08em; }
 
   /* ── RPG: Wrapper — 50/50 split layout ── */
   .rpg-wrapper {
