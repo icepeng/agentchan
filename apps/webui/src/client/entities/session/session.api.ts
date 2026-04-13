@@ -29,6 +29,7 @@ export function fetchConversation(projectSlug: string, id: string): Promise<{
   conversation: Conversation;
   nodes: TreeNode[];
   activePath: string[];
+  checkpointNodeIds?: string[];
 }> {
   return json(`${projectBase(projectSlug)}/${id}`);
 }
@@ -41,10 +42,10 @@ export function deleteNode(
   projectSlug: string,
   conversationId: string,
   nodeId: string,
+  restoreFiles?: boolean,
 ): Promise<{ activePath: string[]; activeLeafId: string; rootNodeId: string }> {
-  return json(`${projectBase(projectSlug)}/${conversationId}/nodes/${nodeId}`, {
-    method: "DELETE",
-  });
+  const url = `${projectBase(projectSlug)}/${conversationId}/nodes/${nodeId}${restoreFiles ? "?restoreFiles=true" : ""}`;
+  return json(url, { method: "DELETE" });
 }
 
 export function switchBranch(
@@ -174,10 +175,11 @@ export function regenerateResponse(
   conversationId: string,
   userNodeId: string,
   callbacks: SSECallbacks,
+  restoreFiles?: boolean,
 ): Promise<void> {
   return postSSE(
     `${BASE}${projectBase(projectSlug)}/${conversationId}/regenerate`,
-    { userNodeId },
+    { userNodeId, ...(restoreFiles && { restoreFiles: true }) },
     callbacks,
   );
 }

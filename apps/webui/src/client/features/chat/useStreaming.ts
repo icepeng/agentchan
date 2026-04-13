@@ -37,7 +37,7 @@ export function useStreaming() {
       },
       onDone: () => {
         void fetchConversation(projectSlug, conversationId).then((data) => {
-          sessionDispatch({ type: "SET_ACTIVE_CONVERSATION", conversation: data.conversation, nodes: data.nodes, activePath: data.activePath });
+          sessionDispatch({ type: "SET_ACTIVE_CONVERSATION", conversation: data.conversation, nodes: data.nodes, activePath: data.activePath, checkpointNodeIds: data.checkpointNodeIds });
         }).catch(() => { /* keep current state */ });
       },
       onError: (message) => {
@@ -78,7 +78,7 @@ export function useStreaming() {
   );
 
   const regenerate = useCallback(
-    async (userNodeId: string) => {
+    async (userNodeId: string, restoreFiles?: boolean) => {
       const p = projectStateRef.current;
       const s = sessionStateRef.current;
       if (!s.activeConversationId || !p.activeProjectSlug || s.isStreaming) return;
@@ -87,6 +87,7 @@ export function useStreaming() {
       await regenerateResponse(
         p.activeProjectSlug, s.activeConversationId, userNodeId,
         makeCallbacks(p.activeProjectSlug, s.activeConversationId),
+        restoreFiles,
       );
     },
     [sessionDispatch, makeCallbacks],

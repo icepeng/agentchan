@@ -192,7 +192,12 @@ export const translations: Record<TranslationKey, string> = {
   // Project settings modal
   "projectModal.title": "프로젝트 설정",
 
-  // Edit mode
+  // Checkpoint
+  "checkpoint.title": "파일 복원",
+  "checkpoint.message": "이 턴에서 에이전트가 파일을 수정했습니다. 파일도 복원하시겠습니까?",
+  "checkpoint.conversationOnly": "대화만",
+  "checkpoint.withFiles": "파일도 복원",
+
   "editMode.switchToEdit": "편집 모드",
   "editMode.switchToChat": "채팅 모드",
   "editMode.selectFile": "편집할 파일을 선택하세요",

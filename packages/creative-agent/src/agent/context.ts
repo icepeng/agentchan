@@ -7,6 +7,7 @@
 
 import { join } from "node:path";
 import { createConversationStorage, type ConversationStorage } from "../conversation/storage.js";
+import type { CheckpointStore } from "../checkpoint/index.js";
 import type { ResolvedAgentConfig } from "./config.js";
 
 export interface AgentContext {
@@ -14,11 +15,14 @@ export interface AgentContext {
   /** Absolute path to the projects root — agent functions resolve per-project skill paths from here. */
   projectsDir: string;
   resolveAgentConfig: () => ResolvedAgentConfig;
+  /** In-memory checkpoint store for file snapshot tracking. Optional — when absent, no checkpointing. */
+  checkpointStore?: CheckpointStore;
 }
 
 export interface AgentContextOptions {
   projectsDir: string;
   resolveAgentConfig: () => ResolvedAgentConfig;
+  checkpointStore?: CheckpointStore;
 }
 
 export function createAgentContext(opts: AgentContextOptions): AgentContext {
@@ -26,6 +30,7 @@ export function createAgentContext(opts: AgentContextOptions): AgentContext {
     storage: createConversationStorage(opts.projectsDir),
     projectsDir: opts.projectsDir,
     resolveAgentConfig: opts.resolveAgentConfig,
+    checkpointStore: opts.checkpointStore,
   };
 }
 
