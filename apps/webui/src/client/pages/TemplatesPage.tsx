@@ -4,7 +4,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "@/client/features/project/index.js";
-import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
+import { IconButton, ScrollArea, CoverImage } from "@/client/shared/ui/index.js";
 
 export function TemplatesPage() {
   const { t } = useI18n();
@@ -64,8 +64,9 @@ export function TemplatesPage() {
             {templates.map((tpl) => (
               <div
                 key={tpl.slug}
-                className="group border border-edge/8 rounded-xl bg-elevated/50 hover:bg-elevated hover:border-edge/16 transition-all duration-150"
+                className="group border border-edge/8 rounded-xl bg-elevated/50 hover:bg-elevated hover:border-edge/16 transition-all duration-150 overflow-hidden"
               >
+                <CoverImage type="templates" slug={tpl.slug} hasCover={tpl.hasCover} size="md" />
                 <div className="px-5 py-4 flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-display font-semibold text-sm tracking-tight">

@@ -1,7 +1,7 @@
 import { readFile, readdir, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { assertSafePathSegment } from "../paths.js";
+import { assertSafePathSegment, probeCover } from "../paths.js";
 
 export interface TemplateMeta {
   slug: string;
@@ -15,7 +15,7 @@ export function createTemplateRepo(templatesDir: string) {
       await mkdir(templatesDir, { recursive: true });
     },
 
-    async list(): Promise<TemplateMeta[]> {
+    async list(): Promise<(TemplateMeta & { hasCover: boolean })[]> {
       if (!existsSync(templatesDir)) return [];
       const entries = await readdir(templatesDir, { withFileTypes: true });
       const dirs = entries.filter((e) => e.isDirectory());
@@ -25,10 +25,18 @@ export function createTemplateRepo(templatesDir: string) {
           if (!existsSync(metaPath)) return null;
           const raw = await readFile(metaPath, "utf-8");
           const meta = JSON.parse(raw) as { name: string; description?: string };
-          return { slug: entry.name, ...meta } as TemplateMeta;
+          const hasCover = (await probeCover(join(templatesDir, entry.name))) !== null;
+          return { slug: entry.name, ...meta, hasCover } as TemplateMeta & { hasCover: boolean };
         }),
       );
-      return results.filter((m): m is TemplateMeta => m !== null);
+      return results.filter((m): m is TemplateMeta & { hasCover: boolean } => m !== null);
+    },
+
+    async getCoverFile(name: string): Promise<ReturnType<typeof Bun.file> | null> {
+      assertSafePathSegment(name);
+      const coverName = await probeCover(join(templatesDir, name));
+      if (!coverName) return null;
+      return Bun.file(join(templatesDir, name, coverName));
     },
 
     getSourceDir(name: string): string {

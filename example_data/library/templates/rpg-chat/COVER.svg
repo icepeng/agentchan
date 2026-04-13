@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#312e81;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="400" fill="url(#bg)" rx="16"/>
+  <text x="400" y="180" font-family="system-ui,sans-serif" font-size="48" font-weight="700" fill="white" text-anchor="middle" opacity="0.9">RPG Chat</text>
+  <text x="400" y="240" font-family="system-ui,sans-serif" font-size="20" fill="white" text-anchor="middle" opacity="0.5">Template Cover</text>
+</svg>

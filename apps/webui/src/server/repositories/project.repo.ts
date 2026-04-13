@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
 import type { Project } from "../types.js";
+import { probeCover } from "../paths.js";
 
 export interface TreeEntry {
   path: string;
@@ -57,24 +58,33 @@ export function createProjectRepo(projectsDir: string) {
   }
 
   return {
-    async list(): Promise<Project[]> {
+    async list(): Promise<(Project & { hasCover: boolean })[]> {
       if (!existsSync(projectsDir)) {
         await mkdir(projectsDir, { recursive: true });
       }
 
       const entries = await readdir(projectsDir, { withFileTypes: true });
-      const projects: Project[] = [];
+      const results = await Promise.all(
+        entries
+          .filter((e) => e.isDirectory())
+          .map(async (entry) => {
+            const metaPath = projectMetaPath(entry.name);
+            if (!existsSync(metaPath)) return null;
+            const meta = JSON.parse(await readFile(metaPath, "utf-8")) as Project;
+            const hasCover = (await probeCover(projectDir(entry.name))) !== null;
+            return { ...meta, hasCover };
+          }),
+      );
 
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const metaPath = projectMetaPath(entry.name);
-        if (!existsSync(metaPath)) continue;
+      return results
+        .filter((p): p is Project & { hasCover: boolean } => p !== null)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+    },
 
-        const meta = JSON.parse(await readFile(metaPath, "utf-8")) as Project;
-        projects.push(meta);
-      }
-
-      return projects.sort((a, b) => b.updatedAt - a.updatedAt);
+    async getCoverFile(slug: string): Promise<ReturnType<typeof Bun.file> | null> {
+      const name = await probeCover(projectDir(slug));
+      if (!name) return null;
+      return Bun.file(join(projectDir(slug), name));
     },
 
     async get(slug: string): Promise<Project | null> {
