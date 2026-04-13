@@ -190,6 +190,12 @@ export const translations = {
   // Project settings modal
   "projectModal.title": "Project Settings",
 
+  // Checkpoint
+  "checkpoint.title": "Restore files?",
+  "checkpoint.message": "The agent modified files during this turn. Would you also like to restore them?",
+  "checkpoint.conversationOnly": "Conversation only",
+  "checkpoint.withFiles": "Restore files too",
+
   // Edit mode
   "editMode.switchToEdit": "Edit mode",
   "editMode.switchToChat": "Chat mode",

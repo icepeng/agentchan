@@ -7,7 +7,7 @@
 
 import { Agent, type AgentMessage, type AgentEvent } from "@mariozechner/pi-agent-core";
 import { getModel, getEnvApiKey, streamSimple, type AssistantMessage, type Message, type ThinkingLevel } from "@mariozechner/pi-ai";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 
 import { createProjectTools } from "../tools/index.js";
@@ -17,6 +17,7 @@ import { generateCatalog } from "../skills/catalog.js";
 import { createActivateSkillTool } from "../skills/manager.js";
 import type { SkillMetadata, SkillEnvironment, SkillRecord } from "../skills/types.js";
 import type { SessionMode } from "../conversation/format.js";
+import type { FileChangeTracker } from "../checkpoint/index.js";
 import { microCompact, clearCompactState } from "./compact.js";
 import type { ResolvedAgentConfig } from "./config.js";
 import { analyzeContext } from "./context-analysis.js";
@@ -165,6 +166,7 @@ export async function setupCreativeAgent(
   history: AgentMessage[],
   conversationId: string,
   sessionMode?: SessionMode,
+  tracker?: FileChangeTracker,
 ): Promise<CreativeAgentSetup> {
   const allSkills = await discoverProjectSkills(join(projectDir, "skills"));
   const env: SkillEnvironment = sessionMode === "meta" ? "meta" : "creative";
@@ -179,6 +181,26 @@ export async function setupCreativeAgent(
 
   // Build tools
   const tools: any[] = createProjectTools(projectDir);
+
+  // Wrap file-modifying tools for checkpoint tracking
+  if (tracker) {
+    const TRACKED_TOOLS = new Set(["write", "edit", "append"]);
+    for (const tool of tools) {
+      if (TRACKED_TOOLS.has(tool.name)) {
+        const original = tool.execute.bind(tool);
+        tool.execute = async (
+          toolCallId: string,
+          params: { file_path: string; [k: string]: unknown },
+          signal?: AbortSignal,
+          onUpdate?: unknown,
+        ) => {
+          await tracker.recordBeforeWrite(resolve(projectDir, params.file_path));
+          return original(toolCallId, params, signal, onUpdate);
+        };
+      }
+    }
+  }
+
   if (envSkills.size > 0) tools.push(createActivateSkillTool(envSkills, projectDir));
   if (sessionMode === "meta") tools.push(createValidateRendererTool(projectDir));
 

@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
-import { createAgentContext, type ResolvedAgentConfig } from "@agentchan/creative-agent";
+import { createAgentContext, createCheckpointStore, type ResolvedAgentConfig } from "@agentchan/creative-agent";
 import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, isDev } from "./paths.js";
 import type { AppEnv } from "./types.js";
 
@@ -39,8 +39,10 @@ const projectService = createProjectService(projectRepo, templateRepo, PROJECTS_
 const skillService = createSkillService(projectSkillRepo, PROJECTS_DIR);
 
 // ===== 2b. Agent context (stateless handle) =====
+const checkpointStore = createCheckpointStore();
 const agentContext = createAgentContext({
   projectsDir: PROJECTS_DIR,
+  checkpointStore,
   resolveAgentConfig: (): ResolvedAgentConfig => {
     const cfg = configService.getConfig();
     const providerInfo = configService.findProvider(cfg.provider);

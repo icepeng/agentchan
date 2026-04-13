@@ -17,6 +17,9 @@ export interface SessionState {
   activePath: string[];
   replyToNodeId: string | null;
 
+  // Checkpoints (node IDs that have file snapshots)
+  checkpointNodeIds: Set<string>;
+
   // Token usage
   sessionUsage: {
     inputTokens: number;
@@ -39,7 +42,7 @@ export interface SessionState {
 export type SessionAction =
   // Conversation actions
   | { type: "SET_CONVERSATIONS"; conversations: Conversation[] }
-  | { type: "SET_ACTIVE_CONVERSATION"; conversation: Conversation; nodes: TreeNode[]; activePath: string[] }
+  | { type: "SET_ACTIVE_CONVERSATION"; conversation: Conversation; nodes: TreeNode[]; activePath: string[]; checkpointNodeIds?: string[] }
   | { type: "ADD_NODE"; node: TreeNode }
   | { type: "ADD_NODES"; nodes: TreeNode[] }
   | { type: "APPEND_USER_NODE"; node: TreeNode }
@@ -121,6 +124,9 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         nodes: nodeMap,
         activePath: action.activePath,
         replyToNodeId: null,
+        checkpointNodeIds: action.checkpointNodeIds
+          ? new Set(action.checkpointNodeIds)
+          : state.checkpointNodeIds,
         sessionUsage: {
           inputTokens: totalInput, outputTokens: totalOutput,
           cachedInputTokens: totalCachedInput, cacheCreationTokens: totalCacheCreation,
@@ -168,6 +174,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         nodes: nodeMap,
         activePath: seeded.map((n) => n.id),
         replyToNodeId: null,
+        checkpointNodeIds: new Set(),
         sessionUsage: { ...emptyUsage },
       };
     }
@@ -289,6 +296,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         nodes: new Map(),
         activePath: [],
         replyToNodeId: null,
+        checkpointNodeIds: new Set(),
         sessionUsage: { ...emptyUsage },
         isStreaming: false,
         streamingText: "",
@@ -309,6 +317,7 @@ const initialState: SessionState = {
   nodes: new Map(),
   activePath: [],
   replyToNodeId: null,
+  checkpointNodeIds: new Set(),
   sessionUsage: { ...emptyUsage },
   isStreaming: false,
   streamingText: "",

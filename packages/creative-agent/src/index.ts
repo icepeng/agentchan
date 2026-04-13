@@ -1,3 +1,7 @@
+// Checkpoint
+export type { FileSnapshot, CheckpointStore } from "./checkpoint/index.js";
+export { createCheckpointStore, restoreCheckpoint } from "./checkpoint/index.js";
+
 // Skills
 export { discoverProjectSkills } from "./skills/discovery.js";
 export type { SkillMetadata, SkillEnvironment } from "./skills/types.js";

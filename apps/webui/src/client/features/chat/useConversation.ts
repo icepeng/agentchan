@@ -33,6 +33,7 @@ export function useConversation() {
         conversation: data.conversation,
         nodes: data.nodes,
         activePath: data.activePath,
+        checkpointNodeIds: data.checkpointNodeIds,
       });
     },
     [projectState.activeProjectSlug, sessionDispatch],
@@ -63,15 +64,16 @@ export function useConversation() {
   );
 
   const deleteNode = useCallback(
-    async (nodeId: string) => {
+    async (nodeId: string, restoreFiles?: boolean) => {
       if (!sessionState.activeConversationId || !projectState.activeProjectSlug) return;
-      await apiDeleteNode(projectState.activeProjectSlug, sessionState.activeConversationId, nodeId);
+      await apiDeleteNode(projectState.activeProjectSlug, sessionState.activeConversationId, nodeId, restoreFiles);
       const data = await fetchConversation(projectState.activeProjectSlug, sessionState.activeConversationId);
       sessionDispatch({
         type: "SET_ACTIVE_CONVERSATION",
         conversation: data.conversation,
         nodes: data.nodes,
         activePath: data.activePath,
+        checkpointNodeIds: data.checkpointNodeIds,
       });
     },
     [sessionState.activeConversationId, projectState.activeProjectSlug, sessionDispatch],

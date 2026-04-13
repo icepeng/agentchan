@@ -46,6 +46,7 @@ export async function deleteConversation(
   id: string,
 ): Promise<void> {
   clearConversationAgentState(id);
+  ctx.checkpointStore?.clearConversation(id);
   await ctx.storage.deleteConversation(slug, id);
 }
 

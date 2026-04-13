@@ -11,6 +11,7 @@ import type {
   TreeNode,
   TreeNodeWithChildren,
 } from "../types.js";
+import { createFileChangeTracker } from "../checkpoint/tracker.js";
 import type { SessionMode } from "../conversation/format.js";
 import {
   pathToNode,
@@ -24,6 +25,7 @@ import {
   joinUserNodeText,
 } from "./build.js";
 import { summarizeTurnUsage } from "./usage.js";
+import * as log from "../logger.js";
 
 // --- Public types ---
 
@@ -224,12 +226,18 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     : [];
   const history = flattenPathToMessages(tree, historyPath);
 
+  // Create file change tracker for checkpoint if store is available
+  const tracker = ctx.checkpointStore
+    ? createFileChangeTracker(projectDir)
+    : undefined;
+
   const { agent, historyLength } = await setupCreativeAgent(
     cfg,
     projectDir,
     history,
     conversationId,
     args.sessionMode,
+    tracker,
   );
 
   let lastNodeId = args.promptParentId;
@@ -288,6 +296,13 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
 
   for (const node of newNodes) {
     await persistAndInsertNode(ctx, slug, conversationId, tree, node);
+  }
+
+  // Save checkpoint if any files were modified during this turn
+  if (tracker?.hasChanges() && ctx.checkpointStore && newNodes.length > 0) {
+    const snapshots = tracker.getSnapshots();
+    ctx.checkpointStore.save(conversationId, newNodes[0].id, snapshots);
+    log.info("checkpoint", `saved ${snapshots.length} file snapshot(s) for node ${newNodes[0].id}`);
   }
 
   if (turnUsage) emit({ type: "usage_summary", usage: turnUsage });

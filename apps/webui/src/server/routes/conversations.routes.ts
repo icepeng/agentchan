@@ -19,13 +19,14 @@ export function createConversationRoutes() {
     return c.json(await c.get("conversationService").create(slug, body.mode), 201);
   });
 
-  // Load conversation tree
+  // Load conversation tree + checkpoint info
   app.get("/:id", async (c) => {
     const slug = c.req.param("slug")!;
     const id = c.req.param("id");
     const result = await c.get("conversationService").get(slug, id);
     if (!result) return c.json({ error: "Conversation not found" }, 404);
-    return c.json(result);
+    const checkpointNodeIds = c.get("conversationService").getCheckpointNodeIds(id);
+    return c.json({ ...result, checkpointNodeIds });
   });
 
   // Delete conversation
@@ -36,13 +37,17 @@ export function createConversationRoutes() {
     return c.json({ ok: true });
   });
 
-  // Delete node (and all descendants)
+  // Delete node (and all descendants), optionally restoring files from checkpoint
   app.delete("/:id/nodes/:nodeId", async (c) => {
     const slug = c.req.param("slug")!;
     const conversationId = c.req.param("id");
     const nodeId = c.req.param("nodeId");
+    const restoreFiles = c.req.query("restoreFiles") === "true";
 
     try {
+      if (restoreFiles) {
+        await c.get("conversationService").restoreCheckpointForNode(slug, conversationId, nodeId);
+      }
       const result = await c.get("conversationService").deleteSubtree(slug, conversationId, nodeId);
       return c.json(result);
     } catch (e) {
@@ -64,11 +69,15 @@ export function createConversationRoutes() {
     });
   });
 
-  // Regenerate response (SSE stream)
+  // Regenerate response (SSE stream), optionally restoring files from checkpoint
   app.post("/:id/regenerate", async (c) => {
     const slug = c.req.param("slug")!;
     const conversationId = c.req.param("id");
-    const { userNodeId } = await c.req.json<{ userNodeId: string }>();
+    const { userNodeId, restoreFiles } = await c.req.json<{ userNodeId: string; restoreFiles?: boolean }>();
+
+    if (restoreFiles) {
+      await c.get("conversationService").restoreCheckpointForRegenerate(slug, conversationId, userNodeId);
+    }
 
     return streamSSE(c, async (stream) => {
       await c.get("agentService").regenerate(stream, slug, conversationId, userNodeId);

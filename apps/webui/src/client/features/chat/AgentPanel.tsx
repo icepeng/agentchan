@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useSessionState } from "@/client/entities/session/index.js";
@@ -12,6 +12,7 @@ import { useStreaming } from "./useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
 import { MessageBubble } from "./MessageBubble.js";
 import { StreamingMessage } from "./StreamingMessage.js";
+import { CheckpointDialog } from "./CheckpointDialog.js";
 
 // ── Model Info Popover ───────────────────────
 
@@ -82,12 +83,60 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
 
 // ── Agent Panel ───────────────────────────────
 
+// --- Checkpoint key helpers ---
+
+/**
+ * Find the checkpoint key for a regenerate operation.
+ * onRegenerate passes node.parentId which may not be a user node
+ * (e.g., it could be a toolResult in a multi-step turn).
+ * Walk up to find the user node, then return its first assistant child.
+ */
+function getCheckpointKeyForRegenerate(
+  parentNodeId: string,
+  nodes: Map<string, TreeNode>,
+): string | null {
+  // Walk up to find the user node that started this turn
+  let userNodeId = parentNodeId;
+  let node = nodes.get(userNodeId);
+  while (node && node.message.role !== "user") {
+    if (!node.parentId) return null;
+    userNodeId = node.parentId;
+    node = nodes.get(userNodeId);
+  }
+  if (!node) return null;
+
+  // Return the first assistant child of the user node
+  if (!node.children?.length) return null;
+  return node.activeChildId ?? node.children[node.children.length - 1];
+}
+
+function getCheckpointKeyForDelete(
+  nodeId: string,
+  nodes: Map<string, TreeNode>,
+): string | null {
+  let current = nodeId;
+  while (current) {
+    const node = nodes.get(current);
+    if (!node?.parentId) return null;
+    const parent = nodes.get(node.parentId);
+    if (parent && parent.message.role === "user") return current;
+    current = node.parentId;
+  }
+  return null;
+}
+
 export function AgentPanel() {
   const session = useSessionState();
   const { t } = useI18n();
   const { switchBranch, setReplyTo, deleteNode } = useConversation();
   const { regenerate } = useStreaming();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Checkpoint dialog state
+  const [cpDialog, setCpDialog] = useState<{
+    type: "regenerate" | "delete";
+    nodeId: string;
+  } | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -98,6 +147,31 @@ export function AgentPanel() {
     const parent = session.nodes.get(node.parentId);
     return parent?.children ?? [node.id];
   };
+
+  // Checkpoint-aware action wrappers
+  const handleRegenerate = useCallback(
+    (userNodeId: string) => {
+      const key = getCheckpointKeyForRegenerate(userNodeId, session.nodes);
+      if (key && session.checkpointNodeIds.has(key)) {
+        setCpDialog({ type: "regenerate", nodeId: userNodeId });
+      } else {
+        void regenerate(userNodeId);
+      }
+    },
+    [session.nodes, session.checkpointNodeIds, regenerate],
+  );
+
+  const handleDelete = useCallback(
+    (nodeId: string) => {
+      const key = getCheckpointKeyForDelete(nodeId, session.nodes);
+      if (key && session.checkpointNodeIds.has(key)) {
+        setCpDialog({ type: "delete", nodeId });
+      } else {
+        void deleteNode(nodeId);
+      }
+    },
+    [session.nodes, session.checkpointNodeIds, deleteNode],
+  );
 
   if (!session.activeConversationId) {
     return (
@@ -115,8 +189,8 @@ export function AgentPanel() {
   const actions = {
     onSwitchBranch: switchBranch,
     onBranchFrom: setReplyTo,
-    onDelete: deleteNode,
-    onRegenerate: regenerate,
+    onDelete: handleDelete,
+    onRegenerate: handleRegenerate,
   };
 
   return (
@@ -145,8 +219,8 @@ export function AgentPanel() {
         <MessageActionsProvider
           switchBranch={switchBranch}
           branchFrom={setReplyTo}
-          deleteNode={deleteNode}
-          regenerate={regenerate}
+          deleteNode={handleDelete}
+          regenerate={handleRegenerate}
           isStreaming={session.isStreaming}
         >
           {session.activePath.map((nodeId) => {
@@ -182,6 +256,21 @@ export function AgentPanel() {
 
         <div ref={messagesEndRef} />
       </ScrollArea>
+
+      <CheckpointDialog
+        open={cpDialog !== null}
+        onConversationOnly={() => {
+          if (cpDialog?.type === "regenerate") void regenerate(cpDialog.nodeId);
+          else if (cpDialog?.type === "delete") void deleteNode(cpDialog.nodeId);
+          setCpDialog(null);
+        }}
+        onWithFiles={() => {
+          if (cpDialog?.type === "regenerate") void regenerate(cpDialog.nodeId, true);
+          else if (cpDialog?.type === "delete") void deleteNode(cpDialog.nodeId, true);
+          setCpDialog(null);
+        }}
+        onCancel={() => setCpDialog(null)}
+      />
     </div>
   );
 }
