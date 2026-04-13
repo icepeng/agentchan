@@ -28,3 +28,25 @@ export function revealProjectFile(slug: string, path: string): Promise<void> {
     method: "POST",
   });
 }
+
+export function deleteProjectDir(slug: string, path: string): Promise<void> {
+  return json(`/projects/${encodeURIComponent(slug)}/dir?path=${encodeURIComponent(path)}`, {
+    method: "DELETE",
+  });
+}
+
+export function renameProjectEntry(slug: string, from: string, to: string): Promise<void> {
+  return json(`/projects/${encodeURIComponent(slug)}/file/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to }),
+  });
+}
+
+export function createProjectDir(slug: string, path: string): Promise<void> {
+  return json(`/projects/${encodeURIComponent(slug)}/dir`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+}

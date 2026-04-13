@@ -1,6 +1,6 @@
 import { readFile, mkdir, readdir, rename, rm, cp, stat, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
 import type { Project } from "../types.js";
 
@@ -215,6 +215,29 @@ export function createProjectRepo(projectsDir: string) {
         if (code === "ENOENT") throw new Error("File not found", { cause: err });
         throw err;
       }
+    },
+
+    async deleteProjectDir(slug: string, dirPath: string): Promise<void> {
+      const resolved = this.resolveProjectFile(slug, dirPath);
+      if (!resolved) throw new Error(`Invalid path: ${dirPath}`);
+      await rm(resolved.fullPath, { recursive: true });
+    },
+
+    async renameProjectEntry(slug: string, fromPath: string, toPath: string): Promise<void> {
+      const resolvedFrom = this.resolveProjectFile(slug, fromPath);
+      if (!resolvedFrom) throw new Error(`Invalid path: ${fromPath}`);
+      const resolvedTo = this.resolveProjectFile(slug, toPath);
+      if (!resolvedTo) throw new Error(`Invalid path: ${toPath}`);
+      if (dirname(resolvedFrom.fullPath) !== dirname(resolvedTo.fullPath)) {
+        await mkdir(dirname(resolvedTo.fullPath), { recursive: true });
+      }
+      await rename(resolvedFrom.fullPath, resolvedTo.fullPath);
+    },
+
+    async createProjectDir(slug: string, dirPath: string): Promise<void> {
+      const resolved = this.resolveProjectFile(slug, dirPath);
+      if (!resolved) throw new Error(`Invalid path: ${dirPath}`);
+      await mkdir(resolved.fullPath, { recursive: true });
     },
   };
 }

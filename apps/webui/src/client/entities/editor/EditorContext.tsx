@@ -54,6 +54,8 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         localContent: null,
         dirty: false,
       };
+    case "RENAME_SELECTED":
+      return { ...state, selectedPath: action.newPath };
     case "CLEAR":
       return initialState;
     default:

@@ -206,4 +206,9 @@ export const translations: Record<TranslationKey, string> = {
   "editMode.deleteFile": "삭제",
   "editMode.deleteConfirmTitle": "파일 삭제",
   "editMode.deleteConfirmMessage": "\"{{name}}\" 파일을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+  "editMode.newFile": "새 파일",
+  "editMode.newFolder": "새 폴더",
+  "editMode.rename": "이름 변경",
+  "editMode.deleteFolderConfirmTitle": "폴더 삭제",
+  "editMode.deleteFolderConfirmMessage": "\"{{name}}\" 폴더와 모든 내용을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
 };

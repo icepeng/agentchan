@@ -28,6 +28,13 @@ export function EditModePanel() {
     confirmDeleteFile,
     cancelDeleteFile,
     revealFile,
+    deleteConfirmDir,
+    requestDeleteDir,
+    confirmDeleteDir,
+    cancelDeleteDir,
+    renameEntry,
+    createFileInDir,
+    createDirInDir,
   } = useEditMode();
 
   const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
@@ -50,7 +57,11 @@ export function EditModePanel() {
           dirty={dirty}
           onSelect={selectFile}
           onDelete={requestDeleteFile}
+          onDeleteDir={requestDeleteDir}
           onReveal={revealFile}
+          onRename={renameEntry}
+          onCreateFile={createFileInDir}
+          onCreateDir={createDirInDir}
         />
       </div>
 
@@ -79,11 +90,20 @@ export function EditModePanel() {
         onCancel={handleUnsavedCancel}
       />
 
-      {/* Delete confirmation dialog */}
+      {/* File delete confirmation dialog */}
       <DeleteConfirmDialog
         path={deleteConfirmPath}
+        type="file"
         onConfirm={() => void confirmDeleteFile()}
         onCancel={cancelDeleteFile}
+      />
+
+      {/* Folder delete confirmation dialog */}
+      <DeleteConfirmDialog
+        path={deleteConfirmDir}
+        type="dir"
+        onConfirm={() => void confirmDeleteDir()}
+        onCancel={cancelDeleteDir}
       />
     </>
   );
