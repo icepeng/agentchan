@@ -227,25 +227,29 @@ Simplify가 도입한 문제가 있으면 수정한다.
 
 ## Phase 7: Code Quality Verification
 
-**Goal**: 변경 범위에 따라 전문 스킬로 코드 품질을 추가 검증한다.
+**Goal**: 서브에이전트를 통해 변경된 React 코드의 품질을 검증한다.
 
 `git diff --name-only main...HEAD`(또는 `git diff --name-only --cached`로 커밋 전 변경 파일)을 확인하여 변경된 파일 목록을 얻는다.
 
-### React 변경 검증
+변경된 파일 중 `src/client/` 하위의 `.tsx` 또는 `.ts` 파일이 없으면 이 Phase를 건너뛴다.
 
-변경된 파일 중 `src/client/` 하위의 `.tsx` 또는 `.ts` 파일이 있으면:
+### 서브에이전트 파견
 
-Skill tool로 `"vercel-react-best-practices"` skill을 호출하여, 변경된 React 코드가 성능 best practices를 준수하는지 검증한다. 발견된 문제를 수정한다.
+Agent tool로 검증 서브에이전트를 생성한다.
 
-### Shared UI 변경 검증
+서브에이전트 프롬프트에 다음을 포함한다:
 
-변경된 파일 중 `src/client/shared/` 하위 파일이 있으면:
+1. **변경 파일 목록** — git diff에서 얻은 변경 파일 경로 전체
+2. **검증 범위**:
+   - `src/client/` 하위 변경: vercel-react-best-practices 검증
+   - `src/client/shared/` 하위 변경: vercel-composition-patterns 검증 추가
+3. **보고 형식** — 각 문제에 대해 파일:라인, 문제 설명, 권장 수정 방향. 코드를 직접 수정하지 않는다
 
-Skill tool로 `"vercel-composition-patterns"` skill을 호출하여, shared UI 컴포넌트의 composition 패턴이 적절한지 검증한다. 발견된 문제를 수정한다.
+### 결과 처리
 
-### 빌드 재검증
+서브에이전트의 보고를 검토하고, 수정이 필요하다고 판단되는 항목을 직접 수정한다. 의도적인 설계 결정에 의한 것이라면 무시할 수 있다.
 
-위 스킬에서 코드를 수정했다면 빌드를 재검증한다:
+수정을 수행했다면 빌드를 재검증한다:
 
 ```bash
 cd apps/webui && bunx tsc --noEmit
@@ -259,7 +263,7 @@ bun run lint
 bun run test
 ```
 
-두 조건 모두 해당하지 않으면 이 Phase를 건너뛴다.
+빌드 에러가 있으면 수정한다.
 
 ---
 
