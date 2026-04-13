@@ -13,6 +13,7 @@ import {
 } from "../../src/skills/catalog.js";
 import { createActivateSkillTool } from "../../src/skills/manager.js";
 import type { TreeNode } from "../../src/types.js";
+import type { UserMessage, TextContent } from "@mariozechner/pi-ai";
 
 // Two skill-injection paths must produce identical `<skill_content>` text:
 // 1. Slash command → buildUserNodeForPrompt creates a skill-load TreeNode
@@ -52,10 +53,17 @@ afterEach(async () => {
   await rm(projectDir, { recursive: true, force: true });
 });
 
+function getContent(node: TreeNode): string | (TextContent | { type: string })[] {
+  const msg = node.message as UserMessage;
+  return msg.content;
+}
+
 function getText(node: TreeNode): string {
-  const block = node.content[0];
+  const content = getContent(node);
+  if (typeof content === "string") return content;
+  const block = content[0];
   if (block?.type !== "text") throw new Error("expected first content block to be text");
-  return block.text;
+  return (block as TextContent).text;
 }
 
 function getToolResultText(result: { content: { type: string; text?: string }[] }): string {
@@ -65,9 +73,11 @@ function getToolResultText(result: { content: { type: string; text?: string }[] 
 }
 
 function assertSkillLoadShape(node: TreeNode, expectedSkillName: string): void {
-  expect(node.role).toBe("user");
+  expect(node.message.role).toBe("user");
   expect(node.meta).toBe("skill-load");
-  expect(node.content).toHaveLength(1);
+  const content = getContent(node);
+  expect(Array.isArray(content)).toBe(true);
+  expect((content as any[]).length).toBe(1);
   const text = getText(node);
   expect(text.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
   expect(text).toContain(`name="${expectedSkillName}"`);
@@ -87,10 +97,12 @@ describe("skill-load shape — two injection paths", () => {
     expect(result.nodes).toHaveLength(1);
     const [node] = result.nodes;
 
-    expect(node.role).toBe("user");
+    expect(node.message.role).toBe("user");
     expect(node.meta).toBe("skill-load");
     expect(node.parentId).toBe("leaf-id");
-    expect(node.content).toHaveLength(2);
+    const content = getContent(node);
+    expect(Array.isArray(content)).toBe(true);
+    expect((content as any[]).length).toBe(2);
 
     // content[0] = skill body
     const skillText = getText(node);
@@ -99,9 +111,10 @@ describe("skill-load shape — two injection paths", () => {
     expect(skillText).toContain("</skill_content>");
 
     // content[1] = serialized command
-    const cmdBlock = node.content[1];
+    const contentArr = content as (TextContent | { type: string })[];
+    const cmdBlock = contentArr[1];
     expect(cmdBlock.type).toBe("text");
-    const cmdText = (cmdBlock as { type: "text"; text: string }).text;
+    const cmdText = (cmdBlock as TextContent).text;
     expect(cmdText).toContain("<command-name>/invocable-character</command-name>");
     expect(cmdText).toContain("<command-args>hello world</command-args>");
 
