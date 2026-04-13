@@ -1,9 +1,8 @@
-import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
+import { Agent, type AgentEvent, type AgentMessage } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
 import { setupCreativeAgent, clearConversationAgentState } from "../../src/agent/orchestrator.js";
 import { createAgentContext } from "../../src/agent/context.js";
 import { createConversation } from "../../src/agent/lifecycle.js";
-import type { StoredMessage } from "../../src/types.js";
 import { createFixture, cleanupFixture, type Fixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
@@ -92,7 +91,7 @@ export class EvalHarness {
     });
     const created = await createConversation(ctx, fixture.slug);
     const conversationId = created.conversation.id;
-    const history: StoredMessage[] = [];
+    const history: AgentMessage[] = [];
 
     const { agent, systemPrompt } = await setupCreativeAgent(
       { provider, model, apiKey, temperature: 0 },
@@ -135,7 +134,7 @@ export class EvalHarness {
     });
 
     let toolCallCount = 0;
-    agent.setAfterToolCall(async () => {
+    agent.afterToolCall = async () => {
       toolCallCount++;
       if (toolCallCount >= maxToolCalls) {
         return {
@@ -144,7 +143,7 @@ export class EvalHarness {
         };
       }
       return undefined;
-    });
+    };
 
     return harness;
   }
