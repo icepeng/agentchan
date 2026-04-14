@@ -7,15 +7,19 @@
  * - `prefersScheme`이 명시되면 프로젝트 페이지에서만 사용자 Appearance 토글을 강제 오버라이드.
  */
 
+/**
+ * 토큰 이름은 agentchan 전역 CSS 변수(`--color-*`)와 1:1로 대응한다.
+ * 렌더러 작성자가 토큰을 선언하면 그대로 해당 `--color-*`가 오버라이드된다.
+ */
 export interface RendererThemeTokens {
-  background?: string; // --color-void    (앱 최상위 배경)
-  surface?: string; // --color-base    (Sidebar / AgentPanel / BottomInput 베이스)
-  elevated?: string; // --color-surface (카드 / 인풋 박스)
-  raised?: string; // --color-elevated (hover / 강조)
-  accent?: string; // --color-accent  (포인트 색)
-  foreground?: string; // --color-fg      (본문 텍스트)
-  foregroundMuted?: string; // --color-fg-3    (부드러운 텍스트)
-  border?: string; // --color-edge    (테두리 베이스)
+  void?: string; // --color-void     (앱 최상위 배경)
+  base?: string; // --color-base     (Sidebar / AgentPanel / BottomInput)
+  surface?: string; // --color-surface  (카드 / 인풋 박스)
+  elevated?: string; // --color-elevated (hover / 강조)
+  accent?: string; // --color-accent   (포인트 색)
+  fg?: string; // --color-fg       (본문 텍스트)
+  fg3?: string; // --color-fg-3     (부드러운 텍스트)
+  edge?: string; // --color-edge     (테두리 베이스)
 }
 
 export interface RendererTheme {
@@ -27,14 +31,14 @@ export interface RendererTheme {
 }
 
 const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
-  background: "--color-void",
-  surface: "--color-base",
-  elevated: "--color-surface",
-  raised: "--color-elevated",
+  void: "--color-void",
+  base: "--color-base",
+  surface: "--color-surface",
+  elevated: "--color-elevated",
   accent: "--color-accent",
-  foreground: "--color-fg",
-  foregroundMuted: "--color-fg-3",
-  border: "--color-edge",
+  fg: "--color-fg",
+  fg3: "--color-fg-3",
+  edge: "--color-edge",
 };
 
 const TOKEN_KEYS = Object.keys(TOKEN_TO_CSS) as (keyof RendererThemeTokens)[];
