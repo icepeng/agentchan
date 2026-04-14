@@ -5,3 +5,9 @@ export {
   fetchProjects, createProject, updateProject, deleteProject, duplicateProject,
   fetchWorkspaceFiles, fetchTranspiledRenderer,
 } from "./project.api.js";
+export { validateTheme, resolveThemeVars } from "./projectTheme.js";
+export type {
+  RendererTheme,
+  RendererThemeTokens,
+  ResolvedThemeVars,
+} from "./projectTheme.js";

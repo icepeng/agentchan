@@ -218,6 +218,10 @@ export const translations: Record<TranslationKey, string> = {
   "editMode.deleteFolderConfirmTitle": "폴더 삭제",
   "editMode.deleteFolderConfirmMessage": "\"{{name}}\" 폴더와 모든 내용을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
 
+  // Sidebar collapse
+  "ui.sidebar.collapse": "사이드바 접기",
+  "ui.sidebar.expand": "사이드바 펼치기",
+
   // Notifications
   "notifications.title": "알림",
   "notifications.desktopLabel": "데스크톱 알림",

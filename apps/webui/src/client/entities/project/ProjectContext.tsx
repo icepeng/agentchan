@@ -6,6 +6,7 @@ import {
   type Dispatch,
 } from "react";
 import type { Project } from "./project.types.js";
+import type { RendererTheme } from "./projectTheme.js";
 
 // --- State ---
 
@@ -14,6 +15,7 @@ export interface ProjectState {
   activeProjectSlug: string | null;
   projectActiveSession: Map<string, string>;
   renderedHtml: string;
+  rendererTheme: RendererTheme | null;
 }
 
 // --- Actions ---
@@ -24,7 +26,7 @@ export type ProjectAction =
   | { type: "ADD_PROJECT"; project: Project }
   | { type: "UPDATE_PROJECT"; oldSlug: string; project: Project }
   | { type: "DELETE_PROJECT"; slug: string }
-  | { type: "SET_RENDERED_HTML"; html: string };
+  | { type: "SET_RENDER_OUTPUT"; html: string; theme: RendererTheme | null };
 
 // --- Reducer ---
 
@@ -43,6 +45,7 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
         activeProjectSlug: action.slug,
         projectActiveSession: newMap,
         renderedHtml: "",
+        rendererTheme: null,
       };
     }
 
@@ -67,12 +70,18 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       return {
         ...state,
         projects: remaining,
-        ...(wasActive ? { activeProjectSlug: remaining[0]?.slug ?? null, renderedHtml: "" } : {}),
+        ...(wasActive
+          ? {
+              activeProjectSlug: remaining[0]?.slug ?? null,
+              renderedHtml: "",
+              rendererTheme: null,
+            }
+          : {}),
       };
     }
 
-    case "SET_RENDERED_HTML":
-      return { ...state, renderedHtml: action.html };
+    case "SET_RENDER_OUTPUT":
+      return { ...state, renderedHtml: action.html, rendererTheme: action.theme };
 
     default:
       return state;
@@ -86,6 +95,7 @@ const initialState: ProjectState = {
   activeProjectSlug: null,
   projectActiveSession: new Map(),
   renderedHtml: "",
+  rendererTheme: null,
 };
 
 const ProjectStateContext = createContext<ProjectState>(initialState);
