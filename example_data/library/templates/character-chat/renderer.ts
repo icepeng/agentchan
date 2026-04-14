@@ -139,11 +139,12 @@ type Beat =
   | { kind: "whisper"; lines: string[] }
   | { kind: "direction"; text: string }
   | { kind: "divider" }
-  | { kind: "choice"; mode: "fill" | "send"; text: string };
+  | { kind: "choice"; text: string };
 
 const RE_DIVIDER = /^---+$/;
 const RE_USER = /^>\s+(.+)$/;
-const RE_CHOICE = /^\[choice(?::(fill|send))?\]\s+(.+)$/;
+// `[choice:...]` 같은 legacy suffix는 허용하되 무시한다 — 모든 choice는 fill 모드.
+const RE_CHOICE = /^\[choice(?::[a-z]+)?\]\s+(.+)$/;
 const RE_EMOTION_LINE = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s*$/;
 const RE_EMOTION_INLINE = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s+/;
 // `**Name:**` (콜론이 bold 내부) 와 `**Name**:` (콜론이 bold 외부) 양쪽 지원
@@ -166,8 +167,7 @@ function parseScene(text: string, stage: Stage): Beat[] {
 
     const mChoice = line.match(RE_CHOICE);
     if (mChoice) {
-      const mode = (mChoice[1] as "fill" | "send" | undefined) ?? "fill";
-      beats.push({ kind: "choice", mode, text: mChoice[2].trim() });
+      beats.push({ kind: "choice", text: mChoice[1].trim() });
       continue;
     }
 
@@ -381,21 +381,13 @@ function renderChoiceBar(
   id: string,
 ): string {
   const buttons = chips
-    .map((c) => {
-      // fill = 편집 후 전송 (입력창에 채워짐) / send = 즉시 전송
-      // 시각적 단서: fill은 밀랍 봉인 + `…` (계속 쓴다), send는 `›` (떠난다)
-      const hint = c.mode === "send" ? "\u203a" : "\u2026";
-      const title =
-        c.mode === "send"
-          ? "클릭 시 즉시 전송"
-          : "클릭 시 입력창에 채워짐 (편집 후 전송)";
-      return `
-      <button type="button" class="cr-choice cr-choice--${c.mode}" data-action="${c.mode}" data-text="${escape(c.text, { attr: true })}" title="${escape(title, { attr: true })}">
+    .map(
+      (c) => `
+      <button type="button" class="cr-choice" data-action="fill" data-text="${escape(c.text, { attr: true })}">
         <span class="cr-choice-seal" aria-hidden="true"></span>
         <span class="cr-choice-text">${escape(c.text)}</span>
-        <span class="cr-choice-hint" aria-hidden="true">${hint}</span>
-      </button>`;
-    })
+      </button>`,
+    )
     .join("");
   return `<div id="${id}" class="cr-choice-bar">${buttons}</div>`;
 }
@@ -759,10 +751,6 @@ const STYLES = `<style>
     width: 11px;
     height: 11px;
     border-radius: 50%;
-    flex-shrink: 0;
-  }
-  /* fill: 따뜻한 밀랍 봉인 (머무름, 편집 여지) */
-  .cr-choice--fill .cr-choice-seal {
     background:
       radial-gradient(circle at 32% 30%,
         color-mix(in srgb, var(--color-warm) 85%, white) 0%,
@@ -770,43 +758,7 @@ const STYLES = `<style>
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--color-warm) 40%, transparent),
       0 0 8px -1px color-mix(in srgb, var(--color-warm) 40%, transparent);
-  }
-  /* send: 차가운 teal 봉인 (떠남, 즉시 전송) */
-  .cr-choice--send .cr-choice-seal {
-    background:
-      radial-gradient(circle at 32% 30%,
-        color-mix(in srgb, var(--color-accent) 85%, white) 0%,
-        color-mix(in srgb, var(--color-accent) 35%, black) 90%);
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent),
-      0 0 8px -1px color-mix(in srgb, var(--color-accent) 45%, transparent);
-  }
-  .cr-choice--send {
-    border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
-  }
-  .cr-choice--send:hover {
-    border-color: color-mix(in srgb, var(--color-accent) 65%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  }
-  .cr-choice-hint {
-    font-family: var(--font-family-body);
-    font-style: normal;
-    font-size: 13px;
-    color: var(--color-fg-3);
-    margin-left: 2px;
-    transition: transform 0.2s ease, color 0.2s ease;
-  }
-  .cr-choice--send .cr-choice-hint {
-    color: color-mix(in srgb, var(--color-accent) 75%, var(--color-fg-2));
-    font-weight: 600;
-  }
-  .cr-choice:hover .cr-choice-hint {
-    color: var(--color-fg);
-  }
-  .cr-choice--send:hover .cr-choice-hint {
-    transform: translateX(2px);
-    color: var(--color-accent);
+    flex-shrink: 0;
   }
 
   /* ─── Empty state: 무대가 기다리고 있습니다 ──────────────────── */
