@@ -45,12 +45,17 @@ export type AppEnv = {
 
 // --- Project (folder) - webui-specific ---
 
-export interface Project {
-  slug: string;
+/** Disk format stored in _project.json (no slug — derived from folder name). */
+export interface ProjectMeta {
   name: string;
   createdAt: number;
   updatedAt: number;
-  notes?: string;          // Free-form project notes
+  notes?: string;
+}
+
+/** Runtime / API response format (slug derived from folder name on disk). */
+export interface Project extends ProjectMeta {
+  slug: string;
 }
 
 // --- Server config state ---

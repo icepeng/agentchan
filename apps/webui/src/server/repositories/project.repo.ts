@@ -2,7 +2,7 @@ import { readFile, mkdir, readdir, rename, rm, cp, stat, unlink } from "node:fs/
 import { existsSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
-import type { Project } from "../types.js";
+import type { Project, ProjectMeta } from "../types.js";
 import { probeCover } from "../paths.js";
 
 export interface TreeEntry {
@@ -43,10 +43,10 @@ export function createProjectRepo(projectsDir: string) {
   async function createFromSource(name: string, srcDir: string): Promise<Project> {
     const slug = uniqueSlug(name);
     const now = Date.now();
-    const project: Project = { slug, name, createdAt: now, updatedAt: now };
+    const meta: ProjectMeta = { name, createdAt: now, updatedAt: now };
 
     await ensureProjectDir(slug);
-    await Bun.write(projectMetaPath(slug), JSON.stringify(project, null, 2));
+    await Bun.write(projectMetaPath(slug), JSON.stringify(meta, null, 2));
 
     const destDir = projectDir(slug);
     const entries = await readdir(srcDir, { withFileTypes: true });
@@ -54,7 +54,7 @@ export function createProjectRepo(projectsDir: string) {
       .filter((e) => e.name !== "_template.json")
       .map((e) => cp(join(srcDir, e.name), join(destDir, e.name), { recursive: e.isDirectory() }));
     await Promise.all(copies);
-    return project;
+    return { ...meta, slug };
   }
 
   return {
@@ -70,9 +70,9 @@ export function createProjectRepo(projectsDir: string) {
           .map(async (entry) => {
             const metaPath = projectMetaPath(entry.name);
             if (!existsSync(metaPath)) return null;
-            const meta = JSON.parse(await readFile(metaPath, "utf-8")) as Project;
+            const meta = JSON.parse(await readFile(metaPath, "utf-8")) as ProjectMeta;
             const hasCover = (await probeCover(projectDir(entry.name))) !== null;
-            return { ...meta, hasCover };
+            return { ...meta, slug: entry.name, hasCover };
           }),
       );
 
@@ -90,18 +90,18 @@ export function createProjectRepo(projectsDir: string) {
     async get(slug: string): Promise<Project | null> {
       const metaPath = projectMetaPath(slug);
       if (!existsSync(metaPath)) return null;
-      return JSON.parse(await readFile(metaPath, "utf-8")) as Project;
+      const meta = JSON.parse(await readFile(metaPath, "utf-8")) as ProjectMeta;
+      return { ...meta, slug };
     },
 
     async create(name: string): Promise<Project> {
       const slug = uniqueSlug(name);
       const now = Date.now();
-
-      const project: Project = { slug, name, createdAt: now, updatedAt: now };
+      const meta: ProjectMeta = { name, createdAt: now, updatedAt: now };
 
       await ensureProjectDir(slug);
-      await Bun.write(projectMetaPath(slug), JSON.stringify(project, null, 2));
-      return project;
+      await Bun.write(projectMetaPath(slug), JSON.stringify(meta, null, 2));
+      return { ...meta, slug };
     },
 
     async update(
@@ -110,13 +110,12 @@ export function createProjectRepo(projectsDir: string) {
     ): Promise<Project> {
       const metaPath = projectMetaPath(slug);
       if (!existsSync(metaPath)) throw new Error(`Project not found: ${slug}`);
-      const existing = JSON.parse(await readFile(metaPath, "utf-8")) as Project;
+      const existing = JSON.parse(await readFile(metaPath, "utf-8")) as ProjectMeta;
 
       const newName = updates.name ?? existing.name;
       const newSlug = updates.name ? uniqueSlug(newName) : slug;
-      const updated: Project = {
+      const meta: ProjectMeta = {
         ...existing,
-        slug: newSlug,
         name: newName,
         updatedAt: Date.now(),
         ...(updates.notes !== undefined ? { notes: updates.notes } : {}),
@@ -126,8 +125,8 @@ export function createProjectRepo(projectsDir: string) {
         await rename(projectDir(slug), projectDir(newSlug));
       }
 
-      await Bun.write(projectMetaPath(newSlug), JSON.stringify(updated, null, 2));
-      return updated;
+      await Bun.write(projectMetaPath(newSlug), JSON.stringify(meta, null, 2));
+      return { ...meta, slug: newSlug };
     },
 
     async delete(slug: string): Promise<void> {
