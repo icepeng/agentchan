@@ -63,7 +63,6 @@ const agentService = createAgentService(agentContext);
 
 // ===== 3. Bootstrap =====
 await templateRepo.ensureDir();
-await projectService.ensureInitialProject();
 
 // ===== 4. Hono App =====
 const app = new Hono<AppEnv>();

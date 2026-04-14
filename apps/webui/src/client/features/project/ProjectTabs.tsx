@@ -270,7 +270,7 @@ export function ProjectTabs() {
               >
                 <Settings size={10} strokeWidth={2} />
               </span>
-              {isActive && projects.length > 1 && (
+              {isActive && (
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
