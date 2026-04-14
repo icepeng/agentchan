@@ -5,6 +5,7 @@ export const translations: Record<TranslationKey, string> = {
   "sidebar.templates": "템플릿",
   "sidebar.projects": "프로젝트",
   "sidebar.projectSettings": "프로젝트 설정",
+  "sidebar.streamingIndicator": "생성 중…",
 
   // Provider / Model
   "provider.label": "프로바이더",
@@ -216,4 +217,16 @@ export const translations: Record<TranslationKey, string> = {
   "editMode.rename": "이름 변경",
   "editMode.deleteFolderConfirmTitle": "폴더 삭제",
   "editMode.deleteFolderConfirmMessage": "\"{{name}}\" 폴더와 모든 내용을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+
+  // Notifications
+  "notifications.title": "알림",
+  "notifications.desktopLabel": "데스크톱 알림",
+  "notifications.desktopDesc": "다른 프로젝트나 탭을 보고 있을 때 에이전트가 완료되면 알려드립니다.",
+  "notifications.enabled": "켜짐",
+  "notifications.disabled": "꺼짐",
+  "notifications.blocked": "브라우저에서 차단됨 — 사이트 설정에서 알림을 허용하세요.",
+  "notifications.sessionComplete": "{{project}} 완료",
+  "notifications.sessionCompleteBody": "응답을 확인하려면 탭하세요.",
+  "notifications.sessionError": "{{project}} 오류 발생",
+  "notifications.sessionErrorBody": "상세 내용을 확인하려면 탭하세요.",
 };

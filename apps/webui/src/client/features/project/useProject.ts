@@ -13,6 +13,7 @@ import {
   useSessionDispatch,
   fetchConversations,
   fetchConversation,
+  abortProjectStream,
 } from "@/client/entities/session/index.js";
 import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
 
@@ -31,10 +32,17 @@ export function useProject() {
 
   const selectProject = useCallback(
     async (slug: string) => {
+      // No-op if already active. Otherwise SET_ACTIVE_PROJECT would re-fire
+      // and clear renderedHtml, but the slug-keyed useEffect in RenderedView
+      // wouldn't re-run (primitive equality), leaving the renderer blank.
+      if (projectState.activeProjectSlug === slug) return;
+
       localStorage.setItem("agentchan-last-project", slug);
       const rememberedSessionId = projectState.projectActiveSession.get(slug);
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug, currentConversationId: sessionState.activeConversationId });
-      sessionDispatch({ type: "CLEAR" });
+      // SWITCH_PROJECT replaces the active view but preserves streams Map so
+      // background streams on other projects keep running and can notify on completion.
+      sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: slug, conversations: [] });
       skillDispatch({ type: "CLEAR" });
       const [conversations, skills] = await Promise.all([
         fetchConversations(slug),
@@ -53,7 +61,7 @@ export function useProject() {
         });
       }
     },
-    [projectState.projectActiveSession, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
+    [projectState.activeProjectSlug, projectState.projectActiveSession, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
   );
 
   const createProject = useCallback(
@@ -61,7 +69,7 @@ export function useProject() {
       const project = await apiCreate(name, fromTemplate);
       projectDispatch({ type: "ADD_PROJECT", project });
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
-      sessionDispatch({ type: "CLEAR" });
+      sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: project.slug, conversations: [] });
       skillDispatch({ type: "CLEAR" });
       if (fromTemplate) {
         const skills = await fetchSkills(project.slug);
@@ -77,7 +85,7 @@ export function useProject() {
       const project = await apiDuplicate(sourceSlug, name);
       projectDispatch({ type: "ADD_PROJECT", project });
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
-      sessionDispatch({ type: "CLEAR" });
+      sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: project.slug, conversations: [] });
       skillDispatch({ type: "CLEAR" });
       const [conversations, skills] = await Promise.all([
         fetchConversations(project.slug),
@@ -101,6 +109,12 @@ export function useProject() {
 
   const deleteProject = useCallback(
     async (slug: string) => {
+      // If a stream is in flight for this project, abort it before deletion so
+      // pi-agent-core can cancel the LLM request and we don't keep billing.
+      // Also drop the stream slot so stale completion events can't resurrect state.
+      abortProjectStream(slug);
+      sessionDispatch({ type: "REMOVE_STREAM", projectSlug: slug });
+
       await apiDelete(slug);
       projectDispatch({ type: "DELETE_PROJECT", slug });
       if (projectState.activeProjectSlug === slug) {
@@ -108,7 +122,7 @@ export function useProject() {
         if (fallback) {
           localStorage.setItem("agentchan-last-project", fallback.slug);
           projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: fallback.slug, currentConversationId: sessionState.activeConversationId });
-          sessionDispatch({ type: "CLEAR" });
+          sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: fallback.slug, conversations: [] });
           skillDispatch({ type: "CLEAR" });
           const [conversations, skills] = await Promise.all([
             fetchConversations(fallback.slug),
@@ -116,6 +130,9 @@ export function useProject() {
           ]);
           sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
           skillDispatch({ type: "SET_SKILLS", skills });
+        } else {
+          // No remaining projects — clear the view.
+          sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: null, conversations: [] });
         }
       }
     },

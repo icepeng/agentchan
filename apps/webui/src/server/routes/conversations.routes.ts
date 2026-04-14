@@ -56,10 +56,14 @@ export function createConversationRoutes() {
     const conversationId = c.req.param("id");
     const { parentNodeId, text } =
       await c.req.json<{ parentNodeId: string | null; text: string }>();
+    // c.req.raw.signal fires when the underlying HTTP connection drops —
+    // e.g. tab close, navigation, explicit fetch abort. We propagate it so
+    // pi-agent-core can cancel the in-flight LLM request and stop billing.
+    const signal = c.req.raw.signal;
 
     return streamSSE(c, async (stream) => {
       await c.get("agentService").sendMessage(
-        stream, slug, conversationId, parentNodeId, text,
+        stream, slug, conversationId, parentNodeId, text, signal,
       );
     });
   });
@@ -69,9 +73,10 @@ export function createConversationRoutes() {
     const slug = c.req.param("slug")!;
     const conversationId = c.req.param("id");
     const { userNodeId } = await c.req.json<{ userNodeId: string }>();
+    const signal = c.req.raw.signal;
 
     return streamSSE(c, async (stream) => {
-      await c.get("agentService").regenerate(stream, slug, conversationId, userNodeId);
+      await c.get("agentService").regenerate(stream, slug, conversationId, userNodeId, signal);
     });
   });
 

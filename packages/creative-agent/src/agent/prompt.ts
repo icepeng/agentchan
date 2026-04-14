@@ -70,6 +70,7 @@ export function runPrompt(
   ctx: AgentContext,
   input: PromptInput,
   emit: Emit,
+  signal?: AbortSignal,
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
@@ -101,6 +102,7 @@ export function runPrompt(
       llmText,
       emit,
       sessionMode: mode,
+      signal,
     });
   });
 }
@@ -109,6 +111,7 @@ export function runRegenerate(
   ctx: AgentContext,
   input: RegenerateInput,
   emit: Emit,
+  signal?: AbortSignal,
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
@@ -136,6 +139,7 @@ export function runRegenerate(
       llmText: userText,
       emit,
       sessionMode: mode,
+      signal,
     });
   });
 }
@@ -205,10 +209,11 @@ interface AgentTurnArgs {
   llmText: string;
   emit: Emit;
   sessionMode?: SessionMode;
+  signal?: AbortSignal;
 }
 
 async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
-  const { ctx, slug, conversationId, projectDir, tree, emit } = args;
+  const { ctx, slug, conversationId, projectDir, tree, emit, signal } = args;
 
   const cfg = ctx.resolveAgentConfig();
   if (!cfg.apiKey && !cfg.baseUrl) {
@@ -218,6 +223,10 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     });
     return;
   }
+
+  // If the caller already aborted (e.g. client disconnected between tree load
+  // and agent setup), bail before spending tokens.
+  if (signal?.aborted) return;
 
   const historyPath = args.historyAnchorId
     ? pathToNode(tree, args.historyAnchorId)
@@ -245,9 +254,23 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     emit({ type: "agent_event", event: ev });
   });
 
+  // Bridge external AbortSignal → pi-agent-core Agent.abort().
+  // pi-agent-core manages its own AbortController internally; the only lever
+  // we have is calling agent.abort() which cancels the in-flight LLM request.
+  const onAbort = () => agent.abort();
+  if (signal) {
+    if (signal.aborted) {
+      // Already aborted before agent.prompt() started.
+      unsubscribe();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
+
   try {
     await agent.prompt(args.llmText);
   } finally {
+    signal?.removeEventListener("abort", onAbort);
     unsubscribe();
   }
 

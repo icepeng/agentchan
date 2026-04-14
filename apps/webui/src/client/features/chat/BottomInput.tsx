@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
+import {
+  notificationPermission,
+  readNotificationPreference,
+  requestNotificationPermission,
+} from "@/client/shared/notifications.js";
 import { useConfigState } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -80,6 +85,13 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     // Check slash command first
     if (slash.tryExecuteCommand(trimmed)) return;
 
+    // First send in this session: opportunistically request Notification
+    // permission. Must happen in a user gesture handler (click/keydown) to
+    // satisfy browser policy. Fire-and-forget — we don't block send.
+    if (readNotificationPreference() === "on" && notificationPermission() === "default") {
+      void requestNotificationPermission();
+    }
+
     setText("");
 
     if (!session.activeConversationId) {
@@ -126,6 +138,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
 
           <textarea
             ref={textareaRef}
+            data-testid="bottom-input"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -142,6 +155,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
             className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 max-h-[200px] font-body"
           />
           <button
+            data-testid="send-button"
             onClick={handleSubmit}
             disabled={!text.trim() || isStreaming}
             className="m-1.5 p-2.5 rounded-xl bg-accent text-void disabled:opacity-20 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 transition-all duration-150"

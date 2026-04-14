@@ -5,6 +5,7 @@ import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
+import { useSessionState } from "@/client/entities/session/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
@@ -63,6 +64,7 @@ function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
 export function ProjectTabs() {
   const { t } = useI18n();
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
+  const session = useSessionState();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
   const [templates, setTemplates] = useState<TemplateMeta[] | null>(null);
   const createInputRef = useRef<HTMLInputElement>(null);
@@ -165,6 +167,12 @@ export function ProjectTabs() {
     <div className="px-2 py-1 space-y-0.5">
       {projects.map((project) => {
         const isActive = activeProjectSlug === project.slug;
+        const slot = session.streams.get(project.slug);
+        const streamState: "idle" | "streaming" | "error" = slot?.streamError
+          ? "error"
+          : slot?.isStreaming
+            ? "streaming"
+            : "idle";
 
         if (mode.type === "editing" && mode.slug === project.slug) {
           return (
@@ -213,6 +221,9 @@ export function ProjectTabs() {
             <ContextMenu.Trigger
               render={
                 <button
+                  data-testid="project-tab"
+                  data-slug={project.slug}
+                  data-stream-state={streamState}
                   onClick={() => selectProject(project.slug)}
                   onDoubleClick={() => modeDispatch({ type: "START_EDIT", slug: project.slug, name: project.name })}
                   className={`group relative w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left transition-all duration-150 ${
@@ -228,6 +239,23 @@ export function ProjectTabs() {
               )}
               <CoverImage type="projects" slug={project.slug} hasCover={project.hasCover} size="sm" />
               <span className="flex-1 truncate">{project.name}</span>
+              {streamState === "streaming" && (
+                <span
+                  data-testid="project-tab-indicator"
+                  data-slug={project.slug}
+                  className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-accent animate-glow"
+                  title={t("sidebar.streamingIndicator")}
+                />
+              )}
+              {streamState === "error" && (
+                <span
+                  data-testid="project-tab-indicator"
+                  data-slug={project.slug}
+                  data-error="true"
+                  className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-danger"
+                  title={slot?.streamError ?? ""}
+                />
+              )}
               <span
                 onClick={(e) => {
                   e.stopPropagation();

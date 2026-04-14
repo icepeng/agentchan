@@ -21,6 +21,7 @@ export function createAgentService(ctx: AgentContext) {
       conversationId: string,
       parentNodeId: string | null,
       text: string,
+      signal?: AbortSignal,
     ) {
       const queue = createSerialWriter(stream);
       try {
@@ -28,6 +29,7 @@ export function createAgentService(ctx: AgentContext) {
           ctx,
           { slug, conversationId, parentNodeId, text },
           (ev) => queue.push(ev),
+          signal,
         );
       } finally {
         await queue.drain();
@@ -39,6 +41,7 @@ export function createAgentService(ctx: AgentContext) {
       slug: string,
       conversationId: string,
       userNodeId: string,
+      signal?: AbortSignal,
     ) {
       const queue = createSerialWriter(stream);
       try {
@@ -46,6 +49,7 @@ export function createAgentService(ctx: AgentContext) {
           ctx,
           { slug, conversationId, userNodeId },
           (ev) => queue.push(ev),
+          signal,
         );
       } finally {
         await queue.drain();

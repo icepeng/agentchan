@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useSessionState, useActiveStream } from "@/client/entities/session/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
@@ -84,6 +84,7 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
 
 export function AgentPanel() {
   const session = useSessionState();
+  const stream = useActiveStream();
   const { t } = useI18n();
   const { switchBranch, setReplyTo, deleteNode } = useConversation();
   const { regenerate } = useStreaming();
@@ -91,7 +92,7 @@ export function AgentPanel() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session.activePath, session.streamingText, session.streamingToolCalls]);
+  }, [session.activePath, stream.streamingText, stream.streamingToolCalls]);
 
   const getSiblings = (node: TreeNode): string[] => {
     if (!node.parentId) return [node.id];
@@ -147,7 +148,7 @@ export function AgentPanel() {
           branchFrom={setReplyTo}
           deleteNode={deleteNode}
           regenerate={regenerate}
-          isStreaming={session.isStreaming}
+          isStreaming={stream.isStreaming}
         >
           {session.activePath.map((nodeId) => {
             const node = session.nodes.get(nodeId);
@@ -158,7 +159,7 @@ export function AgentPanel() {
                 node={node}
                 siblings={getSiblings(node)}
                 actions={actions}
-                isStreaming={session.isStreaming}
+                isStreaming={stream.isStreaming}
                 variant="compact"
                 footer={
                   node.message.role === "assistant" && node.message.model
@@ -172,7 +173,7 @@ export function AgentPanel() {
 
         <StreamingMessage variant="compact" />
 
-        {session.activePath.length === 0 && !session.isStreaming && (
+        {session.activePath.length === 0 && !stream.isStreaming && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-fg-3 tracking-wide">
               {t("chat.awaitingInput")}

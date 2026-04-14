@@ -2,13 +2,13 @@ import { useEffect, useRef } from "react";
 import { Idiomorph } from "idiomorph";
 import { useOutput } from "./useOutput.js";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/session/index.js";
 import { useRendererActionDispatch } from "@/client/entities/renderer-action/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 
 export function RenderedView() {
   const project = useProjectState();
-  const session = useSessionState();
+  const stream = useActiveStream();
   const { refresh } = useOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -21,10 +21,10 @@ export function RenderedView() {
 
   // Refresh when streaming completes (agent may have written files)
   useEffect(() => {
-    if (!session.isStreaming && project.activeProjectSlug) {
+    if (!stream.isStreaming && project.activeProjectSlug) {
       void refresh();
     }
-  }, [session.isStreaming, project.activeProjectSlug, refresh]);
+  }, [stream.isStreaming, project.activeProjectSlug, refresh]);
 
   // Morph DOM when rendered HTML changes
   useEffect(() => {

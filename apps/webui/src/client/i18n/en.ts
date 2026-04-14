@@ -3,6 +3,7 @@ export const translations = {
   "sidebar.templates": "Templates",
   "sidebar.projects": "Projects",
   "sidebar.projectSettings": "Project settings",
+  "sidebar.streamingIndicator": "Streaming…",
 
   // Provider / Model
   "provider.label": "Provider",
@@ -214,6 +215,18 @@ export const translations = {
   "editMode.rename": "Rename",
   "editMode.deleteFolderConfirmTitle": "Delete Folder",
   "editMode.deleteFolderConfirmMessage": "Are you sure you want to delete \"{{name}}\" and all its contents? This cannot be undone.",
+
+  // Notifications
+  "notifications.title": "Notifications",
+  "notifications.desktopLabel": "Desktop notifications",
+  "notifications.desktopDesc": "Get notified when an agent finishes while you're on another project or tab.",
+  "notifications.enabled": "Enabled",
+  "notifications.disabled": "Disabled",
+  "notifications.blocked": "Blocked by browser — allow notifications in site settings to enable.",
+  "notifications.sessionComplete": "{{project}} finished",
+  "notifications.sessionCompleteBody": "Tap to view the response.",
+  "notifications.sessionError": "{{project}} hit an error",
+  "notifications.sessionErrorBody": "Tap to see the details.",
 } as const satisfies Record<string, string>;
 
 export type TranslationKey = keyof typeof translations;

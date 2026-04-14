@@ -1,6 +1,8 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import { useProjectState } from "@/client/entities/project/index.js";
+import { markSeen } from "@/client/shared/notifications.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
@@ -29,6 +31,7 @@ function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
 export function AppShell() {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
+  const project = useProjectState();
 
   // Ctrl+E / Cmd+E to toggle edit mode (main page only)
   useEffect(() => {
@@ -41,6 +44,17 @@ export function AppShell() {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [ui.currentPage.page, ui.viewMode, uiDispatch]);
+
+  // Clear tab title badge for the currently-viewed project.
+  // Runs on: project switch, visibility change (user returns to tab).
+  useEffect(() => {
+    const sync = () => {
+      if (!document.hidden) markSeen(project.activeProjectSlug);
+    };
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, [project.activeProjectSlug]);
 
   return (
     <div className="flex h-full bg-void text-fg font-body">

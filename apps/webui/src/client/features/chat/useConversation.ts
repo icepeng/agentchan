@@ -86,12 +86,11 @@ export function useConversation() {
 
   const compact = useCallback(async () => {
     if (!projectState.activeProjectSlug || !sessionState.activeConversationId) return;
-    sessionDispatch({ type: "STREAM_START" });
+    const projectSlug = projectState.activeProjectSlug;
+    const conversationId = sessionState.activeConversationId;
+    sessionDispatch({ type: "STREAM_START", projectSlug, conversationId });
     try {
-      const result = await apiCompact(
-        projectState.activeProjectSlug,
-        sessionState.activeConversationId,
-      );
+      const result = await apiCompact(projectSlug, conversationId);
       const activePath = result.nodes.map((n) => n.id);
       sessionDispatch({
         type: "SET_ACTIVE_CONVERSATION",
@@ -99,12 +98,16 @@ export function useConversation() {
         nodes: result.nodes,
         activePath,
       });
-      void fetchConversations(projectState.activeProjectSlug).then((conversations) =>
+      void fetchConversations(projectSlug).then((conversations) =>
         sessionDispatch({ type: "SET_CONVERSATIONS", conversations }),
       );
-      sessionDispatch({ type: "STREAM_RESET" });
+      sessionDispatch({ type: "STREAM_RESET", projectSlug });
     } catch (err) {
-      sessionDispatch({ type: "STREAM_ERROR", error: err instanceof Error ? err.message : String(err) });
+      sessionDispatch({
+        type: "STREAM_ERROR",
+        projectSlug,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }, [projectState.activeProjectSlug, sessionState.activeConversationId, sessionDispatch]);
 

@@ -132,12 +132,22 @@ function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): v
   }
 }
 
-async function postSSE(url: string, body: Record<string, unknown>, callbacks: SSECallbacks): Promise<void> {
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && (err.name === "AbortError" || err.name === "DOMException");
+}
+
+async function postSSE(
+  url: string,
+  body: Record<string, unknown>,
+  callbacks: SSECallbacks,
+  signal?: AbortSignal,
+): Promise<void> {
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal,
     });
 
     if (!res.ok || !res.body) {
@@ -151,7 +161,45 @@ async function postSSE(url: string, body: Record<string, unknown>, callbacks: SS
       handleSSEEvent(event, data, callbacks),
     );
   } catch (err) {
+    // Aborted fetches are expected on user cancel / project delete — don't surface as error.
+    if (isAbortError(err) || signal?.aborted) return;
     callbacks.onError(err instanceof Error ? err.message : String(err));
+  }
+}
+
+// --- Abort control (module-scope registry) ---
+
+/**
+ * Per-project AbortControllers. There is at most one active stream per project
+ * (enforced by the useStreaming guard), so projectSlug is a sufficient key.
+ *
+ * Module scope (not React state) because:
+ *   - consumers across features/entities need to cancel
+ *   - AbortController itself is mutable and not a serializable state value
+ */
+const abortControllers = new Map<string, AbortController>();
+
+export function registerAbortController(projectSlug: string, controller: AbortController): void {
+  // If a previous controller is somehow still registered, abort it first
+  // (defensive — shouldn't happen under normal flow due to isStreaming guard).
+  abortControllers.get(projectSlug)?.abort();
+  abortControllers.set(projectSlug, controller);
+}
+
+export function clearAbortController(projectSlug: string, controller: AbortController): void {
+  // Only clear if the registered controller still matches; otherwise a new
+  // stream started between the old one finishing and cleanup running.
+  if (abortControllers.get(projectSlug) === controller) {
+    abortControllers.delete(projectSlug);
+  }
+}
+
+/** Abort the in-flight stream for a given project, if any. No-op if none. */
+export function abortProjectStream(projectSlug: string): void {
+  const controller = abortControllers.get(projectSlug);
+  if (controller) {
+    controller.abort();
+    abortControllers.delete(projectSlug);
   }
 }
 
@@ -161,11 +209,13 @@ export function sendMessage(
   parentNodeId: string | null,
   text: string,
   callbacks: SSECallbacks,
+  signal?: AbortSignal,
 ): Promise<void> {
   return postSSE(
     `${BASE}${projectBase(projectSlug)}/${conversationId}/messages`,
     { parentNodeId, text },
     callbacks,
+    signal,
   );
 }
 
@@ -174,11 +224,13 @@ export function regenerateResponse(
   conversationId: string,
   userNodeId: string,
   callbacks: SSECallbacks,
+  signal?: AbortSignal,
 ): Promise<void> {
   return postSSE(
     `${BASE}${projectBase(projectSlug)}/${conversationId}/regenerate`,
     { userNodeId },
     callbacks,
+    signal,
   );
 }
 

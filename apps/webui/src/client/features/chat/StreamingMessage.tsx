@@ -1,4 +1,4 @@
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { BubbleWrap } from "./MessageBubble.js";
@@ -15,14 +15,14 @@ function Sentence({ text, animating }: { text: string; animating: boolean }) {
 }
 
 export function StreamingMessage({ variant = "compact" }: { variant?: "compact" | "wide" }) {
-  const session = useSessionState();
+  const stream = useActiveStream();
   const { t } = useI18n();
   const { confirmedSentences, animatingIndices } =
-    useSentenceAnimation(session.streamingText, session.isStreaming);
+    useSentenceAnimation(stream.streamingText, stream.isStreaming);
 
   const isWide = variant === "wide";
 
-  if (session.streamError) {
+  if (stream.streamError) {
     return (
       <BubbleWrap variant={variant} padding="loose" className="bg-danger/5 border-l-2 border-danger/30 animate-fade">
         <div className={`flex items-start ${isWide ? "gap-3" : "gap-2.5"}`}>
@@ -34,7 +34,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
               </span>
             </div>
             <div className="text-sm text-danger/80">
-              <p className="leading-relaxed">{session.streamError}</p>
+              <p className="leading-relaxed">{stream.streamError}</p>
               <p className="text-xs text-fg-3 mt-1">{t("chat.streamErrorRetry")}</p>
             </div>
           </div>
@@ -43,10 +43,10 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
     );
   }
 
-  if (!session.isStreaming) return null;
+  if (!stream.isStreaming) return null;
 
   const hasText = confirmedSentences.length > 0;
-  const showCursor = session.streamingToolCalls.length === 0;
+  const showCursor = stream.streamingToolCalls.length === 0;
 
   return (
     <BubbleWrap variant={variant} padding="loose" className="bg-surface/40 animate-fade">
@@ -74,7 +74,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
                 )}
               </div>
             )}
-            {session.streamingToolCalls.map((tc) => (
+            {stream.streamingToolCalls.map((tc) => (
               <StreamingToolCall key={tc.id} tc={tc} />
             ))}
           </div>

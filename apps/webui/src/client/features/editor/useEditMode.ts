@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/session/index.js";
 import { useUIState } from "@/client/entities/ui/index.js";
 import {
   useEditorState,
@@ -18,7 +18,7 @@ import {
 export function useEditMode() {
   const ui = useUIState();
   const project = useProjectState();
-  const session = useSessionState();
+  const stream = useActiveStream();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
 
@@ -48,7 +48,7 @@ export function useEditMode() {
 
   // Refetch tree when agent streaming completes
   useEffect(() => {
-    if (session.isStreaming) {
+    if (stream.isStreaming) {
       wasStreaming.current = true;
     } else if (wasStreaming.current) {
       wasStreaming.current = false;
@@ -64,7 +64,7 @@ export function useEditMode() {
         }
       }
     }
-  }, [session.isStreaming, isEdit, slug, editorDispatch]);
+  }, [stream.isStreaming, isEdit, slug, editorDispatch]);
 
   // Clear editor on project switch
   useEffect(() => {
