@@ -10,6 +10,14 @@ export function fetchTemplateReadme(slug: string): Promise<ReadmeDoc> {
   return json(`/templates/${encodeURIComponent(slug)}/readme`);
 }
 
+export async function saveTemplateOrder(order: string[]): Promise<void> {
+  await json<{ ok: boolean }>("/templates/order", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order }),
+  });
+}
+
 export async function saveProjectAsTemplate(
   slug: string,
   payload: {

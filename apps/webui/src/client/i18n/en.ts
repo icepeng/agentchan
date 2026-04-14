@@ -111,6 +111,8 @@ export const translations = {
   "templates.begin": "Begin",
   "templates.loading": "Loading...",
   "templates.noReadme": "No README yet",
+  "templates.dragHandle": "Drag to reorder",
+  "templates.reorderFailed": "Failed to save the new order. Please try again.",
 
   // README modal (in-project)
   "readme.modalTitle": "README",

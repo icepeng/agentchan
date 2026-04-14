@@ -165,6 +165,87 @@ export function ProjectTabs() {
 
   return (
     <div className="px-2 py-1 space-y-0.5">
+      {mode.type === "creating" ? (
+        <input
+          ref={createInputRef}
+          value={mode.value}
+          onChange={(e) => modeDispatch({ type: "SET_VALUE", value: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void handleCreate();
+            if (e.key === "Escape") modeDispatch({ type: "RESET" });
+          }}
+          onBlur={() => {
+            if (mode.type === "creating" && !mode.value.trim()) modeDispatch({ type: "RESET" });
+            else void handleCreate();
+          }}
+          placeholder={t("project.namePlaceholder")}
+          className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
+        />
+      ) : (
+        <Menu.Root onOpenChange={(open) => { if (open) loadTemplates(); }}>
+          <Menu.Trigger
+            render={
+              <button
+                className="w-full px-3 py-2.5 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all duration-200 flex items-center gap-2"
+              />
+            }
+          >
+            <Plus size={12} strokeWidth={2.5} />
+            {t("project.new")}
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner sideOffset={6} align="start">
+              <Menu.Popup className={`${MENU_POPUP_CLASS} min-w-[220px]`}>
+                <Menu.Item
+                  onClick={() => modeDispatch({ type: "START_CREATE" })}
+                  className={`${MENU_ITEM_CLASS} flex items-center gap-2`}
+                >
+                  <Plus size={12} strokeWidth={2.5} />
+                  {t("project.newOptionsEmpty")}
+                </Menu.Item>
+                {templates && templates.length > 0 && (
+                  <>
+                    <div className="my-1 border-t border-edge/8" role="separator" />
+                    <Menu.Group>
+                      <Menu.GroupLabel className="px-4 py-1 text-[10px] uppercase tracking-wider text-fg-4">
+                        {t("project.newOptionsFromTemplate")}
+                      </Menu.GroupLabel>
+                      {templates.map((s) => (
+                        <Menu.Item
+                          key={s.slug}
+                          onClick={() => modeDispatch({ type: "START_CREATE", templateName: s.slug })}
+                          className={`${MENU_ITEM_CLASS} truncate`}
+                        >
+                          {s.name}
+                        </Menu.Item>
+                      ))}
+                    </Menu.Group>
+                  </>
+                )}
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      )}
+
+      {mode.type === "duplicating" && (
+        <input
+          ref={createInputRef}
+          value={mode.value}
+          onChange={(e) => modeDispatch({ type: "SET_VALUE", value: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void handleDuplicate();
+            if (e.key === "Escape") modeDispatch({ type: "RESET" });
+          }}
+          onBlur={() => {
+            if (mode.type === "duplicating" && !mode.value.trim()) modeDispatch({ type: "RESET" });
+            else void handleDuplicate();
+          }}
+          placeholder={t("project.duplicateNamePlaceholder")}
+          className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
+        />
+      )}
+
       {projects.map((project) => {
         const isActive = activeProjectSlug === project.slug;
         const slot = session.streams.get(project.slug);
@@ -304,86 +385,6 @@ export function ProjectTabs() {
         );
       })}
 
-      {mode.type === "duplicating" && (
-        <input
-          ref={createInputRef}
-          value={mode.value}
-          onChange={(e) => modeDispatch({ type: "SET_VALUE", value: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void handleDuplicate();
-            if (e.key === "Escape") modeDispatch({ type: "RESET" });
-          }}
-          onBlur={() => {
-            if (mode.type === "duplicating" && !mode.value.trim()) modeDispatch({ type: "RESET" });
-            else void handleDuplicate();
-          }}
-          placeholder={t("project.duplicateNamePlaceholder")}
-          className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
-        />
-      )}
-
-      {mode.type === "creating" ? (
-        <input
-          ref={createInputRef}
-          value={mode.value}
-          onChange={(e) => modeDispatch({ type: "SET_VALUE", value: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void handleCreate();
-            if (e.key === "Escape") modeDispatch({ type: "RESET" });
-          }}
-          onBlur={() => {
-            if (mode.type === "creating" && !mode.value.trim()) modeDispatch({ type: "RESET" });
-            else void handleCreate();
-          }}
-          placeholder={t("project.namePlaceholder")}
-          className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
-        />
-      ) : (
-        <Menu.Root onOpenChange={(open) => { if (open) loadTemplates(); }}>
-          <Menu.Trigger
-            render={
-              <button
-                className="w-full px-3 py-2.5 rounded-xl text-sm border border-dashed border-edge/10 hover:border-accent/30 hover:bg-accent/5 text-fg-3 hover:text-accent transition-all duration-200 flex items-center gap-2"
-              />
-            }
-          >
-            <Plus size={12} strokeWidth={2.5} />
-            {t("project.new")}
-          </Menu.Trigger>
-          <Menu.Portal>
-            <Menu.Positioner sideOffset={6} align="start">
-              <Menu.Popup className={`${MENU_POPUP_CLASS} min-w-[220px]`}>
-                <Menu.Item
-                  onClick={() => modeDispatch({ type: "START_CREATE" })}
-                  className={`${MENU_ITEM_CLASS} flex items-center gap-2`}
-                >
-                  <Plus size={12} strokeWidth={2.5} />
-                  {t("project.newOptionsEmpty")}
-                </Menu.Item>
-                {templates && templates.length > 0 && (
-                  <>
-                    <div className="my-1 border-t border-edge/8" role="separator" />
-                    <Menu.Group>
-                      <Menu.GroupLabel className="px-4 py-1 text-[10px] uppercase tracking-wider text-fg-4">
-                        {t("project.newOptionsFromTemplate")}
-                      </Menu.GroupLabel>
-                      {templates.map((s) => (
-                        <Menu.Item
-                          key={s.slug}
-                          onClick={() => modeDispatch({ type: "START_CREATE", templateName: s.slug })}
-                          className={`${MENU_ITEM_CLASS} truncate`}
-                        >
-                          {s.name}
-                        </Menu.Item>
-                      ))}
-                    </Menu.Group>
-                  </>
-                )}
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      )}
       <ProjectSettingsModal slug={settingsSlug} onClose={() => setSettingsSlug(null)} />
       <SaveAsTemplateModal slug={saveAsTemplateSlug} onClose={() => setSaveAsTemplateSlug(null)} />
     </div>

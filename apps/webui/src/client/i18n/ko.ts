@@ -113,6 +113,8 @@ export const translations: Record<TranslationKey, string> = {
   "templates.begin": "시작하기",
   "templates.loading": "불러오는 중...",
   "templates.noReadme": "README가 아직 준비되지 않았어요",
+  "templates.dragHandle": "드래그하여 순서 변경",
+  "templates.reorderFailed": "새 순서를 저장하지 못했습니다. 다시 시도해주세요.",
 
   // README modal (in-project)
   "readme.modalTitle": "README",
