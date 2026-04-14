@@ -61,6 +61,11 @@ export const translations: Record<TranslationKey, string> = {
   "input.tokenOut": "출력",
   "input.context": "컨텍스트",
 
+  // Slash command popup
+  "slash.listboxLabel": "슬래시 명령",
+  "slash.noMatches": "일치하는 명령이 없습니다",
+  "slash.skillTag": "skill",
+
   // Project tabs
   "project.new": "새 프로젝트",
   "project.namePlaceholder": "프로젝트 이름...",

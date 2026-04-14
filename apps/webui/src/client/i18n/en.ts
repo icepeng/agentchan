@@ -59,6 +59,11 @@ export const translations = {
   "input.tokenOut": "out",
   "input.context": "context",
 
+  // Slash command popup
+  "slash.listboxLabel": "Slash commands",
+  "slash.noMatches": "No commands match",
+  "slash.skillTag": "skill",
+
   // Project tabs
   "project.new": "New project",
   "project.namePlaceholder": "Project name...",
