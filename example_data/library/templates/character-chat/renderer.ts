@@ -531,6 +531,8 @@ const STYLES = `<style>
     width: 100%;
     height: 100%;
     object-fit: cover;
+    /* 세로가 긴 초상화의 머리 윗부분이 잘리지 않도록 상단 기준 정렬 */
+    object-position: center top;
     display: block;
     filter: saturate(1.05) contrast(1.02);
   }
