@@ -457,33 +457,6 @@ const STYLES = `<style>
     isolation: isolate;
     min-height: 100%;
   }
-  .cr-ambient {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    overflow: hidden;
-  }
-  .cr-ambient-moonwash {
-    position: absolute;
-    inset: -20%;
-    background:
-      radial-gradient(ellipse 55% 40% at 25% 18%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 62%),
-      radial-gradient(ellipse 50% 35% at 82% 78%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 65%);
-    opacity: 0.7;
-  }
-  .cr-ambient-candle {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 75% 50% at 50% 42%, color-mix(in srgb, var(--color-warm) 10%, transparent), transparent 72%);
-    animation: cr-candle 7s ease-in-out infinite;
-    mix-blend-mode: screen;
-  }
-  @keyframes cr-candle {
-    0%, 100% { opacity: 0.58; transform: translateY(0); }
-    33%      { opacity: 0.72; transform: translateY(-2px); }
-    66%      { opacity: 0.54; transform: translateY(1px); }
-  }
   .cr-reel {
     position: relative;
     display: flex;
@@ -886,10 +859,6 @@ export function render(ctx: RenderContext): string {
 
   return `${STYLES}
     <div class="cr-stage">
-      <div class="cr-ambient" aria-hidden="true">
-        <div class="cr-ambient-moonwash"></div>
-        <div class="cr-ambient-candle"></div>
-      </div>
       <div class="cr-reel">${body}</div>
       <div data-chat-anchor></div>
     </div>`;
