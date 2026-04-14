@@ -37,6 +37,7 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
   return {
     async list() { return templateRepo.list(); },
     async getCoverFile(name: string) { return templateRepo.getCoverFile(name); },
+    async getReadme(name: string) { return templateRepo.getReadme(name); },
     getSourceDir(name: string) { return templateRepo.getSourceDir(name); },
 
     async saveProjectAsTemplate(
@@ -57,7 +58,9 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
       const destDir = await templateRepo.ensureTemplateDir(name, { name, description });
 
       const copies: Promise<void>[] = [];
-      for (const file of ["SYSTEM.md", "renderer.ts"] as const) {
+      const readmeSrc = join(srcDir, "README.md");
+      const readmeWasCopied = existsSync(readmeSrc);
+      for (const file of ["SYSTEM.md", "renderer.ts", "README.md"] as const) {
         const src = join(srcDir, file);
         if (existsSync(src)) {
           copies.push(cp(src, join(destDir, file)));
@@ -77,6 +80,13 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
       if (existsSync(filesSrc)) {
         const excludeSet = new Set(excludeFiles);
         await copyFilesSelectively(filesSrc, join(destDir, "files"), excludeSet);
+      }
+
+      // If the source project had its own README, the copy above overwrote
+      // the skeleton we wrote first. Re-run ensureTemplateDir so the new
+      // template's name/description win while the project's body survives.
+      if (readmeWasCopied) {
+        await templateRepo.ensureTemplateDir(name, { name, description });
       }
 
       return { saved: true };

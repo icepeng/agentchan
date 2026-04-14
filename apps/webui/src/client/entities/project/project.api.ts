@@ -1,4 +1,5 @@
 import { json } from "@/client/shared/api.js";
+import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import type { Project, ProjectFile } from "./project.types.js";
 
 // --- Project CRUD ---
@@ -46,5 +47,9 @@ export function fetchWorkspaceFiles(projectSlug: string): Promise<{ files: Proje
 
 export function fetchTranspiledRenderer(projectSlug: string): Promise<{ js: string }> {
   return json(`/projects/${encodeURIComponent(projectSlug)}/renderer.js`);
+}
+
+export function fetchProjectReadme(slug: string): Promise<ReadmeDoc> {
+  return json(`/projects/${encodeURIComponent(slug)}/readme`);
 }
 

@@ -50,6 +50,7 @@ export {
 // Workspace
 export type { ProjectFile } from "./workspace/types.js";
 export { scanWorkspaceFiles } from "./workspace/scan.js";
+export { parseFrontmatter, stringifyFrontmatter, type ParsedFrontmatter } from "./workspace/frontmatter.js";
 
 // Re-export pi-ai model registry functions for consumers (webui config)
 export { getProviders, getModels } from "@mariozechner/pi-ai";

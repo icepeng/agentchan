@@ -101,9 +101,21 @@ export const translations = {
 
   // Templates page
   "templates.title": "Templates",
+  "templates.label": "THE LIBRARY",
   "templates.description": "Create a new project from a template.",
   "templates.createProject": "Create project",
   "templates.empty": "No templates available",
+  "templates.heroPlaceholder": "Choose a world from the left",
+  "templates.nameLabel": "Name this world",
+  "templates.namePlaceholder": "enter a name",
+  "templates.begin": "Begin",
+  "templates.loading": "Loading...",
+  "templates.noReadme": "No README yet",
+
+  // README modal (in-project)
+  "readme.modalTitle": "README",
+  "readme.close": "Close",
+  "readme.commandDescription": "Show project README",
 
   // Save as template
   "project.saveAsTemplate": "Save as template",
