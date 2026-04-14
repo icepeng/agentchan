@@ -1,10 +1,9 @@
 [
+  "sentinel",
   "character-chat",
-  "empty",
   "impersonate-chat",
-  "interactive-chat",
-  "memory-chat",
-  "mystery-suspense",
   "novel",
-  "rpg-chat"
+  "memory-chat",
+  "rpg-chat",
+  "empty"
 ]
