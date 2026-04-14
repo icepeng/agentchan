@@ -55,7 +55,7 @@ export function ReadmeView({
       <HeroTitle name={name} />
       <div className="w-16 h-1 bg-accent my-5" aria-hidden />
       {description && (
-        <p className="text-fg-2 text-base leading-relaxed max-w-md text-pretty">
+        <p className="text-fg-2 text-base leading-relaxed text-pretty">
           {description}
         </p>
       )}
