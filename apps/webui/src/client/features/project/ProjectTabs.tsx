@@ -3,7 +3,7 @@ import { Check, Plus, Settings, X } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
-import { Indicator } from "@/client/shared/ui/index.js";
+import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
@@ -226,6 +226,7 @@ export function ProjectTabs() {
               {isActive && (
                 <Indicator />
               )}
+              <CoverImage type="projects" slug={project.slug} hasCover={project.hasCover} size="sm" />
               <span className="flex-1 truncate">{project.name}</span>
               <span
                 onClick={(e) => {

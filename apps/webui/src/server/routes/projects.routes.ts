@@ -3,7 +3,7 @@ import type { AppEnv } from "../types.js";
 import { createConversationRoutes } from "./conversations.routes.js";
 import { createSkillRoutes } from "./skills.routes.js";
 
-const IMAGE_EXTS = ["webp", "png", "jpg", "jpeg", "gif", "svg", "avif"];
+import { IMAGE_EXTS } from "../paths.js";
 
 export function createProjectRoutes() {
   const app = new Hono<AppEnv>();
@@ -118,6 +118,15 @@ export function createProjectRoutes() {
     const js = await c.get("projectService").transpileRenderer(slug);
     if (js === null) return c.json({ error: "renderer.ts not found" }, 404);
     return c.json({ js });
+  });
+
+  app.get("/:slug/cover", async (c) => {
+    const slug = c.req.param("slug");
+    const file = await c.get("projectService").getCoverFile(slug);
+    if (!file) return c.json({ error: "No cover image" }, 404);
+    return new Response(file, {
+      headers: { "Content-Type": file.type, "Cache-Control": "public, max-age=3600" },
+    });
   });
 
   // Static file serving from files/ workspace with extensionless image fallback

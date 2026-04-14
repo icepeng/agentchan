@@ -6,6 +6,7 @@ export interface Project {
   createdAt: number;
   updatedAt: number;
   notes?: string;
+  hasCover?: boolean;
 }
 
 export interface RenderContext {

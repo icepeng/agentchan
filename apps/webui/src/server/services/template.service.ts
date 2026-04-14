@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
-import { assertSafePathSegment } from "../paths.js";
+import { assertSafePathSegment, probeCover } from "../paths.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 
 interface SaveAsTemplateOptions {
@@ -36,6 +36,7 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
 
   return {
     async list() { return templateRepo.list(); },
+    async getCoverFile(name: string) { return templateRepo.getCoverFile(name); },
     getSourceDir(name: string) { return templateRepo.getSourceDir(name); },
 
     async saveProjectAsTemplate(
@@ -65,6 +66,10 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
       const skillsSrc = join(srcDir, "skills");
       if (existsSync(skillsSrc)) {
         copies.push(cp(skillsSrc, join(destDir, "skills"), { recursive: true }));
+      }
+      const coverName = await probeCover(srcDir);
+      if (coverName) {
+        copies.push(cp(join(srcDir, coverName), join(destDir, coverName)));
       }
       await Promise.all(copies);
 

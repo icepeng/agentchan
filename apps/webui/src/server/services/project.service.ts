@@ -8,6 +8,7 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
 
   return {
     async list() { return projectRepo.list(); },
+    async getCoverFile(slug: string) { return projectRepo.getCoverFile(slug); },
     async get(slug: string) { return projectRepo.get(slug); },
     async create(name: string) { return projectRepo.create(name); },
     async update(slug: string, updates: { name?: string; notes?: string }) {
