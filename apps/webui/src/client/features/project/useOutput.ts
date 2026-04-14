@@ -4,8 +4,9 @@ import {
   useProjectDispatch,
   fetchWorkspaceFiles,
   fetchTranspiledRenderer,
+  validateTheme,
 } from "@/client/entities/project/index.js";
-import type { RenderContext } from "@/client/entities/project/index.js";
+import type { RenderContext, RendererTheme } from "@/client/entities/project/index.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -26,15 +27,20 @@ const NOT_FOUND_HTML = `<div style="color: var(--color-fg-4); font-size: 14px; f
   <p style="margin-top: 8px; font-size: 12px; opacity: 0.7;">Create a renderer.ts file in the project folder to render output.</p>
 </div>`;
 
-async function executeRenderer(jsCode: string, context: RenderContext): Promise<string> {
+async function executeRenderer(
+  jsCode: string,
+  context: RenderContext,
+): Promise<{ html: string; theme: RendererTheme | null }> {
   const blob = new Blob([jsCode], { type: "application/javascript" });
   const url = URL.createObjectURL(blob);
   try {
     const mod = await import(/* @vite-ignore */ url);
     if (typeof mod.render !== "function") {
-      return errorHtml("renderer.ts must export a render() function");
+      return { html: errorHtml("renderer.ts must export a render() function"), theme: null };
     }
-    return mod.render(context);
+    const html: string = mod.render(context);
+    const theme = validateTheme(mod.theme);
+    return { html, theme };
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -59,14 +65,14 @@ export function useOutput() {
         baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
       };
 
-      const html = await executeRenderer(rendererResult.js, context);
-      projectDispatch({ type: "SET_RENDERED_HTML", html });
+      const { html, theme } = await executeRenderer(rendererResult.js, context);
+      projectDispatch({ type: "SET_RENDER_OUTPUT", html, theme });
     } catch (e: unknown) {
       if (e instanceof Error && e.message.includes("404")) {
-        projectDispatch({ type: "SET_RENDERED_HTML", html: NOT_FOUND_HTML });
+        projectDispatch({ type: "SET_RENDER_OUTPUT", html: NOT_FOUND_HTML, theme: null });
       } else {
         const message = e instanceof Error ? e.message : String(e);
-        projectDispatch({ type: "SET_RENDERED_HTML", html: errorHtml(message) });
+        projectDispatch({ type: "SET_RENDER_OUTPUT", html: errorHtml(message), theme: null });
       }
     }
   }, [projectState.activeProjectSlug, projectDispatch]);

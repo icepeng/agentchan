@@ -1,4 +1,4 @@
-import { BookOpen, Settings } from "lucide-react";
+import { BookOpen, PanelLeftClose, Settings } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
@@ -12,7 +12,7 @@ export function Sidebar() {
   const { t } = useI18n();
 
   return (
-    <div className="flex flex-col h-full bg-base border-r border-edge/6">
+    <div className="flex flex-col w-72 h-full bg-base border-r border-edge/6">
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between">
         <div>
@@ -30,6 +30,12 @@ export function Sidebar() {
             title={t("globalSettings.title")}
           >
             <Settings size={15} strokeWidth={1.8} />
+          </IconButton>
+          <IconButton
+            onClick={() => uiDispatch({ type: "TOGGLE_SIDEBAR" })}
+            title={t("ui.sidebar.collapse")}
+          >
+            <PanelLeftClose size={15} strokeWidth={1.8} />
           </IconButton>
         </div>
       </div>

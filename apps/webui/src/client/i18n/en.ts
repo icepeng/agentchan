@@ -216,6 +216,10 @@ export const translations = {
   "editMode.deleteFolderConfirmTitle": "Delete Folder",
   "editMode.deleteFolderConfirmMessage": "Are you sure you want to delete \"{{name}}\" and all its contents? This cannot be undone.",
 
+  // Sidebar collapse
+  "ui.sidebar.collapse": "Collapse sidebar",
+  "ui.sidebar.expand": "Expand sidebar",
+
   // Notifications
   "notifications.title": "Notifications",
   "notifications.desktopLabel": "Desktop notifications",

@@ -69,9 +69,71 @@ export function render(ctx: RenderContext): string {
 
 ## 스타일링 규칙
 
-CSS 변수 (덮어쓰기 금지): `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
-이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
-렌더러는 자체 `<style>` 포함 필수. 사용자 콘텐츠에 escapeHtml 필수. document/window 등 DOM API 사용 금지.
+### 색상 — `theme` export로 전역 오버라이드 (선택)
+
+`renderer.ts`에서 `export const theme`을 선언하면 프로젝트 페이지 한정으로 전역 CSS 변수를 오버라이드한다. Sidebar / AgentPanel / BottomInput까지 작품의 톤에 함께 물든다. 선언하지 않으면 기본 Obsidian Teal 팔레트를 상속하므로 기존 렌더러는 수정 불필요.
+
+토큰 → CSS 변수 매핑:
+
+| 토큰 | CSS 변수 | 용도 |
+| --- | --- | --- |
+| `background` | `--color-void` | 앱 최상위 배경 (렌더러 콘텐츠 바깥 픽셀 포함) |
+| `surface` | `--color-base` | Sidebar / AgentPanel / BottomInput 베이스 |
+| `elevated` | `--color-surface` | 카드 / 인풋 박스 배경 |
+| `raised` | `--color-elevated` | hover / 강조 상태 |
+| `accent` | `--color-accent` | 포인트 색 |
+| `foreground` | `--color-fg` | 본문 텍스트 |
+| `foregroundMuted` | `--color-fg-3` | 부드러운 텍스트 |
+| `border` | `--color-edge` | 테두리 베이스 (opacity와 조합) |
+
+```typescript
+export const theme = {
+  base: {
+    background: "#f4ecd8",
+    surface:    "#e8dcc8",
+    accent:     "#8b4513",
+    foreground: "#3a2817",
+    border:     "#8b4513",
+  },
+  // 듀얼 모드: dark에서 차이 나는 토큰만 선언. 생략하면 단일 모드(base만 사용).
+  dark: {
+    background: "#1a1209",
+    surface:    "#2a1f14",
+    accent:     "#d4a574",
+    foreground: "#e8dcc8",
+  },
+  // 단일 모드에서 사용자 Appearance 토글과 무관하게 모드 고정이 필요하면 명시:
+  // prefersScheme: "light",
+};
+```
+
+- `base`만 있으면 단일 모드 — 사용자 scheme과 무관하게 base 값이 사용됨. 토글 자체를 가리려면 `prefersScheme`을 함께 선언.
+- 색상 값은 hex/rgb/hsl 등 CSS가 이해하는 어떤 문자열이든 가능.
+- render() 내부에선 평소처럼 `var(--color-accent)` / `var(--color-surface)` 등을 쓴다 — theme이 뒤에서 값을 바꿔준다:
+
+```css
+.bubble { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
+.card   { background: var(--color-surface); border: 1px solid color-mix(in srgb, var(--color-edge) 10%, transparent); }
+.muted  { color: var(--color-fg-3); }
+```
+
+톤 선택 예시: 따스한 sepia(편지·일기), 차가운 네온(사이버펑크), 하이콘트라스트 모노(누아르), 파스텔(게임 UI). 지배 색 하나 + 날카로운 accent가 균등 분배보다 강한 인상을 준다.
+
+### 폰트 — 렌더러 자체 `<style>`에서 직접 지정
+
+폰트는 theme에 포함하지 않는다. 사이드바/설정 등 앱 크롬의 한국어·이모지 가독성을 지키기 위해 폰트 override는 **렌더러 영역 안으로만 한정**한다. 렌더러의 `<style>` 안에서 클래스 셀렉터로 직접 선언한다:
+
+```css
+.rb-prose { font-family: 'EB Garamond', Georgia, serif; }
+.rb-meta  { font-family: var(--font-family-mono); }   /* 기본 폰트 그대로 상속도 OK */
+```
+
+웹폰트가 필요하면 `<style>` 안에서 `@import url('https://fonts.googleapis.com/...')` 혹은 `@font-face`로 로드한다.
+
+### 그 외
+
+- 이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
+- 렌더러는 자체 `<style>` 포함 필수. 사용자 콘텐츠에 escapeHtml 필수. document/window 등 DOM API 사용 금지.
 
 ## 참고 기법
 
