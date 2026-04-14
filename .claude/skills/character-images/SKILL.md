@@ -2,10 +2,6 @@
 name: character-images
 description: |
   Generates agentchan character avatar + emotion portraits
-  with Gemini 3.1 Flash Image Preview. Avatar is text-only; emotion images use the avatar
-  as a reference image so face/hair/outfit stay identical. Backgrounds are stripped in one
-  folder batch with rembg (bria-rmbg) and saved as RGBA PNGs to
-  `files/characters/{name}/assets/`.
 disable-model-invocation: true
 ---
 
