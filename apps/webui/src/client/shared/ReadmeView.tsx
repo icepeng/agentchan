@@ -36,11 +36,11 @@ export function ReadmeView({
   if (variant === "compact") {
     return (
       <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-fg">
+        <h1 className="font-display text-2xl font-bold tracking-tight text-fg text-balance">
           {name}
         </h1>
         {description && (
-          <p className="mt-2 text-sm text-fg-2 leading-relaxed">{description}</p>
+          <p className="mt-2 text-sm text-fg-2 leading-relaxed text-pretty">{description}</p>
         )}
         <div className="mt-5">
           {body ? parseBlockMarkdown(body) : null}
@@ -55,7 +55,7 @@ export function ReadmeView({
       <HeroTitle name={name} />
       <div className="w-16 h-1 bg-accent my-5" aria-hidden />
       {description && (
-        <p className="text-fg-2 text-base leading-relaxed max-w-md">
+        <p className="text-fg-2 text-base leading-relaxed max-w-md text-pretty">
           {description}
         </p>
       )}
@@ -87,7 +87,7 @@ function HeroTitle({ name }: { name: string }) {
   const firstLine = spaceIdx > 0 ? trimmed.slice(0, spaceIdx) : trimmed;
   const secondLine = spaceIdx > 0 ? trimmed.slice(spaceIdx + 1) : null;
   return (
-    <h1 className="font-display font-bold tracking-tight leading-[0.95] text-5xl md:text-6xl text-fg uppercase">
+    <h1 className="font-display font-bold tracking-tight leading-[0.95] text-5xl md:text-6xl text-fg uppercase text-balance">
       <span className="block">{firstLine}</span>
       {secondLine && <span className="block">{secondLine}</span>}
     </h1>

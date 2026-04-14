@@ -105,7 +105,7 @@ export function parseBlockMarkdown(source: string): ReactNode {
         return (
           <h1
             key={i}
-            className="font-display text-2xl font-bold tracking-tight mt-10 mb-3 first:mt-0 text-fg"
+            className="font-display text-2xl font-bold tracking-tight mt-10 mb-3 first:mt-0 text-fg text-balance"
           >
             {parseInlineMarkdown(block.text)}
           </h1>
@@ -114,26 +114,26 @@ export function parseBlockMarkdown(source: string): ReactNode {
         return (
           <h2
             key={i}
-            className="font-display text-lg font-semibold mt-8 mb-2 text-fg"
+            className="font-display text-lg font-semibold mt-8 mb-2 text-fg text-balance"
           >
             {parseInlineMarkdown(block.text)}
           </h2>
         );
       case "h3":
         return (
-          <h3 key={i} className="text-base font-semibold mt-6 mb-2 text-fg-2">
+          <h3 key={i} className="text-base font-semibold mt-6 mb-2 text-fg-2 text-balance">
             {parseInlineMarkdown(block.text)}
           </h3>
         );
       case "p":
         return (
-          <p key={i} className="my-3 text-fg-2 leading-relaxed">
+          <p key={i} className="my-3 text-fg-2 leading-relaxed text-pretty">
             {parseInlineMarkdown(block.text)}
           </p>
         );
       case "ul":
         return (
-          <ul key={i} className="my-3 space-y-1.5 list-disc list-outside pl-5 text-fg-2 leading-relaxed">
+          <ul key={i} className="my-3 space-y-1.5 list-disc list-outside pl-5 text-fg-2 leading-relaxed text-pretty">
             {block.items.map((item, j) => (
               <li key={j}>{parseInlineMarkdown(item)}</li>
             ))}
@@ -141,7 +141,7 @@ export function parseBlockMarkdown(source: string): ReactNode {
         );
       case "ol":
         return (
-          <ol key={i} className="my-3 space-y-1.5 list-decimal list-outside pl-5 text-fg-2 leading-relaxed">
+          <ol key={i} className="my-3 space-y-1.5 list-decimal list-outside pl-5 text-fg-2 leading-relaxed text-pretty">
             {block.items.map((item, j) => (
               <li key={j}>{parseInlineMarkdown(item)}</li>
             ))}
