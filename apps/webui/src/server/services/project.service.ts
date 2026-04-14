@@ -14,11 +14,7 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
     async update(slug: string, updates: { name?: string; notes?: string }) {
       return projectRepo.update(slug, updates);
     },
-    async delete(slug: string) {
-      const projects = await projectRepo.list();
-      if (projects.length <= 1) throw new Error("Cannot delete the last project");
-      return projectRepo.delete(slug);
-    },
+    async delete(slug: string) { return projectRepo.delete(slug); },
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
     async createFromTemplate(name: string, templateName: string) {
       const templateDir = templateRepo.getSourceDir(templateName);
@@ -54,12 +50,6 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
 
     async createProjectDir(slug: string, dirPath: string) {
       return projectRepo.createProjectDir(slug, dirPath);
-    },
-
-    async ensureInitialProject(): Promise<void> {
-      const projects = await projectRepo.list();
-      if (projects.length > 0) return;
-      await projectRepo.create("General");
     },
 
     async transpileRenderer(slug: string): Promise<string | null> {

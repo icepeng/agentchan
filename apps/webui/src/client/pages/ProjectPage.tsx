@@ -1,10 +1,10 @@
 import { useState, useRef, useCallback, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { useUIState, EditModeToggle } from "@/client/entities/ui/index.js";
+import { useUIState, useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
-import { AgentPanel, BottomInput, useConversation } from "@/client/features/chat/index.js";
+import { AgentPanel, BottomInput } from "@/client/features/chat/index.js";
 import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
 
 const EditModePanel = lazy(() =>
@@ -25,8 +25,8 @@ interface ProjectPageProps {
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
   const project = useProjectState();
   const ui = useUIState();
+  const uiDispatch = useUIDispatch();
   const { t } = useI18n();
-  const { create } = useConversation();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef(0);
@@ -64,10 +64,11 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
             {project.activeProjectSlug ? (
               <RenderedView />
             ) : (
-              <EmptyState onCreate={async () => {
-                await create();
-                if (!agentPanelOpen) onToggleAgentPanel();
-              }} />
+              <EmptyState
+                onBrowseTemplates={() =>
+                  uiDispatch({ type: "NAVIGATE", route: { page: "templates" } })
+                }
+              />
             )}
           </div>
         )}
@@ -110,7 +111,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   );
 }
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+function EmptyState({ onBrowseTemplates }: { onBrowseTemplates: () => void }) {
   const { t } = useI18n();
   return (
     <div className="flex-1 flex items-center justify-center">
@@ -121,14 +122,21 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <h2 className="font-display text-3xl font-bold tracking-tight text-fg mb-2">
           agent<span className="text-accent">chan</span>
         </h2>
-        <p className="text-sm text-fg-3 mb-8 tracking-wide">
+        <p className="text-sm text-fg-3 mb-2 tracking-wide">
           {t("empty.subtitle")}
         </p>
+        <p className="text-sm text-fg-2 mb-8 tracking-wide">
+          {t("empty.noProjectTitle")}
+        </p>
         <button
-          onClick={onCreate}
-          className="px-6 py-2.5 rounded-xl bg-accent/10 border border-accent/20 text-accent text-sm font-medium hover:bg-accent/15 hover:border-accent/30 active:scale-[0.98] transition-all duration-200"
+          type="button"
+          onClick={onBrowseTemplates}
+          className="group inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent/10 border border-accent/20 text-accent text-sm font-medium hover:bg-accent/15 hover:border-accent/30 active:scale-[0.98] transition-all duration-200"
         >
-          {t("session.new")}
+          {t("empty.browseTemplates")}
+          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+            →
+          </span>
         </button>
       </div>
     </div>

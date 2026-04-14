@@ -50,6 +50,8 @@ export const translations = {
 
   // Empty state
   "empty.subtitle": "creative writing studio",
+  "empty.noProjectTitle": "Start your first project from a template",
+  "empty.browseTemplates": "Browse templates",
   "empty.openAgentPanel": "Open agent panel",
   "empty.showAgentPanel": "Show agent panel",
 

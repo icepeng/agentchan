@@ -52,6 +52,8 @@ export const translations: Record<TranslationKey, string> = {
 
   // Empty state
   "empty.subtitle": "크리에이티브 라이팅 스튜디오",
+  "empty.noProjectTitle": "첫 프로젝트를 템플릿에서 시작하세요",
+  "empty.browseTemplates": "템플릿 둘러보기",
   "empty.openAgentPanel": "에이전트 패널 열기",
   "empty.showAgentPanel": "에이전트 패널 표시",
 
