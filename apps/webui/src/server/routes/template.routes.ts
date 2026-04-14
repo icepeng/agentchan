@@ -9,6 +9,16 @@ export function createTemplateRoutes() {
     return c.json(await c.get("templateService").list());
   });
 
+  app.put("/order", async (c) => {
+    const body = await c.req.json<{ order?: unknown[] }>().catch(() => null);
+    if (!Array.isArray(body?.order)) {
+      return c.json({ error: "Expected { order: string[] }" }, 400);
+    }
+    const order = body.order.filter((s): s is string => typeof s === "string");
+    await c.get("templateService").saveOrder(order);
+    return c.json({ ok: true });
+  });
+
   app.get("/:slug/cover", async (c) => {
     const slug = c.req.param("slug");
     const file = await c.get("templateService").getCoverFile(slug);

@@ -13,6 +13,14 @@ export interface TemplateMeta {
 /** README.md is the single source of truth for template metadata + docs. */
 const README = "README.md";
 
+/**
+ * `_order.json` is a hint file holding the user's preferred list order as a
+ * `string[]` of slugs. It's not authoritative — the filesystem is. On read,
+ * known slugs come first (in saved order), unknown slugs (externally added)
+ * append alphabetically. On write, we filter to slugs that actually exist.
+ */
+const ORDER_FILE = "_order.json";
+
 /** Extract `{ name, description }` from parsed frontmatter, falling back to the slug for name. */
 function metaFromFrontmatter(
   frontmatter: Record<string, unknown> | null,
@@ -37,6 +45,23 @@ export function createTemplateRepo(templatesDir: string) {
     }
   }
 
+  async function readOrder(): Promise<string[]> {
+    try {
+      const raw = await readFile(join(templatesDir, ORDER_FILE), "utf-8");
+      const parsed: unknown = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((s): s is string => typeof s === "string");
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw err;
+    }
+  }
+
+  async function writeOrder(slugs: string[]): Promise<void> {
+    await mkdir(templatesDir, { recursive: true });
+    await Bun.write(join(templatesDir, ORDER_FILE), `${JSON.stringify(slugs, null, 2)}\n`);
+  }
+
   return {
     async ensureDir(): Promise<void> {
       await mkdir(templatesDir, { recursive: true });
@@ -56,7 +81,46 @@ export function createTemplateRepo(templatesDir: string) {
           return { slug: entry.name, ...meta, hasCover };
         }),
       );
-      return results.filter((m): m is TemplateMeta & { hasCover: boolean } => m !== null);
+      const items = results.filter(
+        (m): m is TemplateMeta & { hasCover: boolean } => m !== null,
+      );
+      const order = await readOrder();
+      const bySlug = new Map(items.map((item) => [item.slug, item] as const));
+      const ordered: (TemplateMeta & { hasCover: boolean })[] = [];
+      const seen = new Set<string>();
+      for (const slug of order) {
+        const item = bySlug.get(slug);
+        if (item && !seen.has(slug)) {
+          ordered.push(item);
+          seen.add(slug);
+        }
+      }
+      const unknown = items
+        .filter((item) => !seen.has(item.slug))
+        .sort((a, b) => a.slug.localeCompare(b.slug));
+      return [...ordered, ...unknown];
+    },
+
+    /**
+     * Persist a user-chosen order. Defensive: silently drops slugs that aren't
+     * valid path segments or lack a README.md (e.g. after an external delete).
+     * Also dedupes. Callers may pass any list shape from the client.
+     */
+    async saveOrder(slugs: string[]): Promise<void> {
+      const seen = new Set<string>();
+      const filtered: string[] = [];
+      for (const slug of slugs) {
+        if (typeof slug !== "string" || seen.has(slug)) continue;
+        try {
+          assertSafePathSegment(slug);
+        } catch {
+          continue;
+        }
+        if (!existsSync(join(templatesDir, slug, README))) continue;
+        filtered.push(slug);
+        seen.add(slug);
+      }
+      await writeOrder(filtered);
     },
 
     async getCoverFile(name: string): Promise<ReturnType<typeof Bun.file> | null> {

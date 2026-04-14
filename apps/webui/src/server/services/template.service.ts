@@ -39,6 +39,7 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
     async getCoverFile(name: string) { return templateRepo.getCoverFile(name); },
     async getReadme(name: string) { return templateRepo.getReadme(name); },
     getSourceDir(name: string) { return templateRepo.getSourceDir(name); },
+    async saveOrder(slugs: string[]) { return templateRepo.saveOrder(slugs); },
 
     async saveProjectAsTemplate(
       projectSlug: string,

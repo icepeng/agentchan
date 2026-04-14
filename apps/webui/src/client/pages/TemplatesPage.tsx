@@ -1,10 +1,28 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { ArrowLeft, BookOpen, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useI18n } from "@/client/i18n/index.js";
 import { useUIDispatch } from "@/client/entities/ui/index.js";
 import {
   fetchTemplates,
   fetchTemplateReadme,
+  saveTemplateOrder,
   type TemplateMeta,
 } from "@/client/entities/template/index.js";
 import { useProject } from "@/client/features/project/index.js";
@@ -16,6 +34,73 @@ import { BASE } from "@/client/shared/api.js";
 /** Two-digit order index ("01", "02", …) used in the left rail and separator. */
 function orderNumber(i: number): string {
   return String(i + 1).padStart(2, "0");
+}
+
+interface SortableTemplateItemProps {
+  tpl: TemplateMeta;
+  index: number;
+  isSelected: boolean;
+  onSelect: (slug: string) => void;
+  dragHandleLabel: string;
+}
+
+function SortableTemplateItem({
+  tpl,
+  index,
+  isSelected,
+  onSelect,
+  dragHandleLabel,
+}: SortableTemplateItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: tpl.slug,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    animationDelay: `${index * 60}ms`,
+    animationFillMode: "both",
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      role="option"
+      aria-selected={isSelected}
+      data-testid="template-index-item"
+      data-slug={tpl.slug}
+      onClick={() => onSelect(tpl.slug)}
+      className={`group relative flex items-baseline gap-3 pl-6 pr-5 py-3 transition-colors animate-fade-slide ${
+        isSelected ? "text-accent" : "text-fg-2 hover:text-fg hover:bg-elevated/30"
+      } ${isDragging ? "opacity-70 cursor-grabbing bg-elevated/40" : "cursor-pointer"}`}
+    >
+      {isSelected && (
+        <span className="absolute left-0 top-2 bottom-2 w-[2px] bg-accent" aria-hidden />
+      )}
+      <button
+        type="button"
+        aria-label={dragHandleLabel}
+        data-testid="template-drag-handle"
+        data-slug={tpl.slug}
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute left-1 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 text-fg-4 opacity-0 group-hover:opacity-60 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60 rounded cursor-grab active:cursor-grabbing transition-opacity"
+      >
+        <GripVertical size={12} strokeWidth={2} />
+      </button>
+      <span
+        className={`font-mono text-[10px] tabular-nums tracking-wider shrink-0 ${
+          isSelected ? "text-accent/70" : "text-fg-4"
+        }`}
+      >
+        {orderNumber(index)}
+      </span>
+      <span className="font-display text-sm truncate">{tpl.name}</span>
+    </li>
+  );
 }
 
 export function TemplatesPage() {
@@ -92,6 +177,35 @@ export function TemplatesPage() {
     [templates, selectedIndex],
   );
 
+  const sensors = useSensors(
+    // Require a small drag distance so that clicks on the handle (to focus it)
+    // don't immediately start a drag, and the underlying <li> stays clickable.
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      if (!templates) return;
+      const from = templates.findIndex((x) => x.slug === active.id);
+      const to = templates.findIndex((x) => x.slug === over.id);
+      if (from < 0 || to < 0) return;
+      const snapshot = templates;
+      const next = arrayMove(templates, from, to);
+      setTemplates(next);
+      saveTemplateOrder(next.map((x) => x.slug)).catch((err: unknown) => {
+        console.error("[templates] reorder failed", err);
+        setTemplates(snapshot);
+        alert(t("templates.reorderFailed"));
+      });
+    },
+    [templates, t],
+  );
+
+  const templateIds = useMemo(() => templates?.map((tpl) => tpl.slug) ?? [], [templates]);
+
   return (
     <div
       className="relative flex flex-col h-full bg-void"
@@ -130,42 +244,26 @@ export function TemplatesPage() {
       ) : (
         <div className="flex-1 flex min-h-0" onKeyDown={handleKeyNav} tabIndex={-1}>
           <ScrollArea className="w-72 shrink-0 border-r border-edge/6 bg-base/20">
-            <ul className="py-4" role="listbox" aria-label={t("templates.title")}>
-              {templates.map((tpl, i) => {
-                const isSelected = tpl.slug === selectedSlug;
-                return (
-                  <li
-                    key={tpl.slug}
-                    role="option"
-                    aria-selected={isSelected}
-                    data-testid="template-index-item"
-                    data-slug={tpl.slug}
-                    onClick={() => setSelectedSlug(tpl.slug)}
-                    className={`relative cursor-pointer flex items-baseline gap-3 pl-6 pr-5 py-3 transition-colors animate-fade-slide ${
-                      isSelected
-                        ? "text-accent"
-                        : "text-fg-2 hover:text-fg hover:bg-elevated/30"
-                    }`}
-                    style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
-                  >
-                    {isSelected && (
-                      <span
-                        className="absolute left-0 top-2 bottom-2 w-[2px] bg-accent"
-                        aria-hidden
-                      />
-                    )}
-                    <span
-                      className={`font-mono text-[10px] tabular-nums tracking-wider shrink-0 ${
-                        isSelected ? "text-accent/70" : "text-fg-4"
-                      }`}
-                    >
-                      {orderNumber(i)}
-                    </span>
-                    <span className="font-display text-sm truncate">{tpl.name}</span>
-                  </li>
-                );
-              })}
-            </ul>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={templateIds} strategy={verticalListSortingStrategy}>
+                <ul className="py-4" role="listbox" aria-label={t("templates.title")}>
+                  {templates.map((tpl, i) => (
+                    <SortableTemplateItem
+                      key={tpl.slug}
+                      tpl={tpl}
+                      index={i}
+                      isSelected={tpl.slug === selectedSlug}
+                      onSelect={setSelectedSlug}
+                      dragHandleLabel={t("templates.dragHandle")}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
           </ScrollArea>
 
           <ScrollArea className="flex-1 min-w-0">

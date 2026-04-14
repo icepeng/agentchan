@@ -50,7 +50,11 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
     }
 
     case "ADD_PROJECT":
-      return { ...state, projects: [...state.projects, action.project] };
+      // Prepend so the newly created project appears at the top, matching the
+      // server's `updatedAt desc` sort and the sidebar's "New project" trigger
+      // sitting above the list — otherwise the fresh project would pop in at
+      // the bottom and only jump to the top on the next reload.
+      return { ...state, projects: [action.project, ...state.projects] };
 
     case "UPDATE_PROJECT":
       return {
