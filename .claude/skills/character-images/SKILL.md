@@ -4,7 +4,7 @@ description: |
   Generates agentchan character avatar + emotion portraits
   with Gemini 3.1 Flash Image Preview. Avatar is text-only; emotion images use the avatar
   as a reference image so face/hair/outfit stay identical. Backgrounds are stripped in one
-  folder batch with rembg (isnet-anime) and saved as RGBA PNGs to
+  folder batch with rembg (bria-rmbg) and saved as RGBA PNGs to
   `files/characters/{name}/assets/`.
 disable-model-invocation: true
 ---
@@ -55,7 +55,7 @@ Star graph — 모든 emotion은 같은 avatar를 참조 (체인 아님):
 ```
 {스타일}로 1인 캐릭터만 생성해줘.
 
-{display-name}, {age}세 {race} {gender}, {role}.
+{display-name}, {age}세 {gender}, {role}.
 
 외모:
 - {외모 bullet 5~6줄}
@@ -82,7 +82,7 @@ wait
 프롬프트 템플릿:
 
 ```
-첨부된 레퍼런스 이미지는 {display-name}, {age}세 {race} {gender}, {role}.
+첨부된 레퍼런스 이미지는 {display-name}, {age}세 {gender}, {role}.
 완전히 똑같은 캐릭터(얼굴·머리·의상·아트 스타일 모두 동일)로 표정만 변경.
 
 새 표정: {modifier}
@@ -92,15 +92,6 @@ wait
 
 1인만, 단색 배경. 어떤 글자·텍스트·로고·배지·상표도 없이.
 ```
-
-**Modifier 사전** (커스텀 키는 같은 톤으로 즉흥 작성):
-
-| 키 | Modifier |
-|---|---|
-| `happy` | 따뜻한 미소, 눈가가 살짝 접히는 진심 어린 기쁨 |
-| `sad` | 걱정스러운 표정, 눈이 살짝 내리깔리고 입술 살짝 다뭄, 은은한 취약함 |
-| `surprised` | 눈 크게, 입술 살짝 벌어짐, 눈썹 올라가 경계하는 자세 |
-| `thinking` | 집중한 사색, 미간 살짝 좁힘, 시선 비스듬히 |
 
 모든 `{name} × {emo}` 조합을 반복 발행 (전부 `&`), 마지막에 `wait`:
 
@@ -123,7 +114,7 @@ wait
 
 ```bash
 for CHAR in iseo hangyeol minji; do
-  rembg p -m isnet-anime \
+  rembg p -m bria-rmbg \
     "files/characters/$CHAR/assets/" "files/characters/$CHAR/assets/"
 done
 ```
@@ -144,9 +135,7 @@ done
 
 | 증상 | 원인 | 복구 |
 |---|---|---|
-| `saved: {N}B → {N}B` 같은 크기 | per-image rembg 실패, raw 저장 | 해당 파일만 `rembg i` 재처리 |
 | `file`이 `data`만 표시 (PNG 시그니처 없음) | stderr가 stdout 오염 | 해당 이미지 완전 재생성 |
-| 얼굴이 ref와 다름 (~10%) | Gemini 참조 추종 실패 | 해당 emotion만 재생성 |
 
 ## 출력 구조
 
@@ -164,15 +153,12 @@ character.md frontmatter의 `avatar-image: assets/avatar` — **확장자 없이
 ## 스크립트
 
 ```
-scripts/gen-image.ts <output> [--ref <path>] [--aspect <ratio>] [--rembg [model]] < stdin
+scripts/gen-image.ts <output> [--ref <path>] [--aspect <ratio>] < stdin
 ```
 
 - 지원 aspect: `1:1`, `3:4`(기본), `4:3`, `9:16`, `16:9`
 - 프롬프트는 stdin (긴 한국어 이스케이핑 회피)
-- `--rembg`는 단일 이미지 재처리 전용 — 대량 생성은 §5 사용
 
 ## 제한
 
-- Gemini reference-following ~90% — 나머지는 해당 emotion만 재생성
 - 모델: `gemini-3.1-flash-image-preview` (변경은 `scripts/gen-image.ts`의 `MODEL` 상수)
-- `isnet-anime`은 anime 일러스트용 — 실사 포트레이트는 `--rembg birefnet-portrait`

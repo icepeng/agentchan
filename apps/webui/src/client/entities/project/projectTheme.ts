@@ -18,6 +18,7 @@ export interface RendererThemeTokens {
   elevated?: string; // --color-elevated (hover / 강조)
   accent?: string; // --color-accent   (포인트 색)
   fg?: string; // --color-fg       (본문 텍스트)
+  fg2?: string; // --color-fg-2     (메타 텍스트 / 아이콘 기본)
   fg3?: string; // --color-fg-3     (부드러운 텍스트)
   edge?: string; // --color-edge     (테두리 베이스)
 }
@@ -37,6 +38,7 @@ const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
   elevated: "--color-elevated",
   accent: "--color-accent",
   fg: "--color-fg",
+  fg2: "--color-fg-2",
   fg3: "--color-fg-3",
   edge: "--color-edge",
 };
