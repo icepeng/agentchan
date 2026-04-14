@@ -700,8 +700,8 @@ const STYLES = `<style>
     align-items: center;
     gap: 12px;
     padding: 10px 20px 10px 14px;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warm) 32%, transparent);
+    background: color-mix(in srgb, var(--color-warm) 6%, transparent);
     border-radius: 999px;
     color: var(--color-fg);
     font-family: var(--font-family-body);
@@ -713,11 +713,11 @@ const STYLES = `<style>
   }
   .cr-choice:hover {
     transform: translateY(-1px);
-    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    border-color: color-mix(in srgb, var(--color-warm) 60%, transparent);
+    background: color-mix(in srgb, var(--color-warm) 12%, transparent);
   }
   .cr-choice:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--color-accent) 60%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--color-warm) 60%, transparent);
     outline-offset: 2px;
   }
   .cr-choice-seal {
