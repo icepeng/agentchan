@@ -103,9 +103,21 @@ export const translations: Record<TranslationKey, string> = {
 
   // Templates page
   "templates.title": "템플릿",
+  "templates.label": "THE LIBRARY",
   "templates.description": "템플릿으로 새 프로젝트를 시작하세요.",
   "templates.createProject": "프로젝트 생성",
   "templates.empty": "사용 가능한 템플릿이 없습니다",
+  "templates.heroPlaceholder": "왼쪽에서 세계를 하나 골라주세요",
+  "templates.nameLabel": "이 세계에 이름을 붙여주세요",
+  "templates.namePlaceholder": "이름 입력",
+  "templates.begin": "시작하기",
+  "templates.loading": "불러오는 중...",
+  "templates.noReadme": "README가 아직 준비되지 않았어요",
+
+  // README modal (in-project)
+  "readme.modalTitle": "README",
+  "readme.close": "닫기",
+  "readme.commandDescription": "프로젝트 README 보기",
 
   // Save as template
   "project.saveAsTemplate": "템플릿으로 저장",

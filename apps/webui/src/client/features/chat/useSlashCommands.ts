@@ -34,6 +34,9 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
         case "edit":
           uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
           break;
+        case "readme":
+          uiDispatch({ type: "OPEN_README" });
+          break;
         case "model": {
           const result = await updateConfig({ model: arg });
           configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });

@@ -4,6 +4,7 @@ import { createConversationRoutes } from "./conversations.routes.js";
 import { createSkillRoutes } from "./skills.routes.js";
 
 import { IMAGE_EXTS } from "../paths.js";
+import { readmeResponse } from "../readme.js";
 
 export function createProjectRoutes() {
   const app = new Hono<AppEnv>();
@@ -127,6 +128,14 @@ export function createProjectRoutes() {
     return new Response(file, {
       headers: { "Content-Type": file.type, "Cache-Control": "public, max-age=3600" },
     });
+  });
+
+  app.get("/:slug/readme", async (c) => {
+    const slug = c.req.param("slug");
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+    const raw = (await c.get("projectService").readProjectFile(slug, "README.md")) ?? "";
+    return c.json(readmeResponse(raw));
   });
 
   // Static file serving from files/ workspace with extensionless image fallback

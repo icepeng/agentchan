@@ -50,9 +50,9 @@ export function createProjectRepo(projectsDir: string) {
 
     const destDir = projectDir(slug);
     const entries = await readdir(srcDir, { withFileTypes: true });
-    const copies = entries
-      .filter((e) => e.name !== "_template.json")
-      .map((e) => cp(join(srcDir, e.name), join(destDir, e.name), { recursive: e.isDirectory() }));
+    const copies = entries.map((e) =>
+      cp(join(srcDir, e.name), join(destDir, e.name), { recursive: e.isDirectory() }),
+    );
     await Promise.all(copies);
     return { ...meta, slug };
   }

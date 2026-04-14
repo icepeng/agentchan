@@ -25,6 +25,7 @@ export interface UIState {
   agentPanelOpen: boolean;
   currentPage: PageRoute;
   viewMode: ViewMode;
+  readmeOpen: boolean;
 }
 
 // --- Actions ---
@@ -33,7 +34,9 @@ export type UIAction =
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "TOGGLE_AGENT_PANEL" }
   | { type: "NAVIGATE"; route: PageRoute }
-  | { type: "SET_VIEW_MODE"; mode: ViewMode };
+  | { type: "SET_VIEW_MODE"; mode: ViewMode }
+  | { type: "OPEN_README" }
+  | { type: "CLOSE_README" };
 
 // --- Reducer ---
 
@@ -47,6 +50,10 @@ function uiReducer(state: UIState, action: UIAction): UIState {
       return { ...state, currentPage: action.route };
     case "SET_VIEW_MODE":
       return { ...state, viewMode: action.mode };
+    case "OPEN_README":
+      return { ...state, readmeOpen: true };
+    case "CLOSE_README":
+      return { ...state, readmeOpen: false };
     default:
       return state;
   }
@@ -61,6 +68,7 @@ const initialState: UIState = {
   agentPanelOpen: true,
   currentPage: { page: "main" },
   viewMode: savedViewMode,
+  readmeOpen: false,
 };
 
 const UIStateContext = createContext<UIState>(initialState);

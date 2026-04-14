@@ -12,6 +12,7 @@ import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/features/onboarding/index.js";
+import { ProjectReadmeModal } from "@/client/features/project/index.js";
 
 // Templates page is lazy-loaded to keep it out of the main bundle.
 const TemplatesPage = lazy(() =>
@@ -131,6 +132,7 @@ export function AppShell() {
       </div>
 
       <OnboardingWizard />
+      <ProjectReadmeModal />
     </div>
   );
 }

@@ -1,8 +1,13 @@
 import { json, BASE } from "@/client/shared/api.js";
+import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import type { TemplateMeta } from "./template.types.js";
 
 export function fetchTemplates(): Promise<TemplateMeta[]> {
   return json("/templates");
+}
+
+export function fetchTemplateReadme(slug: string): Promise<ReadmeDoc> {
+  return json(`/templates/${encodeURIComponent(slug)}/readme`);
 }
 
 export async function saveProjectAsTemplate(

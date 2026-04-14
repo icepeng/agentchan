@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types.js";
+import { readmeResponse } from "../readme.js";
 
 export function createTemplateRoutes() {
   const app = new Hono<AppEnv>();
@@ -15,6 +16,12 @@ export function createTemplateRoutes() {
     return new Response(file, {
       headers: { "Content-Type": file.type, "Cache-Control": "public, max-age=3600" },
     });
+  });
+
+  app.get("/:slug/readme", async (c) => {
+    const slug = c.req.param("slug");
+    const raw = await c.get("templateService").getReadme(slug);
+    return c.json(readmeResponse(raw));
   });
 
   return app;
