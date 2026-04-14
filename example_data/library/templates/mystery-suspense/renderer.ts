@@ -93,15 +93,15 @@ const METRIC_DESCRIPTIONS: [string, string, string] = [
 // prefersScheme: "dark"로 프로젝트 페이지에서만 다크 강제 (Settings 이동 시 자동 복귀).
 export const theme: RendererTheme = {
   base: {
-    void: "#0a0e14",      // = --ms-bg
-    base: "#0e1319",      // = --ms-panel
-    surface: "#141b25",   // = --ms-panel-raised
-    elevated: "#18202c",  // = --ms-panel-hover
-    accent: "#d4a574",    // = --ms-warm (경계/주의 포인트)
-    fg: "#e6e2d7",        // = --ms-ink
-    fg2: "#a6a198",       // = --ms-ink-2
-    fg3: "#6f6d67",       // = --ms-ink-3
-    edge: "#c8d2e6",      // --ms-edge-strong의 base 색 (alpha 제거)
+    void: "#0a0e14", // = --ms-bg
+    base: "#0e1319", // = --ms-panel
+    surface: "#141b25", // = --ms-panel-raised
+    elevated: "#18202c", // = --ms-panel-hover
+    accent: "#d4a574", // = --ms-warm (경계/주의 포인트)
+    fg: "#e6e2d7", // = --ms-ink
+    fg2: "#a6a198", // = --ms-ink-2
+    fg3: "#6f6d67", // = --ms-ink-3
+    edge: "#c8d2e6", // --ms-edge-strong의 base 색 (alpha 제거)
   },
   prefersScheme: "dark",
 };
@@ -122,10 +122,17 @@ const CHARACTER_COLORS = [
 // ── Helpers ──────────────────────────────────
 
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
+function resolveImageUrl(
+  ctx: RenderContext,
+  dir: string,
+  imageKey: string,
+): string {
   return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
 }
 
@@ -147,7 +154,10 @@ function pad2(n: number): string {
 
 // 경계↔신뢰 값을 내러티브 상태로 매핑.
 // 모든 캐릭터 동일 방향(+5 = 신뢰 = cool, −5 = 경계 = warm/danger).
-function statusTier(value: number): { tier: "positive" | "aligned" | "neutral" | "strained" | "critical"; tone: "cool" | "warm" | "neutral" | "danger" } {
+function statusTier(value: number): {
+  tier: "positive" | "aligned" | "neutral" | "strained" | "critical";
+  tone: "cool" | "warm" | "neutral" | "danger";
+} {
   if (value >= 3) return { tier: "positive", tone: "cool" };
   if (value >= 1) return { tier: "aligned", tone: "cool" };
   if (value === 0) return { tier: "neutral", tone: "neutral" };
@@ -216,7 +226,10 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
   return map;
 }
 
-function resolveAvatar(line: ChatLine, nameMap: Map<string, NameMapEntry>): ChatLine {
+function resolveAvatar(
+  line: ChatLine,
+  nameMap: Map<string, NameMapEntry>,
+): ChatLine {
   if (line.type !== "character" || line.charDir) return line;
   const entry = nameMap.get(line.characterName!);
   if (!entry) return line;
@@ -373,7 +386,8 @@ function groupLines(lines: ChatLine[]): ChatGroup[] {
       prev &&
       prev.type === line.type &&
       (line.type !== "character" ||
-        (prev.characterName === line.characterName && prev.imageKey === line.imageKey))
+        (prev.characterName === line.characterName &&
+          prev.imageKey === line.imageKey))
     ) {
       prev.lines.push(line.text);
     } else {
@@ -465,7 +479,14 @@ function resolvePersona(
   const dir = personaFile.path.substring(0, personaFile.path.lastIndexOf("/"));
   const imageKey = fm["avatar-image"] ? String(fm["avatar-image"]) : undefined;
   const isolatedColorMap = new Map<string, string>();
-  const info = resolveCharacterInfo(dir, imageKey, displayName, ctx, nameMap, isolatedColorMap);
+  const info = resolveCharacterInfo(
+    dir,
+    imageKey,
+    displayName,
+    ctx,
+    nameMap,
+    isolatedColorMap,
+  );
   const color = fm.color ? String(fm.color) : info.color;
 
   // Sigil: explicit field or derived from `position` (peer/senior/junior/outsider)
@@ -498,7 +519,9 @@ function renderCaseHeader(
 ): string {
   const today = new Date();
   const caseNo = `${today.getFullYear().toString().slice(2)}${pad2(today.getMonth() + 1)}${pad2(today.getDate())}`;
-  const suspects = CHARACTER_ORDER.map((key) => renderSuspectCard(key, stats, ctx)).join("");
+  const suspects = CHARACTER_ORDER.map((key) =>
+    renderSuspectCard(key, stats, ctx),
+  ).join("");
 
   return `
     <header class="ms-head">
@@ -517,7 +540,11 @@ function renderCaseHeader(
     </header>`;
 }
 
-function renderSuspectCard(key: string, stats: Stats, ctx: RenderContext): string {
+function renderSuspectCard(
+  key: string,
+  stats: Stats,
+  ctx: RenderContext,
+): string {
   const meta = CHARACTER_META[key];
   if (!meta) return "";
   const value = clampStat(stats[key as keyof Stats]);
@@ -538,7 +565,11 @@ function renderSuspectCard(key: string, stats: Stats, ctx: RenderContext): strin
   let profileSrc: string | null = null;
   if (file) {
     const dir = file.path.substring(0, file.path.lastIndexOf("/"));
-    profileSrc = resolveImageUrl(ctx, dir, String(file.frontmatter!["avatar-image"]));
+    profileSrc = resolveImageUrl(
+      ctx,
+      dir,
+      String(file.frontmatter!["avatar-image"]),
+    );
   }
 
   const profileHtml = profileSrc
@@ -559,9 +590,6 @@ function renderSuspectCard(key: string, stats: Stats, ctx: RenderContext): strin
         <div class="ms-suspect-role">${escapeHtml(meta.sigil)}</div>
         <div class="ms-suspect-gauge">
           <div class="ms-gauge-meta ms-gauge-meta--top">
-            <span class="ms-gauge-label">
-              <span class="ms-gauge-metric">${escapeHtml(METRIC_LABEL)}</span>
-            </span>
             <span class="ms-gauge-value">${signed}</span>
           </div>
           <div class="ms-gauge-track">
@@ -594,15 +622,25 @@ function renderCharacterEntry(
   currentStats: Stats,
 ): string {
   const name = group.characterName!;
-  const info = resolveCharacterInfo(group.charDir, group.imageKey, name, ctx, nameMap, fallbackColorMap);
-  const lines = group.lines.map((l) => formatInline(l, ctx, nameMap, evidence)).join("<br/>");
+  const info = resolveCharacterInfo(
+    group.charDir,
+    group.imageKey,
+    name,
+    ctx,
+    nameMap,
+    fallbackColorMap,
+  );
+  const lines = group.lines
+    .map((l) => formatInline(l, ctx, nameMap, evidence))
+    .join("<br/>");
 
   let stateChip = "";
   if (info.metaKey) {
     const v = currentStats[info.metaKey as keyof Stats];
-    const signed = v > 0 ? `+${v}` : `${v}`;
+    const word = v > 0 ? "신뢰" : v < 0 ? "경계" : "중립";
+    const magnitude = Math.abs(v);
     const { tone } = statusTier(v);
-    stateChip = `<span class="ms-chip" data-tone="${tone}">${escapeHtml(METRIC_LABEL)} ${signed}</span>`;
+    stateChip = `<span class="ms-chip" data-tone="${tone}">${word} ${magnitude}</span>`;
   }
 
   const profileHtml = info.profileImg
@@ -638,7 +676,9 @@ function renderUserEntry(
   evidence: EvidenceCounter,
   seq: number,
 ): string {
-  const body = lines.map((l) => formatInline(l, ctx, nameMap, evidence)).join("<br/>");
+  const body = lines
+    .map((l) => formatInline(l, ctx, nameMap, evidence))
+    .join("<br/>");
   const name = persona?.displayName ?? "INTERVIEWER";
   const color = persona?.color ?? "#d4a574";
   const sigil = persona?.sigil ?? "INTERVIEWER · YOU";
@@ -673,7 +713,9 @@ function renderAnalystNote(
   evidence: EvidenceCounter,
   seq: number,
 ): string {
-  const body = lines.map((l) => formatInline(l, ctx, nameMap, evidence)).join("<br/>");
+  const body = lines
+    .map((l) => formatInline(l, ctx, nameMap, evidence))
+    .join("<br/>");
   return `
     <aside class="ms-note">
       <div class="ms-note-meta">
@@ -704,7 +746,10 @@ interface StatDelta {
 
 // 단일 축 포맷: "한결 −2" / "이서 +1". 레거시 포맷 "한결 의심 +2"도 허용.
 function parseStatDeltas(text: string): StatDelta[] {
-  const parts = text.split(/[\u00b7,]/).map((s) => s.trim()).filter(Boolean);
+  const parts = text
+    .split(/[\u00b7,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   const out: StatDelta[] = [];
   for (const p of parts) {
     // 이름 + (옵션 메트릭 이름) + 델타
@@ -713,7 +758,9 @@ function parseStatDeltas(text: string): StatDelta[] {
     const [, name, raw] = m;
     const delta = parseInt(raw.replace("\u2212", "-"), 10);
     if (isNaN(delta)) continue;
-    const key = Object.entries(CHARACTER_META).find(([, v]) => v.name === name)?.[0] ?? name;
+    const key =
+      Object.entries(CHARACTER_META).find(([, v]) => v.name === name)?.[0] ??
+      name;
     out.push({ key, delta, name });
   }
   return out;
@@ -1058,17 +1105,7 @@ const STYLES = `<style>
   .ms-gauge-meta--top {
     margin-top: 0;
     margin-bottom: 4px;
-  }
-  .ms-gauge-label {
-    color: var(--ms-ink-3);
-    text-transform: uppercase;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .ms-gauge-metric {
-    color: var(--ms-ink-2);
-    font-weight: 600;
+    justify-content: flex-end;
   }
   .ms-gauge-value {
     color: var(--c);
@@ -1079,9 +1116,8 @@ const STYLES = `<style>
     display: flex;
     justify-content: space-between;
     margin-top: 5px;
-    font-family: var(--ms-mono);
-    font-size: 9.5px;
-    letter-spacing: 0.08em;
+    font-size: 10px;
+    letter-spacing: 0.04em;
   }
   .ms-gauge-pole {
     color: var(--ms-ink-3);
@@ -1107,9 +1143,8 @@ const STYLES = `<style>
   }
   .ms-suspect-quote {
     color: var(--ms-ink-2);
-    font-family: var(--ms-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.05em;
+    font-size: 11px;
+    letter-spacing: 0.02em;
   }
   .ms-suspect-quirk {
     margin-top: 2px;
@@ -1220,14 +1255,14 @@ const STYLES = `<style>
     text-transform: uppercase;
   }
   .ms-chip {
-    font-family: var(--ms-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: 11px;
+    letter-spacing: 0.04em;
     padding: 3px 7px;
     color: var(--ms-ink-2);
     background: var(--ms-panel-raised);
     border: 1px solid var(--ms-edge);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
   .ms-chip[data-tone="cool"] { color: var(--ms-cool); border-color: color-mix(in srgb, var(--ms-cool) 25%, var(--ms-edge)); }
   .ms-chip[data-tone="warm"] { color: var(--ms-warm); border-color: color-mix(in srgb, var(--ms-warm) 25%, var(--ms-edge)); }
@@ -1349,9 +1384,9 @@ const STYLES = `<style>
   }
   .ms-delta-metric {
     color: var(--ms-ink-3);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.04em;
   }
   .ms-delta-bar {
     position: relative;
@@ -1518,6 +1553,7 @@ const STYLES = `<style>
   }
   .ms-evidence-subject {
     color: var(--ms-ink-2);
+    font-family: inherit;
     font-weight: 600;
   }
 
@@ -1595,11 +1631,15 @@ export function render(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
 
   const sceneFiles = ctx.files
-    .filter((f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"))
+    .filter(
+      (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
+    )
     .sort((a, b) => a.path.localeCompare(b.path));
 
   const stats = parseStats(ctx);
-  const hasAnyScene = sceneFiles.length > 0 && sceneFiles.some((f) => f.content.trim().length > 0);
+  const hasAnyScene =
+    sceneFiles.length > 0 &&
+    sceneFiles.some((f) => f.content.trim().length > 0);
 
   const persona = resolvePersona(ctx, nameMap);
   const fallbackColorMap = new Map<string, string>();
@@ -1647,17 +1687,29 @@ export function render(ctx: RenderContext): string {
           seq += 1;
           entryCount += 1;
           bodyParts.push(
-            renderCharacterEntry(g, ctx, nameMap, fallbackColorMap, evidence, seq, stats),
+            renderCharacterEntry(
+              g,
+              ctx,
+              nameMap,
+              fallbackColorMap,
+              evidence,
+              seq,
+              stats,
+            ),
           );
           break;
         case "user":
           seq += 1;
           entryCount += 1;
-          bodyParts.push(renderUserEntry(g.lines, ctx, nameMap, persona, evidence, seq));
+          bodyParts.push(
+            renderUserEntry(g.lines, ctx, nameMap, persona, evidence, seq),
+          );
           break;
         case "narration":
           seq += 1;
-          bodyParts.push(renderAnalystNote(g.lines, ctx, nameMap, evidence, seq));
+          bodyParts.push(
+            renderAnalystNote(g.lines, ctx, nameMap, evidence, seq),
+          );
           break;
       }
     }
