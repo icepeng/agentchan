@@ -13,6 +13,7 @@ const initialState: EditorState = {
   fileContent: null,
   localContent: null,
   dirty: false,
+  pendingTransition: null,
 };
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -26,6 +27,7 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         fileContent: action.content,
         localContent: action.content,
         dirty: false,
+        pendingTransition: null,
       };
     case "SYNC_EXTERNAL_CONTENT":
       return {
@@ -53,11 +55,16 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         fileContent: null,
         localContent: null,
         dirty: false,
+        pendingTransition: null,
       };
     case "RENAME_SELECTED":
       return { ...state, selectedPath: action.newPath };
     case "CLEAR":
       return initialState;
+    case "SET_PENDING_TRANSITION":
+      return { ...state, pendingTransition: action.transition };
+    case "CLEAR_PENDING_TRANSITION":
+      return { ...state, pendingTransition: null };
     default:
       return state;
   }

@@ -40,18 +40,6 @@ export function AppShell() {
   const { resolved: userScheme } = useTheme();
   const { t } = useI18n();
 
-  // Ctrl+E / Cmd+E to toggle edit mode (main page only)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "e" && ui.currentPage.page === "main") {
-        e.preventDefault();
-        uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [ui.currentPage.page, ui.viewMode, uiDispatch]);
-
   // Clear tab title badge for the currently-viewed project.
   // Runs on: project switch, visibility change (user returns to tab).
   useEffect(() => {

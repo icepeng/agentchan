@@ -86,7 +86,7 @@ export function EditModePanel() {
       <UnsavedDialog
         open={unsavedDialogOpen}
         onSave={() => void handleUnsavedSave()}
-        onDiscard={handleUnsavedDiscard}
+        onDiscard={() => void handleUnsavedDiscard()}
         onCancel={handleUnsavedCancel}
       />
 

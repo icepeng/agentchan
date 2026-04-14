@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback, Suspense, lazy } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { useUIState, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
 import { AgentPanel, BottomInput, useConversation } from "@/client/features/chat/index.js";
+import { useEditorGuard } from "@/client/features/editor/index.js";
 import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
 
 const EditModePanel = lazy(() =>
@@ -27,6 +28,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   const ui = useUIState();
   const { t } = useI18n();
   const { create } = useConversation();
+  const { requestViewMode } = useEditorGuard();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef(0);
@@ -39,6 +41,20 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
     const maxWidth = container.getBoundingClientRect().width * MAX_PANEL_RATIO;
     setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, dragStartRef.current - delta)));
   }, []);
+
+  // Ctrl+E / Cmd+E to toggle edit mode. Scoped to ProjectPage so the shortcut
+  // is naturally inactive on non-project pages, and so the AppShell tree does
+  // not need to subscribe to editor state.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+        e.preventDefault();
+        requestViewMode(isEdit ? "chat" : "edit");
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [isEdit, requestViewMode]);
 
   return (
     <>
@@ -91,7 +107,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
           </div>
         ) : (
           <div className="hidden lg:flex flex-shrink-0 w-8 flex-col items-center border-l border-edge/6 bg-base/20">
-            <EditModeToggle />
+            <EditModeToggle onToggle={requestViewMode} />
             <div className="flex-1" />
             <button
               onClick={onToggleAgentPanel}
