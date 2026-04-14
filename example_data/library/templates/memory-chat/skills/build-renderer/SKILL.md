@@ -130,6 +130,21 @@ export const theme = {
 
 웹폰트가 필요하면 `<style>` 안에서 `@import url('https://fonts.googleapis.com/...')` 혹은 `@font-face`로 로드한다.
 
+### 공간 소유 — viewport edge-to-edge
+
+렌더러는 `RenderedView`가 비워둔 viewport 영역 **전체**를 가진다. 바깥 패딩 없음. 풀블리드 배경·그라디언트·헤로 이미지가 그대로 viewport 끝까지 도달한다. 필요한 간격/정렬은 렌더러 자체 `<style>`에서 책임진다.
+
+```css
+/* 읽기 중심 레이아웃: 좁은 measure + 중앙정렬 + 자체 패딩 */
+.rb-root { max-width: 680px; margin: 0 auto; padding: 24px 20px; }
+
+/* 풀블리드 배경 + 내부 콘텐츠는 containment */
+.rb-root { background: radial-gradient(...); min-height: 100%; }
+.rb-content { max-width: 720px; margin: 0 auto; padding: 32px 24px; }
+```
+
+대화형 렌더러는 보통 `min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end` 패턴으로 viewport 하단부터 메시지가 쌓이게 한다.
+
 ### 그 외
 
 - 이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
