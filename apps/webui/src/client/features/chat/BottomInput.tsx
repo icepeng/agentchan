@@ -92,7 +92,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (slash.handleKeyDown(e)) return;
+    if (slash.palette.handleKeyDown(e)) return;
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -103,12 +103,13 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const inputContent = (
     <div className={variant === "standalone" ? "max-w-4xl mx-auto" : ""}>
       <div className="relative">
-        {slash.isOpen && (
+        {slash.palette.isOpen && (
           <SlashCommandPopup
-            commands={slash.filteredCommands}
-            selectedIndex={slash.selectedIndex}
+            listboxId={slash.palette.listboxId}
+            commands={slash.palette.items}
+            selectedIndex={slash.palette.selectedIndex}
             onSelect={slash.selectCommand}
-            onHover={slash.setSelectedIndex}
+            onHover={slash.palette.setSelectedIndex}
           />
         )}
         <div className="relative flex items-end gap-2 bg-surface rounded-2xl border border-edge/8 input-glow transition-all duration-200">
@@ -134,6 +135,10 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
                 : t("input.placeholder")
             }
             rows={1}
+            aria-autocomplete="list"
+            aria-expanded={slash.palette.isOpen}
+            aria-controls={slash.palette.isOpen ? slash.palette.listboxId : undefined}
+            aria-activedescendant={slash.palette.isOpen ? slash.palette.activeOptionId : undefined}
             className="flex-1 bg-transparent px-5 py-3.5 text-sm resize-none focus:outline-none text-fg placeholder-fg-4 max-h-[200px] font-body"
           />
           <button

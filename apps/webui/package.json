@@ -29,6 +29,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.41.0",
     "@lezer/highlight": "^1.2.3",
+    "command-score": "^0.1.2",
     "hono": "^4.12.12",
     "idiomorph": "^0.7.4",
     "lucide-react": "^1.8.0",
