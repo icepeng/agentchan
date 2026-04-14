@@ -14,6 +14,7 @@ import {
   createProjectDir,
   revealProjectFile,
 } from "@/client/entities/editor/index.js";
+import { useEditorGuard } from "./useEditorGuard.js";
 
 export function useEditMode() {
   const ui = useUIState();
@@ -21,6 +22,7 @@ export function useEditMode() {
   const stream = useActiveStream();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
+  const guard = useEditorGuard();
 
   const slug = project.activeProjectSlug;
   const isEdit = ui.viewMode === "edit";
@@ -30,9 +32,6 @@ export function useEditMode() {
 
   useEffect(() => { selectedPathRef.current = editor.selectedPath; }, [editor.selectedPath]);
   useEffect(() => { dirtyRef.current = editor.dirty; }, [editor.dirty]);
-
-  // Pending navigation while unsaved dialog is shown
-  const [pendingPath, setPendingPath] = useState<string | null>(null);
 
   // Pending delete confirmation
   const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null);
@@ -77,44 +76,9 @@ export function useEditMode() {
     editorDispatch({ type: "SELECT_FILE", path, content });
   }, [slug, editorDispatch]);
 
-  const selectFile = useCallback((path: string) => {
-    if (path === editor.selectedPath) return;
-    if (editor.dirty) {
-      setPendingPath(path);
-      return;
-    }
-    void loadFile(path);
-  }, [editor.selectedPath, editor.dirty, loadFile]);
-
-  const saveCurrentFile = useCallback(async () => {
-    if (!slug || !editor.selectedPath || editor.localContent === null) return;
-    await writeProjectFile(slug, editor.selectedPath, editor.localContent);
-    editorDispatch({ type: "MARK_CLEAN" });
-  }, [slug, editor.selectedPath, editor.localContent, editorDispatch]);
-
   const handleDocChange = useCallback((content: string) => {
     editorDispatch({ type: "UPDATE_LOCAL_CONTENT", content });
   }, [editorDispatch]);
-
-  // Unsaved dialog handlers
-  const handleUnsavedSave = useCallback(async () => {
-    await saveCurrentFile();
-    if (pendingPath) {
-      void loadFile(pendingPath);
-      setPendingPath(null);
-    }
-  }, [saveCurrentFile, pendingPath, loadFile]);
-
-  const handleUnsavedDiscard = useCallback(() => {
-    if (pendingPath) {
-      void loadFile(pendingPath);
-      setPendingPath(null);
-    }
-  }, [pendingPath, loadFile]);
-
-  const handleUnsavedCancel = useCallback(() => {
-    setPendingPath(null);
-  }, []);
 
   // Delete flow
   const requestDeleteFile = useCallback((path: string) => {
@@ -216,14 +180,13 @@ export function useEditMode() {
     selectedPath: editor.selectedPath,
     fileContent: editor.localContent,
     dirty: editor.dirty,
-    selectFile,
-    saveCurrentFile,
+    selectFile: guard.requestSelectFile,
+    saveCurrentFile: guard.saveCurrentFile,
     handleDocChange,
-    // Unsaved dialog
-    unsavedDialogOpen: pendingPath !== null,
-    handleUnsavedSave,
-    handleUnsavedDiscard,
-    handleUnsavedCancel,
+    unsavedDialogOpen: guard.unsavedDialogOpen,
+    handleUnsavedSave: guard.handleUnsavedSave,
+    handleUnsavedDiscard: guard.handleUnsavedDiscard,
+    handleUnsavedCancel: guard.handleUnsavedCancel,
     // Delete dialog
     deleteConfirmPath,
     requestDeleteFile,

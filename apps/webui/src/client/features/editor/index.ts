@@ -3,3 +3,4 @@ export { FileEditor } from "./FileEditor.js";
 export { EditModePanel } from "./EditModePanel.js";
 export { UnsavedDialog } from "./UnsavedDialog.js";
 export { useEditMode } from "./useEditMode.js";
+export { useEditorGuard } from "./useEditorGuard.js";

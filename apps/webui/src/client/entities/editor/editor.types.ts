@@ -11,12 +11,19 @@ export interface TreeEntry {
   modifiedAt?: number;
 }
 
+// Local literal for view mode to avoid cross-entity import from entities/ui.
+// Must stay in sync with ViewMode in entities/ui/UIContext.tsx.
+export type EditorPendingTransition =
+  | { type: "select-file"; path: string }
+  | { type: "change-mode"; mode: "chat" | "edit" };
+
 export interface EditorState {
   treeEntries: TreeEntry[];
   selectedPath: string | null;
   fileContent: string | null;
   localContent: string | null;
   dirty: boolean;
+  pendingTransition: EditorPendingTransition | null;
 }
 
 export type EditorAction =
@@ -27,4 +34,6 @@ export type EditorAction =
   | { type: "MARK_CLEAN" }
   | { type: "DESELECT_FILE" }
   | { type: "RENAME_SELECTED"; newPath: string }
-  | { type: "CLEAR" };
+  | { type: "CLEAR" }
+  | { type: "SET_PENDING_TRANSITION"; transition: EditorPendingTransition }
+  | { type: "CLEAR_PENDING_TRANSITION" };

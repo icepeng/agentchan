@@ -1,10 +1,15 @@
 import { PenLine, Eye } from "lucide-react";
-import { useUIState, useUIDispatch, type ViewMode } from "./UIContext.js";
+import { useUIState, type ViewMode } from "./UIContext.js";
 import { useI18n } from "@/client/i18n/index.js";
 
-export function EditModeToggle() {
+interface EditModeToggleProps {
+  // Parent owns the guarded toggle behavior (e.g. prompting on unsaved
+  // changes); required to prevent accidental unguarded dispatches.
+  onToggle: (nextMode: ViewMode) => void;
+}
+
+export function EditModeToggle({ onToggle }: EditModeToggleProps) {
   const ui = useUIState();
-  const uiDispatch = useUIDispatch();
   const { t } = useI18n();
 
   const isEdit = ui.viewMode === "edit";
@@ -14,7 +19,7 @@ export function EditModeToggle() {
 
   return (
     <button
-      onClick={() => uiDispatch({ type: "SET_VIEW_MODE", mode: nextMode })}
+      onClick={() => onToggle(nextMode)}
       className="p-2 rounded-lg text-fg-3 hover:text-accent hover:bg-accent/8 transition-all"
       title={label}
     >

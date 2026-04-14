@@ -2,7 +2,8 @@ import { useCallback, useMemo } from "react";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
 import { useSkillState } from "@/client/entities/skill/index.js";
 import { useSessionState } from "@/client/entities/session/index.js";
-import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import { useUIState } from "@/client/entities/ui/index.js";
+import { useEditorGuard } from "@/client/features/editor/index.js";
 import { useConversation } from "./useConversation.js";
 import { useStreaming } from "./useStreaming.js";
 import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry, type SkillSlashCommand } from "./commands.js";
@@ -13,7 +14,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
   const skillState = useSkillState();
   const session = useSessionState();
   const ui = useUIState();
-  const uiDispatch = useUIDispatch();
+  const { requestViewMode } = useEditorGuard();
   const { create, compact } = useConversation();
   const { send } = useStreaming();
 
@@ -32,7 +33,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
           await compact();
           break;
         case "edit":
-          uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
+          requestViewMode(ui.viewMode === "edit" ? "chat" : "edit");
           break;
         case "readme":
           uiDispatch({ type: "OPEN_README" });
@@ -50,7 +51,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
       }
       setText("");
     },
-    [create, compact, configDispatch, uiDispatch, ui.viewMode, setText],
+    [create, compact, configDispatch, requestViewMode, ui.viewMode, setText],
   );
 
   const selectCommand = useCallback(

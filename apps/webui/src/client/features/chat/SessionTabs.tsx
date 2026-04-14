@@ -1,6 +1,7 @@
 import { ChevronsRight, Plus, Settings, X } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
+import { useEditorGuard } from "@/client/features/editor/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { useConversation } from "./useConversation.js";
@@ -10,6 +11,7 @@ export function SessionTabs() {
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
   const { create, load, remove } = useConversation();
+  const { requestViewMode } = useEditorGuard();
 
   return (
     <div className="flex items-center border-b border-edge/6">
@@ -62,7 +64,7 @@ export function SessionTabs() {
         </button>
       </ScrollArea>
 
-      <EditModeToggle />
+      <EditModeToggle onToggle={requestViewMode} />
       <button
         onClick={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
         className="flex-shrink-0 px-2 py-1.5 text-fg-3 hover:text-fg-2 transition-colors"
