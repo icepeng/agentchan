@@ -96,6 +96,27 @@ export function createConfigService(settingsRepo: SettingsRepo) {
     return getProviderList().some((p) => p.name === name);
   }
 
+  function loadNumber(
+    key: string,
+    parse: (raw: string) => number,
+    min: number,
+    max?: number,
+  ): number | undefined {
+    const raw = settingsRepo.getAppSetting(key);
+    if (raw == null) return undefined;
+    const value = parse(raw);
+    if (!Number.isFinite(value)) return undefined;
+    if (value < min) return undefined;
+    if (max !== undefined && value > max) return undefined;
+    return value;
+  }
+
+  function loadThinkingLevel() {
+    const raw = settingsRepo.getAppSetting("config.thinkingLevel");
+    if (raw === "low" || raw === "medium" || raw === "high") return raw;
+    return undefined;
+  }
+
   function loadConfig(): ServerConfig {
     const savedProvider = settingsRepo.getAppSetting("config.provider");
     const savedModel = settingsRepo.getAppSetting("config.model");
@@ -109,7 +130,15 @@ export function createConfigService(settingsRepo: SettingsRepo) {
     } else {
       model = savedModel && ALLOWED_MODELS.has(savedModel) ? savedModel : (providerInfo?.defaultModel ?? "");
     }
-    return { provider, model };
+
+    return {
+      provider,
+      model,
+      temperature: loadNumber("config.temperature", parseFloat, 0, 2),
+      maxTokens: loadNumber("config.maxTokens", (s) => parseInt(s, 10), 1),
+      contextWindow: loadNumber("config.contextWindow", (s) => parseInt(s, 10), 1024),
+      thinkingLevel: loadThinkingLevel(),
+    };
   }
 
   const currentConfig: ServerConfig = loadConfig();
@@ -130,17 +159,34 @@ export function createConfigService(settingsRepo: SettingsRepo) {
       if (body.model) {
         currentConfig.model = body.model;
       }
-      if (body.temperature !== undefined) {
-        currentConfig.temperature = body.temperature ?? undefined;
-      }
-      if (body.maxTokens !== undefined) {
-        currentConfig.maxTokens = body.maxTokens ?? undefined;
-      }
-      if (body.contextWindow !== undefined) {
-        currentConfig.contextWindow = body.contextWindow ?? undefined;
-      }
-      if (body.thinkingLevel !== undefined) {
-        currentConfig.thinkingLevel = body.thinkingLevel ?? undefined;
+
+      const persistNumber = (field: "temperature" | "maxTokens" | "contextWindow") => {
+        if (!(field in body)) return;
+        const key = `config.${field}`;
+        const value = body[field];
+        if (value == null) {
+          currentConfig[field] = undefined;
+          settingsRepo.deleteAppSetting(key);
+        } else {
+          currentConfig[field] = value;
+          settingsRepo.setAppSetting(key, String(value));
+        }
+      };
+
+      persistNumber("temperature");
+      persistNumber("maxTokens");
+      persistNumber("contextWindow");
+
+      if ("thinkingLevel" in body) {
+        const level = body.thinkingLevel;
+        // "off" and null both map to "unset" — reasoning stays disabled by default.
+        if (level == null || level === "off") {
+          currentConfig.thinkingLevel = undefined;
+          settingsRepo.deleteAppSetting("config.thinkingLevel");
+        } else {
+          currentConfig.thinkingLevel = level;
+          settingsRepo.setAppSetting("config.thinkingLevel", level);
+        }
       }
 
       settingsRepo.setAppSetting("config.provider", currentConfig.provider);

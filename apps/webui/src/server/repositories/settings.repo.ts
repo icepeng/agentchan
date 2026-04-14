@@ -60,6 +60,10 @@ export function createSettingsRepo(dataDir: string) {
         [key, value],
       );
     },
+
+    deleteAppSetting(key: string): void {
+      db.run("DELETE FROM app_settings WHERE key = ?", [key]);
+    },
   };
 }
 
