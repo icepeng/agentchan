@@ -12,6 +12,7 @@ import {
   writeNotificationPreference,
   type NotificationPreference,
 } from "@/client/shared/notifications.js";
+import { AboutSection } from "@/client/features/update/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
 
 type SettingsTab = "appearance" | "api-keys";
@@ -106,6 +107,12 @@ function AppearanceTab() {
       <section className="space-y-4">
         <SectionHeader title={t("notifications.title")} />
         <NotificationsSection />
+      </section>
+
+      {/* About / Version */}
+      <section className="space-y-4">
+        <SectionHeader title={t("update.currentVersion")} />
+        <AboutSection />
       </section>
     </div>
   );

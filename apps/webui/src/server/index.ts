@@ -12,6 +12,7 @@ import { createSettingsRepo } from "./repositories/settings.repo.js";
 import { createProjectRepo } from "./repositories/project.repo.js";
 import { createTemplateRepo } from "./repositories/template.repo.js";
 import { createProjectSkillRepo } from "./repositories/project-skill.repo.js";
+import { createUpdateRepo } from "./repositories/update.repo.js";
 
 // --- Services ---
 import { createConfigService } from "./services/config.service.js";
@@ -20,23 +21,27 @@ import { createConversationService } from "./services/conversation.service.js";
 import { createAgentService } from "./services/agent.service.js";
 import { createTemplateService } from "./services/template.service.js";
 import { createSkillService } from "./services/skill.service.js";
+import { createUpdateService } from "./services/update.service.js";
 
 // --- Routes ---
 import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
 import { createTemplateRoutes } from "./routes/template.routes.js";
+import { createUpdateRoutes } from "./routes/update.routes.js";
 
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
 const projectRepo = createProjectRepo(PROJECTS_DIR);
 const templateRepo = createTemplateRepo(join(LIBRARY_DIR, "templates"));
 const projectSkillRepo = createProjectSkillRepo(PROJECTS_DIR);
+const updateRepo = createUpdateRepo();
 
 // ===== 2. Services =====
 const configService = createConfigService(settingsRepo);
 const templateService = createTemplateService(templateRepo, PROJECTS_DIR);
 const projectService = createProjectService(projectRepo, templateRepo, PROJECTS_DIR);
 const skillService = createSkillService(projectSkillRepo, PROJECTS_DIR);
+const updateService = createUpdateService(updateRepo);
 
 // ===== 2b. Agent context (stateless handle) =====
 const agentContext = createAgentContext({
@@ -84,6 +89,7 @@ app.use("/api/*", async (c, next) => {
   c.set("agentService", agentService);
   c.set("templateService", templateService);
   c.set("skillService", skillService);
+  c.set("updateService", updateService);
   await next();
 });
 
@@ -91,6 +97,7 @@ app.use("/api/*", async (c, next) => {
 app.route("/api/projects", createProjectRoutes());
 app.route("/api/config", createConfigRoutes());
 app.route("/api/templates", createTemplateRoutes());
+app.route("/api/update", createUpdateRoutes());
 
 // Serve static files in production
 if (existsSync(CLIENT_DIR)) {

@@ -31,6 +31,7 @@ import type { ConversationService } from "./services/conversation.service.js";
 import type { AgentService } from "./services/agent.service.js";
 import type { TemplateService } from "./services/template.service.js";
 import type { SkillService } from "./services/skill.service.js";
+import type { UpdateService } from "./services/update.service.js";
 
 export type AppEnv = {
   Variables: {
@@ -40,6 +41,7 @@ export type AppEnv = {
     agentService: AgentService;
     templateService: TemplateService;
     skillService: SkillService;
+    updateService: UpdateService;
   };
 };
 

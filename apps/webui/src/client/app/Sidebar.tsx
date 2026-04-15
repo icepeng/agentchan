@@ -4,6 +4,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 import { ProjectTabs } from "@/client/features/project/index.js";
 import { ModelBar } from "@/client/features/settings/index.js";
+import { UpdateBanner } from "@/client/features/update/index.js";
 import { SkillList } from "./SkillList.js";
 
 export function Sidebar() {
@@ -67,6 +68,7 @@ export function Sidebar() {
 
       {/* Bottom panel */}
       <div>
+        <UpdateBanner />
         <ModelBar />
         <SkillList />
       </div>
