@@ -9,6 +9,7 @@ import {
 } from "react";
 import { createElement } from "react";
 import { useI18n } from "@/client/i18n/index.js";
+import { localStore } from "@/client/shared/storage.js";
 
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
@@ -19,7 +20,6 @@ interface ThemeContextValue {
   setPreference: (pref: ThemePreference) => void;
 }
 
-const STORAGE_KEY = "agentchan-theme";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
 
 function getSystemTheme(): ResolvedTheme {
@@ -36,14 +36,6 @@ function applyTheme(resolved: ResolvedTheme) {
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", metaColor);
 }
 
-function readStoredPreference(): ThemePreference {
-  try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    if (v === "light" || v === "dark" || v === "system") return v;
-  } catch {}
-  return "system";
-}
-
 const ThemeContext = createContext<ThemeContextValue>({
   preference: "system",
   resolved: "dark",
@@ -51,12 +43,12 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>(readStoredPreference);
-  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(readStoredPreference()));
+  const [preference, setPreferenceState] = useState<ThemePreference>(() => localStore.theme.read());
+  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(localStore.theme.read()));
 
   const setPreference = useCallback((pref: ThemePreference) => {
     setPreferenceState(pref);
-    try { localStorage.setItem(STORAGE_KEY, pref); } catch {}
+    localStore.theme.write(pref);
     const r = resolveTheme(pref);
     setResolved(r);
     applyTheme(r);

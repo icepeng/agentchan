@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { fetchUpdateStatus } from "./update.api.js";
 import type { UpdateStatus } from "./update.types.js";
 
-const DISMISS_KEY = "agentchan.updateDismissed";
-
 // Shared across all hook instances so Sidebar's banner and Settings' About
 // section never issue duplicate HTTP calls on the same page load.
 let cachedStatus: UpdateStatus | null = null;
@@ -40,22 +38,4 @@ export function useUpdateStatus(): UpdateStatus | null {
   }, []);
 
   return status;
-}
-
-// Per-version dismissal — storing the version (not a boolean) ensures the
-// banner re-appears automatically when a newer release arrives.
-export function readDismissedVersion(): string | null {
-  try {
-    return localStorage.getItem(DISMISS_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function writeDismissedVersion(version: string): void {
-  try {
-    localStorage.setItem(DISMISS_KEY, version);
-  } catch {
-    // Private mode / quota — best-effort only.
-  }
 }

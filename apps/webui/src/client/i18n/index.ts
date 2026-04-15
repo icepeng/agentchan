@@ -10,6 +10,7 @@ import {
 } from "react";
 import { translations as en, type TranslationKey } from "./en.js";
 import { translations as ko } from "./ko.js";
+import { localStore } from "@/client/shared/storage.js";
 
 export type LanguagePreference = "system" | "en" | "ko";
 export type ResolvedLanguage = "en" | "ko";
@@ -24,7 +25,6 @@ interface I18nContextValue {
   setPreference: (pref: LanguagePreference) => void;
 }
 
-const STORAGE_KEY = "agentchan-language";
 const SUPPORTED: ResolvedLanguage[] = ["en", "ko"];
 
 const dictionaries: Record<ResolvedLanguage, Record<string, string>> = { en, ko };
@@ -40,14 +40,6 @@ function resolveLanguage(pref: LanguagePreference): ResolvedLanguage {
   return SUPPORTED.includes(pref as ResolvedLanguage) ? (pref as ResolvedLanguage) : "en";
 }
 
-function readStoredPreference(): LanguagePreference {
-  try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    if (v === "en" || v === "ko" || v === "system") return v;
-  } catch {}
-  return "system";
-}
-
 function applyLang(resolved: ResolvedLanguage) {
   document.documentElement.lang = resolved;
 }
@@ -60,12 +52,12 @@ const I18nContext = createContext<I18nContextValue>({
 });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [preference, setPreferenceState] = useState<LanguagePreference>(readStoredPreference);
-  const [resolved, setResolved] = useState<ResolvedLanguage>(() => resolveLanguage(readStoredPreference()));
+  const [preference, setPreferenceState] = useState<LanguagePreference>(() => localStore.language.read());
+  const [resolved, setResolved] = useState<ResolvedLanguage>(() => resolveLanguage(localStore.language.read()));
 
   const setPreference = useCallback((pref: LanguagePreference) => {
     setPreferenceState(pref);
-    try { localStorage.setItem(STORAGE_KEY, pref); } catch {}
+    localStore.language.write(pref);
     const r = resolveLanguage(pref);
     setResolved(r);
     applyLang(r);

@@ -3,9 +3,9 @@ import { ArrowUp, ChevronsLeft } from "lucide-react";
 import { useSessionState } from "@/client/entities/session/index.js";
 import {
   notificationPermission,
-  readNotificationPreference,
   requestNotificationPermission,
 } from "@/client/shared/notifications.js";
+import { localStore } from "@/client/shared/storage.js";
 import { useConfigState } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -88,7 +88,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     // First send in this session: opportunistically request Notification
     // permission. Must happen in a user gesture handler (click/keydown) to
     // satisfy browser policy. Fire-and-forget — we don't block send.
-    if (readNotificationPreference() === "on" && notificationPermission() === "default") {
+    if (localStore.notifications.read() === "on" && notificationPermission() === "default") {
       void requestNotificationPermission();
     }
 

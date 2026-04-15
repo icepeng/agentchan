@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
+import { localStore } from "@/client/shared/storage.js";
 
 // --- PageRoute ---
 
@@ -61,13 +62,11 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 
 // --- Context ---
 
-const savedViewMode = (localStorage.getItem("agentchan-view-mode") as ViewMode | null) ?? "chat";
-
 const initialState: UIState = {
   sidebarOpen: true,
   agentPanelOpen: true,
   currentPage: { page: "main" },
-  viewMode: savedViewMode,
+  viewMode: localStore.viewMode.read(),
   readmeOpen: false,
 };
 
@@ -78,7 +77,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(uiReducer, initialState);
 
   useEffect(() => {
-    localStorage.setItem("agentchan-view-mode", state.viewMode);
+    localStore.viewMode.write(state.viewMode);
   }, [state.viewMode]);
 
   return (

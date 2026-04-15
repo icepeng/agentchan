@@ -3,6 +3,7 @@ import { useProjectDispatch, fetchProjects } from "@/client/entities/project/ind
 import { useSessionDispatch, fetchConversations } from "@/client/entities/session/index.js";
 import { useConfigDispatch, fetchConfig, fetchProviders } from "@/client/entities/config/index.js";
 import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
+import { localStore } from "@/client/shared/storage.js";
 
 import { AppShell } from "@/client/app/index.js";
 
@@ -30,7 +31,7 @@ export function App() {
       });
       configDispatch({ type: "SET_PROVIDERS", providers });
 
-      const lastSlug = localStorage.getItem("agentchan-last-project");
+      const lastSlug = localStore.lastProject.read();
       const defaultProject = (lastSlug && projects.find((p) => p.slug === lastSlug)) ?? projects[0];
       if (defaultProject) {
         projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: defaultProject.slug });

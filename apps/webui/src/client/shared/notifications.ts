@@ -5,32 +5,12 @@
  * Falls back silently when the API is unavailable or permission is denied —
  * UI indicators (tab title badge, project-tab dot) handle that case.
  *
- * This module is intentionally side-effect only (no React state); callers
- * are `features/*` hooks that already have access to UI state.
+ * Preference persistence lives in `shared/storage.ts` (`localStore.notifications`).
  */
 
-const LOCAL_STORAGE_KEY = "agentchan-notifications";
-
-// --- Preferences ---
+import { localStore } from "./storage.js";
 
 export type NotificationPreference = "on" | "off";
-
-export function readNotificationPreference(): NotificationPreference {
-  try {
-    const v = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return v === "off" ? "off" : "on";
-  } catch {
-    return "on";
-  }
-}
-
-export function writeNotificationPreference(pref: NotificationPreference): void {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, pref);
-  } catch {
-    /* ignore — incognito / quota */
-  }
-}
 
 // --- Permission ---
 
@@ -150,7 +130,7 @@ export function notifyBackgroundCompletion(opts: NotifyOpts): void {
   // Always update the in-app badge — works regardless of permission / preference.
   markUnseenCompletion(opts.projectSlug);
 
-  if (readNotificationPreference() === "off") return;
+  if (localStore.notifications.read() === "off") return;
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
 

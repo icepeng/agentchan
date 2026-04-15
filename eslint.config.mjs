@@ -39,5 +39,23 @@ export default defineConfig(
     extends: [reactHooks.configs.flat["recommended-latest"]],
   },
 
+  // Enforce routing all browser persistence through `shared/storage.ts`.
+  // Adding a new localStorage key = registering it in `localStore`, which in
+  // turn enforces the `agentchan-` prefix and (for enums) valid-value checks.
+  {
+    files: ["apps/webui/src/client/**/*.{ts,tsx}"],
+    ignores: ["apps/webui/src/client/shared/storage.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "MemberExpression[object.name='localStorage']",
+          message:
+            "Do not use `localStorage` directly. Import `localStore` from `@/client/shared/storage.js` and register the key there.",
+        },
+      ],
+    },
+  },
+
   { files: ["**/*.{js,mjs,cjs}"], ...tseslint.configs.disableTypeChecked },
 );
