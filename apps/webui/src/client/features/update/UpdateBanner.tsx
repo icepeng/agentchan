@@ -1,24 +1,21 @@
 import { useState } from "react";
 import { Sparkles, X } from "lucide-react";
-import {
-  useUpdateStatus,
-  readDismissedVersion,
-  writeDismissedVersion,
-} from "@/client/entities/update/index.js";
+import { useUpdateStatus } from "@/client/entities/update/index.js";
 import { useI18n } from "@/client/i18n/index.js";
+import { localStore } from "@/client/shared/storage.js";
 
 // Dismiss is per-version: acknowledging v1.2.3 hides the banner until v1.2.4 arrives.
 export function UpdateBanner() {
   const status = useUpdateStatus();
   const { t } = useI18n();
-  const [dismissed, setDismissed] = useState<string | null>(() => readDismissedVersion());
+  const [dismissed, setDismissed] = useState<string | null>(() => localStore.updateDismissed.read());
 
   if (!status || !status.hasUpdate || !status.latest || !status.releaseUrl) return null;
   if (dismissed === status.latest) return null;
 
   const handleDismiss = () => {
     if (!status.latest) return;
-    writeDismissedVersion(status.latest);
+    localStore.updateDismissed.write(status.latest);
     setDismissed(status.latest);
   };
 

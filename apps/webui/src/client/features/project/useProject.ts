@@ -16,6 +16,7 @@ import {
   abortProjectStream,
 } from "@/client/entities/session/index.js";
 import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
+import { localStore } from "@/client/shared/storage.js";
 
 export function useProject() {
   const projectState = useProjectState();
@@ -37,7 +38,7 @@ export function useProject() {
       // wouldn't re-run (primitive equality), leaving the renderer blank.
       if (projectState.activeProjectSlug === slug) return;
 
-      localStorage.setItem("agentchan-last-project", slug);
+      localStore.lastProject.write(slug);
       const rememberedSessionId = projectState.projectActiveSession.get(slug);
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug, currentConversationId: sessionState.activeConversationId });
       // SWITCH_PROJECT replaces the active view but preserves streams Map so
@@ -120,7 +121,7 @@ export function useProject() {
       if (projectState.activeProjectSlug === slug) {
         const fallback = projectState.projects.find((p) => p.slug !== slug);
         if (fallback) {
-          localStorage.setItem("agentchan-last-project", fallback.slug);
+          localStore.lastProject.write(fallback.slug);
           projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: fallback.slug, currentConversationId: sessionState.activeConversationId });
           sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: fallback.slug, conversations: [] });
           skillDispatch({ type: "CLEAR" });

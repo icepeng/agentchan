@@ -7,11 +7,10 @@ import { useI18n, type LanguagePreference, type TranslationKey } from "@/client/
 import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput, ScrollArea } from "@/client/shared/ui/index.js";
 import {
   notificationPermission,
-  readNotificationPreference,
   requestNotificationPermission,
-  writeNotificationPreference,
   type NotificationPreference,
 } from "@/client/shared/notifications.js";
+import { localStore } from "@/client/shared/storage.js";
 import { AboutSection } from "@/client/features/update/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
 
@@ -122,14 +121,14 @@ function AppearanceTab() {
 
 function NotificationsSection() {
   const { t } = useI18n();
-  const [pref, setPref] = useState<NotificationPreference>(() => readNotificationPreference());
+  const [pref, setPref] = useState<NotificationPreference>(() => localStore.notifications.read());
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
     () => notificationPermission(),
   );
 
   const handleToggle = async (next: NotificationPreference) => {
     setPref(next);
-    writeNotificationPreference(next);
+    localStore.notifications.write(next);
     if (next === "on" && permission === "default") {
       const result = await requestNotificationPermission();
       setPermission(result);
