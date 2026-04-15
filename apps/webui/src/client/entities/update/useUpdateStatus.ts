@@ -4,20 +4,35 @@ import type { UpdateStatus } from "./update.types.js";
 
 const DISMISS_KEY = "agentchan.updateDismissed";
 
-/**
- * Returns the update status once available. We only fetch on mount — the
- * server caches for an hour, so hitting the endpoint on every app load is
- * essentially free and avoids stale state across long-running tabs.
- */
+// Shared across all hook instances so Sidebar's banner and Settings' About
+// section never issue duplicate HTTP calls on the same page load.
+let cachedStatus: UpdateStatus | null = null;
+let inflight: Promise<UpdateStatus | null> | null = null;
+
+function sharedFetch(): Promise<UpdateStatus | null> {
+  if (cachedStatus) return Promise.resolve(cachedStatus);
+  if (!inflight) {
+    inflight = fetchUpdateStatus()
+      .then((s) => {
+        cachedStatus = s;
+        return s;
+      })
+      .catch(() => null) // Offline / API down — stay silent.
+      .finally(() => {
+        inflight = null;
+      });
+  }
+  return inflight;
+}
+
 export function useUpdateStatus(): UpdateStatus | null {
-  const [status, setStatus] = useState<UpdateStatus | null>(null);
+  const [status, setStatus] = useState<UpdateStatus | null>(cachedStatus);
 
   useEffect(() => {
+    if (cachedStatus) return;
     let cancelled = false;
-    void fetchUpdateStatus().then((next) => {
+    void sharedFetch().then((next) => {
       if (!cancelled) setStatus(next);
-    }).catch(() => {
-      // Offline / API down — stay silent rather than spamming the UI.
     });
     return () => {
       cancelled = true;
@@ -27,11 +42,8 @@ export function useUpdateStatus(): UpdateStatus | null {
   return status;
 }
 
-/**
- * Persist the dismissed version in localStorage so the banner does not
- * re-appear after a user has acknowledged it. A newer release will have a
- * different `latest` value and will therefore surface again.
- */
+// Per-version dismissal — storing the version (not a boolean) ensures the
+// banner re-appears automatically when a newer release arrives.
 export function readDismissedVersion(): string | null {
   try {
     return localStorage.getItem(DISMISS_KEY);

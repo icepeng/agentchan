@@ -2,10 +2,6 @@ import { Sparkles, CheckCircle2 } from "lucide-react";
 import { useUpdateStatus } from "@/client/entities/update/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 
-/**
- * Read-only "about" block for the settings page. Surfaces the running version
- * and, when the server has confirmed a newer release on GitHub, a link to it.
- */
 export function AboutSection() {
   const status = useUpdateStatus();
   const { t } = useI18n();
