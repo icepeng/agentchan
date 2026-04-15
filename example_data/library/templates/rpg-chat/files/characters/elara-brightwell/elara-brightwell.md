@@ -1,7 +1,7 @@
 ---
 name: elara-brightwell
 display-name: Elara Brightwell
-color: "#fbbf24"
+color: "#b36b2a"
 avatar-image: assets/avatar
 names: "엘라라 브라이트웰, 엘라라, Elara Brightwell, Elara"
 ---

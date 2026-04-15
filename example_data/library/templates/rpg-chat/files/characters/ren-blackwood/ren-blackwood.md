@@ -1,7 +1,7 @@
 ---
 name: ren-blackwood
 display-name: Ren Blackwood
-color: "#a78bfa"
+color: "#6a45a0"
 avatar-image: assets/avatar
 names: "렌 블랙우드, 렌, Ren Blackwood, Ren"
 ---
