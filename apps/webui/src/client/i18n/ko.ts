@@ -249,4 +249,12 @@ export const translations: Record<TranslationKey, string> = {
   "notifications.sessionCompleteBody": "응답을 확인하려면 탭하세요.",
   "notifications.sessionError": "{{project}} 오류 발생",
   "notifications.sessionErrorBody": "상세 내용을 확인하려면 탭하세요.",
+
+  // Update notifications
+  "update.available": "새 버전이 출시되었습니다",
+  "update.versionLine": "v{{current}} → v{{latest}}",
+  "update.viewRelease": "릴리스 보기",
+  "update.dismiss": "닫기",
+  "update.currentVersion": "현재 버전",
+  "update.upToDate": "최신 버전을 사용 중입니다",
 };

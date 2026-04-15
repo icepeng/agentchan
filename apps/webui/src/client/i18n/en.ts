@@ -247,6 +247,14 @@ export const translations = {
   "notifications.sessionCompleteBody": "Tap to view the response.",
   "notifications.sessionError": "{{project}} hit an error",
   "notifications.sessionErrorBody": "Tap to see the details.",
+
+  // Update notifications
+  "update.available": "New version available",
+  "update.versionLine": "v{{current}} → v{{latest}}",
+  "update.viewRelease": "View release",
+  "update.dismiss": "Dismiss",
+  "update.currentVersion": "Current version",
+  "update.upToDate": "You're on the latest version",
 } as const satisfies Record<string, string>;
 
 export type TranslationKey = keyof typeof translations;
