@@ -196,7 +196,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   }
 
   return (
-    <div className="relative z-20 border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4">
+    <div className="relative z-20 border-t border-edge/6 bg-base/80 backdrop-blur-sm p-3 pb-4 transition-colors duration-200">
       {inputContent}
     </div>
   );

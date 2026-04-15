@@ -40,12 +40,14 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       if (state.activeProjectSlug && action.currentConversationId) {
         newMap.set(state.activeProjectSlug, action.currentConversationId);
       }
+      // rendererTheme은 새 프로젝트의 renderer가 로드되어 SET_RENDER_OUTPUT이
+      // 덮어쓸 때까지 유지한다. 즉시 null로 리셋하면 "이전 테마 → 기본 팔레트 →
+      // 새 테마"의 두 단계 깜빡임이 발생하기 때문이다.
       return {
         ...state,
         activeProjectSlug: action.slug,
         projectActiveSession: newMap,
         renderedHtml: "",
-        rendererTheme: null,
       };
     }
 
@@ -71,16 +73,27 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
     case "DELETE_PROJECT": {
       const remaining = state.projects.filter((p) => p.slug !== action.slug);
       const wasActive = state.activeProjectSlug === action.slug;
+      if (!wasActive) {
+        return { ...state, projects: remaining };
+      }
+      const nextSlug = remaining[0]?.slug ?? null;
+      if (nextSlug === null) {
+        // 프로젝트가 하나도 남지 않으면 "프로젝트 없음" 상태이므로 기본 팔레트로 리셋.
+        return {
+          ...state,
+          projects: remaining,
+          activeProjectSlug: null,
+          renderedHtml: "",
+          rendererTheme: null,
+        };
+      }
+      // 다음 active의 renderer가 로드될 때까지 rendererTheme은 유지 —
+      // SET_ACTIVE_PROJECT와 동일한 flash-free 전환 원칙.
       return {
         ...state,
         projects: remaining,
-        ...(wasActive
-          ? {
-              activeProjectSlug: remaining[0]?.slug ?? null,
-              renderedHtml: "",
-              rendererTheme: null,
-            }
-          : {}),
+        activeProjectSlug: nextSlug,
+        renderedHtml: "",
       };
     }
 
