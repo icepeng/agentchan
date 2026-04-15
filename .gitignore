@@ -8,6 +8,7 @@ apps/webui/data/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+.claude/skills/playtest/scripts/.play-state.json
 
 research/
 CLAUDE.local.md
