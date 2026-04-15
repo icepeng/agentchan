@@ -60,7 +60,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
           </Suspense>
         ) : (
           // Chat mode: Rendered View
-          <div className={`flex-1 flex flex-col min-w-0 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
+          <div className={`flex-1 flex flex-col min-w-0 transition-colors duration-200 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
             {project.activeProjectSlug ? (
               <RenderedView />
             ) : (
@@ -85,13 +85,13 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
         {agentPanelOpen ? (
           <div
             style={{ width: panelWidth }}
-            className="flex-shrink-0 flex flex-col min-h-0 bg-base/40 hidden lg:flex"
+            className="flex-shrink-0 flex flex-col min-h-0 bg-base/40 transition-colors duration-200 hidden lg:flex"
           >
             <AgentPanel />
             {isEdit && <BottomInput variant="embedded" />}
           </div>
         ) : (
-          <div className="hidden lg:flex flex-shrink-0 w-8 flex-col items-center border-l border-edge/6 bg-base/20">
+          <div className="hidden lg:flex flex-shrink-0 w-8 flex-col items-center border-l border-edge/6 bg-base/20 transition-colors duration-200">
             <EditModeToggle />
             <div className="flex-1" />
             <button
