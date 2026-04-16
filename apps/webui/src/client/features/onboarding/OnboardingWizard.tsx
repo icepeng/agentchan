@@ -14,8 +14,8 @@ const STEPS: OnboardingStep[] = [0, 1, 2];
 
 // Strategy §2-7 — game-like renderer.ts showcase first. Order is strategic
 // priority (not _order.json), so we hard-code it and gracefully skip any
-// slug that isn't present on disk (e.g. rpg-chat in a pruned branch).
-const FEATURED_SLUGS: readonly string[] = ["sentinel", "rpg-chat"];
+// slug that isn't present on disk (e.g. three-winds-ledger in a pruned branch).
+const FEATURED_SLUGS: readonly string[] = ["sentinel", "three-winds-ledger"];
 
 export function OnboardingWizard() {
   const ob = useOnboarding();

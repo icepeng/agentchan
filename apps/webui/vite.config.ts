@@ -42,7 +42,7 @@ export default defineConfig({
   },
   server: {
     watch: {
-      ignored: ["**/data/**"],
+      ignored: ["**/data/**", "**/example_data/**"],
     },
     host: "127.0.0.1",
     port: clientPort,
