@@ -1,4 +1,4 @@
-import type { ProjectFile } from "@agentchan/creative-agent";
+import type { ProjectFile, RenderContext } from "@agentchan/renderer-types";
 
 export interface Project {
   slug: string;
@@ -9,9 +9,4 @@ export interface Project {
   hasCover?: boolean;
 }
 
-export interface RenderContext {
-  files: ProjectFile[];
-  baseUrl: string;
-}
-
-export type { ProjectFile };
+export type { ProjectFile, RenderContext };

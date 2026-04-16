@@ -13,6 +13,9 @@
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/grep": "workspace:*",
+    "@agentchan/renderer-bundle": "workspace:*",
+    "@agentchan/renderer-runtime": "workspace:*",
+    "@agentchan/renderer-types": "workspace:*",
     "@google/genai": "^1.49.0",
     "@mariozechner/pi-agent-core": "^0.66.1",
     "@mariozechner/pi-ai": "^0.66.1",

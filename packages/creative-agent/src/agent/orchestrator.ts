@@ -166,6 +166,7 @@ export async function setupCreativeAgent(
   history: AgentMessage[],
   conversationId: string,
   sessionMode?: SessionMode,
+  rendererRuntimeEntry?: string,
 ): Promise<CreativeAgentSetup> {
   const allSkills = await discoverProjectSkills(join(projectDir, "skills"));
   const env: SkillEnvironment = sessionMode === "meta" ? "meta" : "creative";
@@ -181,7 +182,9 @@ export async function setupCreativeAgent(
   // Build tools
   const tools: any[] = createProjectTools(projectDir);
   if (envSkills.size > 0) tools.push(createActivateSkillTool(envSkills, projectDir));
-  if (sessionMode === "meta") tools.push(createValidateRendererTool(projectDir));
+  if (sessionMode === "meta" && rendererRuntimeEntry) {
+    tools.push(createValidateRendererTool(projectDir, { runtimeEntry: rendererRuntimeEntry }));
+  }
 
   // Compose system prompt: DEFAULT + system file + skill catalog
   const systemFile = sessionMode === "meta" ? "SYSTEM.meta.md" : "SYSTEM.md";

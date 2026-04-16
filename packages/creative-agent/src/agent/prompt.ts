@@ -239,6 +239,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     history,
     conversationId,
     args.sessionMode,
+    ctx.rendererRuntimeEntry,
   );
 
   let lastNodeId = args.promptParentId;

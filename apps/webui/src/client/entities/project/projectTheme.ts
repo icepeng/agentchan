@@ -1,35 +1,6 @@
-/**
- * Renderer-owned theme: 렌더러가 프로젝트 페이지 한정으로 전역 CSS custom property를
- * 오버라이드할 수 있도록 하는 계약.
- *
- * - 색상 전용. 폰트는 렌더러 자체 `<style>` 안에서 `font-family`로 직접 지정한다.
- * - `base`만 있으면 단일 모드, `dark`가 있으면 듀얼 모드.
- * - `prefersScheme`이 명시되면 프로젝트 페이지에서만 사용자 Appearance 토글을 강제 오버라이드.
- */
+import type { RendererTheme, RendererThemeTokens } from "@agentchan/renderer-types";
 
-/**
- * 토큰 이름은 agentchan 전역 CSS 변수(`--color-*`)와 1:1로 대응한다.
- * 렌더러 작성자가 토큰을 선언하면 그대로 해당 `--color-*`가 오버라이드된다.
- */
-export interface RendererThemeTokens {
-  void?: string; // --color-void     (앱 최상위 배경)
-  base?: string; // --color-base     (Sidebar / AgentPanel / BottomInput)
-  surface?: string; // --color-surface  (카드 / 인풋 박스)
-  elevated?: string; // --color-elevated (hover / 강조)
-  accent?: string; // --color-accent   (포인트 색)
-  fg?: string; // --color-fg       (본문 텍스트)
-  fg2?: string; // --color-fg-2     (메타 텍스트 / 아이콘 기본)
-  fg3?: string; // --color-fg-3     (부드러운 텍스트)
-  edge?: string; // --color-edge     (테두리 베이스)
-}
-
-export interface RendererTheme {
-  base: RendererThemeTokens;
-  /** base(=light) 위에 덮어쓰는 dark 토큰. 생략하면 base 단일 모드. */
-  dark?: Partial<RendererThemeTokens>;
-  /** 명시되면 프로젝트 페이지 안에서 사용자 토글과 무관하게 해당 scheme으로 강제 고정. */
-  prefersScheme?: "light" | "dark";
-}
+export type { RendererTheme, RendererThemeTokens };
 
 const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
   void: "--color-void",

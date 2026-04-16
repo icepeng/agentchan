@@ -116,9 +116,10 @@ export function createProjectRoutes() {
 
   app.get("/:slug/renderer.js", async (c) => {
     const slug = c.req.param("slug");
-    const js = await c.get("projectService").transpileRenderer(slug);
-    if (js === null) return c.json({ error: "renderer.ts not found" }, 404);
-    return c.json({ js });
+    const result = await c.get("projectService").transpileRenderer(slug);
+    if (result === null) return c.json({ error: "renderer.ts not found" }, 404);
+    if ("error" in result) return c.json({ error: result.error }, 400);
+    return c.json({ js: result.js });
   });
 
   app.get("/:slug/cover", async (c) => {

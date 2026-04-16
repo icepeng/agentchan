@@ -88,6 +88,12 @@ export class EvalHarness {
     const ctx = createAgentContext({
       projectsDir: fixture.projectsDir,
       resolveAgentConfig: () => ({ provider, model, apiKey, temperature: 0 }),
+      // eval harness doesn't run meta-session tools; point at the runtime source
+      // so code that reads this field still sees a valid path.
+      rendererRuntimeEntry: new URL(
+        "../../../renderer-runtime/src/index.ts",
+        import.meta.url,
+      ).pathname,
     });
     const created = await createConversation(ctx, fixture.slug);
     const conversationId = created.conversation.id;

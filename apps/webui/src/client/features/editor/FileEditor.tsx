@@ -19,12 +19,14 @@ import {
   closeBrackets,
   closeBracketsKeymap,
   completionKeymap,
-  type CompletionContext,
-  type CompletionResult,
 } from "@codemirror/autocomplete";
 import { useI18n } from "@/client/i18n/index.js";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { isImagePath } from "@/client/entities/editor/index.js";
+import {
+  isImagePath,
+  rendererCompletions,
+  prefetchRendererTypes,
+} from "@/client/entities/editor/index.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
 
 // --- Obsidian Teal theme (from former TextEditor) ---
@@ -189,43 +191,6 @@ function getLanguageExtension(lang?: EditorLanguage) {
   }
 }
 
-// --- Renderer autocomplete ---
-
-function rendererCompletions(context: CompletionContext): CompletionResult | null {
-  const match = context.matchBefore(/\b(\w+)\.(\w*)$/);
-  if (!match) return null;
-
-  const text = match.text;
-  const dotPos = text.lastIndexOf(".");
-  const varName = text.substring(0, dotPos);
-  const from = match.from + dotPos + 1;
-
-  if (varName === "ctx") {
-    return {
-      from,
-      options: [
-        { label: "files", type: "property", detail: "ProjectFile[]" },
-        { label: "baseUrl", type: "property", detail: "string" },
-      ],
-    };
-  }
-
-  if (/^(f|file|entry|item|doc|textFile|tf)$/i.test(varName)) {
-    return {
-      from,
-      options: [
-        { label: "type", type: "property", detail: '"text" | "binary"' },
-        { label: "path", type: "property", detail: "string" },
-        { label: "content", type: "property", detail: "string (TextFile)" },
-        { label: "frontmatter", type: "property", detail: "Record<string, unknown> | null" },
-        { label: "modifiedAt", type: "property", detail: "number" },
-      ],
-    };
-  }
-
-  return null;
-}
-
 // --- Component ---
 
 interface FileEditorProps {
@@ -255,6 +220,12 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
   }, []);
 
   const language = path ? detectLanguage(path) : undefined;
+
+  // Warm the d.ts cache once per session so the first typing-driven completion
+  // on a renderer file doesn't pay the fetch round-trip.
+  useEffect(() => {
+    if (language === "typescript") prefetchRendererTypes();
+  }, [language]);
 
   // Create / destroy EditorView when path changes
   useEffect(() => {

@@ -19,6 +19,9 @@
   "dependencies": {
     "@agentchan/creative-agent": "workspace:*",
     "@agentchan/estimate-tokens": "workspace:*",
+    "@agentchan/renderer-bundle": "workspace:*",
+    "@agentchan/renderer-runtime": "workspace:*",
+    "@agentchan/renderer-types": "workspace:*",
     "@base-ui/react": "^1.3.0",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",

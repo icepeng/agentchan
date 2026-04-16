@@ -14,11 +14,14 @@ export interface AgentContext {
   /** Absolute path to the projects root — agent functions resolve per-project skill paths from here. */
   projectsDir: string;
   resolveAgentConfig: () => ResolvedAgentConfig;
+  /** Absolute path to @agentchan/renderer-runtime's source entry. */
+  rendererRuntimeEntry: string;
 }
 
 export interface AgentContextOptions {
   projectsDir: string;
   resolveAgentConfig: () => ResolvedAgentConfig;
+  rendererRuntimeEntry: string;
 }
 
 export function createAgentContext(opts: AgentContextOptions): AgentContext {
@@ -26,6 +29,7 @@ export function createAgentContext(opts: AgentContextOptions): AgentContext {
     storage: createConversationStorage(opts.projectsDir),
     projectsDir: opts.projectsDir,
     resolveAgentConfig: opts.resolveAgentConfig,
+    rendererRuntimeEntry: opts.rendererRuntimeEntry,
   };
 }
 

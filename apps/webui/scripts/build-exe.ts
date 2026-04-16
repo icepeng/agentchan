@@ -1,6 +1,6 @@
 import { $ } from "bun";
 import { join } from "node:path";
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, rm, copyFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
 const WEBUI_ROOT = join(import.meta.dir, "..");
@@ -40,7 +40,21 @@ await cp(join(MONOREPO_ROOT, "example_data"), join(DIST_DIR, "data"), {
   recursive: true,
 });
 
+// Renderer authoring assets (consumed by /api/system/* and the bundler). The
+// server's paths.ts looks them up under data/_system/ in compiled mode.
+const systemDir = join(DIST_DIR, "data/_system");
+await mkdir(systemDir, { recursive: true });
+await copyFile(
+  join(MONOREPO_ROOT, "packages/renderer-runtime/src/index.ts"),
+  join(systemDir, "renderer-runtime.ts"),
+);
+await copyFile(
+  join(MONOREPO_ROOT, "packages/renderer-types/src/index.ts"),
+  join(systemDir, "renderer-types.ts"),
+);
+
 console.log(`\nBuild complete: ${DIST_DIR}/`);
 console.log(`  ${exeName}`);
 console.log("  public/");
 console.log("  data/");
+console.log("  data/_system/ (renderer runtime + types)");

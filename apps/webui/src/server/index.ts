@@ -4,7 +4,7 @@ import { serveStatic } from "hono/bun";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { createAgentContext, type ResolvedAgentConfig } from "@agentchan/creative-agent";
-import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, isDev } from "./paths.js";
+import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, RENDERER_RUNTIME_ENTRY, isDev } from "./paths.js";
 import type { AppEnv } from "./types.js";
 
 // --- Repositories ---
@@ -28,6 +28,7 @@ import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
 import { createTemplateRoutes } from "./routes/template.routes.js";
 import { createUpdateRoutes } from "./routes/update.routes.js";
+import { createSystemRoutes } from "./routes/system.routes.js";
 
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
@@ -46,6 +47,7 @@ const updateService = createUpdateService(updateRepo);
 // ===== 2b. Agent context (stateless handle) =====
 const agentContext = createAgentContext({
   projectsDir: PROJECTS_DIR,
+  rendererRuntimeEntry: RENDERER_RUNTIME_ENTRY,
   resolveAgentConfig: (): ResolvedAgentConfig => {
     const cfg = configService.getConfig();
     const providerInfo = configService.findProvider(cfg.provider);
@@ -68,6 +70,7 @@ const agentService = createAgentService(agentContext);
 
 // ===== 3. Bootstrap =====
 await templateRepo.ensureDir();
+const systemRoutes = await createSystemRoutes();
 
 // ===== 4. Hono App =====
 const app = new Hono<AppEnv>();
@@ -98,6 +101,7 @@ app.route("/api/projects", createProjectRoutes());
 app.route("/api/config", createConfigRoutes());
 app.route("/api/templates", createTemplateRoutes());
 app.route("/api/update", createUpdateRoutes());
+app.route("/api/system", systemRoutes);
 
 // Serve static files in production
 if (existsSync(CLIENT_DIR)) {

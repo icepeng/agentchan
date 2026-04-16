@@ -1,10 +1,11 @@
-import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { buildRenderer, createBundleCache } from "@agentchan/renderer-bundle";
+import { RENDERER_RUNTIME_ENTRY } from "../paths.js";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 
 export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
+  const rendererCache = createBundleCache();
 
   return {
     async list() { return projectRepo.list(); },
@@ -33,30 +34,46 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
     },
 
     async writeProjectFile(slug: string, filePath: string, content: string) {
+      rendererCache.invalidate(slug);
       return projectRepo.writeProjectFile(slug, filePath, content);
     },
 
     async deleteProjectFile(slug: string, filePath: string) {
+      rendererCache.invalidate(slug);
       return projectRepo.deleteProjectFile(slug, filePath);
     },
 
     async deleteProjectDir(slug: string, dirPath: string) {
+      rendererCache.invalidate(slug);
       return projectRepo.deleteProjectDir(slug, dirPath);
     },
 
     async renameProjectEntry(slug: string, fromPath: string, toPath: string) {
+      rendererCache.invalidate(slug);
       return projectRepo.renameProjectEntry(slug, fromPath, toPath);
     },
 
     async createProjectDir(slug: string, dirPath: string) {
+      rendererCache.invalidate(slug);
       return projectRepo.createProjectDir(slug, dirPath);
     },
 
-    async transpileRenderer(slug: string): Promise<string | null> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      if (!existsSync(rendererPath)) return null;
-      const source = await Bun.file(rendererPath).text();
-      return transpiler.transformSync(source);
+    async transpileRenderer(slug: string): Promise<
+      { js: string } | { error: string } | null
+    > {
+      const cached = rendererCache.get(slug);
+      if (cached !== null) return { js: cached };
+
+      const projectDir = join(projectsDir, slug);
+      const result = await buildRenderer(projectDir, {
+        runtimeEntry: RENDERER_RUNTIME_ENTRY,
+      });
+      if ("error" in result) {
+        if (result.error === "renderer.ts not found") return null;
+        return { error: result.error };
+      }
+      rendererCache.set(slug, result.js, result.sources);
+      return { js: result.js };
     },
 
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { escapeHtml } from "@agentchan/renderer-runtime";
 import {
   useProjectState,
   useProjectDispatch,
@@ -7,13 +8,6 @@ import {
   validateTheme,
 } from "@/client/entities/project/index.js";
 import type { RenderContext, RendererTheme } from "@/client/entities/project/index.js";
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
 
 function errorHtml(message: string): string {
   return `<div style="color: var(--color-danger); font-size: 14px; font-family: var(--font-family-mono); padding: 16px;">

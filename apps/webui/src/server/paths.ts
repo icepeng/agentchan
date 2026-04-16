@@ -20,6 +20,16 @@ export const PROJECTS_DIR = join(DATA_DIR, "projects");
 
 export const LIBRARY_DIR = join(DATA_DIR, "library");
 
+// System assets (renderer runtime source + type declarations) shipped to
+// renderer authors. Source-first packages in dev; sidecar copies in exe.
+const monorepoRoot = join(devWebUIRoot, "..", "..");
+export const RENDERER_RUNTIME_ENTRY = isDev
+  ? join(monorepoRoot, "packages/renderer-runtime/src/index.ts")
+  : join(exeDir, "data/_system/renderer-runtime.ts");
+export const RENDERER_TYPES_ENTRY = isDev
+  ? join(monorepoRoot, "packages/renderer-types/src/index.ts")
+  : join(exeDir, "data/_system/renderer-types.ts");
+
 export const IMAGE_EXTS = ["webp", "png", "jpg", "jpeg", "gif", "svg", "avif"];
 
 export async function probeCover(dir: string): Promise<string | null> {
