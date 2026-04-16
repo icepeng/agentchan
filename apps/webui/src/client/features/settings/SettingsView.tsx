@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Globe } from "lucide-react";
 import { useUIState, useUIDispatch, type PageRoute } from "@/client/entities/ui/index.js";
-import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS, fetchOAuthStatus, logoutOAuth, loginOAuthStream } from "@/client/entities/config/index.js";
-import type { ApiKeyStatus, CustomApiFormat, OAuthStatus, OAuthAuthInfo } from "@/client/entities/config/index.js";
+import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
+import type { ApiKeyStatus, CustomApiFormat } from "@/client/entities/config/index.js";
 import { useI18n, type LanguagePreference, type TranslationKey } from "@/client/i18n/index.js";
-import { Badge, Button, Dialog, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput, ScrollArea } from "@/client/shared/ui/index.js";
+import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput, ScrollArea } from "@/client/shared/ui/index.js";
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -12,6 +12,7 @@ import {
 } from "@/client/shared/notifications.js";
 import { localStore } from "@/client/shared/storage.js";
 import { AboutSection } from "@/client/features/update/index.js";
+import { OAuthProviderCard } from "@/client/features/oauth/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
 
 type SettingsTab = "appearance" | "api-keys";
@@ -413,207 +414,5 @@ function ProviderForm({ form, updateForm, onSubmit, onCancel, t }: {
         </Button>
       </div>
     </div>
-  );
-}
-
-const PROVIDER_LABELS: Record<string, string> = {
-  "github-copilot": "GitHub Copilot",
-};
-
-function providerLabel(name: string): string {
-  return PROVIDER_LABELS[name] ?? name;
-}
-
-function formatExpires(expiresAt: number | undefined): string {
-  if (!expiresAt) return "";
-  const deltaMs = expiresAt - Date.now();
-  if (deltaMs <= 0) return "";
-  const minutes = Math.floor(deltaMs / 60_000);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remMin = minutes % 60;
-  return remMin > 0 ? `${hours}h ${remMin}m` : `${hours}h`;
-}
-
-function OAuthProviderCard({ providerName, onChange }: { providerName: string; onChange: () => Promise<void> }) {
-  const { t } = useI18n();
-  const [status, setStatus] = useState<OAuthStatus | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const label = providerLabel(providerName);
-
-  useEffect(() => {
-    void fetchOAuthStatus(providerName).then(setStatus);
-  }, [providerName]);
-
-  const handleLogout = async () => {
-    setBusy(true);
-    try {
-      const next = await logoutOAuth(providerName);
-      setStatus(next);
-      await onChange();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleLoginDone = async (next: OAuthStatus) => {
-    setStatus(next);
-    await onChange();
-  };
-
-  const signedIn = status?.signedIn ?? false;
-  const expired = signedIn && status?.expiresAt !== undefined && status.expiresAt <= Date.now();
-  const relative = formatExpires(status?.expiresAt);
-
-  return (
-    <div className="p-4 rounded-xl border border-edge/8 bg-elevated/30 space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <span className="text-sm font-medium text-fg">{label}</span>
-          <Badge variant={signedIn && !expired ? "accent" : "muted"}>
-            <Indicator color={signedIn && !expired ? "accent" : "fg"} />
-            {signedIn ? (expired ? t("oauth.sessionExpired") : t("oauth.signedIn")) : t("oauth.notSignedIn")}
-          </Badge>
-        </div>
-        {signedIn && !expired && relative && (
-          <span className="text-xs text-fg-3 font-mono">
-            {t("oauth.expiresIn", { relative })}
-          </span>
-        )}
-      </div>
-      <div className="flex gap-2">
-        {!signedIn || expired ? (
-          <Button
-            variant="accent"
-            size="md"
-            onClick={() => setModalOpen(true)}
-            disabled={busy}
-          >
-            {t("oauth.signIn", { provider: label })}
-          </Button>
-        ) : (
-          <Button
-            variant="danger"
-            size="md"
-            onClick={() => void handleLogout()}
-            disabled={busy}
-          >
-            {t("oauth.signOut")}
-          </Button>
-        )}
-      </div>
-      {modalOpen && (
-        <DeviceCodeModal
-          providerName={providerName}
-          providerLabel={label}
-          onDone={handleLoginDone}
-          onClose={() => setModalOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-function DeviceCodeModal({
-  providerName,
-  providerLabel,
-  onDone,
-  onClose,
-}: {
-  providerName: string;
-  providerLabel: string;
-  onDone: (status: OAuthStatus) => void | Promise<void>;
-  onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const [authInfo, setAuthInfo] = useState<OAuthAuthInfo | null>(null);
-  const [progress, setProgress] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const abortRef = useRef<AbortController | null>(null);
-
-  const onDoneRef = useRef(onDone);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onDoneRef.current = onDone;
-    onCloseRef.current = onClose;
-  });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    void loginOAuthStream(providerName, {
-      signal: controller.signal,
-      onAuth: (info) => setAuthInfo(info),
-      onProgress: (msg) => setProgress(msg),
-      onDone: async (status) => {
-        try {
-          await onDoneRef.current(status);
-        } finally {
-          if (!controller.signal.aborted) onCloseRef.current();
-        }
-      },
-      onError: (msg) => {
-        if (controller.signal.aborted) return;
-        setError(msg);
-      },
-    }).catch((err: unknown) => {
-      if (controller.signal.aborted) return;
-      setError(err instanceof Error ? err.message : String(err));
-    });
-
-    return () => {
-      controller.abort();
-      abortRef.current = null;
-    };
-  }, [providerName]);
-
-  const handleCancel = () => {
-    abortRef.current?.abort();
-    onClose();
-  };
-
-  const handleOpenBrowser = () => {
-    if (authInfo?.url) {
-      window.open(authInfo.url, "_blank", "noopener");
-    }
-  };
-
-  return (
-    <Dialog open={true} onOpenChange={(next) => { if (!next) handleCancel(); }}>
-      <div className="p-6 space-y-4">
-        <h3 className="font-display text-base font-bold tracking-tight">
-          {t("oauth.modalTitle", { provider: providerLabel })}
-        </h3>
-        {error ? (
-          <div className="text-sm text-danger">{t("oauth.loginFailed", { message: error })}</div>
-        ) : authInfo ? (
-          <div className="space-y-3">
-            <div className="text-sm text-fg-2">
-              {t("oauth.deviceCodeInstructions", { url: authInfo.url })}
-            </div>
-            {authInfo.instructions && (
-              <div className="px-4 py-3 rounded-lg bg-elevated/40 border border-edge/8 text-lg font-mono tracking-widest text-center text-fg select-all">
-                {authInfo.instructions}
-              </div>
-            )}
-            <div className="text-xs text-fg-3">{progress || t("oauth.waiting")}</div>
-          </div>
-        ) : (
-          <div className="text-sm text-fg-3">{t("oauth.signingIn")}</div>
-        )}
-        <div className="flex gap-2 justify-end">
-          {authInfo && !error && (
-            <Button variant="ghost" size="md" onClick={handleOpenBrowser}>
-              {t("oauth.openBrowser")}
-            </Button>
-          )}
-          <Button variant="danger" size="md" onClick={handleCancel}>
-            {t("oauth.cancel")}
-          </Button>
-        </div>
-      </div>
-    </Dialog>
   );
 }
