@@ -7,5 +7,6 @@ export {
   fetchApiKeys, updateApiKey, deleteApiKey,
   fetchOnboardingStatus, completeOnboarding,
   saveCustomProvider, deleteCustomProvider,
+  fetchOAuthStatus, logoutOAuth, loginOAuthStream,
 } from "./config.api.js";
-export type { ApiKeyStatus } from "./config.api.js";
+export type { ApiKeyStatus, OAuthStatus, OAuthAuthInfo } from "./config.api.js";

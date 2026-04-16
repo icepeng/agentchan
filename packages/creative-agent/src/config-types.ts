@@ -18,6 +18,8 @@ export interface ProviderInfo {
   defaultModel: string;
   models: ModelInfo[];
   custom?: { url: string; format: CustomApiFormat };
+  /** Provider uses OAuth subscription (login flow) instead of API key input. */
+  oauth?: boolean;
 }
 
 export interface CustomProviderDef {

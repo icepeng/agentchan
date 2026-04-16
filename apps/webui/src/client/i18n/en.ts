@@ -172,6 +172,23 @@ export const translations = {
   "globalSettings.activeProvider": "Active Provider & Model",
   "globalSettings.activeProviderDesc": "Select which provider and model to use for conversations",
 
+  // OAuth providers (e.g. GitHub Copilot)
+  "oauth.signIn": "Sign in with {{provider}}",
+  "oauth.signedIn": "Signed in",
+  "oauth.notSignedIn": "Not signed in",
+  "oauth.signOut": "Sign out",
+  "oauth.signingIn": "Signing in...",
+  "oauth.expiresIn": "Expires in {{relative}}",
+  "oauth.sessionExpired": "Session expired",
+  "oauth.modalTitle": "Authorize {{provider}}",
+  "oauth.deviceCodeInstructions": "Open {{url}} and enter the code below.",
+  "oauth.openBrowser": "Open browser",
+  "oauth.copyCode": "Copy",
+  "oauth.waiting": "Waiting for authorization...",
+  "oauth.enablingModels": "Enabling models...",
+  "oauth.loginFailed": "Login failed: {{message}}",
+  "oauth.cancel": "Cancel",
+
   // Custom Providers
   "customApi.providers": "Custom Providers",
   "customApi.providersDesc": "Add custom API providers with your own endpoints.",
