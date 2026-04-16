@@ -49,7 +49,7 @@ export function EditModePanel() {
       {/* Tree panel */}
       <div
         style={{ width: treeWidth }}
-        className="flex-shrink-0 border-r border-edge/6 bg-base/40 transition-colors duration-200"
+        className="flex-shrink-0 border-r border-edge/6 bg-base/40 transition-colors duration-300"
       >
         <FileTree
           entries={treeEntries}
@@ -72,7 +72,7 @@ export function EditModePanel() {
       />
 
       {/* Editor panel */}
-      <div className="flex-1 flex flex-col min-w-0 bg-surface/30 transition-colors duration-200">
+      <div className="flex-1 flex flex-col min-w-0 bg-surface/30 transition-colors duration-300">
         <FileEditor
           path={selectedPath}
           content={fileContent}

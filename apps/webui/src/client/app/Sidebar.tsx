@@ -13,7 +13,7 @@ export function Sidebar() {
   const { t } = useI18n();
 
   return (
-    <div className="flex flex-col w-72 h-full bg-base border-r border-edge/6 transition-colors duration-200">
+    <div className="flex flex-col w-72 h-full bg-base border-r border-edge/6 transition-colors duration-300">
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-start justify-between">
         <div>
