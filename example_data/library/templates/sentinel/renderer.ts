@@ -91,20 +91,22 @@ const METRIC_DESCRIPTIONS: [string, string, string] = [
 // 렌더러가 STYLES 안에서 이미 선언한 --ms-* 팔레트를 앱 전역 --color-* 토큰으로 전파한다.
 // 값을 새로 결정하지 않고, 각 --ms-* 역할을 가장 가까운 --color-* 슬롯에 매핑.
 // prefersScheme: "dark"로 프로젝트 페이지에서만 다크 강제 (Settings 이동 시 자동 복귀).
-export const theme: RendererTheme = {
-  base: {
-    void: "#0a0e14", // = --ms-bg
-    base: "#0e1319", // = --ms-panel
-    surface: "#141b25", // = --ms-panel-raised
-    elevated: "#18202c", // = --ms-panel-hover
-    accent: "#d4a574", // = --ms-warm (경계/주의 포인트)
-    fg: "#e6e2d7", // = --ms-ink
-    fg2: "#a6a198", // = --ms-ink-2
-    fg3: "#6f6d67", // = --ms-ink-3
-    edge: "#c8d2e6", // --ms-edge-strong의 base 색 (alpha 제거)
-  },
-  prefersScheme: "dark",
-};
+export function theme(_ctx: RenderContext): RendererTheme {
+  return {
+    base: {
+      void: "#0a0e14", // = --ms-bg
+      base: "#0e1319", // = --ms-panel
+      surface: "#141b25", // = --ms-panel-raised
+      elevated: "#18202c", // = --ms-panel-hover
+      accent: "#d4a574", // = --ms-warm (경계/주의 포인트)
+      fg: "#e6e2d7", // = --ms-ink
+      fg2: "#a6a198", // = --ms-ink-2
+      fg3: "#6f6d67", // = --ms-ink-3
+      edge: "#c8d2e6", // --ms-edge-strong의 base 색 (alpha 제거)
+    },
+    prefersScheme: "dark",
+  };
+}
 
 // ── Palette ──────────────────────────────────
 
