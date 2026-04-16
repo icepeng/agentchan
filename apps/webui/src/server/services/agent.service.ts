@@ -12,8 +12,15 @@ import {
  * SSE adapter — translates SessionEvent into the wire format the frontend
  * already expects. Event name strings here are the client contract; see
  * useChatStream for the consumer.
+ *
+ * `prepareRun` is called before each prompt/regenerate. OAuth providers use it
+ * to refresh expired tokens into the DB so the sync `resolveAgentConfig` reads
+ * fresh credentials.
  */
-export function createAgentService(ctx: AgentContext) {
+export function createAgentService(
+  ctx: AgentContext,
+  prepareRun: () => Promise<void> = async () => {},
+) {
   return {
     async sendMessage(
       stream: SSEStreamingApi,
@@ -23,6 +30,7 @@ export function createAgentService(ctx: AgentContext) {
       text: string,
       signal?: AbortSignal,
     ) {
+      await prepareRun();
       const queue = createSerialWriter(stream);
       try {
         await runPrompt(
@@ -43,6 +51,7 @@ export function createAgentService(ctx: AgentContext) {
       userNodeId: string,
       signal?: AbortSignal,
     ) {
+      await prepareRun();
       const queue = createSerialWriter(stream);
       try {
         await runRegenerate(

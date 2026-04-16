@@ -49,22 +49,28 @@ const agentContext = createAgentContext({
   resolveAgentConfig: (): ResolvedAgentConfig => {
     const cfg = configService.getConfig();
     const providerInfo = configService.findProvider(cfg.provider);
+    const apiKey = configService.getApiKey(cfg.provider) ?? "";
+    const oauthBaseUrl = configService.getResolvedBaseUrl(cfg.provider, apiKey);
     return {
       provider: cfg.provider,
       model: cfg.model,
-      apiKey: configService.getApiKey(cfg.provider) ?? "",
+      apiKey,
       temperature: cfg.temperature,
       maxTokens: cfg.maxTokens,
       contextWindow: cfg.contextWindow,
       thinkingLevel: cfg.thinkingLevel,
       ...(providerInfo?.custom
         ? { baseUrl: providerInfo.custom.url, apiFormat: providerInfo.custom.format }
-        : {}),
+        : oauthBaseUrl
+          ? { baseUrl: oauthBaseUrl }
+          : {}),
     };
   },
 });
 const conversationService = createConversationService(agentContext);
-const agentService = createAgentService(agentContext);
+const agentService = createAgentService(agentContext, async () => {
+  await configService.ensureOAuthToken(configService.getConfig().provider);
+});
 
 // ===== 3. Bootstrap =====
 await templateRepo.ensureDir();
