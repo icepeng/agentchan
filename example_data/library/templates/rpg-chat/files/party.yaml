@@ -1,0 +1,19 @@
+# === Party — 파티 구성 ===
+# PC + 고정 동료. HP/MP/상태이상/관계축(trust+approval) 관리.
+# combat / relationship 스크립트가 갱신.
+
+pc:
+  name: "이름 없는 여행자"       # 프리셋 선택 시 덮어쓰기
+  hp: { current: 20, max: 20 }
+  mp: { current: 0, max: 0 }    # 학자 프리셋만 MP 사용
+  conditions: []                 # ["독", "공포", "기절" ...]
+
+companions:
+  riwu:
+    hp: { current: 18, max: 18 }
+    mp: { current: 0, max: 0 }
+    trust: 0                     # -5 ~ +5
+    approval: steady             # rising | falling | steady ([STAT] 마커 방향 필드 기반)
+    conditions: []
+    in_party: true               # break_point 발동 시 false
+    quest_stage: pending          # pending | active | complete | broken

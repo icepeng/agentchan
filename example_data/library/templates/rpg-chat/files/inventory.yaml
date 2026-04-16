@@ -1,0 +1,36 @@
+# === Inventory — 공용 인벤토리 ===
+# 플레이어 소지품 + 단서(증거). 프리셋 선택 시 일부 항목 추가됨.
+
+gold: 8                          # 시작 자금 (소형 은화 8닢)
+
+# 일반 물품. { slug, name, qty, tags, description? }
+# tags: container | food | drink | money | tool | consumable | quest_item
+items:
+  - slug: travel_pouch
+    name: "여행 보따리"
+    qty: 1
+    tags: [container]
+    description: "낡은 가죽 보따리. 여러 주머니."
+  - slug: dried_bread
+    name: "말린 빵"
+    qty: 3
+    tags: [food]
+  - slug: water_skin
+    name: "물가죽"
+    qty: 1
+    tags: [drink]
+  - slug: coin_pouch
+    name: "은화 지갑"
+    qty: 1
+    tags: [money]
+
+# 장비 슬롯. 프리셋 선택 시 채워짐.
+# null이면 맨몸 / 빈손.
+equipment:
+  weapon: null                   # 예: { slug: short_sword, name: "단검", damage: "1d6" }
+  armor: null                    # 예: { slug: leather_armor, name: "가죽 갑옷", soak: 2 }
+  accessory: null                # 예: { slug: scholars_tome, name: "마력서", schools: [elemental, restoration] }
+
+# 단서·증거. quest 진행 시 여기에 추가됨.
+# { slug, name, acquired_at_scene, notes, related_npcs? }
+evidence: []

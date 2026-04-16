@@ -48,7 +48,7 @@ export {
 } from "./agent/index.js";
 
 // Workspace
-export type { ProjectFile } from "./workspace/types.js";
+export type { ProjectFile, TextFile, DataFile, BinaryFile } from "./workspace/types.js";
 export { scanWorkspaceFiles } from "./workspace/scan.js";
 export { parseFrontmatter, stringifyFrontmatter, type ParsedFrontmatter } from "./workspace/frontmatter.js";
 
