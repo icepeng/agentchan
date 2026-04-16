@@ -176,7 +176,7 @@ function statusWord(value: number): string {
 // ── Chat Types ──────────────────────────────
 
 interface ChatLine {
-  type: "user" | "character" | "narration" | "divider" | "stat-change";
+  type: "user" | "character" | "narration" | "divider" | "stat-change" | "image";
   characterName?: string;
   charDir?: string;
   imageKey?: string;
@@ -184,7 +184,7 @@ interface ChatLine {
 }
 
 interface ChatGroup {
-  type: "user" | "character" | "narration" | "divider" | "stat-change";
+  type: "user" | "character" | "narration" | "divider" | "stat-change" | "image";
   characterName?: string;
   charDir?: string;
   imageKey?: string;
@@ -238,37 +238,29 @@ function resolveAvatar(
 
 // ── Inline formatting ───────────────────────
 
-const INLINE_IMAGE = /\[([a-z0-9][a-z0-9-]*):([^\]]+)\]/g;
-
 interface EvidenceCounter {
   n: number;
 }
 
-function formatInline(
-  text: string,
+function renderEvidenceFigure(
   ctx: RenderContext,
   nameMap: Map<string, NameMapEntry>,
   evidence: EvidenceCounter,
+  slug: string,
+  key: string,
 ): string {
-  let result = escapeHtml(text);
-  result = result
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/"(.+?)"/g, "\u201c$1\u201d")
-    .replace(/\*(.+?)\*/g, '<em class="ms-stage">$1</em>');
-  result = result.replace(INLINE_IMAGE, (_m, name, key) => {
-    const entry = nameMap.get(name);
-    const dir = entry?.dir ?? name;
-    const url = resolveImageUrl(ctx, dir, key);
-    evidence.n += 1;
-    const evNum = pad3(evidence.n);
-    // Synthetic surveillance timestamp derived from evidence number for stable display
-    const hh = pad2(22 + Math.floor((evidence.n - 1) / 6));
-    const mm = pad2((evidence.n * 7) % 60);
-    const ss = pad2((evidence.n * 23) % 60);
-    const charName = entry ? (CHARACTER_META[name]?.name ?? name) : name;
-    const emotion = key.replace(/^assets\//, "").replace(/\.[a-z]+$/i, "");
-    const captionEmotion = escapeHtml(emotion.toUpperCase());
-    return `
+  const entry = nameMap.get(slug);
+  const dir = entry?.dir ?? slug;
+  const url = resolveImageUrl(ctx, dir, key);
+  evidence.n += 1;
+  const evNum = pad3(evidence.n);
+  const hh = pad2(22 + Math.floor((evidence.n - 1) / 6));
+  const mm = pad2((evidence.n * 7) % 60);
+  const ss = pad2((evidence.n * 23) % 60);
+  const charName = entry ? (CHARACTER_META[slug]?.name ?? slug) : slug;
+  const emotion = key.replace(/^assets\//, "").replace(/\.[a-z]+$/i, "");
+  const captionEmotion = escapeHtml(emotion.toUpperCase());
+  return `
       <figure class="ms-evidence" data-ev="${evNum}">
         <div class="ms-evidence-chrome">
           <span class="ms-evidence-corner tl"></span>
@@ -287,8 +279,13 @@ function formatInline(
           <span class="ms-evidence-subject">${escapeHtml(charName)}</span>
         </figcaption>
       </figure>`;
-  });
-  return result;
+}
+
+function formatInline(text: string): string {
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/"(.+?)"/g, "\u201c$1\u201d")
+    .replace(/\*(.+?)\*/g, '<em class="ms-stage">$1</em>');
 }
 
 // ── Stat parsing from files/stats.md ─────────
@@ -322,7 +319,7 @@ function parseStats(ctx: RenderContext): Stats {
 
 // ── Chat Line Parsing ───────────────────────
 
-const IMAGE_TOKEN = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s*/;
+const STANDALONE_IMAGE = /^\[([a-z0-9][a-z0-9-]*):(assets\/[^\]]+)\]$/;
 const STAT_CHANGE_LINE = /^\*\s*\u2192\s+(.+?)\s*\*$/; // *→ ... *
 
 function parseLine(raw: string): ChatLine | null {
@@ -337,33 +334,24 @@ function parseLine(raw: string): ChatLine | null {
   const userMatch = trimmed.match(/^>\s+(.+)$/);
   if (userMatch) return { type: "user", text: userMatch[1] };
 
-  let rest = trimmed;
-  let charDir: string | undefined;
-  let imageKey: string | undefined;
-  const tokenMatch = trimmed.match(IMAGE_TOKEN);
-  if (tokenMatch) {
-    charDir = tokenMatch[1];
-    imageKey = tokenMatch[2];
-    rest = trimmed.slice(tokenMatch[0].length);
-  }
+  // Emotion illustration — standalone line only.
+  const imgMatch = trimmed.match(STANDALONE_IMAGE);
+  if (imgMatch)
+    return { type: "image", charDir: imgMatch[1], imageKey: imgMatch[2], text: "" };
 
-  const charMatch = rest.match(/^\*\*(.+?)(?:\*\*:|:\*\*)\s*(.*)$/);
+  const charMatch = trimmed.match(/^\*\*(.+?)(?:\*\*:|:\*\*)\s*(.*)$/);
   if (charMatch)
     return {
       type: "character",
       characterName: charMatch[1],
-      charDir,
-      imageKey,
       text: charMatch[2],
     };
 
-  const charFallback = rest.match(/^([^\s:*][^:]{0,40}):\s*(["*\u201c].*)$/);
+  const charFallback = trimmed.match(/^([^\s:*][^:]{0,40}):\s*(["*\u201c].*)$/);
   if (charFallback)
     return {
       type: "character",
       characterName: charFallback[1],
-      charDir,
-      imageKey,
       text: charFallback[2],
     };
 
@@ -382,12 +370,20 @@ function groupLines(lines: ChatLine[]): ChatGroup[] {
       groups.push({ type: "stat-change", lines: [line.text] });
       continue;
     }
+    if (line.type === "image") {
+      groups.push({
+        type: "image",
+        charDir: line.charDir,
+        imageKey: line.imageKey,
+        lines: [],
+      });
+      continue;
+    }
     if (
       prev &&
       prev.type === line.type &&
       (line.type !== "character" ||
-        (prev.characterName === line.characterName &&
-          prev.imageKey === line.imageKey))
+        prev.characterName === line.characterName)
     ) {
       prev.lines.push(line.text);
     } else {
@@ -617,7 +613,6 @@ function renderCharacterEntry(
   ctx: RenderContext,
   nameMap: Map<string, NameMapEntry>,
   fallbackColorMap: Map<string, string>,
-  evidence: EvidenceCounter,
   seq: number,
   currentStats: Stats,
 ): string {
@@ -631,7 +626,7 @@ function renderCharacterEntry(
     fallbackColorMap,
   );
   const lines = group.lines
-    .map((l) => formatInline(l, ctx, nameMap, evidence))
+    .map((l) => formatInline(l))
     .join("<br/>");
 
   let stateChip = "";
@@ -670,14 +665,11 @@ function renderCharacterEntry(
 
 function renderUserEntry(
   lines: string[],
-  ctx: RenderContext,
-  nameMap: Map<string, NameMapEntry>,
   persona: PersonaInfo | null,
-  evidence: EvidenceCounter,
   seq: number,
 ): string {
   const body = lines
-    .map((l) => formatInline(l, ctx, nameMap, evidence))
+    .map((l) => formatInline(l))
     .join("<br/>");
   const name = persona?.displayName ?? "INTERVIEWER";
   const color = persona?.color ?? "#d4a574";
@@ -706,15 +698,9 @@ function renderUserEntry(
     </article>`;
 }
 
-function renderAnalystNote(
-  lines: string[],
-  ctx: RenderContext,
-  nameMap: Map<string, NameMapEntry>,
-  evidence: EvidenceCounter,
-  seq: number,
-): string {
+function renderAnalystNote(lines: string[], seq: number): string {
   const body = lines
-    .map((l) => formatInline(l, ctx, nameMap, evidence))
+    .map((l) => formatInline(l))
     .join("<br/>");
   return `
     <aside class="ms-note">
@@ -1446,6 +1432,15 @@ const STYLES = `<style>
   }
 
   /* ── EVIDENCE PHOTO (결정적 연출) ── */
+  .ms-evidence-wrap {
+    display: grid;
+    grid-template-columns: 80px 2px 1fr;
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .ms-evidence-wrap > .ms-evidence {
+    grid-column: 3;
+  }
   .ms-evidence {
     display: block;
     margin: 20px auto 18px;
@@ -1687,29 +1682,24 @@ export function render(ctx: RenderContext): string {
           seq += 1;
           entryCount += 1;
           bodyParts.push(
-            renderCharacterEntry(
-              g,
-              ctx,
-              nameMap,
-              fallbackColorMap,
-              evidence,
-              seq,
-              stats,
-            ),
+            renderCharacterEntry(g, ctx, nameMap, fallbackColorMap, seq, stats),
           );
           break;
         case "user":
           seq += 1;
           entryCount += 1;
-          bodyParts.push(
-            renderUserEntry(g.lines, ctx, nameMap, persona, evidence, seq),
-          );
+          bodyParts.push(renderUserEntry(g.lines, persona, seq));
           break;
         case "narration":
           seq += 1;
-          bodyParts.push(
-            renderAnalystNote(g.lines, ctx, nameMap, evidence, seq),
-          );
+          bodyParts.push(renderAnalystNote(g.lines, seq));
+          break;
+        case "image":
+          if (g.charDir && g.imageKey) {
+            bodyParts.push(
+              `<div class="ms-evidence-wrap">${renderEvidenceFigure(ctx, nameMap, evidence, g.charDir, g.imageKey)}</div>`,
+            );
+          }
           break;
       }
     }
