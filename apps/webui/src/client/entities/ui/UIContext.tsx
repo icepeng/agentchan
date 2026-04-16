@@ -2,11 +2,9 @@ import {
   createContext,
   use,
   useReducer,
-  useEffect,
   type ReactNode,
   type Dispatch,
 } from "react";
-import { localStore } from "@/client/shared/storage.js";
 
 // --- PageRoute ---
 
@@ -66,7 +64,7 @@ const initialState: UIState = {
   sidebarOpen: true,
   agentPanelOpen: true,
   currentPage: { page: "main" },
-  viewMode: localStore.viewMode.read(),
+  viewMode: "chat",
   readmeOpen: false,
 };
 
@@ -75,10 +73,6 @@ const UIDispatchContext = createContext<Dispatch<UIAction>>(() => {});
 
 export function UIProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(uiReducer, initialState);
-
-  useEffect(() => {
-    localStore.viewMode.write(state.viewMode);
-  }, [state.viewMode]);
 
   return (
     <UIStateContext.Provider value={state}>

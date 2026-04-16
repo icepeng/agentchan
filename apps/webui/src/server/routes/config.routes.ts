@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import type { AppEnv, ServerConfig, CustomProviderDef } from "../types.js";
 
 export function createConfigRoutes() {
@@ -45,6 +46,43 @@ export function createConfigRoutes() {
 
   app.delete("/api-keys/:provider", (c) => {
     return c.json(c.get("configService").deleteApiKey(c.req.param("provider")));
+  });
+
+  // --- OAuth ---
+
+  app.get("/oauth/:provider", (c) => {
+    const provider = c.req.param("provider");
+    return c.json(c.get("configService").getOAuthStatus(provider));
+  });
+
+  app.post("/oauth/:provider/login", (c) => {
+    const provider = c.req.param("provider");
+    const signal = c.req.raw.signal;
+    return streamSSE(c, async (stream) => {
+      try {
+        await c.get("configService").startOAuthLogin(provider, {
+          onAuth: (info) => {
+            void stream.writeSSE({ event: "auth", data: JSON.stringify(info) });
+          },
+          onPrompt: () => Promise.resolve(""),
+          onProgress: (message: string) => {
+            void stream.writeSSE({ event: "progress", data: message });
+          },
+          signal,
+        });
+        const status = c.get("configService").getOAuthStatus(provider);
+        await stream.writeSSE({ event: "done", data: JSON.stringify(status) });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await stream.writeSSE({ event: "error", data: message });
+      }
+    });
+  });
+
+  app.delete("/oauth/:provider", (c) => {
+    const provider = c.req.param("provider");
+    c.get("configService").logoutOAuth(provider);
+    return c.json(c.get("configService").getOAuthStatus(provider));
   });
 
   // --- Onboarding ---

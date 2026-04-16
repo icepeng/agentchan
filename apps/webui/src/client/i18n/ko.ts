@@ -174,6 +174,23 @@ export const translations: Record<TranslationKey, string> = {
   "globalSettings.activeProvider": "활성 프로바이더 및 모델",
   "globalSettings.activeProviderDesc": "대화에 사용할 프로바이더와 모델을 선택하세요",
 
+  // OAuth 프로바이더 (예: GitHub Copilot)
+  "oauth.signIn": "{{provider}}로 로그인",
+  "oauth.signedIn": "로그인됨",
+  "oauth.notSignedIn": "로그인되지 않음",
+  "oauth.signOut": "로그아웃",
+  "oauth.signingIn": "로그인 중...",
+  "oauth.expiresIn": "{{relative}} 후 만료",
+  "oauth.sessionExpired": "세션 만료됨",
+  "oauth.modalTitle": "{{provider}} 인증",
+  "oauth.deviceCodeInstructions": "{{url}}을 열고 아래 코드를 입력하세요.",
+  "oauth.copyCode": "복사",
+  "oauth.copied": "복사됨",
+  "oauth.waiting": "인증 대기 중...",
+  "oauth.enablingModels": "모델 활성화 중...",
+  "oauth.loginFailed": "로그인 실패: {{message}}",
+  "oauth.cancel": "취소",
+
   // Custom Providers
   "customApi.providers": "커스텀 프로바이더",
   "customApi.providersDesc": "자체 엔드포인트로 커스텀 API 프로바이더를 추가합니다.",

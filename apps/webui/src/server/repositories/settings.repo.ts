@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { join } from "node:path";
+import type { OAuthCredentials } from "@mariozechner/pi-ai/oauth";
 
 function maskKey(key: string): string {
   if (!key) return "";
@@ -14,6 +15,9 @@ export function createSettingsRepo(dataDir: string) {
   );
   db.run(
     "CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+  );
+  db.run(
+    "CREATE TABLE IF NOT EXISTS oauth_credentials (provider TEXT PRIMARY KEY, credentials TEXT NOT NULL)",
   );
 
   return {
@@ -63,6 +67,29 @@ export function createSettingsRepo(dataDir: string) {
 
     deleteAppSetting(key: string): void {
       db.run("DELETE FROM app_settings WHERE key = ?", [key]);
+    },
+
+    getOAuthCredentials(provider: string): OAuthCredentials | null {
+      const row = db.query("SELECT credentials FROM oauth_credentials WHERE provider = ?").get(provider) as
+        | { credentials: string }
+        | null;
+      if (!row) return null;
+      try {
+        return JSON.parse(row.credentials) as OAuthCredentials;
+      } catch {
+        return null;
+      }
+    },
+
+    setOAuthCredentials(provider: string, credentials: OAuthCredentials): void {
+      db.run(
+        "INSERT INTO oauth_credentials (provider, credentials) VALUES (?, ?) ON CONFLICT(provider) DO UPDATE SET credentials = excluded.credentials",
+        [provider, JSON.stringify(credentials)],
+      );
+    },
+
+    deleteOAuthCredentials(provider: string): void {
+      db.run("DELETE FROM oauth_credentials WHERE provider = ?", [provider]);
     },
   };
 }

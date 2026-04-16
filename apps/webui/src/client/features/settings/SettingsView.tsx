@@ -12,6 +12,7 @@ import {
 } from "@/client/shared/notifications.js";
 import { localStore } from "@/client/shared/storage.js";
 import { AboutSection } from "@/client/features/update/index.js";
+import { OAuthProviderCard } from "@/client/features/oauth/index.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
 
 type SettingsTab = "appearance" | "api-keys";
@@ -309,6 +310,10 @@ function ApiKeysTab() {
         <SectionHeader title={t("globalSettings.apiKeys")} description={t("globalSettings.apiKeysDescription")} />
         <div className="space-y-4">
           {config.providers.map((p) => {
+            if (p.oauth) {
+              return <OAuthProviderCard key={p.name} providerName={p.name} onChange={refreshProviders} />;
+            }
+
             const masked = keys[p.name] || "";
             const isConfigured = masked !== "";
             const isSaving = saving === p.name;
