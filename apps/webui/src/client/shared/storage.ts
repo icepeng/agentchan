@@ -93,8 +93,6 @@ function enumStore<T extends string>(
 export const localStore = {
   /** Last project the user had active — restored on app load. */
   lastProject: stringStore("last-project"),
-  /** Split-pane view mode: agent chat vs file editor. */
-  viewMode: enumStore("view-mode", ["chat", "edit"] as const, "chat"),
   /** Theme preference (system / light / dark). */
   theme: enumStore("theme", ["system", "light", "dark"] as const, "system"),
   /** Language preference (system / en / ko). */
