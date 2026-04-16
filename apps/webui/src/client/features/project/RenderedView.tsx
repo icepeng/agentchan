@@ -72,7 +72,7 @@ export function RenderedView() {
 
   return (
     <ScrollArea ref={containerRef} className="flex-1">
-      <div ref={contentRef} className="min-h-full" />
+      <div ref={contentRef} className="h-full min-h-full" />
     </ScrollArea>
   );
 }

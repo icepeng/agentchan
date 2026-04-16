@@ -22,7 +22,7 @@ export function createAppendTool(cwd?: string): AgentTool<typeof AppendParams, v
   return {
     name: "append",
     description:
-      "Append content to the end of a file. Creates the file (and parent directories) if it doesn't exist. Use this instead of write when adding content to an existing file.",
+      `Append content to the end of a file. Creates the file (and parent directories) if it doesn't exist. Use this instead of write when adding content to an existing file.`,
     parameters: AppendParams,
     label: "Append to file",
 
