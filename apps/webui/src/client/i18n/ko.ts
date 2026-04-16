@@ -199,10 +199,17 @@ export const translations: Record<TranslationKey, string> = {
   "onboarding.skip": "건너뛰기",
   "onboarding.skipForNow": "나중에 설정",
   "onboarding.continue": "계속",
+  "onboarding.back": "뒤로",
+  "onboarding.stepProgress": "{{current}} / {{total}}",
   "onboarding.themeTitle": "테마 선택",
   "onboarding.apiKeyTitle": "API 키 등록",
   "onboarding.apiKeyDescription": "프로바이더를 선택하고 키를 붙여넣으세요.",
   "onboarding.startCreating": "시작",
+  "onboarding.firstProjectTitle": "첫 프로젝트 시작",
+  "onboarding.firstProjectDescription": "시작할 세계를 골라보세요.",
+  "onboarding.moreTemplates": "모든 템플릿 보기",
+  "onboarding.noFeaturedTemplates": "추천 템플릿이 없습니다.",
+  "onboarding.creatingProject": "생성 중...",
 
   // Common
   "common.cancel": "취소",

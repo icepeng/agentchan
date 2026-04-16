@@ -197,10 +197,17 @@ export const translations = {
   "onboarding.skip": "Skip",
   "onboarding.skipForNow": "Skip for now",
   "onboarding.continue": "Continue",
+  "onboarding.back": "Back",
+  "onboarding.stepProgress": "{{current}} / {{total}}",
   "onboarding.themeTitle": "Choose a theme",
   "onboarding.apiKeyTitle": "Add your API key",
   "onboarding.apiKeyDescription": "Pick a provider and paste your key.",
   "onboarding.startCreating": "Start",
+  "onboarding.firstProjectTitle": "Start your first project",
+  "onboarding.firstProjectDescription": "Pick a starter world.",
+  "onboarding.moreTemplates": "Browse all templates",
+  "onboarding.noFeaturedTemplates": "No starter templates available.",
+  "onboarding.creatingProject": "Creating...",
 
   // Common (shared across settings and library new-skill forms)
   "common.cancel": "Cancel",
