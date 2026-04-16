@@ -14,8 +14,8 @@
  *
  * 동작: 파일 수정 없음 (순수 난수 계산기).
  * stdout 마지막 줄에 JSON 한 줄:
- *   {"changed":[],"deltas":{"rolls":[...],"subtotal":N,"modifier":N,"total":N,"dc"?:N,"passed"?:bool,"margin"?:N,"discarded"?:N},"summary":"...","scene_block":"[SYSTEM] ..."}
- * scene_block 은 [SYSTEM] 한 줄 — 에이전트가 씬에 그대로 append.
+ *   {"changed":[],"deltas":{"rolls":[...],"subtotal":N,"modifier":N,"total":N,"dc"?:N,"passed"?:bool,"margin"?:N,"discarded"?:N},"summary":"...","scene_block":"<roll>...</roll>"}
+ * scene_block 은 <roll> 한 줄 — 에이전트가 씬에 그대로 append.
  */
 
 import { randomInt } from "node:crypto";
@@ -104,19 +104,20 @@ function main() {
   const subtotal = kept.reduce((a, b) => a + b, 0);
   const total = subtotal + parsed.modifier;
 
-  // scene_block: 짧은 [SYSTEM] 한 줄 요약. 에이전트가 scene.md 에 그대로 append.
+  // scene_block: 짧은 <roll> 한 줄 요약. 에이전트가 scene.md 에 그대로 append.
   const modStr = parsed.modifier > 0 ? `+${parsed.modifier}` : parsed.modifier < 0 ? `${parsed.modifier}` : "";
   const advStr = netAdv === "adv" ? " (adv)" : netAdv === "dis" ? " (dis)" : "";
   const rollsStr = parsed.count > 1 ? `[${kept.join(",")}]` : `${kept[0]}`;
-  let sceneLine = `[SYSTEM] roll ${diceExpr}${advStr}: ${rollsStr}${modStr} = ${total}`;
+  let rollBody = `roll ${diceExpr}${advStr}: ${rollsStr}${modStr} = ${total}`;
   let passed: boolean | undefined;
   let margin: number | undefined;
   if (dc !== undefined) {
     passed = total >= dc;
     margin = total - dc;
     const marginStr = margin >= 0 ? `+${margin}` : `${margin}`;
-    sceneLine += ` vs DC ${dc} → ${passed ? "PASS" : "FAIL"} (${marginStr})`;
+    rollBody += ` vs DC ${dc} → ${passed ? "PASS" : "FAIL"} (${marginStr})`;
   }
+  const sceneLine = `<roll>${rollBody}</roll>`;
 
   const summary =
     `${diceExpr}${advStr} = ${total}` +

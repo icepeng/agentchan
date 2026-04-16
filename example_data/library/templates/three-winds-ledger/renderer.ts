@@ -6,9 +6,12 @@
 //
 //   · 평상: Cartographer's Logbook 계승 — 크림 양피지 · 세피아 잉크 · 구리 채식
 //   · 전투: 촛불(일렁임) · 가죽(어두운 갈색) · 피(진홍) — data-mode="combat"
+//   · theme 은 함수 export. scene 의 마지막 <status> mode 를 읽어 평시/전투 팔레트를
+//     선택, 전역 --color-* 를 교체한다 → Sidebar/AgentPanel 까지 톤 일관.
 //
 //   · 렌더러는 순수 함수: files → HTML. scripts가 쓰는 마커를 파싱해 UI 생성.
-//     scene.md 마커: [STATUS] [SYSTEM] [STAT] [BEAT:combat] [CHAR:] [item:] [quest:] + [slug:assets/key]
+//     scene.md multiline: <status> <roll> <beat type="combat" round="N">
+//     scene.md inline:    [STAT] [CHAR:] [item:] [quest:] + [slug:assets/key]
 //     next-choices.yaml (데이터 파일): 현 턴의 플레이어 선택지. 렌더러가 씬 아래에 버튼으로 표시.
 //
 //   · 숨김 파일 가드: campaign.yaml / companion-secrets.yaml / npc-intents.yaml
@@ -70,24 +73,6 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
-// ── Theme export ──────────────────────────────
-// 전투 모드는 renderer 내부 CSS 가 data-mode 로 자체 토글. 따라서 여기 base 만.
-
-export const theme: RendererTheme = {
-  base: {
-    void: "#e8dcc0",
-    base: "#eee3c8",
-    surface: "#f6ecd2",
-    elevated: "#fff8e4",
-    accent: "#3d7a6d",
-    fg: "#2d2015",
-    fg2: "#5a4530",
-    fg3: "#8a6e4d",
-    edge: "#3d2a15",
-  },
-  prefersScheme: "light",
-};
-
 // ── Palette (renderer internal) ───────────────
 
 const ILLUMINATED_COPPER = "#b36b2a"; // warn · vigor mid · 브랜딩
@@ -116,6 +101,66 @@ const CHARACTER_COLORS = [
   MIST_BLUE,           // sea navy
   "#8a3a2d",           // iron rust
 ];
+
+// ── Theme export ──────────────────────────────
+//
+// 평시: 크림 양피지 + 세피아 잉크. 전투: 가죽 + 촛불.
+// 함수로 내보내 매 refresh 마다 scene 의 마지막 <status> mode 를 보고 팔레트를 교체한다.
+// 덕분에 렌더러 내부뿐 아니라 Sidebar / AgentPanel / BottomInput 까지 같은 톤으로 전환된다.
+
+const PEACE_THEME: RendererTheme = {
+  base: {
+    void: "#e8dcc0",
+    base: "#eee3c8",
+    surface: "#f6ecd2",
+    elevated: "#fff8e4",
+    accent: VERDIGRIS,
+    fg: "#2d2015",
+    fg2: "#5a4530",
+    fg3: "#8a6e4d",
+    edge: "#3d2a15",
+  },
+  prefersScheme: "light",
+};
+
+const COMBAT_THEME: RendererTheme = {
+  base: {
+    void: COMBAT_BASE,
+    base: COMBAT_BASE,
+    surface: COMBAT_SURFACE,
+    elevated: "#2e1c14",
+    accent: COMBAT_CANDLE,
+    fg: COMBAT_PARCH,
+    fg2: COMBAT_FG2,
+    fg3: COMBAT_FG3,
+    edge: "#3d2a1f",
+  },
+  prefersScheme: "dark",
+};
+
+export function theme(ctx: RenderContext): RendererTheme {
+  return detectCurrentMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
+}
+
+// theme 은 매 refresh 호출되므로, mode 한 줄을 얻으려 scene 전체를 풀파싱하지 않는다.
+// path 내림차순으로 scene 을 훑다가 처음 만나는 <status> 블록의 mode 만 해석.
+function detectCurrentMode(ctx: RenderContext): "peace" | "combat" {
+  const sceneFiles = ctx.files.filter(
+    (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
+  );
+  if (sceneFiles.length === 0) return "peace";
+  const ordered = sceneFiles.sort((a, b) => a.path.localeCompare(b.path));
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    const content = ordered[i].content;
+    const close = content.toLowerCase().lastIndexOf("</status>");
+    if (close < 0) continue;
+    const open = content.toLowerCase().lastIndexOf("<status>", close);
+    if (open < 0) continue;
+    const body = content.slice(open + "<status>".length, close);
+    return parseStatusContent(body).mode;
+  }
+  return "peace";
+}
 
 // ── Hidden file guard ─────────────────────────
 //
@@ -619,7 +664,7 @@ const STAT_LINE_RE = /^\[STAT\]\s+([a-z0-9][a-z0-9_-]*)\s+([+-]?\d+)\s+\(([^)]+)
 const ITEM_LINE_RE = /^\[item:([a-z0-9][a-z0-9_-]*)\s+([^\]]+)\]\s*(?:"([^"]*)")?/i;
 const QUEST_STEP_RE = /^\[quest:([a-z0-9][a-z0-9_-]*)\s+step="([^"]+)"\]/i;
 const QUEST_COMPLETE_RE = /^\[quest:([a-z0-9][a-z0-9_-]*)\s+(complete|fail)\]/i;
-const BEAT_COMBAT_OPEN_RE = /^\[BEAT:combat\s+round=(\d+)\]/i;
+const BEAT_COMBAT_OPEN_RE = /^<beat\s+type="combat"(?:\s+round="(\d+)")?>$/i;
 const USER_LINE_RE = /^>\s+(.+)$/;
 
 function parseStatusContent(body: string): ParsedStatus {
@@ -801,7 +846,7 @@ function parseSceneLines(
 
     // 블록 종료 감지 우선.
     if (state.kind === "status") {
-      if (/^\[\/STATUS\]$/i.test(trimmed)) {
+      if (/^<\/status>$/i.test(trimmed)) {
         lastStatus = parseStatusContent(state.lines.join("\n"));
         state = { kind: "none" };
         continue;
@@ -810,7 +855,7 @@ function parseSceneLines(
       continue;
     }
     if (state.kind === "system") {
-      if (/^\[\/SYSTEM\]$/i.test(trimmed)) {
+      if (/^<\/roll>$/i.test(trimmed)) {
         events.push({ kind: "system", text: state.lines.join("\n").trim() });
         state = { kind: "none" };
         continue;
@@ -819,7 +864,7 @@ function parseSceneLines(
       continue;
     }
     if (state.kind === "combat") {
-      if (/^\[\/BEAT\]$/i.test(trimmed)) {
+      if (/^<\/beat>$/i.test(trimmed)) {
         flushCombat(state.round, state.lines);
         state = { kind: "none" };
         continue;
@@ -829,24 +874,25 @@ function parseSceneLines(
     }
 
     // 블록 시작 감지.
-    if (/^\[STATUS\]$/i.test(trimmed)) {
+    if (/^<status>$/i.test(trimmed)) {
       state = { kind: "status", lines: [] };
       continue;
     }
-    if (/^\[SYSTEM\]$/i.test(trimmed)) {
+    if (/^<roll>$/i.test(trimmed)) {
       state = { kind: "system", lines: [] };
       continue;
     }
     const combatOpen = trimmed.match(BEAT_COMBAT_OPEN_RE);
     if (combatOpen) {
-      state = { kind: "combat", round: parseInt(combatOpen[1], 10), lines: [] };
+      const round = combatOpen[1] ? parseInt(combatOpen[1], 10) : 0;
+      state = { kind: "combat", round, lines: [] };
       continue;
     }
 
-    // 인라인 [SYSTEM] 한 줄 (닫는 태그 없이 한 줄 요약 형태 지원).
-    const inlineSystem = trimmed.match(/^\[SYSTEM\]\s+(.+)$/i);
-    if (inlineSystem) {
-      events.push({ kind: "system", text: inlineSystem[1].trim() });
+    // 인라인 <roll>...</roll> 한 줄 (열고 닫는 태그가 같은 줄에 있을 때).
+    const inlineRoll = trimmed.match(/^<roll>(.+?)<\/roll>$/i);
+    if (inlineRoll) {
+      events.push({ kind: "system", text: inlineRoll[1].trim() });
       continue;
     }
 

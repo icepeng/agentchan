@@ -65,10 +65,10 @@ function parseArgs(argv: string[]): Args {
 function checkCooldown(npc: string, event: string, windowScenes: number): { blocked: boolean; reason?: string } {
   if (!existsSync("files/scenes/scene.md")) return { blocked: false };
   const raw = readFileSync("files/scenes/scene.md", "utf-8");
-  const statusMatches = Array.from(raw.matchAll(/\[\/STATUS\]/g));
+  const statusMatches = Array.from(raw.matchAll(/<\/status>/gi));
   if (statusMatches.length === 0) return { blocked: false };
 
-  // Window = from (N+1)-th-from-last [/STATUS] marker to EOF
+  // Window = from (N+1)-th-from-last </status> to EOF
   let windowStart = 0;
   if (statusMatches.length > windowScenes) {
     const anchor = statusMatches[statusMatches.length - windowScenes - 1];

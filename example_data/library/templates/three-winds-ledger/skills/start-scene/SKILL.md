@@ -52,7 +52,7 @@ script(file: "skills/start-scene/scripts/init.ts", args: ["--preset", "<warrior|
 
 ### 4. Act 1 오프닝 씬 append
 
-`files/scenes/scene.md` 에 오프닝 씬을 **append** — 부두 도착, 안개, 리우와의 첫 조우. 응답 구조는 SYSTEM.md §3 의 출력 구조 템플릿을 따름 ([STATUS] 블록이 씬 블록 최하단).
+`files/scenes/scene.md` 에 오프닝 씬을 **append** — 부두 도착, 안개, 리우와의 첫 조우. 응답 구조는 SYSTEM.md `<output_contract>` 의 출력 구조 템플릿을 따름 (`<status>` 블록이 씬 블록 최하단).
 
 ## 예시
 
@@ -62,7 +62,7 @@ script(file: "skills/start-scene/scripts/init.ts", args: ["--preset", "<warrior|
 script(file: "skills/start-scene/scripts/init.ts", args: ["--preset", "rogue"])
 ```
 
-스크립트가 파일을 수정한 후 반환하는 JSON 의 `deltas.attributes` / `hp_max` / `mp_max` 를 오프닝 씬의 [STATUS] 블록에 그대로 반영.
+스크립트가 파일을 수정한 후 반환하는 JSON 의 `deltas.attributes` / `hp_max` / `mp_max` 를 오프닝 씬의 `<status>` 블록에 그대로 반영.
 
 ## 금지
 
