@@ -140,3 +140,27 @@ select option {
   box-shadow: 0 0 0 1px var(--color-accent),
               0 0 24px color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
+
+/* ── View Transitions ──────────────────────────
+   Match the app's 300ms ease-out (UA default is 250ms linear). */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: ease-out;
+}
+
+/* Sidebar는 view-transition-name: sidebar로 root에서 분리 — 프로젝트 전환 시
+   old(A active)/new(B active) 버튼이 crossfade 구간에서 반투명으로 겹쳐 보이는
+   현상을 막는다. 1ms로 사실상 즉시 교체. */
+::view-transition-old(sidebar),
+::view-transition-new(sidebar) {
+  animation-duration: 1ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
+}

@@ -10,6 +10,7 @@ import {
 import { createElement } from "react";
 import { useI18n } from "@/client/i18n/index.js";
 import { localStore } from "@/client/shared/storage.js";
+import { withViewTransition } from "@/client/shared/viewTransition.js";
 
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
@@ -47,11 +48,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(localStore.theme.read()));
 
   const setPreference = useCallback((pref: ThemePreference) => {
-    setPreferenceState(pref);
-    localStore.theme.write(pref);
     const r = resolveTheme(pref);
-    setResolved(r);
-    applyTheme(r);
+    void withViewTransition(() => {
+      setPreferenceState(pref);
+      localStore.theme.write(pref);
+      setResolved(r);
+      applyTheme(r);
+    });
   }, []);
 
   // Apply theme to DOM whenever resolved theme changes

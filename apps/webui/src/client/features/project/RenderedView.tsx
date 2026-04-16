@@ -1,15 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Idiomorph } from "idiomorph";
 import { useOutput } from "./useOutput.js";
 import { useProjectState } from "@/client/entities/project/index.js";
 import { useActiveStream } from "@/client/entities/session/index.js";
 import { useRendererActionDispatch } from "@/client/entities/renderer-action/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
-
-type TransitionPhase = "idle" | "capture" | "fading";
-
-// Must stay in sync with the Tailwind `duration-300` class on the back layer.
-const FADE_DURATION_MS = 300;
 
 export function RenderedView() {
   const project = useProjectState();
@@ -18,46 +13,22 @@ export function RenderedView() {
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
-  const backRef = useRef<HTMLDivElement>(null);
-  const prevSlugRef = useRef<string | null>(project.activeProjectSlug);
-  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [phase, setPhase] = useState<TransitionPhase>("idle");
 
-  // Snapshot the current renderer DOM into the back layer so it can cross-fade
-  // out while the new project's renderer loads. Must stay declared above the
-  // morph effect below so snapshot runs before morph overwrites `frontEl`.
-  // Clearing any in-flight cleanup timer here prevents a rapid A→B→C switch
-  // from letting B's fading cleanup clobber C's fresh snapshot.
+  // 스트리밍이 방금 끝난 순간에만 renderer 재실행 — 초기 로드와 프로젝트 전환은
+  // 각각 App.tsx, selectProject가 담당한다.
+  const prevStreamingRef = useRef(stream.isStreaming);
   useEffect(() => {
-    const newSlug = project.activeProjectSlug;
-    if (prevSlugRef.current !== null && prevSlugRef.current !== newSlug) {
-      const frontEl = frontRef.current;
-      const backEl = backRef.current;
-      const viewport = containerRef.current;
-      if (frontEl && backEl && frontEl.innerHTML) {
-        if (cleanupTimerRef.current !== null) {
-          clearTimeout(cleanupTimerRef.current);
-          cleanupTimerRef.current = null;
-        }
-        backEl.innerHTML = frontEl.innerHTML;
-        const scrollTop = viewport?.scrollTop ?? 0;
-        backEl.style.transform =
-          scrollTop > 0 ? `translateY(-${scrollTop}px)` : "";
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- snapshot DOM과 phase가 같은 커밋에 묶여야 overlay가 먼저 paint됨
-        setPhase("capture");
-      }
-    }
-    prevSlugRef.current = newSlug;
-    void refresh();
-  }, [project.activeProjectSlug, refresh]);
-
-  useEffect(() => {
-    if (!stream.isStreaming && project.activeProjectSlug) {
+    const wasStreaming = prevStreamingRef.current;
+    prevStreamingRef.current = stream.isStreaming;
+    if (wasStreaming && !stream.isStreaming && project.activeProjectSlug) {
       void refresh();
     }
   }, [stream.isStreaming, project.activeProjectSlug, refresh]);
 
-  useEffect(() => {
+  // useLayoutEffect로 paint 전에 morph를 끝내야 View Transition의 "after"
+  // 스냅샷이 새 HTML을 포함하게 된다. useEffect면 flushSync 이후 async로 돌아
+  // VT 캡처보다 뒤에 실행될 수 있다.
+  useLayoutEffect(() => {
     const el = frontRef.current;
     if (!el) return;
     if (!project.renderedHtml) return;
@@ -66,37 +37,6 @@ export function RenderedView() {
       ignoreActiveValue: true,
     });
   }, [project.renderedHtml]);
-
-  // Two rAFs: the first lets the `capture` className paint, the second lets
-  // the browser register the fading transition class before opacity flips —
-  // otherwise capture→fading is coalesced and the transition is skipped.
-  useEffect(() => {
-    if (phase !== "capture") return;
-    if (!project.renderedHtml) return;
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setPhase("fading"));
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-  }, [phase, project.renderedHtml]);
-
-  useEffect(() => {
-    if (phase !== "fading") return;
-    const timer = setTimeout(() => {
-      const backEl = backRef.current;
-      if (backEl) {
-        backEl.innerHTML = "";
-        backEl.style.transform = "";
-      }
-      cleanupTimerRef.current = null;
-      setPhase("idle");
-    }, FADE_DURATION_MS);
-    cleanupTimerRef.current = timer;
-    return () => clearTimeout(timer);
-  }, [phase]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -130,23 +70,11 @@ export function RenderedView() {
     return () => el.removeEventListener("click", handleClick);
   }, [actionDispatch]);
 
-  const backOpacityClass =
-    phase === "capture"
-      ? "opacity-100 transition-none"
-      : phase === "fading"
-        ? "opacity-0 transition-opacity duration-300 ease-out motion-reduce:duration-0"
-        : "opacity-0 transition-none";
-
   return (
     <div className="relative flex-1 flex flex-col min-h-0">
       <ScrollArea ref={containerRef} className="flex-1">
         <div ref={frontRef} className="h-full min-h-full" />
       </ScrollArea>
-      <div
-        ref={backRef}
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 overflow-hidden ${backOpacityClass}`}
-      />
     </div>
   );
 }

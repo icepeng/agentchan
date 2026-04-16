@@ -84,7 +84,7 @@ export function AppShell() {
 
   return (
     <div
-      className="flex h-full bg-void text-fg font-body transition-colors duration-300"
+      className="flex h-full bg-void text-fg font-body"
       style={rootStyle}
       data-theme={dataThemeOverride}
     >

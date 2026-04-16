@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { flushSync } from "react-dom";
 import {
   useProjectState,
   useProjectDispatch,
@@ -17,6 +18,8 @@ import {
 } from "@/client/entities/session/index.js";
 import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
 import { localStore } from "@/client/shared/storage.js";
+import { withViewTransition } from "@/client/shared/viewTransition.js";
+import { loadRenderOutput } from "./useOutput.js";
 
 export function useProject() {
   const projectState = useProjectState();
@@ -40,15 +43,36 @@ export function useProject() {
 
       localStore.lastProject.write(slug);
       const rememberedSessionId = projectState.projectActiveSession.get(slug);
-      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug, currentConversationId: sessionState.activeConversationId });
-      // SWITCH_PROJECT replaces the active view but preserves streams Map so
-      // background streams on other projects keep running and can notify on completion.
-      sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: slug, conversations: [] });
-      skillDispatch({ type: "CLEAR" });
-      const [conversations, skills] = await Promise.all([
-        fetchConversations(slug),
-        fetchSkills(slug),
-      ]);
+      const currentConversationId = sessionState.activeConversationId;
+
+      // 모든 fetch를 VT 바깥에서 병렬 시작 — 렌더러 로드가 VT1 진행 중에 완료되면
+      // VT2가 대기 없이 이어 시작되어 체감 지연이 최소화된다.
+      const conversationsPromise = fetchConversations(slug);
+      const skillsPromise = fetchSkills(slug);
+      const outputPromise = loadRenderOutput(slug);
+
+      // VT1: chrome swap (slug/sidebar/empty html). sync callback이라 VT overlay가
+      // 덮이는 시간은 ~16ms → 클릭 즉시 crossfade가 시작돼 "멈춘 느낌" 사라진다.
+      await withViewTransition(() => {
+        flushSync(() => {
+          projectDispatch({ type: "SET_ACTIVE_PROJECT", slug, currentConversationId });
+          // SWITCH_PROJECT replaces the active view but preserves streams Map so
+          // background streams on other projects keep running and can notify on completion.
+          sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: slug, conversations: [] });
+          skillDispatch({ type: "CLEAR" });
+        });
+      });
+
+      // VT2: renderer 도착 시 theme+html 교체. output이 VT1 중에 이미 준비됐다면
+      // 즉시 시작, 아니면 여기서 잠시 대기.
+      const output = await outputPromise;
+      await withViewTransition(() => {
+        flushSync(() => {
+          projectDispatch({ type: "SET_RENDER_OUTPUT", html: output.html, theme: output.theme });
+        });
+      });
+
+      const [conversations, skills] = await Promise.all([conversationsPromise, skillsPromise]);
       sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
       skillDispatch({ type: "SET_SKILLS", skills });
       // Restore the previously active session if it still exists
