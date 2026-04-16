@@ -4,6 +4,8 @@ import { useI18n } from "@/client/i18n/index.js";
 import { Dialog, Button, Badge, Indicator, Select } from "@/client/shared/ui/index.js";
 import { BASE } from "@/client/shared/api.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
+import type { ProviderInfo } from "@/client/entities/config/index.js";
+import { OAuthProviderCard } from "@/client/features/oauth/index.js";
 import {
   useOnboarding,
   type OnboardingStep,
@@ -56,8 +58,9 @@ export function OnboardingWizard() {
             providers={ob.providers}
             apiKeys={ob.apiKeys}
             saving={ob.saving}
-            hasAnyKey={ob.hasAnyKey}
+            hasAnyCredentials={ob.hasAnyCredentials}
             onSaveKey={ob.saveApiKey}
+            onOAuthActiveChange={ob.handleOAuthActiveChange}
             onContinue={ob.advance}
             onSkip={() => void ob.dismiss()}
           />
@@ -135,16 +138,18 @@ function ApiKeyStep({
   providers,
   apiKeys,
   saving,
-  hasAnyKey,
+  hasAnyCredentials,
   onSaveKey,
+  onOAuthActiveChange,
   onContinue,
   onSkip,
 }: {
-  providers: { name: string }[];
+  providers: ProviderInfo[];
   apiKeys: Record<string, string>;
   saving: boolean;
-  hasAnyKey: boolean;
+  hasAnyCredentials: boolean;
   onSaveKey: (provider: string, key: string) => Promise<void>;
+  onOAuthActiveChange: (provider: string, active: boolean) => void;
   onContinue: () => void;
   onSkip: () => void;
 }) {
@@ -154,6 +159,8 @@ function ApiKeyStep({
   );
   const [keyInput, setKeyInput] = useState("");
 
+  const selectedInfo = providers.find((p) => p.name === selectedProvider);
+  const isOAuth = !!selectedInfo?.oauth;
   const currentKeyMasked = apiKeys[selectedProvider] || "";
   const isConfigured = currentKeyMasked !== "";
 
@@ -185,40 +192,49 @@ function ApiKeyStep({
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge variant={isConfigured ? "accent" : "muted"}>
-            <Indicator color={isConfigured ? "accent" : "fg"} />
-            {isConfigured
-              ? t("globalSettings.apiKeyConfigured")
-              : t("globalSettings.apiKeyEmpty")}
-          </Badge>
-          {isConfigured && currentKeyMasked && (
-            <span className="text-xs text-fg-3 font-mono">{currentKeyMasked}</span>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <input
-            type="password"
-            placeholder={t("globalSettings.apiKeyPlaceholder")}
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            className="flex-1 px-4 py-2 text-sm bg-surface border border-edge/8 rounded-lg focus:outline-none focus:border-accent/30 text-fg-2 font-mono transition-colors"
+        {isOAuth ? (
+          <OAuthProviderCard
+            providerName={selectedProvider}
+            onChange={(active) => onOAuthActiveChange(selectedProvider, active)}
           />
-          <Button
-            variant="accent"
-            size="md"
-            onClick={() => void handleSave()}
-            disabled={!keyInput || saving}
-          >
-            {saving ? t("globalSettings.savingKey") : t("globalSettings.saveKey")}
-          </Button>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <Badge variant={isConfigured ? "accent" : "muted"}>
+                <Indicator color={isConfigured ? "accent" : "fg"} />
+                {isConfigured
+                  ? t("globalSettings.apiKeyConfigured")
+                  : t("globalSettings.apiKeyEmpty")}
+              </Badge>
+              {isConfigured && currentKeyMasked && (
+                <span className="text-xs text-fg-3 font-mono">{currentKeyMasked}</span>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="password"
+                placeholder={t("globalSettings.apiKeyPlaceholder")}
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                className="flex-1 px-4 py-2 text-sm bg-surface border border-edge/8 rounded-lg focus:outline-none focus:border-accent/30 text-fg-2 font-mono transition-colors"
+              />
+              <Button
+                variant="accent"
+                size="md"
+                onClick={() => void handleSave()}
+                disabled={!keyInput || saving}
+              >
+                {saving ? t("globalSettings.savingKey") : t("globalSettings.saveKey")}
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex items-center justify-center gap-4 mt-8">
-        {hasAnyKey ? (
+        {hasAnyCredentials ? (
           <Button variant="accent" size="md" onClick={onContinue}>
             {t("onboarding.continue")}
           </Button>

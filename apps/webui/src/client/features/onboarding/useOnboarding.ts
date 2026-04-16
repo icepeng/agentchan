@@ -23,6 +23,7 @@ export function useOnboarding() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>(0);
   const [apiKeys, setApiKeys] = useState<ApiKeyStatus>({});
+  const [oauthSignedIn, setOauthSignedIn] = useState<Record<string, boolean>>({});
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creatingSlug, setCreatingSlug] = useState<string | null>(null);
@@ -41,6 +42,15 @@ export function useOnboarding() {
   }, []);
 
   const hasAnyKey = Object.values(apiKeys).some((v) => v !== "");
+  const hasAnySignedIn = Object.values(oauthSignedIn).some(Boolean);
+  const hasAnyCredentials = hasAnyKey || hasAnySignedIn;
+
+  const handleOAuthActiveChange = (provider: string, active: boolean) => {
+    setOauthSignedIn((prev) => {
+      if (prev[provider] === active) return prev;
+      return { ...prev, [provider]: active };
+    });
+  };
 
   const advance = () =>
     setStep((s) => Math.min(s + 1, ONBOARDING_STEP_COUNT - 1) as OnboardingStep);
@@ -90,7 +100,8 @@ export function useOnboarding() {
     saveApiKey,
     saving,
     apiKeys,
-    hasAnyKey,
+    hasAnyCredentials,
+    handleOAuthActiveChange,
     ready,
     providers: config.providers,
   };
