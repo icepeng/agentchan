@@ -78,6 +78,10 @@ export function useConversationMutations(projectSlug: string | null) {
     if (!projectSlug) throw new Error("compact: projectSlug required");
     const result = await apiCompact(projectSlug, conversationId);
     await mutate(qk.conversations(projectSlug));
+    // Invariant: `compactConversation` (pi-mono/agent/lifecycle.ts) always
+    // produces a linear [user, assistant] chain, so the node order is the
+    // activePath. If compact ever grows branching, the server must return
+    // `activePath` explicitly and this synthesis needs to go.
     await mutate(
       qk.conversation(projectSlug, result.conversation.id),
       {

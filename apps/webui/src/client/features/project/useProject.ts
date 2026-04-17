@@ -10,7 +10,6 @@ import {
   useSessionState,
   useSessionDispatch,
   selectSession,
-  fetchConversations,
   abortProjectStream,
   type Conversation,
 } from "@/client/entities/session/index.js";
@@ -39,9 +38,11 @@ export function useProject() {
   const activateProject = useCallback(
     async (slug: string): Promise<Conversation[]> => {
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug });
-      const conversations = await fetchConversations(slug);
-      void mutate(qk.conversations(slug), conversations, { revalidate: false });
-      return conversations;
+      // Single GET: SWR's fetcher runs, result seeds the cache atomically.
+      // Calling `fetchConversations` separately risked a duplicate fetch when
+      // `useConversations(slug)` mounted outside the dedupe window.
+      const conversations = await mutate<Conversation[]>(qk.conversations(slug));
+      return conversations ?? [];
     },
     [projectDispatch, mutate],
   );
