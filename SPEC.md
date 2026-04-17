@@ -148,9 +148,19 @@ interface BinaryFile {
 ### 6.1 계약
 
 ```typescript
+interface RenderPendingToolCall {
+  id: string; name: string; done: boolean; executing?: boolean;
+}
+interface RenderPendingState {
+  isStreaming: boolean;
+  streamingText: string;
+  toolCalls: RenderPendingToolCall[];
+}
+
 interface RenderContext {
   files: ProjectFile[];    // files/ 전체 스캔 결과
   baseUrl: string;         // 에셋 URL prefix
+  pending?: RenderPendingState;  // 에이전트 스트리밍 중에만 주입
 }
 
 // 렌더러가 export해야 하는 함수
@@ -159,10 +169,11 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 
 ### 6.2 제약
 
-- 입력은 `RenderContext` 뿐. conversations, skills, SYSTEM.md, 에이전트 상태에 접근 불가
+- 입력은 `RenderContext` 뿐. conversations, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `pending?`으로 한정된 요약(isStreaming/streamingText/toolCalls)만 노출
 - 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - 외부 모듈 import 불가. 타입은 파일 내에 인라인 선언
 - 출력은 HTML 문자열 하나
+- 스트리밍 중에는 requestAnimationFrame 주기로 재호출되므로 렌더 비용이 프레임 안에 들어와야 한다 (idiomorph가 DOM diff로 부담을 낮춘다)
 
 ### 6.3 도출 특성
 
@@ -227,11 +238,11 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 ### 8.2 Renderer (`renderer.ts`)
 
 **제약:**
-- R1. 입력은 `RenderContext { files, baseUrl }` 뿐이다
+- R1. 입력은 `RenderContext { files, baseUrl, pending? }` 뿐이다
 - R2. 출력은 `render(ctx): string` — HTML 문자열 하나
 - R3. 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - R4. 외부 모듈 import 불가
-- R5. conversations, skills, SYSTEM.md, 에이전트 상태에 접근 불가
+- R5. conversations, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `pending?`으로 한정된 요약(isStreaming/streamingText/toolCalls)만 노출
 
 **도출 특성:**
 - (R1+R2) 순수 함수 — `files → HTML`

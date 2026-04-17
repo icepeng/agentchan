@@ -14,7 +14,7 @@ const FADE_DURATION_MS = 300;
 export function RenderedView() {
   const project = useProjectState();
   const stream = useActiveStream();
-  const { refresh } = useOutput();
+  const { refresh, refreshPending } = useOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
@@ -22,6 +22,12 @@ export function RenderedView() {
   const prevSlugRef = useRef<string | null>(project.activeProjectSlug);
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [phase, setPhase] = useState<TransitionPhase>("idle");
+
+  // rAF tick이 effect re-run 없이 최신 slot을 읽을 수 있도록 ref로 미러링.
+  const streamRef = useRef(stream);
+  useEffect(() => {
+    streamRef.current = stream;
+  });
 
   // Snapshot the current renderer DOM into the back layer so it can cross-fade
   // out while the new project's renderer loads. Must stay declared above the
@@ -56,6 +62,30 @@ export function RenderedView() {
       void refresh();
     }
   }, [stream.isStreaming, project.activeProjectSlug, refresh]);
+
+  // 스트리밍 중 requestAnimationFrame 주기로 pending 렌더를 트리거한다.
+  // refreshPending이 캐시된 렌더러를 동기 호출하므로 프레임 안에 끝나고,
+  // 동일 HTML이면 dispatch를 건너뛰어 Context 소비자 재렌더를 막는다.
+  useEffect(() => {
+    if (!stream.isStreaming) return;
+    let raf = 0;
+    const tick = () => {
+      const s = streamRef.current;
+      refreshPending({
+        isStreaming: s.isStreaming,
+        streamingText: s.streamingText,
+        toolCalls: s.streamingToolCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          done: tc.done,
+          executing: tc.executing,
+        })),
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [stream.isStreaming, refreshPending]);
 
   useEffect(() => {
     const el = frontRef.current;
