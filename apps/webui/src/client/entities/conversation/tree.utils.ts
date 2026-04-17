@@ -7,6 +7,10 @@ import type { TreeNode } from "./conversation.types.js";
  * Used by the optimistic/write-through paths in `useStreaming` to mirror the
  * server's insert shape inside the SWR cache, so that re-renders see the
  * same tree the server will eventually return from `/conversations/:id`.
+ *
+ * Array order is NOT topological — consumers must index by id (e.g. nodeMap)
+ * and traverse via `activePath` / `children`, never assume parents precede
+ * children in the returned array.
  */
 export function insertNode(nodes: readonly TreeNode[], node: TreeNode): TreeNode[] {
   const byId = new Map<string, TreeNode>();

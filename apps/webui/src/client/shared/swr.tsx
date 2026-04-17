@@ -63,7 +63,6 @@ const defaults: SWRConfiguration = {
   keepPreviousData: true,
   shouldRetryOnError: false,
   dedupingInterval: 2000,
-  errorRetryCount: 0,
 };
 
 export function SwrRoot({ children }: { children: ReactNode }) {
