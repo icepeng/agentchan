@@ -65,7 +65,7 @@ function parseSkillMd(content: string, location: string): SkillRecord | null {
   if (!match) return null;
 
   try {
-    const fixed = parseYaml(fixMalformedYaml(match[1])) as unknown;
+    const fixed = parseYaml(fixMalformedYaml(match[1] ?? "")) as unknown;
     if (!fixed || typeof fixed !== "object" || Array.isArray(fixed)) return null;
     log.warn("skills", `${location}: applied malformed YAML fallback`);
     return buildSkillRecord(fixed as Record<string, unknown>, match[2] ?? "", location);

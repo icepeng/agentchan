@@ -13,7 +13,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, c
     <ToggleGroup
       value={[value]}
       onValueChange={(val: T[]) => {
-        if (val.length > 0) onChange(val[0]);
+        if (val.length > 0) onChange(val[0]!);
       }}
       className={`flex rounded-lg border border-edge/8 overflow-hidden ${className ?? ""}`}
     >

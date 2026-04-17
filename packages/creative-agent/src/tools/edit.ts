@@ -125,7 +125,7 @@ function mapNormalizedIndex(
     // normalizeChar handles all 1:1 replacements and NFKC expansions.
     // Characters deleted by trailing-whitespace trimming produce length 0;
     // we detect this by comparing against the actual normalized string.
-    const normOfChar = normalizeChar(original[origIdx]);
+    const normOfChar = normalizeChar(original[origIdx]!);
     if (normOfChar.length > 0 && normIdx + normOfChar.length <= normalized.length &&
         normalized.slice(normIdx, normIdx + normOfChar.length) === normOfChar) {
       normIdx += normOfChar.length;

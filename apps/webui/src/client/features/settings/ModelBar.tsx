@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { useConfigState, useConfigDispatch } from "@/client/entities/config/index.js";
+import { useConfig, useProviders, useConfigMutations } from "@/client/entities/config/index.js";
 import type { ThinkingLevel } from "@/client/entities/config/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { updateConfig } from "@/client/entities/config/index.js";
 import { Badge, CollapsiblePanel, Select, FormField, SegmentedControl, TextInput } from "@/client/shared/ui/index.js";
 
 const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
@@ -14,111 +13,88 @@ const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
 ];
 
 export function ModelBar() {
-  const config = useConfigState();
-  const configDispatch = useConfigDispatch();
+  const { data: config } = useConfig();
+  const { data: providers = [] } = useProviders();
+  const { update } = useConfigMutations();
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const [tempInput, setTempInput] = useState(config.temperature?.toString() ?? "");
-  const [maxTokensInput, setMaxTokensInput] = useState(config.maxTokens?.toString() ?? "");
-  const [prevTemperature, setPrevTemperature] = useState(config.temperature);
-  const [contextWindowInput, setContextWindowInput] = useState(config.contextWindow?.toString() ?? "");
-  const [prevMaxTokens, setPrevMaxTokens] = useState(config.maxTokens);
-  const [prevContextWindow, setPrevContextWindow] = useState(config.contextWindow);
+  const [tempInput, setTempInput] = useState(config?.temperature?.toString() ?? "");
+  const [maxTokensInput, setMaxTokensInput] = useState(config?.maxTokens?.toString() ?? "");
+  const [prevTemperature, setPrevTemperature] = useState(config?.temperature);
+  const [contextWindowInput, setContextWindowInput] = useState(config?.contextWindow?.toString() ?? "");
+  const [prevMaxTokens, setPrevMaxTokens] = useState(config?.maxTokens);
+  const [prevContextWindow, setPrevContextWindow] = useState(config?.contextWindow);
 
-  if (config.temperature !== prevTemperature) {
+  if (config && config.temperature !== prevTemperature) {
     setPrevTemperature(config.temperature);
     setTempInput(config.temperature?.toString() ?? "");
   }
-  if (config.maxTokens !== prevMaxTokens) {
+  if (config && config.maxTokens !== prevMaxTokens) {
     setPrevMaxTokens(config.maxTokens);
     setMaxTokensInput(config.maxTokens?.toString() ?? "");
   }
-  if (config.contextWindow !== prevContextWindow) {
+  if (config && config.contextWindow !== prevContextWindow) {
     setPrevContextWindow(config.contextWindow);
     setContextWindowInput(config.contextWindow?.toString() ?? "");
   }
 
-  const currentProvider = config.providers.find((p) => p.name === config.provider);
+  // Until the first config GET resolves there's nothing to render — render a
+  // placeholder rather than a spurious "google/" line.
+  const provider = config?.provider ?? "";
+  const model = config?.model ?? "";
+  const currentProvider = providers.find((p) => p.name === provider);
 
-  const dispatchConfig = (result: {
-    provider: string;
-    model: string;
-    temperature?: number;
-    maxTokens?: number;
-    contextWindow?: number;
-    thinkingLevel?: ThinkingLevel;
-  }) => {
-    configDispatch({
-      type: "SET_CONFIG",
-      provider: result.provider,
-      model: result.model,
-      temperature: result.temperature,
-      maxTokens: result.maxTokens,
-      contextWindow: result.contextWindow,
-      thinkingLevel: result.thinkingLevel,
-    });
+  const handleProviderChange = (next: string) => void update({ provider: next });
+  const handleModelChange = (next: string) => {
+    if (next === model) return;
+    void update({ model: next });
   };
 
-  const handleProviderChange = async (provider: string) => {
-    const result = await updateConfig({ provider });
-    dispatchConfig(result);
-  };
-
-  const handleModelChange = async (model: string) => {
-    if (model === config.model) return;
-    const result = await updateConfig({ model });
-    dispatchConfig(result);
-  };
-
-  const handleTemperatureSubmit = async () => {
+  const handleTemperatureSubmit = () => {
     const trimmed = tempInput.trim();
     const newVal = trimmed === "" ? null : parseFloat(trimmed);
     if (newVal !== null && (isNaN(newVal) || newVal < 0 || newVal > 2)) return;
-    if (newVal === (config.temperature ?? null)) return;
-    const result = await updateConfig({ temperature: newVal });
-    dispatchConfig(result);
+    if (newVal === (config?.temperature ?? null)) return;
+    void update({ temperature: newVal });
   };
 
-  const handleMaxTokensSubmit = async () => {
+  const handleMaxTokensSubmit = () => {
     const trimmed = maxTokensInput.trim();
     const newVal = trimmed === "" ? null : parseInt(trimmed, 10);
     if (newVal !== null && (isNaN(newVal) || newVal < 1)) return;
-    if (newVal === (config.maxTokens ?? null)) return;
-    const result = await updateConfig({ maxTokens: newVal });
-    dispatchConfig(result);
+    if (newVal === (config?.maxTokens ?? null)) return;
+    void update({ maxTokens: newVal });
   };
 
-  const handleContextWindowSubmit = async () => {
+  const handleContextWindowSubmit = () => {
     const trimmed = contextWindowInput.trim();
     const newVal = trimmed === "" ? null : parseInt(trimmed, 10);
     if (newVal !== null && (isNaN(newVal) || newVal < 1024)) return;
-    if (newVal === (config.contextWindow ?? null)) return;
-    const result = await updateConfig({ contextWindow: newVal });
-    dispatchConfig(result);
+    if (newVal === (config?.contextWindow ?? null)) return;
+    void update({ contextWindow: newVal });
   };
 
-  const handleThinkingChange = async (level: ThinkingLevel) => {
-    if (level === config.thinkingLevel) return;
-    const result = await updateConfig({ thinkingLevel: level === "off" ? null : level });
-    dispatchConfig(result);
+  const handleThinkingChange = (level: ThinkingLevel) => {
+    if (level === config?.thinkingLevel) return;
+    void update({ thinkingLevel: level === "off" ? null : level });
   };
 
-  const currentModel = currentProvider?.models.find((m) => m.id === config.model);
+  const currentModel = currentProvider?.models.find((m) => m.id === model);
   const showThinking = !!currentProvider?.custom || (currentModel?.reasoning ?? false);
 
   // Build compact param tags for collapsed view
   const paramTags: { label: string; key: string }[] = [];
-  if (config.temperature != null) {
+  if (config?.temperature != null) {
     paramTags.push({ label: `T:${config.temperature}`, key: "temp" });
   }
-  if (config.thinkingLevel && config.thinkingLevel !== "off") {
+  if (config?.thinkingLevel && config.thinkingLevel !== "off") {
     const short = config.thinkingLevel === "medium" ? "med" : config.thinkingLevel;
     paramTags.push({ label: short, key: "think" });
   }
-  if (config.maxTokens != null) {
+  if (config?.maxTokens != null) {
     paramTags.push({ label: `${config.maxTokens}tok`, key: "tokens" });
   }
-  if (config.contextWindow != null) {
+  if (config?.contextWindow != null) {
     const cwK = Math.round(config.contextWindow / 1000);
     paramTags.push({ label: `${cwK}k ctx`, key: "ctx" });
   }
@@ -137,10 +113,10 @@ export function ModelBar() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-fg-4 bg-elevated px-1.5 py-0.5 rounded flex-shrink-0">
-                    {config.provider.slice(0, 3)}
+                    {provider.slice(0, 3)}
                   </span>
                   <span className="text-[13px] text-fg-2 font-mono truncate">
-                    {config.model || "not configured"}
+                    {model || "not configured"}
                   </span>
                 </div>
               </div>
@@ -162,15 +138,15 @@ export function ModelBar() {
         <div className="px-3 pb-3 pt-2 space-y-3">
           <FormField label={t("provider.label")}>
             <Select
-              value={config.provider}
+              value={provider}
               onChange={handleProviderChange}
-              options={config.providers.map((p) => ({ value: p.name, label: p.name }))}
+              options={providers.map((p) => ({ value: p.name, label: p.name }))}
             />
           </FormField>
 
           <FormField label={t("model.label")}>
             <Select
-              value={config.model}
+              value={model}
               onChange={handleModelChange}
               options={currentProvider?.models.map((m) => ({ value: m.id, label: m.name })) ?? []}
             />
@@ -229,7 +205,7 @@ export function ModelBar() {
             <FormField label={t("params.thinking")}>
               <SegmentedControl
                 options={THINKING_LEVELS}
-                value={config.thinkingLevel ?? "off"}
+                value={config?.thinkingLevel ?? "off"}
                 onChange={handleThinkingChange}
               />
             </FormField>

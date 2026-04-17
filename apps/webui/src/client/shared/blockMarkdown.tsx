@@ -25,7 +25,7 @@ function tokenize(source: string): Block[] {
   let i = 0;
 
   while (i < lines.length) {
-    const line = lines[i];
+    const line = lines[i]!;
 
     if (line.trim() === "") { i++; continue; }
 
@@ -38,8 +38,8 @@ function tokenize(source: string): Block[] {
     if (/^```/.test(line)) {
       const body: string[] = [];
       i++;
-      while (i < lines.length && !/^```/.test(lines[i])) {
-        body.push(lines[i]);
+      while (i < lines.length && !/^```/.test(lines[i]!)) {
+        body.push(lines[i]!);
         i++;
       }
       // Skip closing fence if present
@@ -50,16 +50,16 @@ function tokenize(source: string): Block[] {
 
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     if (heading) {
-      const level = heading[1].length as 1 | 2 | 3;
-      blocks.push({ type: `h${level}`, text: heading[2].trim() });
+      const level = heading[1]!.length as 1 | 2 | 3;
+      blocks.push({ type: `h${level}`, text: heading[2]!.trim() });
       i++;
       continue;
     }
 
     if (/^[-*]\s+/.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-*]\s+/, ""));
+      while (i < lines.length && /^[-*]\s+/.test(lines[i]!)) {
+        items.push(lines[i]!.replace(/^[-*]\s+/, ""));
         i++;
       }
       blocks.push({ type: "ul", items });
@@ -68,8 +68,8 @@ function tokenize(source: string): Block[] {
 
     if (/^\d+\.\s+/.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s+/, ""));
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i]!)) {
+        items.push(lines[i]!.replace(/^\d+\.\s+/, ""));
         i++;
       }
       blocks.push({ type: "ol", items });
@@ -78,16 +78,17 @@ function tokenize(source: string): Block[] {
 
     // Paragraph: consume consecutive non-block lines
     const paraLines: string[] = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() !== "" &&
-      !/^---+\s*$/.test(lines[i]) &&
-      !/^```/.test(lines[i]) &&
-      !/^#{1,3}\s/.test(lines[i]) &&
-      !/^[-*]\s/.test(lines[i]) &&
-      !/^\d+\.\s/.test(lines[i])
-    ) {
-      paraLines.push(lines[i]);
+    while (i < lines.length) {
+      const l = lines[i]!;
+      if (
+        l.trim() === "" ||
+        /^---+\s*$/.test(l) ||
+        /^```/.test(l) ||
+        /^#{1,3}\s/.test(l) ||
+        /^[-*]\s/.test(l) ||
+        /^\d+\.\s/.test(l)
+      ) break;
+      paraLines.push(l);
       i++;
     }
     if (paraLines.length > 0) {

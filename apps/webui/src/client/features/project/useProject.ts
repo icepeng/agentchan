@@ -1,21 +1,19 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useSWRConfig } from "swr";
 import {
   useProjectState,
   useProjectDispatch,
-  fetchProjects as apiFetchProjects,
-  createProject as apiCreate,
-  updateProject as apiUpdate,
-  deleteProject as apiDelete,
-  duplicateProject as apiDuplicate,
+  useProjects,
+  useProjectMutations,
 } from "@/client/entities/project/index.js";
 import {
   useSessionState,
   useSessionDispatch,
-  fetchConversations,
-  fetchConversation,
+  selectSession,
   abortProjectStream,
+  type Conversation,
 } from "@/client/entities/session/index.js";
-import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
+import { qk } from "@/client/shared/queryKeys.js";
 import { localStore } from "@/client/shared/storage.js";
 
 export function useProject() {
@@ -23,13 +21,31 @@ export function useProject() {
   const projectDispatch = useProjectDispatch();
   const sessionState = useSessionState();
   const sessionDispatch = useSessionDispatch();
-  const skillDispatch = useSkillDispatch();
+  const { mutate } = useSWRConfig();
 
-  const loadProjects = useCallback(async () => {
-    const projects = await apiFetchProjects();
-    projectDispatch({ type: "SET_PROJECTS", projects });
-    return projects;
-  }, [projectDispatch]);
+  const { data: projects = [] } = useProjects();
+  const {
+    create: createProjectMutation,
+    update: updateProjectMutation,
+    remove: deleteProjectMutation,
+    duplicate: duplicateProjectMutation,
+  } = useProjectMutations();
+
+  // Ref so selectProject doesn't re-create on every stream delta.
+  const sessionStateRef = useRef(sessionState);
+  useEffect(() => { sessionStateRef.current = sessionState; });
+
+  const activateProject = useCallback(
+    async (slug: string): Promise<Conversation[]> => {
+      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug });
+      // Single GET: SWR's fetcher runs, result seeds the cache atomically.
+      // Calling `fetchConversations` separately risked a duplicate fetch when
+      // `useConversations(slug)` mounted outside the dedupe window.
+      const conversations = await mutate<Conversation[]>(qk.conversations(slug));
+      return conversations ?? [];
+    },
+    [projectDispatch, mutate],
+  );
 
   const selectProject = useCallback(
     async (slug: string) => {
@@ -39,106 +55,88 @@ export function useProject() {
       if (projectState.activeProjectSlug === slug) return;
 
       localStore.lastProject.write(slug);
-      const rememberedSessionId = projectState.projectActiveSession.get(slug);
-      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug, currentConversationId: sessionState.activeConversationId });
-      // SWITCH_PROJECT replaces the active view but preserves streams Map so
-      // background streams on other projects keep running and can notify on completion.
-      sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: slug, conversations: [] });
-      skillDispatch({ type: "CLEAR" });
-      const [conversations, skills] = await Promise.all([
-        fetchConversations(slug),
-        fetchSkills(slug),
+      const rememberedSessionId = selectSession(sessionStateRef.current, slug).conversationId;
+
+      // Conversations list + remembered detail fetch in parallel. The detail
+      // fetch is speculative (we don't yet know the remembered id is valid);
+      // if the conversation was deleted server-side, SWR's 404 leaves the
+      // cache untouched and we skip the dispatch below.
+      const [conversations] = await Promise.all([
+        activateProject(slug),
+        rememberedSessionId
+          ? mutate(qk.conversation(slug, rememberedSessionId))
+          : Promise.resolve(null),
       ]);
-      sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
-      skillDispatch({ type: "SET_SKILLS", skills });
-      // Restore the previously active session if it still exists
-      if (rememberedSessionId && conversations.some((c: { id: string }) => c.id === rememberedSessionId)) {
-        const data = await fetchConversation(slug, rememberedSessionId);
+
+      if (rememberedSessionId && conversations.some((c) => c.id === rememberedSessionId)) {
         sessionDispatch({
           type: "SET_ACTIVE_CONVERSATION",
-          conversation: data.conversation,
-          nodes: data.nodes,
-          activePath: data.activePath,
+          projectSlug: slug,
+          conversationId: rememberedSessionId,
         });
       }
     },
-    [projectState.activeProjectSlug, projectState.projectActiveSession, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
+    [projectState.activeProjectSlug, activateProject, sessionDispatch, mutate],
   );
 
   const createProject = useCallback(
     async (name: string, fromTemplate?: string) => {
-      const project = await apiCreate(name, fromTemplate);
-      projectDispatch({ type: "ADD_PROJECT", project });
-      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
-      sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: project.slug, conversations: [] });
-      skillDispatch({ type: "CLEAR" });
-      if (fromTemplate) {
-        const skills = await fetchSkills(project.slug);
-        skillDispatch({ type: "SET_SKILLS", skills });
-      }
+      const project = await createProjectMutation(name, fromTemplate);
+      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
       return project;
     },
-    [sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
+    [createProjectMutation, projectDispatch],
   );
 
   const duplicateProject = useCallback(
     async (sourceSlug: string, name: string) => {
-      const project = await apiDuplicate(sourceSlug, name);
-      projectDispatch({ type: "ADD_PROJECT", project });
-      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug, currentConversationId: sessionState.activeConversationId });
-      sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: project.slug, conversations: [] });
-      skillDispatch({ type: "CLEAR" });
-      const [conversations, skills] = await Promise.all([
-        fetchConversations(project.slug),
-        fetchSkills(project.slug),
-      ]);
-      sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
-      skillDispatch({ type: "SET_SKILLS", skills });
+      const project = await duplicateProjectMutation(sourceSlug, name);
+      await activateProject(project.slug);
       return project;
     },
-    [sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
+    [duplicateProjectMutation, activateProject],
   );
 
   const renameProject = useCallback(
     async (slug: string, name: string) => {
-      const updated = await apiUpdate(slug, { name });
-      projectDispatch({ type: "UPDATE_PROJECT", oldSlug: slug, project: updated });
-      return updated;
+      return updateProjectMutation(slug, { name });
     },
-    [projectDispatch],
+    [updateProjectMutation],
   );
 
   const deleteProject = useCallback(
     async (slug: string) => {
-      // If a stream is in flight for this project, abort it before deletion so
-      // pi-agent-core can cancel the LLM request and we don't keep billing.
-      // Also drop the stream slot so stale completion events can't resurrect state.
+      // Abort any in-flight stream so pi-agent-core cancels the LLM request
+      // and drop the session slot so stale completion events can't resurrect it.
       abortProjectStream(slug);
-      sessionDispatch({ type: "REMOVE_STREAM", projectSlug: slug });
+      sessionDispatch({ type: "CLOSE_SESSION", projectSlug: slug });
 
-      await apiDelete(slug);
-      projectDispatch({ type: "DELETE_PROJECT", slug });
+      await deleteProjectMutation(slug);
+
       if (projectState.activeProjectSlug === slug) {
-        const fallback = projectState.projects.find((p) => p.slug !== slug);
+        const fallback = projects.find((p) => p.slug !== slug);
         if (fallback) {
           localStore.lastProject.write(fallback.slug);
-          projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: fallback.slug, currentConversationId: sessionState.activeConversationId });
-          sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: fallback.slug, conversations: [] });
-          skillDispatch({ type: "CLEAR" });
-          const [conversations, skills] = await Promise.all([
-            fetchConversations(fallback.slug),
-            fetchSkills(fallback.slug),
-          ]);
-          sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
-          skillDispatch({ type: "SET_SKILLS", skills });
+          await activateProject(fallback.slug);
         } else {
-          // No remaining projects — clear the view.
-          sessionDispatch({ type: "SWITCH_PROJECT", projectSlug: null, conversations: [] });
+          projectDispatch({ type: "CLEAR_RENDER" });
         }
       }
     },
-    [projectState.activeProjectSlug, projectState.projects, sessionState.activeConversationId, projectDispatch, sessionDispatch, skillDispatch],
+    [
+      projectState.activeProjectSlug,
+      projects,
+      deleteProjectMutation,
+      sessionDispatch,
+      projectDispatch,
+      activateProject,
+    ],
   );
+
+  const loadProjects = useCallback(async () => {
+    const next = await mutate(qk.projects());
+    return next ?? projects;
+  }, [mutate, projects]);
 
   return {
     loadProjects,
@@ -148,6 +146,6 @@ export function useProject() {
     renameProject,
     deleteProject,
     activeProjectSlug: projectState.activeProjectSlug,
-    projects: projectState.projects,
+    projects,
   };
 }

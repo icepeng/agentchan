@@ -4,8 +4,8 @@ import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
-import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useTemplates } from "@/client/entities/template/index.js";
+import { useSessionState, selectStreamSlot } from "@/client/entities/session/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
@@ -66,7 +66,7 @@ export function ProjectTabs() {
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
   const session = useSessionState();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
-  const [templates, setTemplates] = useState<TemplateMeta[] | null>(null);
+  const { data: templates } = useTemplates();
   const createInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
@@ -74,11 +74,6 @@ export function ProjectTabs() {
   const isCreating = mode.type === "creating";
   const isEditing = mode.type === "editing";
   const isDuplicating = mode.type === "duplicating";
-
-  const loadTemplates = useCallback(() => {
-    if (templates !== null) return;
-    void fetchTemplates().then(setTemplates);
-  }, [templates]);
 
   useEffect(() => {
     if (isCreating || isDuplicating) createInputRef.current?.focus();
@@ -182,7 +177,7 @@ export function ProjectTabs() {
           className={`w-full px-3 py-2 rounded-xl text-sm font-mono bg-elevated border text-accent outline-none placeholder:text-fg-4 ${mode.error ? "border-danger/60 animate-shake" : "border-accent/30"}`}
         />
       ) : (
-        <Menu.Root onOpenChange={(open) => { if (open) loadTemplates(); }}>
+        <Menu.Root>
           <Menu.Trigger
             render={
               <button
@@ -248,10 +243,10 @@ export function ProjectTabs() {
 
       {projects.map((project) => {
         const isActive = activeProjectSlug === project.slug;
-        const slot = session.streams.get(project.slug);
-        const streamState: "idle" | "streaming" | "error" = slot?.streamError
+        const slot = selectStreamSlot(session, project.slug);
+        const streamState: "idle" | "streaming" | "error" = slot.streamError
           ? "error"
-          : slot?.isStreaming
+          : slot.isStreaming
             ? "streaming"
             : "idle";
 

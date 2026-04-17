@@ -45,10 +45,11 @@ export function parseConversationFile(content: string): ParsedConversation {
   let headerLine: string | null = null;
   let header: ConversationHeader | null = null;
   let startIdx = 0;
+  const firstLine = lines[0];
   try {
-    const first = JSON.parse(lines[0]);
+    const first = JSON.parse(firstLine!);
     if (first._header) {
-      headerLine = lines[0];
+      headerLine = firstLine!;
       header = first as ConversationHeader;
       startIdx = 1;
     }
@@ -58,7 +59,9 @@ export function parseConversationFile(content: string): ParsedConversation {
   const branchMarkers: BranchMarker[] = [];
 
   for (let i = startIdx; i < lines.length; i++) {
-    const parsed = JSON.parse(lines[i]);
+    const line = lines[i];
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     if (parsed._marker === "branch") {
       branchMarkers.push(parsed as BranchMarker);
     } else {
@@ -120,7 +123,7 @@ export function deriveConversation(
     : "New conversation";
 
   const createdAt = header?.createdAt ?? nodes[0]?.createdAt ?? Date.now();
-  const updatedAt = nodes.length > 0 ? nodes[nodes.length - 1].createdAt : createdAt;
+  const updatedAt = nodes[nodes.length - 1]?.createdAt ?? createdAt;
 
   const rootNode = nodes.find((n) => n.parentId === null);
   const rootNodeId = rootNode?.id ?? "";
@@ -129,13 +132,14 @@ export function deriveConversation(
   if (rootNodeId) {
     const treeMap = tree ?? buildTreeMap(nodes);
     const path = computeActivePath(treeMap, rootNodeId);
-    activeLeafId = path.length > 0 ? path[path.length - 1] : "";
+    activeLeafId = path[path.length - 1] ?? "";
   }
 
   // Backward search — avoids copying the array
   let lastAssistant: TreeNode | undefined;
   for (let i = nodes.length - 1; i >= 0; i--) {
-    if (nodes[i].message.role === "assistant") { lastAssistant = nodes[i]; break; }
+    const node = nodes[i];
+    if (node && node.message.role === "assistant") { lastAssistant = node; break; }
   }
   const assistantMsg = lastAssistant?.message as AssistantMessage | undefined;
   const provider = assistantMsg?.provider ?? header?.provider ?? "";

@@ -46,7 +46,7 @@ export interface Conversation {
   mode?: "creative" | "meta";
 }
 
-// --- Streaming state ---
+// --- Runtime-only: tool call in-progress view ---
 
 export interface ToolCallState {
   id: string;

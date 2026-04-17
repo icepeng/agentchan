@@ -1,11 +1,10 @@
 import { X } from "lucide-react";
 import { Dialog, IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 import { ReadmeView } from "@/client/shared/ReadmeView.js";
-import { useReadmeCache } from "@/client/shared/useReadmeCache.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useProject } from "./useProject.js";
-import { fetchProjectReadme } from "@/client/entities/project/index.js";
+import { useProjectReadme } from "@/client/entities/project/index.js";
 
 /**
  * In-project README viewer invoked by the `/readme` slash command. Pure client
@@ -20,7 +19,7 @@ export function ProjectReadmeModal() {
   // Only fetch once the modal is open; otherwise every project switch would
   // eagerly pull a README the user may never view.
   const slug = ui.readmeOpen ? activeProjectSlug : null;
-  const doc = useReadmeCache(slug, fetchProjectReadme);
+  const { data: doc, isLoading } = useProjectReadme(slug);
   const activeProject = projects.find((p) => p.slug === activeProjectSlug) ?? null;
 
   const handleClose = () => uiDispatch({ type: "CLOSE_README" });
@@ -44,7 +43,7 @@ export function ProjectReadmeModal() {
         </IconButton>
       </div>
       <ScrollArea className="max-h-[70vh]" viewportClassName="px-8 py-6">
-        {doc === undefined ? (
+        {isLoading ? (
           <div className="text-fg-4 text-sm">{t("templates.loading")}</div>
         ) : hasContent ? (
           <ReadmeView

@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useI18n } from "@/client/i18n/index.js";
 import { Dialog, Button, Badge, Indicator, Select } from "@/client/shared/ui/index.js";
 import { BASE } from "@/client/shared/api.js";
-import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
+import { useTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import type { ProviderInfo } from "@/client/entities/config/index.js";
 import { OAuthProviderCard } from "@/client/features/oauth/index.js";
 import {
@@ -263,26 +263,15 @@ function TemplatePickerStep({
   onBrowseAll: () => void;
 }) {
   const { t } = useI18n();
-  const [templates, setTemplates] = useState<TemplateMeta[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchTemplates()
-      .then((list) => {
-        if (cancelled) return;
-        const bySlug = new Map(list.map((tpl) => [tpl.slug, tpl]));
-        const featured = FEATURED_SLUGS.map((slug) => bySlug.get(slug)).filter(
-          (tpl): tpl is TemplateMeta => tpl !== undefined,
-        );
-        setTemplates(featured);
-      })
-      .catch(() => {
-        if (!cancelled) setTemplates([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: allTemplates, isLoading } = useTemplates();
+  const templates = useMemo<TemplateMeta[] | null>(() => {
+    if (isLoading) return null;
+    if (!allTemplates) return [];
+    const bySlug = new Map(allTemplates.map((tpl) => [tpl.slug, tpl]));
+    return FEATURED_SLUGS.map((slug) => bySlug.get(slug)).filter(
+      (tpl): tpl is TemplateMeta => tpl !== undefined,
+    );
+  }, [allTemplates, isLoading]);
 
   return (
     <div className="w-full max-w-2xl animate-fade">

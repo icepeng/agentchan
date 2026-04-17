@@ -81,7 +81,9 @@ function computeKeepCount(refs: Ref[], budget: number): number {
   let tokens = 0;
   let keep = 0;
   for (let i = refs.length - 1; i >= 0; i--) {
-    const next = tokens + refs[i].tokens;
+    const ref = refs[i];
+    if (!ref) continue;
+    const next = tokens + ref.tokens;
     if (next > budget && keep > 0) break;
     tokens = next;
     keep++;
