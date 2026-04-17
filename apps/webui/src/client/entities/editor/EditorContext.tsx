@@ -8,52 +8,25 @@ import {
 import type { EditorState, EditorAction } from "./editor.types.js";
 
 const initialState: EditorState = {
-  treeEntries: [],
   selectedPath: null,
-  fileContent: null,
   localContent: null,
   dirty: false,
 };
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
-    case "SET_TREE":
-      return { ...state, treeEntries: action.entries };
     case "SELECT_FILE":
-      return {
-        ...state,
-        selectedPath: action.path,
-        fileContent: action.content,
-        localContent: action.content,
-        dirty: false,
-      };
+      // Reset the buffer; SYNC_EXTERNAL_CONTENT will land once the SWR cache
+      // resolves the new file's content.
+      return { selectedPath: action.path, localContent: null, dirty: false };
     case "SYNC_EXTERNAL_CONTENT":
-      return {
-        ...state,
-        fileContent: action.content,
-        localContent: action.content,
-        dirty: false,
-      };
+      return { ...state, localContent: action.content, dirty: false };
     case "UPDATE_LOCAL_CONTENT":
-      return {
-        ...state,
-        localContent: action.content,
-        dirty: action.content !== state.fileContent,
-      };
+      return { ...state, localContent: action.content, dirty: true };
     case "MARK_CLEAN":
-      return {
-        ...state,
-        fileContent: state.localContent,
-        dirty: false,
-      };
+      return { ...state, dirty: false };
     case "DESELECT_FILE":
-      return {
-        ...state,
-        selectedPath: null,
-        fileContent: null,
-        localContent: null,
-        dirty: false,
-      };
+      return { selectedPath: null, localContent: null, dirty: false };
     case "RENAME_SELECTED":
       return { ...state, selectedPath: action.newPath };
     case "CLEAR":

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ArrowLeft, BookOpen, GripVertical } from "lucide-react";
+import { useSWRConfig } from "swr";
 import {
   DndContext,
   KeyboardSensor,
@@ -20,15 +21,15 @@ import { CSS } from "@dnd-kit/utilities";
 import { useI18n } from "@/client/i18n/index.js";
 import { useUIDispatch } from "@/client/entities/ui/index.js";
 import {
-  fetchTemplates,
-  fetchTemplateReadme,
   saveTemplateOrder,
+  useTemplates,
+  useTemplateReadme,
   type TemplateMeta,
 } from "@/client/entities/template/index.js";
+import { qk } from "@/client/shared/queryKeys.js";
 import { useProject } from "@/client/features/project/index.js";
 import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 import { ReadmeView, type ReadmeDoc } from "@/client/shared/ReadmeView.js";
-import { useReadmeCache } from "@/client/shared/useReadmeCache.js";
 import { BASE } from "@/client/shared/api.js";
 
 /** Two-digit order index ("01", "02", …) used in the left rail and separator. */
@@ -107,24 +108,23 @@ export function TemplatesPage() {
   const { t } = useI18n();
   const uiDispatch = useUIDispatch();
   const { createProject } = useProject();
+  const { mutate } = useSWRConfig();
 
-  const [templates, setTemplates] = useState<TemplateMeta[] | null>(null);
+  const { data: templates, isLoading } = useTemplates();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [creating, setCreating] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-select first template once the list arrives.
   useEffect(() => {
-    let cancelled = false;
-    void fetchTemplates().then((list) => {
-      if (cancelled) return;
-      setTemplates(list);
-      if (list[0]) setSelectedSlug(list[0].slug);
-    });
-    return () => { cancelled = true; };
-  }, []);
+    if (selectedSlug || !templates) return;
+    const first = templates[0];
+    if (!first) return;
+    setSelectedSlug(first.slug);
+  }, [templates, selectedSlug]);
 
-  const readme = useReadmeCache(selectedSlug, fetchTemplateReadme);
+  const { data: readme } = useTemplateReadme(selectedSlug);
 
   const selectedIndex = templates && selectedSlug
     ? templates.findIndex((t) => t.slug === selectedSlug)
@@ -186,23 +186,34 @@ export function TemplatesPage() {
   );
 
   const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
+    async (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
       if (!templates) return;
       const from = templates.findIndex((x) => x.slug === active.id);
       const to = templates.findIndex((x) => x.slug === over.id);
       if (from < 0 || to < 0) return;
-      const snapshot = templates;
       const next = arrayMove(templates, from, to);
-      setTemplates(next);
-      saveTemplateOrder(next.map((x) => x.slug)).catch((err: unknown) => {
+      try {
+        await mutate<TemplateMeta[]>(
+          qk.templates(),
+          async () => {
+            await saveTemplateOrder(next.map((x) => x.slug));
+            return next;
+          },
+          {
+            optimisticData: next,
+            rollbackOnError: true,
+            revalidate: false,
+            populateCache: true,
+          },
+        );
+      } catch (err) {
         console.error("[templates] reorder failed", err);
-        setTemplates(snapshot);
         alert(t("templates.reorderFailed"));
-      });
+      }
     },
-    [templates, t],
+    [templates, mutate, t],
   );
 
   const templateIds = useMemo(() => templates?.map((tpl) => tpl.slug) ?? [], [templates]);
@@ -233,7 +244,7 @@ export function TemplatesPage() {
         </span>
       </div>
 
-      {templates === null ? (
+      {!templates || isLoading ? (
         <div className="flex-1 flex items-center justify-center text-fg-4 text-sm">
           {t("templates.loading")}
         </div>

@@ -2,21 +2,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Button } from "@/client/shared/ui/index.js";
 import { useClipboard } from "@/client/shared/useClipboard.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { loginOAuthStream } from "@/client/entities/config/index.js";
-import type { OAuthAuthInfo, OAuthStatus } from "@/client/entities/config/index.js";
+import { useConfigMutations } from "@/client/entities/config/index.js";
+import type { OAuthAuthInfo } from "@/client/entities/config/index.js";
 
 export function DeviceCodeModal({
   providerName,
   providerLabel,
-  onDone,
   onClose,
 }: {
   providerName: string;
   providerLabel: string;
-  onDone: (status: OAuthStatus) => void | Promise<void>;
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const { loginOAuth } = useConfigMutations();
   const [authInfo, setAuthInfo] = useState<OAuthAuthInfo | null>(null);
   const [progress, setProgress] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -30,27 +29,25 @@ export function DeviceCodeModal({
     return (match?.[1] ?? raw).trim();
   }, [authInfo?.instructions]);
 
-  const onDoneRef = useRef(onDone);
+  // loginOAuth identity rotates each render — capture in a ref so the streaming
+  // useEffect doesn't restart and abort its own in-flight poll.
   const onCloseRef = useRef(onClose);
+  const loginOAuthRef = useRef(loginOAuth);
   useEffect(() => {
-    onDoneRef.current = onDone;
     onCloseRef.current = onClose;
+    loginOAuthRef.current = loginOAuth;
   });
 
   useEffect(() => {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    void loginOAuthStream(providerName, {
+    void loginOAuthRef.current(providerName, {
       signal: controller.signal,
       onAuth: (info) => setAuthInfo(info),
       onProgress: (msg) => setProgress(msg),
-      onDone: async (status) => {
-        try {
-          await onDoneRef.current(status);
-        } finally {
-          if (!controller.signal.aborted) onCloseRef.current();
-        }
+      onDone: () => {
+        if (!controller.signal.aborted) onCloseRef.current();
       },
       onError: (msg) => {
         if (controller.signal.aborted) return;

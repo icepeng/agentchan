@@ -5,16 +5,28 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-import type { Conversation, TreeNode, ToolCallState } from "./session.types.js";
+import { useProjectState } from "@/client/entities/project/index.js";
+import type { ToolCallState } from "@/client/entities/conversation/index.js";
 
-// --- State ---
+// --- Types ---
+
+export interface SessionUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  cacheCreationTokens: number;
+  cost: number;
+  contextTokens: number;
+}
 
 /**
- * Per-project streaming snapshot.
+ * Runtime snapshot of an active stream. `null` when the session is idle.
  *
- * Kept in a `streams: Map<projectSlug, StreamSlot>` so background streams
- * (on a project the user has navigated away from) continue to accumulate
- * partial text and tool state, and are surfaced again if the user returns.
+ * `streamUsageDelta` accumulates usage summaries received mid-stream so the UI
+ * can tick tokens up before `assistant_nodes` lands in the SWR cache. On
+ * STREAM_RESET (per-round end) and STREAM_START the delta is cleared — once
+ * nodes are written through to `qk.conversation(slug, id)`, the canonical
+ * usage is derived from the node tree (`useActiveUsage`).
  */
 export interface StreamSlot {
   conversationId: string;
@@ -22,59 +34,43 @@ export interface StreamSlot {
   streamingText: string;
   streamingToolCalls: ToolCallState[];
   streamError: string | null;
+  streamUsageDelta: SessionUsage;
+}
+
+/**
+ * Runtime state for a single project: which conversation is active, the
+ * optional reply-to anchor the user has picked, and the in-flight stream slot.
+ *
+ * Everything server-backed (conversation tree, usage totals, conversation
+ * list) lives in SWR caches keyed by `(slug, conversationId)`; this reducer
+ * holds only the client-only bits (selection, reply-to, live stream deltas).
+ */
+export interface Session {
+  conversationId: string | null;
+  replyToNodeId: string | null;
+  stream: StreamSlot | null;
 }
 
 export interface SessionState {
-  /** Mirror of ProjectState.activeProjectSlug — kept in sync via SWITCH_PROJECT. */
-  activeProjectSlug: string | null;
-
-  // Active project's session view:
-  conversations: Conversation[];
-  activeConversationId: string | null;
-  nodes: Map<string, TreeNode>;
-  activePath: string[];
-  replyToNodeId: string | null;
-
-  // Token usage (accumulated for active project's active session)
-  sessionUsage: {
-    inputTokens: number;
-    outputTokens: number;
-    cachedInputTokens: number;
-    cacheCreationTokens: number;
-    cost: number;
-    contextTokens: number;
-  };
-
-  /** Per-project stream state. Only entries for projects with live or recently-ended streams. */
-  streams: Map<string /* projectSlug */, StreamSlot>;
+  sessions: Map<string /* projectSlug */, Session>;
 }
 
 // --- Actions ---
 
-/**
- * Streaming actions all carry `projectSlug` so we can:
- *   - always update `streams.get(projectSlug)` for background accumulation
- *   - only touch the "active view" state (nodes/activePath/sessionUsage)
- *     when `projectSlug === state.activeProjectSlug`
- */
 export type SessionAction =
-  // Project / conversation lifecycle
-  | { type: "SWITCH_PROJECT"; projectSlug: string | null; conversations: Conversation[] }
-  | { type: "SET_CONVERSATIONS"; conversations: Conversation[] }
-  | { type: "SET_ACTIVE_CONVERSATION"; conversation: Conversation; nodes: TreeNode[]; activePath: string[] }
-  | { type: "ADD_NODE"; node: TreeNode }
-  | { type: "ADD_NODES"; nodes: TreeNode[] }
-  | { type: "APPEND_USER_NODE"; projectSlug: string; node: TreeNode }
-  | { type: "SET_ACTIVE_PATH"; activePath: string[] }
-  | { type: "NEW_CONVERSATION"; conversation: Conversation; nodes?: TreeNode[] }
-  | { type: "DELETE_CONVERSATION"; id: string }
-  | { type: "SET_REPLY_TO"; nodeId: string | null }
   | {
-      type: "STREAM_COMPLETE";
+      type: "SET_ACTIVE_CONVERSATION";
       projectSlug: string;
-      nodes: TreeNode[];
-      conversation?: Conversation;
+      conversationId: string | null;
     }
+  | { type: "SET_REPLY_TO"; projectSlug: string; nodeId: string | null }
+  | { type: "STREAM_START"; projectSlug: string; conversationId: string }
+  | { type: "STREAM_TEXT_DELTA"; projectSlug: string; text: string }
+  | { type: "STREAM_TOOL_START"; projectSlug: string; id: string; name: string }
+  | { type: "STREAM_TOOL_DELTA"; projectSlug: string; id: string; inputJson: string }
+  | { type: "STREAM_TOOL_END"; projectSlug: string; id: string }
+  | { type: "TOOL_EXEC_START"; projectSlug: string; id: string; parallel: boolean }
+  | { type: "TOOL_EXEC_END"; projectSlug: string; id: string }
   | {
       type: "STREAM_USAGE_SUMMARY";
       projectSlug: string;
@@ -85,344 +81,176 @@ export type SessionAction =
       cost?: number;
       contextTokens?: number;
     }
-  // Streaming (all carry projectSlug)
-  | { type: "STREAM_START"; projectSlug: string; conversationId: string }
-  | { type: "STREAM_TEXT_DELTA"; projectSlug: string; text: string }
-  | { type: "STREAM_TOOL_START"; projectSlug: string; id: string; name: string }
-  | { type: "STREAM_TOOL_DELTA"; projectSlug: string; id: string; inputJson: string }
-  | { type: "STREAM_TOOL_END"; projectSlug: string; id: string }
-  | { type: "TOOL_EXEC_START"; projectSlug: string; id: string; parallel: boolean }
-  | { type: "TOOL_EXEC_END"; projectSlug: string; id: string }
   | { type: "STREAM_RESET"; projectSlug: string }
   | { type: "STREAM_ERROR"; projectSlug: string; error: string }
-  /** Remove a stream slot entirely (e.g. after project delete). */
-  | { type: "REMOVE_STREAM"; projectSlug: string };
+  | { type: "CLOSE_SESSION"; projectSlug: string };
 
 // --- Helpers ---
 
-function buildNodeMap(nodes: TreeNode[]): Map<string, TreeNode> {
-  const map = new Map<string, TreeNode>();
-  for (const node of nodes) map.set(node.id, node);
-  return map;
-}
+export const EMPTY_USAGE: SessionUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cachedInputTokens: 0,
+  cacheCreationTokens: 0,
+  cost: 0,
+  contextTokens: 0,
+};
 
-function insertNode(map: Map<string, TreeNode>, node: TreeNode): void {
-  map.set(node.id, node);
-  if (node.parentId) {
-    const parent = map.get(node.parentId);
-    if (parent) {
-      const children = parent.children ? [...parent.children] : [];
-      if (!children.includes(node.id)) children.push(node.id);
-      map.set(parent.id, { ...parent, children, activeChildId: node.id });
-    }
-  }
-}
-
-const emptySlot: StreamSlot = {
+const EMPTY_STREAM: StreamSlot = {
   conversationId: "",
   isStreaming: false,
   streamingText: "",
   streamingToolCalls: [],
   streamError: null,
+  streamUsageDelta: EMPTY_USAGE,
 };
 
-function updateSlot(
-  streams: Map<string, StreamSlot>,
+const EMPTY_SESSION: Session = {
+  conversationId: null,
+  replyToNodeId: null,
+  stream: null,
+};
+
+function updateSession(
+  state: SessionState,
   slug: string,
-  fn: (slot: StreamSlot) => StreamSlot,
-): Map<string, StreamSlot> {
-  const next = new Map(streams);
-  const current = next.get(slug) ?? { ...emptySlot };
-  next.set(slug, fn(current));
-  return next;
+  fn: (session: Session) => Session,
+): SessionState {
+  const current = state.sessions.get(slug) ?? EMPTY_SESSION;
+  const updated = fn(current);
+  if (updated === current) return state;
+  const next = new Map(state.sessions);
+  next.set(slug, updated);
+  return { sessions: next };
+}
+
+function updateStream(
+  state: SessionState,
+  slug: string,
+  fn: (stream: StreamSlot) => StreamSlot,
+): SessionState {
+  return updateSession(state, slug, (session) => ({
+    ...session,
+    stream: fn(session.stream ?? EMPTY_STREAM),
+  }));
 }
 
 // --- Reducer ---
 
-const emptyUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, cacheCreationTokens: 0, cost: 0, contextTokens: 0 };
-
 function sessionReducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
-    // --- Project / conversation lifecycle ---
-
-    case "SWITCH_PROJECT":
-      // Replace active view state with the new project's conversations.
-      // Preserve streams Map so background streams keep accumulating.
-      return {
-        ...state,
-        activeProjectSlug: action.projectSlug,
-        conversations: action.conversations,
-        activeConversationId: null,
-        nodes: new Map(),
-        activePath: [],
+    case "SET_ACTIVE_CONVERSATION":
+      return updateSession(state, action.projectSlug, (session) => ({
+        ...session,
+        conversationId: action.conversationId,
         replyToNodeId: null,
-        sessionUsage: { ...emptyUsage },
-      };
-
-    case "SET_CONVERSATIONS":
-      return { ...state, conversations: action.conversations };
-
-    case "SET_ACTIVE_CONVERSATION": {
-      const nodeMap = buildNodeMap(action.nodes);
-      let totalInput = 0, totalOutput = 0, totalCachedInput = 0, totalCacheCreation = 0, totalCost = 0;
-      for (const node of action.nodes) {
-        const u = node.usage;
-        if (u) {
-          totalInput += u.inputTokens;
-          totalOutput += u.outputTokens;
-          totalCachedInput += u.cachedInputTokens ?? 0;
-          totalCacheCreation += u.cacheCreationTokens ?? 0;
-          totalCost += u.cost ?? 0;
-        }
-      }
-      let contextTokens = 0;
-      for (let i = action.activePath.length - 1; i >= 0; i--) {
-        const nodeId = action.activePath[i];
-        if (!nodeId) continue;
-        const ct = nodeMap.get(nodeId)?.usage?.contextTokens;
-        if (ct) { contextTokens = ct; break; }
-      }
-      const conversations = state.conversations.map((c) =>
-        c.id === action.conversation.id ? action.conversation : c,
-      );
-      return {
-        ...state,
-        conversations,
-        activeConversationId: action.conversation.id,
-        nodes: nodeMap,
-        activePath: action.activePath,
-        replyToNodeId: null,
-        sessionUsage: {
-          inputTokens: totalInput, outputTokens: totalOutput,
-          cachedInputTokens: totalCachedInput, cacheCreationTokens: totalCacheCreation,
-          cost: totalCost, contextTokens,
-        },
-      };
-    }
-
-    case "ADD_NODE": {
-      const newNodes = new Map(state.nodes);
-      insertNode(newNodes, action.node);
-      return { ...state, nodes: newNodes };
-    }
-
-    case "ADD_NODES": {
-      const newNodes = new Map(state.nodes);
-      for (const node of action.nodes) insertNode(newNodes, node);
-      return { ...state, nodes: newNodes };
-    }
-
-    case "APPEND_USER_NODE": {
-      // Drop late-arriving user_node events from background (no-longer-active) projects.
-      // The server has persisted the node to disk; it'll show up when user navigates back.
-      if (action.projectSlug !== state.activeProjectSlug) return state;
-      const newNodes = new Map(state.nodes);
-      insertNode(newNodes, action.node);
-      return {
-        ...state,
-        nodes: newNodes,
-        activePath: [...state.activePath, action.node.id],
-      };
-    }
-
-    case "SET_ACTIVE_PATH":
-      return { ...state, activePath: action.activePath };
-
-    case "NEW_CONVERSATION": {
-      const seeded = action.nodes ?? [];
-      const nodeMap = buildNodeMap(seeded);
-      return {
-        ...state,
-        conversations: [action.conversation, ...state.conversations],
-        activeConversationId: action.conversation.id,
-        nodes: nodeMap,
-        activePath: seeded.map((n) => n.id),
-        replyToNodeId: null,
-        sessionUsage: { ...emptyUsage },
-      };
-    }
-
-    case "DELETE_CONVERSATION": {
-      const remaining = state.conversations.filter((c) => c.id !== action.id);
-      const isActive = state.activeConversationId === action.id;
-      return {
-        ...state,
-        conversations: remaining,
-        ...(isActive
-          ? { activeConversationId: null, nodes: new Map(), activePath: [], replyToNodeId: null }
-          : {}),
-      };
-    }
+      }));
 
     case "SET_REPLY_TO":
-      return { ...state, replyToNodeId: action.nodeId };
+      return updateSession(state, action.projectSlug, (session) => ({
+        ...session,
+        replyToNodeId: action.nodeId,
+      }));
 
-    case "STREAM_COMPLETE": {
-      // Always reset the slot.
-      const streams = updateSlot(state.streams, action.projectSlug, (slot) => ({
-        ...slot,
+    // --- Streaming slot ---
+
+    case "STREAM_START":
+      return updateStream(state, action.projectSlug, () => ({
+        conversationId: action.conversationId,
+        isStreaming: true,
+        streamingText: "",
+        streamingToolCalls: [],
+        streamError: null,
+        streamUsageDelta: EMPTY_USAGE,
+      }));
+
+    case "STREAM_TEXT_DELTA":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        streamingText: stream.streamingText + action.text,
+      }));
+
+    case "STREAM_TOOL_START":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        streamingToolCalls: [
+          ...stream.streamingToolCalls,
+          { id: action.id, name: action.name, inputJson: "", done: false },
+        ],
+      }));
+
+    case "STREAM_TOOL_DELTA":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        streamingToolCalls: stream.streamingToolCalls.map((tc) =>
+          tc.id === action.id ? { ...tc, inputJson: tc.inputJson + action.inputJson } : tc,
+        ),
+      }));
+
+    case "STREAM_TOOL_END":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        streamingToolCalls: stream.streamingToolCalls.map((tc) =>
+          tc.id === action.id ? { ...tc, done: true } : tc,
+        ),
+      }));
+
+    case "TOOL_EXEC_START":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        streamingToolCalls: stream.streamingToolCalls.map((tc) =>
+          tc.id === action.id ? { ...tc, executing: true, parallel: action.parallel } : tc,
+        ),
+      }));
+
+    case "TOOL_EXEC_END":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        streamingToolCalls: stream.streamingToolCalls.map((tc) =>
+          tc.id === action.id ? { ...tc, executing: false } : tc,
+        ),
+      }));
+
+    case "STREAM_USAGE_SUMMARY":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        streamUsageDelta: {
+          inputTokens: stream.streamUsageDelta.inputTokens + action.inputTokens,
+          outputTokens: stream.streamUsageDelta.outputTokens + action.outputTokens,
+          cachedInputTokens:
+            stream.streamUsageDelta.cachedInputTokens + (action.cachedInputTokens ?? 0),
+          cacheCreationTokens:
+            stream.streamUsageDelta.cacheCreationTokens + (action.cacheCreationTokens ?? 0),
+          cost: stream.streamUsageDelta.cost + (action.cost ?? 0),
+          contextTokens: action.contextTokens ?? stream.streamUsageDelta.contextTokens,
+        },
+      }));
+
+    case "STREAM_RESET":
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
         isStreaming: false,
         streamingText: "",
         streamingToolCalls: [],
         streamError: null,
+        streamUsageDelta: EMPTY_USAGE,
       }));
 
-      // Only patch the live tree if the completed stream belongs to the active project.
-      const shouldPatchActive = action.projectSlug === state.activeProjectSlug;
-
-      let nodes = state.nodes;
-      let activePath = state.activePath;
-      let conversations = state.conversations;
-
-      if (shouldPatchActive) {
-        const newNodes = new Map(state.nodes);
-        for (const node of action.nodes) insertNode(newNodes, node);
-        const lastNode = action.nodes[action.nodes.length - 1];
-        activePath = lastNode
-          ? [...state.activePath, ...action.nodes.map((n) => n.id)]
-          : state.activePath;
-        nodes = newNodes;
-        if (action.conversation) {
-          conversations = conversations.map((c) =>
-            c.id === action.conversation!.id ? action.conversation! : c,
-          );
-        }
-      }
-
-      return {
-        ...state,
-        streams,
-        nodes,
-        activePath,
-        replyToNodeId: shouldPatchActive ? null : state.replyToNodeId,
-        conversations,
-      };
-    }
-
-    case "STREAM_USAGE_SUMMARY": {
-      // Usage is only relevant for the active project's view.
-      if (action.projectSlug !== state.activeProjectSlug) return state;
-      return {
-        ...state,
-        sessionUsage: {
-          inputTokens: state.sessionUsage.inputTokens + action.inputTokens,
-          outputTokens: state.sessionUsage.outputTokens + action.outputTokens,
-          cachedInputTokens: state.sessionUsage.cachedInputTokens + (action.cachedInputTokens ?? 0),
-          cacheCreationTokens: state.sessionUsage.cacheCreationTokens + (action.cacheCreationTokens ?? 0),
-          cost: state.sessionUsage.cost + (action.cost ?? 0),
-          contextTokens: action.contextTokens ?? state.sessionUsage.contextTokens,
-        },
-      };
-    }
-
-    // --- Streaming (per-project slot) ---
-
-    case "STREAM_START":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, () => ({
-          conversationId: action.conversationId,
-          isStreaming: true,
-          streamingText: "",
-          streamingToolCalls: [],
-          streamError: null,
-        })),
-      };
-
-    case "STREAM_TEXT_DELTA":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          streamingText: slot.streamingText + action.text,
-        })),
-      };
-
-    case "STREAM_TOOL_START":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          streamingToolCalls: [
-            ...slot.streamingToolCalls,
-            { id: action.id, name: action.name, inputJson: "", done: false },
-          ],
-        })),
-      };
-
-    case "STREAM_TOOL_DELTA":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          streamingToolCalls: slot.streamingToolCalls.map((tc) =>
-            tc.id === action.id ? { ...tc, inputJson: tc.inputJson + action.inputJson } : tc,
-          ),
-        })),
-      };
-
-    case "STREAM_TOOL_END":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          streamingToolCalls: slot.streamingToolCalls.map((tc) =>
-            tc.id === action.id ? { ...tc, done: true } : tc,
-          ),
-        })),
-      };
-
-    case "TOOL_EXEC_START":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          streamingToolCalls: slot.streamingToolCalls.map((tc) =>
-            tc.id === action.id ? { ...tc, executing: true, parallel: action.parallel } : tc,
-          ),
-        })),
-      };
-
-    case "TOOL_EXEC_END":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          streamingToolCalls: slot.streamingToolCalls.map((tc) =>
-            tc.id === action.id ? { ...tc, executing: false } : tc,
-          ),
-        })),
-      };
-
-    case "STREAM_RESET":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          isStreaming: false,
-          streamingText: "",
-          streamingToolCalls: [],
-          streamError: null,
-        })),
-      };
-
     case "STREAM_ERROR":
-      return {
-        ...state,
-        streams: updateSlot(state.streams, action.projectSlug, (slot) => ({
-          ...slot,
-          isStreaming: false,
-          streamingText: "",
-          streamingToolCalls: [],
-          streamError: action.error,
-        })),
-      };
+      return updateStream(state, action.projectSlug, (stream) => ({
+        ...stream,
+        isStreaming: false,
+        streamingText: "",
+        streamingToolCalls: [],
+        streamError: action.error,
+        streamUsageDelta: EMPTY_USAGE,
+      }));
 
-    case "REMOVE_STREAM": {
-      if (!state.streams.has(action.projectSlug)) return state;
-      const next = new Map(state.streams);
+    case "CLOSE_SESSION": {
+      if (!state.sessions.has(action.projectSlug)) return state;
+      const next = new Map(state.sessions);
       next.delete(action.projectSlug);
-      return { ...state, streams: next };
+      return { sessions: next };
     }
 
     default:
@@ -432,16 +260,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
 
 // --- Context ---
 
-const initialState: SessionState = {
-  activeProjectSlug: null,
-  conversations: [],
-  activeConversationId: null,
-  nodes: new Map(),
-  activePath: [],
-  replyToNodeId: null,
-  sessionUsage: { ...emptyUsage },
-  streams: new Map(),
-};
+const initialState: SessionState = { sessions: new Map() };
 
 const SessionStateContext = createContext<SessionState>(initialState);
 const SessionDispatchContext = createContext<Dispatch<SessionAction>>(() => {});
@@ -467,14 +286,21 @@ export function useSessionDispatch() {
 
 // --- Selectors ---
 
-/** Returns the stream slot for a given project, or an empty slot if none. */
-export function selectStreamSlot(state: SessionState, projectSlug: string | null): StreamSlot {
-  if (!projectSlug) return emptySlot;
-  return state.streams.get(projectSlug) ?? emptySlot;
+export function selectSession(state: SessionState, projectSlug: string | null): Session {
+  if (!projectSlug) return EMPTY_SESSION;
+  return state.sessions.get(projectSlug) ?? EMPTY_SESSION;
 }
 
-/** Hook — the active project's stream slot. Use this instead of reading top-level fields. */
-export function useActiveStream(): StreamSlot {
+export function selectStreamSlot(state: SessionState, projectSlug: string | null): StreamSlot {
+  return selectSession(state, projectSlug).stream ?? EMPTY_STREAM;
+}
+
+export function useActiveSession(): Session {
+  const { activeProjectSlug } = useProjectState();
   const state = useSessionState();
-  return selectStreamSlot(state, state.activeProjectSlug);
+  return selectSession(state, activeProjectSlug);
+}
+
+export function useActiveStream(): StreamSlot {
+  return useActiveSession().stream ?? EMPTY_STREAM;
 }

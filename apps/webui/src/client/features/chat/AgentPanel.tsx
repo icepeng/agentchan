@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { useSessionState, useActiveStream } from "@/client/entities/session/index.js";
+import { useActiveSession, useActiveStream } from "@/client/entities/session/index.js";
+import { useProjectState } from "@/client/entities/project/index.js";
+import { useConversationData } from "@/client/entities/conversation/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
@@ -82,9 +84,25 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
 
 // ── Agent Panel ───────────────────────────────
 
+const EMPTY_NODES: readonly TreeNode[] = [];
+const EMPTY_PATH: readonly string[] = [];
+
 export function AgentPanel() {
-  const session = useSessionState();
+  const session = useActiveSession();
   const stream = useActiveStream();
+  const { activeProjectSlug } = useProjectState();
+  const { data: conversationData } = useConversationData(
+    activeProjectSlug,
+    session.conversationId,
+  );
+  const nodes = conversationData?.nodes ?? EMPTY_NODES;
+  const activePath = conversationData?.activePath ?? EMPTY_PATH;
+  const nodeMap = useMemo(() => {
+    const m = new Map<string, TreeNode>();
+    for (const n of nodes) m.set(n.id, n);
+    return m;
+  }, [nodes]);
+
   const { t } = useI18n();
   const { switchBranch, setReplyTo, deleteNode } = useConversation();
   const { regenerate } = useStreaming();
@@ -92,15 +110,15 @@ export function AgentPanel() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session.activePath, stream.streamingText, stream.streamingToolCalls]);
+  }, [activePath, stream.streamingText, stream.streamingToolCalls]);
 
   const getSiblings = (node: TreeNode): string[] => {
     if (!node.parentId) return [node.id];
-    const parent = session.nodes.get(node.parentId);
+    const parent = nodeMap.get(node.parentId);
     return parent?.children ?? [node.id];
   };
 
-  if (!session.activeConversationId) {
+  if (!session.conversationId) {
     return (
       <div className="flex flex-col flex-1 min-h-0">
         <SessionTabs />
@@ -150,8 +168,8 @@ export function AgentPanel() {
           regenerate={regenerate}
           isStreaming={stream.isStreaming}
         >
-          {session.activePath.map((nodeId) => {
-            const node = session.nodes.get(nodeId);
+          {activePath.map((nodeId) => {
+            const node = nodeMap.get(nodeId);
             if (!node) return null;
             return (
               <MessageBubble
@@ -173,7 +191,7 @@ export function AgentPanel() {
 
         <StreamingMessage variant="compact" />
 
-        {session.activePath.length === 0 && !stream.isStreaming && (
+        {activePath.length === 0 && !stream.isStreaming && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-fg-3 tracking-wide">
               {t("chat.awaitingInput")}

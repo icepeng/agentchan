@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog } from "@/client/shared/ui/Dialog.js";
 import { Button, TextInput } from "@/client/shared/ui/index.js";
-import { useProjectState, useProjectDispatch, updateProject } from "@/client/entities/project/index.js";
+import { useProjects, useProjectMutations } from "@/client/entities/project/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 
 interface ProjectSettingsModalProps {
@@ -10,11 +10,11 @@ interface ProjectSettingsModalProps {
 }
 
 export function ProjectSettingsModal({ slug, onClose }: ProjectSettingsModalProps) {
-  const projectState = useProjectState();
-  const projectDispatch = useProjectDispatch();
+  const { data: projects = [] } = useProjects();
+  const { update } = useProjectMutations();
   const { t } = useI18n();
 
-  const project = slug ? projectState.projects.find((p) => p.slug === slug) : null;
+  const project = slug ? projects.find((p) => p.slug === slug) : null;
 
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
@@ -31,8 +31,7 @@ export function ProjectSettingsModal({ slug, onClose }: ProjectSettingsModalProp
     if (!slug) return;
     setSaving(true);
     try {
-      const updated = await updateProject(slug, { name: name.trim() || undefined, notes });
-      projectDispatch({ type: "UPDATE_PROJECT", oldSlug: slug, project: updated });
+      await update(slug, { name: name.trim() || undefined, notes });
       onClose();
     } finally {
       setSaving(false);
