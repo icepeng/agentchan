@@ -30,7 +30,9 @@ function computeUsageFromNodes(
   const byId = new Map(nodes.map((n) => [n.id, n] as const));
   let contextTokens = 0;
   for (let i = activePath.length - 1; i >= 0; i--) {
-    const ct = byId.get(activePath[i])?.usage?.contextTokens;
+    const id = activePath[i];
+    if (!id) continue;
+    const ct = byId.get(id)?.usage?.contextTokens;
     if (ct) {
       contextTokens = ct;
       break;

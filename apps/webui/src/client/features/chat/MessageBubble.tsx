@@ -72,7 +72,10 @@ function BranchNavigator({
   return (
     <div className="inline-flex items-center gap-0.5 text-xs text-fg-3 bg-elevated rounded-full px-1.5 py-0.5 border border-edge/6">
       <button
-        onClick={() => onSwitch(siblings[currentIndex - 1])}
+        onClick={() => {
+          const prev = siblings[currentIndex - 1];
+          if (prev) onSwitch(prev);
+        }}
         disabled={currentIndex === 0}
         className="px-1 hover:text-accent disabled:opacity-20 disabled:cursor-default transition-colors"
       >
@@ -82,7 +85,10 @@ function BranchNavigator({
         {currentIndex + 1}/{siblings.length}
       </span>
       <button
-        onClick={() => onSwitch(siblings[currentIndex + 1])}
+        onClick={() => {
+          const next = siblings[currentIndex + 1];
+          if (next) onSwitch(next);
+        }}
         disabled={currentIndex === siblings.length - 1}
         className="px-1 hover:text-accent disabled:opacity-20 disabled:cursor-default transition-colors"
       >

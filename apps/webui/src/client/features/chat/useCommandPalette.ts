@@ -81,11 +81,13 @@ export function useCommandPalette({
           setSelectedIndex((i) => (i - 1 + items.length) % items.length);
           return true;
         case "Enter":
-        case "Tab":
+        case "Tab": {
           e.preventDefault();
-          onSelect(items[clampedIndex]);
+          const selected = items[clampedIndex];
+          if (selected) onSelect(selected);
           setSelectedIndex(0);
           return true;
+        }
         default:
           return false;
       }

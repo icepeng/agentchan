@@ -13,7 +13,7 @@ export function parseSlashInput(text: string): ParsedSlashCommand | null {
   const body = trimmed.slice(1);
   const m = body.match(/^([a-z0-9][a-z0-9-]*)(?:\s+([\s\S]*))?$/);
   if (!m) return null;
-  return { name: m[1], args: (m[2] ?? "").trim() };
+  return { name: m[1]!, args: (m[2] ?? "").trim() };
 }
 
 export function serializeCommand(name: string, args: string): string {

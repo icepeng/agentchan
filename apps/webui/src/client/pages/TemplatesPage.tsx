@@ -118,8 +118,10 @@ export function TemplatesPage() {
 
   // Auto-select first template once the list arrives.
   useEffect(() => {
-    if (selectedSlug || !templates || templates.length === 0) return;
-    setSelectedSlug(templates[0].slug);
+    if (selectedSlug || !templates) return;
+    const first = templates[0];
+    if (!first) return;
+    setSelectedSlug(first.slug);
   }, [templates, selectedSlug]);
 
   const { data: readme } = useTemplateReadme(selectedSlug);
@@ -169,7 +171,8 @@ export function TemplatesPage() {
           e.key === "ArrowDown"
             ? Math.min(cur + 1, templates.length - 1)
             : Math.max(cur - 1, 0);
-        setSelectedSlug(templates[next].slug);
+        const nextTemplate = templates[next];
+        if (nextTemplate) setSelectedSlug(nextTemplate.slug);
       }
     },
     [templates, selectedIndex],

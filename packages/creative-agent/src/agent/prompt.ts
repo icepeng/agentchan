@@ -91,6 +91,7 @@ export function runPrompt(
 
     // History anchor = the last node we just persisted.
     const last = userNodes[userNodes.length - 1];
+    if (!last) throw new Error("buildUserNodesForPrompt returned empty list");
     await runAgentTurn({
       ctx,
       slug: input.slug,
@@ -279,6 +280,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
   const all = agent.state.messages;
   for (let i = historyLength; i < all.length; i++) {
     const msg = all[i];
+    if (!msg) continue;
     // Drop the leading user prompt — already persisted before the agent ran.
     if (i === historyLength && msg.role === "user") continue;
     newMessages.push(msg);
@@ -302,8 +304,9 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     // Hang the rolled-up usage off the last assistant node so the frontend
     // can render context window utilization.
     for (let i = newNodes.length - 1; i >= 0; i--) {
-      if (newNodes[i].message.role === "assistant") {
-        newNodes[i].usage = turnUsage;
+      const node = newNodes[i];
+      if (node && node.message.role === "assistant") {
+        node.usage = turnUsage;
         break;
       }
     }

@@ -88,10 +88,11 @@ export function switchBranch(
   let leafId = targetNodeId;
   let current = nodes.get(leafId);
   while (current && current.children.length > 0) {
+    const lastChild = current.children[current.children.length - 1]!;
     const nextId =
       current.activeChildId && nodes.has(current.activeChildId)
         ? current.activeChildId
-        : current.children[current.children.length - 1];
+        : lastChild;
     leafId = nextId;
     current = nodes.get(nextId);
   }
