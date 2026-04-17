@@ -28,19 +28,19 @@ export function useSession() {
   }, [slug, mutations, runtimeDispatch]);
 
   const load = useCallback(
-    async (id: string) => {
+    (id: string) => {
       if (!slug) return;
-      // Let SWR fetch via its own route table — the detail cache hydrates
-      // under `qk.session(slug, id)` before the selection flips, so
-      // subscribers see canonical data on the next render.
-      await mutate(qk.session(slug, id));
+      // Flip selection immediately; `useSessionData(slug, id)` auto-fetches
+      // under the new key. Mirrors `useProject.selectProject`, which flips
+      // `activeProjectSlug` before the sessions-list fetch resolves —
+      // subscribers fall back to empty arrays for the single render gap.
       runtimeDispatch({
         type: "SET_ACTIVE_SESSION",
         projectSlug: slug,
         sessionId: id,
       });
     },
-    [slug, runtimeDispatch, mutate],
+    [slug, runtimeDispatch],
   );
 
   const remove = useCallback(

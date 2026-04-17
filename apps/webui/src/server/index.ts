@@ -23,6 +23,9 @@ import { createTemplateService } from "./services/template.service.js";
 import { createSkillService } from "./services/skill.service.js";
 import { createUpdateService } from "./services/update.service.js";
 
+// --- Migrations ---
+import { migrateConversationsToSessions } from "./migrations/rename-conversations-to-sessions.js";
+
 // --- Routes ---
 import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
@@ -74,7 +77,6 @@ const agentService = createAgentService(agentContext, async () => {
 
 // ===== 3. Bootstrap =====
 await templateRepo.ensureDir();
-const { migrateConversationsToSessions } = await import("./migrations/rename-conversations-to-sessions.js");
 await migrateConversationsToSessions(PROJECTS_DIR);
 
 // ===== 4. Hono App =====
