@@ -7,11 +7,13 @@ import {
   useProjectMutations,
 } from "@/client/entities/project/index.js";
 import {
-  useSessionState,
-  useSessionDispatch,
-  selectSession,
+  useProjectRuntimeState,
+  useProjectRuntimeDispatch,
+  selectRuntime,
+} from "@/client/entities/project-runtime/index.js";
+import {
   abortProjectStream,
-  type Conversation,
+  type Session,
 } from "@/client/entities/session/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 import { localStore } from "@/client/shared/storage.js";
@@ -19,8 +21,8 @@ import { localStore } from "@/client/shared/storage.js";
 export function useProject() {
   const projectState = useProjectState();
   const projectDispatch = useProjectDispatch();
-  const sessionState = useSessionState();
-  const sessionDispatch = useSessionDispatch();
+  const runtimeState = useProjectRuntimeState();
+  const runtimeDispatch = useProjectRuntimeDispatch();
   const { mutate } = useSWRConfig();
 
   const { data: projects = [] } = useProjects();
@@ -32,17 +34,17 @@ export function useProject() {
   } = useProjectMutations();
 
   // Ref so selectProject doesn't re-create on every stream delta.
-  const sessionStateRef = useRef(sessionState);
-  useEffect(() => { sessionStateRef.current = sessionState; });
+  const runtimeStateRef = useRef(runtimeState);
+  useEffect(() => { runtimeStateRef.current = runtimeState; });
 
   const activateProject = useCallback(
-    async (slug: string): Promise<Conversation[]> => {
+    async (slug: string): Promise<Session[]> => {
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug });
       // Single GET: SWR's fetcher runs, result seeds the cache atomically.
-      // Calling `fetchConversations` separately risked a duplicate fetch when
-      // `useConversations(slug)` mounted outside the dedupe window.
-      const conversations = await mutate<Conversation[]>(qk.conversations(slug));
-      return conversations ?? [];
+      // Calling `fetchSessions` separately risked a duplicate fetch when
+      // `useSessions(slug)` mounted outside the dedupe window.
+      const sessions = await mutate<Session[]>(qk.sessions(slug));
+      return sessions ?? [];
     },
     [projectDispatch, mutate],
   );
@@ -55,28 +57,28 @@ export function useProject() {
       if (projectState.activeProjectSlug === slug) return;
 
       localStore.lastProject.write(slug);
-      const rememberedSessionId = selectSession(sessionStateRef.current, slug).conversationId;
+      const rememberedSessionId = selectRuntime(runtimeStateRef.current, slug).sessionId;
 
-      // Conversations list + remembered detail fetch in parallel. The detail
+      // Sessions list + remembered detail fetch in parallel. The detail
       // fetch is speculative (we don't yet know the remembered id is valid);
-      // if the conversation was deleted server-side, SWR's 404 leaves the
+      // if the session was deleted server-side, SWR's 404 leaves the
       // cache untouched and we skip the dispatch below.
-      const [conversations] = await Promise.all([
+      const [sessions] = await Promise.all([
         activateProject(slug),
         rememberedSessionId
-          ? mutate(qk.conversation(slug, rememberedSessionId))
+          ? mutate(qk.session(slug, rememberedSessionId))
           : Promise.resolve(null),
       ]);
 
-      if (rememberedSessionId && conversations.some((c) => c.id === rememberedSessionId)) {
-        sessionDispatch({
-          type: "SET_ACTIVE_CONVERSATION",
+      if (rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)) {
+        runtimeDispatch({
+          type: "SET_ACTIVE_SESSION",
           projectSlug: slug,
-          conversationId: rememberedSessionId,
+          sessionId: rememberedSessionId,
         });
       }
     },
-    [projectState.activeProjectSlug, activateProject, sessionDispatch, mutate],
+    [projectState.activeProjectSlug, activateProject, runtimeDispatch, mutate],
   );
 
   const createProject = useCallback(
@@ -107,9 +109,9 @@ export function useProject() {
   const deleteProject = useCallback(
     async (slug: string) => {
       // Abort any in-flight stream so pi-agent-core cancels the LLM request
-      // and drop the session slot so stale completion events can't resurrect it.
+      // and drop the runtime slot so stale completion events can't resurrect it.
       abortProjectStream(slug);
-      sessionDispatch({ type: "CLOSE_SESSION", projectSlug: slug });
+      runtimeDispatch({ type: "CLOSE_RUNTIME", projectSlug: slug });
 
       await deleteProjectMutation(slug);
 
@@ -127,7 +129,7 @@ export function useProject() {
       projectState.activeProjectSlug,
       projects,
       deleteProjectMutation,
-      sessionDispatch,
+      runtimeDispatch,
       projectDispatch,
       activateProject,
     ],

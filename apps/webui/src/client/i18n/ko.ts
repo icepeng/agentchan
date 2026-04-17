@@ -172,7 +172,7 @@ export const translations: Record<TranslationKey, string> = {
   "globalSettings.removeKey": "삭제",
   "globalSettings.savingKey": "저장 중...",
   "globalSettings.activeProvider": "활성 프로바이더 및 모델",
-  "globalSettings.activeProviderDesc": "대화에 사용할 프로바이더와 모델을 선택하세요",
+  "globalSettings.activeProviderDesc": "세션에 사용할 프로바이더와 모델을 선택하세요",
 
   // OAuth 프로바이더 (예: GitHub Copilot)
   "oauth.signIn": "{{provider}}로 로그인",

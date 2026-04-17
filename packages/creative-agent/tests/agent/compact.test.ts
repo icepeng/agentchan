@@ -57,7 +57,7 @@ const TEST_KEEP_BUDGET = 500;
 
 function opts(overrides: Partial<Parameters<typeof microCompact>[1]> = {}) {
   return {
-    conversationId: CONV,
+    sessionId: CONV,
     protectFromIndex: Infinity,
     keepRecentTokens: TEST_KEEP_BUDGET,
     ...overrides,
@@ -191,13 +191,13 @@ describe("microCompact", () => {
   });
 
   describe("state isolation", () => {
-    test("different conversationIds are independent", () => {
+    test("different sessionIds are independent", () => {
       clearCompactState("a");
       clearCompactState("b");
 
-      microCompact(conversation(5), opts({ conversationId: "a" }));
+      microCompact(conversation(5), opts({ sessionId: "a" }));
       // "b" has no state → first call → compacts
-      const result = microCompact(conversation(5), opts({ conversationId: "b" }));
+      const result = microCompact(conversation(5), opts({ sessionId: "b" }));
       expect(isCompacted(result, "tool-0")).toBe(true);
 
       clearCompactState("a");

@@ -32,23 +32,23 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 // --- Background completion check ---
 
 /**
- * True when the current project+conversation is NOT actively being viewed.
+ * True when the current project+session is NOT actively being viewed.
  * Used to decide whether to fire a notification on stream completion.
  *
  * Conditions (any triggers "background"):
  *   - Page is hidden (tab switched / minimized)
  *   - A different project is active
- *   - (Within same project) a different conversation is selected
+ *   - (Within same project) a different session is selected
  */
 export function isBackgroundStream(
   completedProjectSlug: string,
-  completedConversationId: string,
+  completedSessionId: string,
   activeProjectSlug: string | null,
-  activeConversationId: string | null,
+  activeSessionId: string | null,
 ): boolean {
   if (typeof document !== "undefined" && document.hidden) return true;
   if (activeProjectSlug !== completedProjectSlug) return true;
-  if (activeConversationId !== completedConversationId) return true;
+  if (activeSessionId !== completedSessionId) return true;
   return false;
 }
 
@@ -106,7 +106,7 @@ export function peekUnseenCount(): number {
 export interface NotifyOpts {
   projectSlug: string;
   projectName: string;
-  conversationId: string;
+  sessionId: string;
   kind: "done" | "error";
   /** Error message (only used when kind === "error"). */
   errorMessage?: string;

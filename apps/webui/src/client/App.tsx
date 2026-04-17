@@ -10,8 +10,8 @@ export function App() {
   const decidedRef = useRef(false);
 
   // Once SWR resolves the project list, restore the last-active slug. Skills,
-  // conversations, and config are all SWR-driven now — any consumer that
-  // mounts a `useSkills(slug)` / `useConversations(slug)` triggers its own
+  // sessions, and config are all SWR-driven now — any consumer that
+  // mounts a `useSkills(slug)` / `useSessions(slug)` triggers its own
   // fetch. Run exactly once: subsequent SWR refetches must not re-bootstrap
   // or reset the user's active project.
   useEffect(() => {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Idiomorph } from "idiomorph";
 import { useOutput } from "./useOutput.js";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/project-runtime/index.js";
 import { useRendererActionDispatch } from "@/client/entities/renderer-action/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 

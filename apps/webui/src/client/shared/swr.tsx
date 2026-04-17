@@ -20,9 +20,9 @@ function buildRoute(entity: string, args: unknown[]): string {
     case "projectReadme":   return `/projects/${enc(args[0])}/readme`;
     case "workspaceFiles":  return `/projects/${enc(args[0])}/workspace/files`;
     case "rendererJs":      return `/projects/${enc(args[0])}/renderer.js`;
-    // conversations
-    case "conversations":   return `/projects/${enc(args[0])}/conversations`;
-    case "conversation":    return `/projects/${enc(args[0])}/conversations/${enc(args[1])}`;
+    // sessions
+    case "sessions":        return `/projects/${enc(args[0])}/sessions`;
+    case "session":         return `/projects/${enc(args[0])}/sessions/${enc(args[1])}`;
     // skills
     case "skills":          return `/projects/${enc(args[0])}/skills`;
     // config

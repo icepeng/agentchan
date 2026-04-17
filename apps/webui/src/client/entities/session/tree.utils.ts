@@ -1,12 +1,12 @@
-import type { TreeNode } from "./conversation.types.js";
+import type { TreeNode } from "./session.types.js";
 
 /**
- * Splice a single node into a conversation tree (array-form), re-linking the
+ * Splice a single node into a session tree (array-form), re-linking the
  * parent's `children` + `activeChildId`. The input array is not mutated.
  *
  * Used by the optimistic/write-through paths in `useStreaming` to mirror the
  * server's insert shape inside the SWR cache, so that re-renders see the
- * same tree the server will eventually return from `/conversations/:id`.
+ * same tree the server will eventually return from `/sessions/:id`.
  *
  * Array order is NOT topological — consumers must index by id (e.g. nodeMap)
  * and traverse via `activePath` / `children`, never assume parents precede
@@ -31,7 +31,7 @@ export function insertNode(nodes: readonly TreeNode[], node: TreeNode): TreeNode
  * Batch-insert version — constructs one Map, splices every node into it, then
  * materializes once. O(n + m) instead of `insertNode` called in a loop (which
  * is O(n*m)). Use this in `onAssistantNodes` where tool chains can deliver
- * 10+ nodes at once on top of an already-long conversation.
+ * 10+ nodes at once on top of an already-long session.
  */
 export function insertNodes(nodes: readonly TreeNode[], toInsert: readonly TreeNode[]): TreeNode[] {
   if (toInsert.length === 0) return [...nodes];

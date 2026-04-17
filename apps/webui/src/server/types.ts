@@ -4,7 +4,7 @@ import type {
   TokenUsage,
   TreeNode,
   TreeNodeWithChildren,
-  Conversation,
+  Session,
   ModelInfo,
   CustomApiFormat,
   ProviderInfo,
@@ -16,7 +16,7 @@ export type {
   TokenUsage,
   TreeNode,
   TreeNodeWithChildren,
-  Conversation,
+  Session,
   ModelInfo,
   CustomApiFormat,
   ProviderInfo,
@@ -27,7 +27,7 @@ export type {
 // Service types (type-only — no runtime circular deps)
 import type { ConfigService } from "./services/config.service.js";
 import type { ProjectService } from "./services/project.service.js";
-import type { ConversationService } from "./services/conversation.service.js";
+import type { SessionService } from "./services/session.service.js";
 import type { AgentService } from "./services/agent.service.js";
 import type { TemplateService } from "./services/template.service.js";
 import type { SkillService } from "./services/skill.service.js";
@@ -37,7 +37,7 @@ export type AppEnv = {
   Variables: {
     configService: ConfigService;
     projectService: ProjectService;
-    conversationService: ConversationService;
+    sessionService: SessionService;
     agentService: AgentService;
     templateService: TemplateService;
     skillService: SkillService;

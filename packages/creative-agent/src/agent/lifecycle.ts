@@ -1,65 +1,65 @@
 /**
- * Conversation operations that touch the LLM or seed agent state.
+ * Session operations that touch the LLM or seed agent state.
  *
- * - createConversation: storage create (no bootstrap nodes)
- * - deleteConversation: storage delete + per-conversation agent state cleanup
- * - compactConversation: LLM-based summarization, persisted as a fresh conversation
+ * - createSession: storage create (no bootstrap nodes)
+ * - deleteSession: storage delete + per-session agent state cleanup
+ * - compactSession: LLM-based summarization, persisted as a fresh session
  */
 
 import { nanoid } from "nanoid";
 import type { Message, UserMessage, AssistantMessage } from "@mariozechner/pi-ai";
 
-import type { Conversation, TreeNode } from "../types.js";
-import type { SessionMode } from "../conversation/format.js";
-import { flattenPathToMessages } from "../conversation/tree.js";
+import type { Session, TreeNode } from "../types.js";
+import type { SessionMode } from "../session/format.js";
+import { flattenPathToMessages } from "../session/tree.js";
 import { fullCompact } from "./compact.js";
-import { resolveModel, clearConversationAgentState } from "./orchestrator.js";
+import { resolveModel, clearSessionAgentState } from "./orchestrator.js";
 import { type AgentContext } from "./context.js";
 
 // --- Public types ---
 
-export interface CreatedConversation {
-  conversation: Conversation;
+export interface CreatedSession {
+  session: Session;
 }
 
 export interface CompactResult {
-  conversation: Conversation;
+  session: Session;
   nodes: TreeNode[];
-  sourceConversationId: string;
+  sourceSessionId: string;
 }
 
 // --- Create / delete ---
 
-export async function createConversation(
+export async function createSession(
   ctx: AgentContext,
   slug: string,
   mode?: SessionMode,
-): Promise<CreatedConversation> {
+): Promise<CreatedSession> {
   const cfg = ctx.resolveAgentConfig();
-  const conv = await ctx.storage.createConversation(slug, cfg.provider, cfg.model, undefined, mode);
-  return { conversation: conv };
+  const session = await ctx.storage.createSession(slug, cfg.provider, cfg.model, undefined, mode);
+  return { session };
 }
 
-export async function deleteConversation(
+export async function deleteSession(
   ctx: AgentContext,
   slug: string,
   id: string,
 ): Promise<void> {
-  clearConversationAgentState(id);
-  await ctx.storage.deleteConversation(slug, id);
+  clearSessionAgentState(id);
+  await ctx.storage.deleteSession(slug, id);
 }
 
 // --- Compact ---
 
-export async function compactConversation(
+export async function compactSession(
   ctx: AgentContext,
   slug: string,
   sourceId: string,
 ): Promise<CompactResult> {
-  const loaded = await ctx.storage.loadConversationWithTree(slug, sourceId);
-  if (!loaded) throw new Error("Conversation not found");
+  const loaded = await ctx.storage.loadSessionWithTree(slug, sourceId);
+  if (!loaded) throw new Error("Session not found");
   if (loaded.activePath.length === 0) {
-    throw new Error("Conversation is empty");
+    throw new Error("Session is empty");
   }
 
   const cfg = ctx.resolveAgentConfig();
@@ -83,12 +83,12 @@ export async function compactConversation(
 
   const summaryText = `This session continues from a previous conversation. Below is the context summary.\n\n${result.summary}`;
   const now = Date.now();
-  const newConv = await ctx.storage.createConversation(
+  const newSession = await ctx.storage.createSession(
     slug,
     cfg.provider,
     cfg.model,
     sourceId,
-    loaded.conversation.mode,
+    loaded.session.mode,
   );
 
   const userNode: TreeNode = {
@@ -132,11 +132,11 @@ export async function compactConversation(
   };
 
   const nodes: TreeNode[] = [userNode, assistantNode];
-  await ctx.storage.appendNodes(slug, newConv.id, nodes);
+  await ctx.storage.appendNodes(slug, newSession.id, nodes);
 
   return {
-    conversation: { ...newConv, rootNodeId: userNode.id, activeLeafId: assistantNode.id },
+    session: { ...newSession, rootNodeId: userNode.id, activeLeafId: assistantNode.id },
     nodes,
-    sourceConversationId: sourceId,
+    sourceSessionId: sourceId,
   };
 }

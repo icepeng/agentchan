@@ -11,7 +11,7 @@ export interface TreeEntry {
   modifiedAt?: number;
 }
 
-const HIDDEN_ROOTS = new Set(["_project.json", "conversations"]);
+const HIDDEN_ROOTS = new Set(["_project.json", "sessions"]);
 
 export function createProjectRepo(projectsDir: string) {
   function projectDir(slug: string): string {
