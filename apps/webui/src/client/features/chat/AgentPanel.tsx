@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { useSessionState, useActiveStream } from "@/client/entities/session/index.js";
+import { useActiveSession, useActiveStream } from "@/client/entities/session/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
@@ -83,7 +83,7 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
 // ── Agent Panel ───────────────────────────────
 
 export function AgentPanel() {
-  const session = useSessionState();
+  const session = useActiveSession();
   const stream = useActiveStream();
   const { t } = useI18n();
   const { switchBranch, setReplyTo, deleteNode } = useConversation();
@@ -100,7 +100,7 @@ export function AgentPanel() {
     return parent?.children ?? [node.id];
   };
 
-  if (!session.activeConversationId) {
+  if (!session.conversationId) {
     return (
       <div className="flex flex-col flex-1 min-h-0">
         <SessionTabs />

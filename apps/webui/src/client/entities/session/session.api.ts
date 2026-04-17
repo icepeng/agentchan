@@ -1,6 +1,6 @@
 import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
 import type { TokenUsage } from "@/client/shared/pricing.utils.js";
-import type { Conversation, TreeNode } from "./session.types.js";
+import type { Conversation, TreeNode } from "@/client/entities/conversation/index.js";
 
 // --- Conversations ---
 

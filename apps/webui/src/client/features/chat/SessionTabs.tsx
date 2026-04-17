@@ -1,12 +1,14 @@
 import { ChevronsRight, Plus, Settings, X } from "lucide-react";
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useActiveSession } from "@/client/entities/session/index.js";
+import { useActiveConversations } from "@/client/entities/conversation/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { useConversation } from "./useConversation.js";
 
 export function SessionTabs() {
-  const session = useSessionState();
+  const session = useActiveSession();
+  const conversations = useActiveConversations();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
   const { create, load, remove } = useConversation();
@@ -20,8 +22,8 @@ export function SessionTabs() {
         className="flex-1 min-w-0"
         viewportClassName="flex items-center gap-0.5 px-1.5 py-1.5"
       >
-        {session.conversations.map((conv) => {
-          const isActive = session.activeConversationId === conv.id;
+        {conversations.map((conv) => {
+          const isActive = session.conversationId === conv.id;
           return (
             <button
               key={conv.id}
