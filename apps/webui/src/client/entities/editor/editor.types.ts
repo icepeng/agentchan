@@ -11,17 +11,20 @@ export interface TreeEntry {
   modifiedAt?: number;
 }
 
+/**
+ * Slim editor state — only the truly client-side bits. Tree entries and
+ * canonical file content come from SWR (`useProjectTree`, `useFileContent`);
+ * `dirty` tracks user intent (UPDATE_LOCAL_CONTENT) so we can distinguish
+ * "user is editing" from "server got a fresh write" when the cache changes.
+ */
 export interface EditorState {
-  treeEntries: TreeEntry[];
   selectedPath: string | null;
-  fileContent: string | null;
   localContent: string | null;
   dirty: boolean;
 }
 
 export type EditorAction =
-  | { type: "SET_TREE"; entries: TreeEntry[] }
-  | { type: "SELECT_FILE"; path: string; content: string }
+  | { type: "SELECT_FILE"; path: string }
   | { type: "SYNC_EXTERNAL_CONTENT"; content: string }
   | { type: "UPDATE_LOCAL_CONTENT"; content: string }
   | { type: "MARK_CLEAN" }

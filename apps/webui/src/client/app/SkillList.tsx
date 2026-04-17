@@ -1,11 +1,13 @@
-import { useSkillState } from "@/client/entities/skill/index.js";
+import { useProjectState } from "@/client/entities/project/index.js";
+import { useSkills } from "@/client/entities/skill/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 
 export function SkillList() {
-  const skill = useSkillState();
+  const { activeProjectSlug } = useProjectState();
+  const { data: skills = [] } = useSkills(activeProjectSlug);
   const { t } = useI18n();
 
-  if (skill.skills.length === 0) return null;
+  if (skills.length === 0) return null;
 
   return (
     <div className="p-3 border-t border-edge/6">
@@ -13,7 +15,7 @@ export function SkillList() {
         {t("skills.label")}
       </label>
       <div className="space-y-0.5">
-        {skill.skills.map((s) => (
+        {skills.map((s) => (
           <div
             key={s.name}
             className="w-full text-left px-2.5 py-2 rounded-lg"

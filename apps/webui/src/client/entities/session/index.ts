@@ -6,6 +6,7 @@ export {
   useActiveStream,
   selectSession,
   selectStreamSlot,
+  EMPTY_USAGE,
 } from "./SessionContext.js";
 export type {
   SessionState,
@@ -14,6 +15,7 @@ export type {
   SessionUsage,
   StreamSlot,
 } from "./SessionContext.js";
+export { useActiveUsage } from "./useSessionData.js";
 export type {
   Conversation, TreeNode, TokenUsage, ToolCallState,
   ClientMessage, TextContent, ThinkingContent, ToolCallContent, ImageContent, AssistantContentBlock,

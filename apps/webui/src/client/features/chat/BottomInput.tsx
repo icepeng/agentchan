@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
-import { useActiveSession } from "@/client/entities/session/index.js";
+import { useActiveSession, useActiveUsage } from "@/client/entities/session/index.js";
 import {
   notificationPermission,
   requestNotificationPermission,
 } from "@/client/shared/notifications.js";
 import { localStore } from "@/client/shared/storage.js";
-import { useConfigState } from "@/client/entities/config/index.js";
+import { useConfig } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import {
@@ -25,7 +25,8 @@ interface BottomInputProps {
 
 export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const session = useActiveSession();
-  const config = useConfigState();
+  const usage = useActiveUsage();
+  const { data: config } = useConfig();
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
@@ -37,8 +38,8 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashCommands(text, setText);
 
-  const contextTokens = session.usage.contextTokens;
-  const contextWindow = config.contextWindow ?? 128_000;
+  const contextTokens = usage.contextTokens;
+  const contextWindow = config?.contextWindow ?? 128_000;
   const contextPercent = contextTokens > 0
     ? Math.round((contextTokens / contextWindow) * 100)
     : null;
@@ -165,14 +166,14 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
         </div>
       </div>
       <p className="mt-1.5 text-center text-[11px] text-fg-3 tracking-wide">
-        {config.provider}/{config.model}
-        {config.temperature !== undefined && ` · t=${config.temperature}`}
-        {config.thinkingLevel && config.thinkingLevel !== "off" && ` · think=${config.thinkingLevel}`}
-        {(session.usage.inputTokens > 0 || session.usage.outputTokens > 0) && (
+        {config?.provider ?? ""}/{config?.model ?? ""}
+        {config?.temperature !== undefined && ` · t=${config.temperature}`}
+        {config?.thinkingLevel && config.thinkingLevel !== "off" && ` · think=${config.thinkingLevel}`}
+        {(usage.inputTokens > 0 || usage.outputTokens > 0) && (
           <span>
             {" · "}
-            {formatTokens(session.usage.inputTokens)} {t("input.tokenIn")} / {formatTokens(session.usage.outputTokens)} {t("input.tokenOut")}
-            {session.usage.cost ? ` · ${formatCost(session.usage.cost)}` : ""}
+            {formatTokens(usage.inputTokens)} {t("input.tokenIn")} / {formatTokens(usage.outputTokens)} {t("input.tokenOut")}
+            {usage.cost ? ` · ${formatCost(usage.cost)}` : ""}
           </span>
         )}
         {contextPercent !== null && (

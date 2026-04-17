@@ -1,132 +1,113 @@
 import { useCallback } from "react";
+import { useSWRConfig } from "swr";
 import { useProjectState } from "@/client/entities/project/index.js";
 import {
   useActiveSession,
   useSessionDispatch,
-  createConversation as apiCreate,
-  fetchConversation,
-  deleteConversation as apiDelete,
-  deleteNode as apiDeleteNode,
-  switchBranch as apiSwitchBranch,
-  fetchConversations,
-  compactConversation as apiCompact,
 } from "@/client/entities/session/index.js";
-import { useConversationDispatch } from "@/client/entities/conversation/index.js";
+import { useConversationMutations } from "@/client/entities/conversation/index.js";
+import { qk } from "@/client/shared/queryKeys.js";
 
 export function useConversation() {
   const projectState = useProjectState();
   const activeSession = useActiveSession();
   const sessionDispatch = useSessionDispatch();
-  const conversationDispatch = useConversationDispatch();
+  const slug = projectState.activeProjectSlug;
+  const mutations = useConversationMutations(slug);
+  const { mutate } = useSWRConfig();
 
   const create = useCallback(async (mode?: "creative" | "meta") => {
-    if (!projectState.activeProjectSlug) return;
-    const projectSlug = projectState.activeProjectSlug;
-    const { conversation, nodes } = await apiCreate(projectSlug, mode);
-    conversationDispatch({ type: "ADD", projectSlug, conversation });
-    sessionDispatch({ type: "NEW_CONVERSATION", projectSlug, conversationId: conversation.id, nodes });
+    if (!slug) return;
+    const { conversation } = await mutations.create(mode);
+    sessionDispatch({
+      type: "SET_ACTIVE_CONVERSATION",
+      projectSlug: slug,
+      conversationId: conversation.id,
+    });
     return conversation;
-  }, [projectState.activeProjectSlug, sessionDispatch, conversationDispatch]);
+  }, [slug, mutations, sessionDispatch]);
 
   const load = useCallback(
     async (id: string) => {
-      if (!projectState.activeProjectSlug) return;
-      const projectSlug = projectState.activeProjectSlug;
-      const data = await fetchConversation(projectSlug, id);
-      conversationDispatch({ type: "UPDATE", projectSlug, conversation: data.conversation });
+      if (!slug) return;
+      // Let SWR fetch via its own route table — the detail cache hydrates
+      // under `qk.conversation(slug, id)` before the selection flips, so
+      // subscribers see canonical data on the next render.
+      await mutate(qk.conversation(slug, id));
       sessionDispatch({
         type: "SET_ACTIVE_CONVERSATION",
-        projectSlug,
-        conversationId: data.conversation.id,
-        nodes: data.nodes,
-        activePath: data.activePath,
+        projectSlug: slug,
+        conversationId: id,
       });
     },
-    [projectState.activeProjectSlug, sessionDispatch, conversationDispatch],
+    [slug, sessionDispatch, mutate],
   );
 
   const remove = useCallback(
     async (id: string) => {
-      if (!projectState.activeProjectSlug) return;
-      const projectSlug = projectState.activeProjectSlug;
-      await apiDelete(projectSlug, id);
-      conversationDispatch({ type: "DELETE", projectSlug, conversationId: id });
-      sessionDispatch({ type: "DELETE_CONVERSATION", projectSlug, conversationId: id });
+      if (!slug) return;
+      await mutations.remove(id);
+      if (activeSession.conversationId === id) {
+        sessionDispatch({
+          type: "SET_ACTIVE_CONVERSATION",
+          projectSlug: slug,
+          conversationId: null,
+        });
+      }
     },
-    [projectState.activeProjectSlug, sessionDispatch, conversationDispatch],
+    [slug, mutations, sessionDispatch, activeSession.conversationId],
   );
 
   const refresh = useCallback(async () => {
-    if (!projectState.activeProjectSlug) return;
-    const projectSlug = projectState.activeProjectSlug;
-    const conversations = await fetchConversations(projectSlug);
-    conversationDispatch({ type: "SET_FOR_PROJECT", projectSlug, conversations });
-  }, [projectState.activeProjectSlug, conversationDispatch]);
+    if (!slug) return;
+    await mutate(qk.conversations(slug));
+  }, [slug, mutate]);
 
   const switchBranch = useCallback(
     async (nodeId: string) => {
-      if (!activeSession.conversationId || !projectState.activeProjectSlug) return;
-      const projectSlug = projectState.activeProjectSlug;
-      const result = await apiSwitchBranch(projectSlug, activeSession.conversationId, nodeId);
-      sessionDispatch({ type: "SET_ACTIVE_PATH", projectSlug, activePath: result.activePath });
+      if (!activeSession.conversationId || !slug) return;
+      await mutations.switchBranch(activeSession.conversationId, nodeId);
     },
-    [activeSession.conversationId, projectState.activeProjectSlug, sessionDispatch],
+    [activeSession.conversationId, slug, mutations],
   );
 
   const deleteNode = useCallback(
     async (nodeId: string) => {
-      if (!activeSession.conversationId || !projectState.activeProjectSlug) return;
-      const projectSlug = projectState.activeProjectSlug;
-      await apiDeleteNode(projectSlug, activeSession.conversationId, nodeId);
-      const data = await fetchConversation(projectSlug, activeSession.conversationId);
-      conversationDispatch({ type: "UPDATE", projectSlug, conversation: data.conversation });
-      sessionDispatch({
-        type: "SET_ACTIVE_CONVERSATION",
-        projectSlug,
-        conversationId: data.conversation.id,
-        nodes: data.nodes,
-        activePath: data.activePath,
-      });
+      if (!activeSession.conversationId || !slug) return;
+      await mutations.removeNode(activeSession.conversationId, nodeId);
     },
-    [activeSession.conversationId, projectState.activeProjectSlug, sessionDispatch, conversationDispatch],
+    [activeSession.conversationId, slug, mutations],
   );
 
   const setReplyTo = useCallback(
     (nodeId: string | null) => {
-      if (!projectState.activeProjectSlug) return;
-      sessionDispatch({ type: "SET_REPLY_TO", projectSlug: projectState.activeProjectSlug, nodeId });
+      if (!slug) return;
+      sessionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
     },
-    [projectState.activeProjectSlug, sessionDispatch],
+    [slug, sessionDispatch],
   );
 
   const compact = useCallback(async () => {
-    if (!projectState.activeProjectSlug || !activeSession.conversationId) return;
-    const projectSlug = projectState.activeProjectSlug;
+    if (!slug || !activeSession.conversationId) return;
     const conversationId = activeSession.conversationId;
-    sessionDispatch({ type: "STREAM_START", projectSlug, conversationId });
+    // STREAM_START locks the input while compact runs server-side.
+    sessionDispatch({ type: "STREAM_START", projectSlug: slug, conversationId });
     try {
-      const result = await apiCompact(projectSlug, conversationId);
-      const activePath = result.nodes.map((n) => n.id);
-      conversationDispatch({ type: "UPDATE", projectSlug, conversation: result.conversation });
+      const result = await mutations.compact(conversationId);
       sessionDispatch({
         type: "SET_ACTIVE_CONVERSATION",
-        projectSlug,
+        projectSlug: slug,
         conversationId: result.conversation.id,
-        nodes: result.nodes,
-        activePath,
       });
-      void fetchConversations(projectSlug).then((conversations) =>
-        conversationDispatch({ type: "SET_FOR_PROJECT", projectSlug, conversations }),
-      );
-      sessionDispatch({ type: "STREAM_RESET", projectSlug });
+      sessionDispatch({ type: "STREAM_RESET", projectSlug: slug });
     } catch (err) {
       sessionDispatch({
         type: "STREAM_ERROR",
-        projectSlug,
+        projectSlug: slug,
         error: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [projectState.activeProjectSlug, activeSession.conversationId, sessionDispatch, conversationDispatch]);
+  }, [slug, activeSession.conversationId, mutations, sessionDispatch]);
 
   return {
     create,

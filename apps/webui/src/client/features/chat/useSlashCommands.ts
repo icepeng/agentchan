@@ -1,8 +1,9 @@
 import { useCallback, useMemo } from "react";
-import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
-import { useSkillState } from "@/client/entities/skill/index.js";
+import { useConfigMutations } from "@/client/entities/config/index.js";
+import { useSkills } from "@/client/entities/skill/index.js";
 import { useActiveSession } from "@/client/entities/session/index.js";
-import { useActiveConversations } from "@/client/entities/conversation/index.js";
+import { useConversations } from "@/client/entities/conversation/index.js";
+import { useProjectState } from "@/client/entities/project/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useConversation } from "./useConversation.js";
 import { useStreaming } from "./useStreaming.js";
@@ -10,18 +11,19 @@ import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry, type SkillSlashComm
 import { useCommandPalette } from "./useCommandPalette.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
-  const configDispatch = useConfigDispatch();
-  const skillState = useSkillState();
+  const { update: updateConfig } = useConfigMutations();
   const session = useActiveSession();
-  const conversations = useActiveConversations();
+  const { activeProjectSlug } = useProjectState();
+  const { data: skills = [] } = useSkills(activeProjectSlug);
+  const { data: conversations = [] } = useConversations(activeProjectSlug);
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { create, compact } = useConversation();
   const { send } = useStreaming();
 
   const entries = useMemo(
-    () => buildSlashEntries(skillState.skills),
-    [skillState.skills],
+    () => buildSlashEntries(skills),
+    [skills],
   );
 
   const executeLocalCommand = useCallback(
@@ -40,19 +42,17 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
           uiDispatch({ type: "OPEN_README" });
           break;
         case "model": {
-          const result = await updateConfig({ model: arg });
-          configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
+          await updateConfig({ model: arg });
           break;
         }
         case "provider": {
-          const result = await updateConfig({ provider: arg });
-          configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
+          await updateConfig({ provider: arg });
           break;
         }
       }
       setText("");
     },
-    [create, compact, configDispatch, uiDispatch, ui.viewMode, setText],
+    [create, compact, updateConfig, uiDispatch, ui.viewMode, setText],
   );
 
   const selectCommand = useCallback(

@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowLeft, Globe } from "lucide-react";
 import { useUIState, useUIDispatch, type PageRoute } from "@/client/entities/ui/index.js";
-import { useConfigState, useConfigDispatch, updateConfig, fetchApiKeys, updateApiKey, deleteApiKey, saveCustomProvider, deleteCustomProvider, fetchProviders, FORMAT_OPTIONS } from "@/client/entities/config/index.js";
-import type { ApiKeyStatus, CustomApiFormat } from "@/client/entities/config/index.js";
+import {
+  useConfig, useProviders, useApiKeys, useConfigMutations,
+  FORMAT_OPTIONS,
+} from "@/client/entities/config/index.js";
+import type { CustomApiFormat } from "@/client/entities/config/index.js";
 import { useI18n, type LanguagePreference, type TranslationKey } from "@/client/i18n/index.js";
 import { Badge, Button, IconButton, Indicator, SectionHeader, TabBar, Select, FormField, OptionCardGrid, TextInput, ScrollArea } from "@/client/shared/ui/index.js";
 import {
@@ -171,52 +174,50 @@ function NotificationsSection() {
 // --- API Keys Tab ---
 
 function ApiKeysTab() {
-  const config = useConfigState();
-  const configDispatch = useConfigDispatch();
+  const { data: config } = useConfig();
+  const { data: providers = [] } = useProviders();
+  const { data: keys = {} } = useApiKeys();
+  const {
+    update,
+    updateApiKey: mutateApiKey,
+    deleteApiKey: mutateDeleteApiKey,
+    saveCustomProvider: mutateSaveCustomProvider,
+    deleteCustomProvider: mutateDeleteCustomProvider,
+  } = useConfigMutations();
   const { t } = useI18n();
 
-  const [keys, setKeys] = useState<ApiKeyStatus>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
 
   const [form, setForm] = useState<{ mode: "add" | "edit"; name: string; url: string; models: string; format: CustomApiFormat } | null>(null);
   const updateForm = (patch: Partial<NonNullable<typeof form>>) => setForm((f) => f && { ...f, ...patch });
 
-  useEffect(() => {
-    void fetchApiKeys().then(setKeys);
-  }, []);
-
   const handleSaveKey = async (provider: string) => {
     const key = inputs[provider];
     if (!key) return;
     setSaving(provider);
-    const updated = await updateApiKey(provider, key);
-    setKeys(updated);
-    setInputs((prev) => ({ ...prev, [provider]: "" }));
-    setSaving(null);
+    try {
+      await mutateApiKey(provider, key);
+      setInputs((prev) => ({ ...prev, [provider]: "" }));
+    } finally {
+      setSaving(null);
+    }
   };
 
   const handleRemoveKey = async (provider: string) => {
     setSaving(provider);
-    const updated = await deleteApiKey(provider);
-    setKeys(updated);
-    setSaving(null);
+    try {
+      await mutateDeleteApiKey(provider);
+    } finally {
+      setSaving(null);
+    }
   };
 
-  const handleProviderChange = async (provider: string) => {
-    const result = await updateConfig({ provider });
-    configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
-  };
+  const handleProviderChange = (provider: string) => void update({ provider });
 
-  const handleModelChange = async (model: string) => {
-    if (model === config.model) return;
-    const result = await updateConfig({ model });
-    configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
-  };
-
-  const refreshProviders = async () => {
-    const providers = await fetchProviders();
-    configDispatch({ type: "SET_PROVIDERS", providers });
+  const handleModelChange = (model: string) => {
+    if (model === config?.model) return;
+    void update({ model });
   };
 
   const handleSubmitProvider = async () => {
@@ -224,22 +225,20 @@ function ApiKeysTab() {
     const models = form.models.split(",").map((s) => s.trim()).filter(Boolean);
     if (!form.url.trim() || models.length === 0) return;
     if (form.mode === "add" && !form.name.trim()) return;
-    await saveCustomProvider({
+    await mutateSaveCustomProvider({
       name: form.name.trim(),
       url: form.url.trim(),
       format: form.format,
       models: models.map((id) => ({ id, name: id })),
     });
-    await refreshProviders();
     setForm(null);
   };
 
   const handleDeleteProvider = async (name: string) => {
-    await deleteCustomProvider(name);
-    await refreshProviders();
+    await mutateDeleteCustomProvider(name);
   };
 
-  const currentProvider = config.providers.find((p) => p.name === config.provider);
+  const currentProvider = providers.find((p) => p.name === config?.provider);
 
   return (
     <div className="max-w-2xl mx-auto px-8 py-10 space-y-10 animate-fade-slide">
@@ -249,15 +248,15 @@ function ApiKeysTab() {
         <div className="grid grid-cols-2 gap-4">
           <FormField label={t("provider.label")}>
             <Select
-              value={config.provider}
+              value={config?.provider ?? ""}
               onChange={handleProviderChange}
-              options={config.providers.map((p) => ({ value: p.name, label: p.name }))}
+              options={providers.map((p) => ({ value: p.name, label: p.name }))}
               size="md"
             />
           </FormField>
           <FormField label={t("model.label")}>
             <Select
-              value={config.model}
+              value={config?.model ?? ""}
               onChange={handleModelChange}
               options={currentProvider?.models.map((m) => ({ value: m.id, label: m.name })) ?? []}
               size="md"
@@ -275,7 +274,7 @@ function ApiKeysTab() {
       <section className="space-y-4">
         <SectionHeader title={t("customApi.providers")} description={t("customApi.providersDesc")} />
         <div className="space-y-3">
-          {config.providers.filter((p) => p.custom).map((p) => form?.mode === "edit" && form.name === p.name ? (
+          {providers.filter((p) => p.custom).map((p) => form?.mode === "edit" && form.name === p.name ? (
             <ProviderForm key={p.name} form={form} updateForm={updateForm} onSubmit={handleSubmitProvider} onCancel={() => setForm(null)} t={t} />
           ) : (
             <div key={p.name} className="p-4 rounded-xl border border-edge/8 bg-elevated/30 space-y-2 cursor-pointer hover:border-edge/20 transition-colors" onClick={() => p.custom && setForm({ mode: "edit", name: p.name, url: p.custom.url, models: p.models.map((m) => m.id).join(", "), format: p.custom.format })}>
@@ -309,9 +308,9 @@ function ApiKeysTab() {
       <section className="space-y-4">
         <SectionHeader title={t("globalSettings.apiKeys")} description={t("globalSettings.apiKeysDescription")} />
         <div className="space-y-4">
-          {config.providers.map((p) => {
+          {providers.map((p) => {
             if (p.oauth) {
-              return <OAuthProviderCard key={p.name} providerName={p.name} onChange={refreshProviders} />;
+              return <OAuthProviderCard key={p.name} providerName={p.name} />;
             }
 
             const masked = keys[p.name] || "";

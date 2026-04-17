@@ -1,6 +1,7 @@
 import { ChevronsRight, Plus, Settings, X } from "lucide-react";
 import { useActiveSession } from "@/client/entities/session/index.js";
-import { useActiveConversations } from "@/client/entities/conversation/index.js";
+import { useConversations } from "@/client/entities/conversation/index.js";
+import { useProjectState } from "@/client/entities/project/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
@@ -8,7 +9,8 @@ import { useConversation } from "./useConversation.js";
 
 export function SessionTabs() {
   const session = useActiveSession();
-  const conversations = useActiveConversations();
+  const { activeProjectSlug } = useProjectState();
+  const { data: conversations = [] } = useConversations(activeProjectSlug);
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
   const { create, load, remove } = useConversation();

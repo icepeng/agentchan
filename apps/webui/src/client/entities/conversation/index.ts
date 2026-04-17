@@ -12,11 +12,10 @@ export type {
 } from "./conversation.types.js";
 
 export {
-  ConversationProvider,
-  useConversationState,
-  useConversationDispatch,
-  useProjectConversations,
-  useActiveConversations,
-  selectConversations,
-} from "./ConversationContext.js";
-export type { ConversationState, ConversationAction } from "./ConversationContext.js";
+  useConversations,
+  useConversationData,
+  useConversationMutations,
+} from "./useConversations.js";
+export type { ConversationData } from "./useConversations.js";
+
+export { insertNode, insertNodes, replaceTempNode } from "./tree.utils.js";
