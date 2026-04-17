@@ -177,7 +177,9 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
       }
       let contextTokens = 0;
       for (let i = action.activePath.length - 1; i >= 0; i--) {
-        const ct = nodeMap.get(action.activePath[i])?.usage?.contextTokens;
+        const nodeId = action.activePath[i];
+        if (!nodeId) continue;
+        const ct = nodeMap.get(nodeId)?.usage?.contextTokens;
         if (ct) { contextTokens = ct; break; }
       }
       const conversations = state.conversations.map((c) =>

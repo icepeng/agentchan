@@ -39,7 +39,8 @@ function searchFileContent(
   const matchLineNumbers: number[] = [];
 
   for (let i = 0; i < lines.length; i++) {
-    if (regex.test(lines[i])) {
+    const line = lines[i] ?? "";
+    if (regex.test(line)) {
       matchLineNumbers.push(i + 1);
       if (currentMatchCount + matchLineNumbers.length >= maxMatches) {
         break;
@@ -58,7 +59,7 @@ function searchFileContent(
     const entries: GrepMatch[] = matchLineNumbers.map((lineNum) => ({
       path: filePath,
       lineNumber: lineNum,
-      text: lines[lineNum - 1],
+      text: lines[lineNum - 1] ?? "",
       isContext: false,
     }));
     return { entries, matchCount: matchLineNumbers.length, truncated };
@@ -72,11 +73,9 @@ function searchFileContent(
     const start = Math.max(1, lineNum - contextSize);
     const end = Math.min(lines.length, lineNum + contextSize);
 
-    if (ranges.length > 0 && start <= ranges[ranges.length - 1].end + 1) {
-      ranges[ranges.length - 1].end = Math.max(
-        ranges[ranges.length - 1].end,
-        end,
-      );
+    const lastRange = ranges[ranges.length - 1];
+    if (lastRange && start <= lastRange.end + 1) {
+      lastRange.end = Math.max(lastRange.end, end);
     } else {
       ranges.push({ start, end });
     }
@@ -88,7 +87,7 @@ function searchFileContent(
       entries.push({
         path: filePath,
         lineNumber: lineNum,
-        text: lines[lineNum - 1],
+        text: lines[lineNum - 1] ?? "",
         isContext: !matchSet.has(lineNum),
       });
     }

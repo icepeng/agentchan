@@ -27,7 +27,7 @@ export function summarizeTurnUsage(entries: TokenUsage[]): TokenUsage | undefine
     totalCost += u.cost ?? 0;
   }
 
-  const last = entries[entries.length - 1];
+  const last = entries[entries.length - 1]!;
   const contextTokens =
     last.inputTokens +
     last.outputTokens +

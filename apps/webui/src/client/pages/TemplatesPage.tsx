@@ -119,7 +119,7 @@ export function TemplatesPage() {
     void fetchTemplates().then((list) => {
       if (cancelled) return;
       setTemplates(list);
-      if (list.length > 0) setSelectedSlug(list[0].slug);
+      if (list[0]) setSelectedSlug(list[0].slug);
     });
     return () => { cancelled = true; };
   }, []);
@@ -171,7 +171,8 @@ export function TemplatesPage() {
           e.key === "ArrowDown"
             ? Math.min(cur + 1, templates.length - 1)
             : Math.max(cur - 1, 0);
-        setSelectedSlug(templates[next].slug);
+        const nextTemplate = templates[next];
+        if (nextTemplate) setSelectedSlug(nextTemplate.slug);
       }
     },
     [templates, selectedIndex],

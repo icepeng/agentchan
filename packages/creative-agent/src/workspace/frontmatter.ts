@@ -39,13 +39,13 @@ export function parseFrontmatter(content: string): ParsedFrontmatter {
   // Full frontmatter + body
   const match = normalized.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
   if (match) {
-    return parseYamlBlock(match[1], match[2]);
+    return parseYamlBlock(match[1] ?? "", match[2] ?? "");
   }
 
   // Frontmatter only (no body after closing ---)
   const fmOnly = normalized.match(/^---\s*\n([\s\S]*?)\n---\s*$/);
   if (fmOnly) {
-    return parseYamlBlock(fmOnly[1], "");
+    return parseYamlBlock(fmOnly[1] ?? "", "");
   }
 
   return { frontmatter: null, body: normalized };

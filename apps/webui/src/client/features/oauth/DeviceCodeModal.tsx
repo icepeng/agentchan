@@ -27,7 +27,7 @@ export function DeviceCodeModal({
     const raw = authInfo?.instructions?.trim();
     if (!raw) return null;
     const match = raw.match(/:\s*(\S.*)$/);
-    return (match ? match[1] : raw).trim();
+    return (match?.[1] ?? raw).trim();
   }, [authInfo?.instructions]);
 
   const onDoneRef = useRef(onDone);

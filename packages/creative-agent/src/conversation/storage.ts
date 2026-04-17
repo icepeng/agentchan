@@ -249,7 +249,7 @@ export function createConversationStorage(projectsDir: string): ConversationStor
       const rootNodeId = rootNode?.id ?? "";
 
       const activePath = rootNodeId ? computeActivePath(tree, rootNodeId) : [];
-      const activeLeafId = activePath.length > 0 ? activePath[activePath.length - 1] : "";
+      const activeLeafId = activePath[activePath.length - 1] ?? "";
 
       return { rootNodeId, activeLeafId, activePath };
     },
