@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Indicator } from "@/client/shared/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { fetchOAuthStatus, logoutOAuth } from "@/client/entities/config/index.js";
-import type { OAuthStatus } from "@/client/entities/config/index.js";
+import { useOauthStatus, useConfigMutations } from "@/client/entities/config/index.js";
 import { DeviceCodeModal } from "./DeviceCodeModal.js";
 import { providerLabel, formatExpires, isOAuthActive } from "./providerLabel.js";
 
@@ -14,39 +13,29 @@ export function OAuthProviderCard({
   onChange?: (active: boolean) => void | Promise<void>;
 }) {
   const { t } = useI18n();
-  const [status, setStatus] = useState<OAuthStatus | null>(null);
+  const { data: status } = useOauthStatus(providerName);
+  const { logoutOAuth } = useConfigMutations();
   const [modalOpen, setModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const label = providerLabel(providerName);
 
+  // Notify caller (e.g. onboarding's oauthSignedIn map) whenever cached status
+  // shifts — done via ref so we don't re-fire on every parent re-render.
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
   });
-
-  const notify = (next: OAuthStatus) => onChangeRef.current?.(isOAuthActive(next));
-
   useEffect(() => {
-    void fetchOAuthStatus(providerName).then((s) => {
-      setStatus(s);
-      void notify(s);
-    });
-  }, [providerName]);
+    if (status) void onChangeRef.current?.(isOAuthActive(status));
+  }, [status]);
 
   const handleLogout = async () => {
     setBusy(true);
     try {
-      const next = await logoutOAuth(providerName);
-      setStatus(next);
-      await notify(next);
+      await logoutOAuth(providerName);
     } finally {
       setBusy(false);
     }
-  };
-
-  const handleLoginDone = async (next: OAuthStatus) => {
-    setStatus(next);
-    await notify(next);
   };
 
   const active = isOAuthActive(status);
@@ -95,7 +84,6 @@ export function OAuthProviderCard({
         <DeviceCodeModal
           providerName={providerName}
           providerLabel={label}
-          onDone={handleLoginDone}
           onClose={() => setModalOpen(false)}
         />
       )}

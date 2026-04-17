@@ -1,24 +1,20 @@
 import { useCallback, useEffect, useRef } from "react";
+import { useSWRConfig } from "swr";
 import {
   useProjectState,
   useProjectDispatch,
-  fetchProjects as apiFetchProjects,
-  createProject as apiCreate,
-  updateProject as apiUpdate,
-  deleteProject as apiDelete,
-  duplicateProject as apiDuplicate,
+  useProjects,
+  useProjectMutations,
 } from "@/client/entities/project/index.js";
 import {
   useSessionState,
   useSessionDispatch,
   selectSession,
   fetchConversations,
-  fetchConversation,
   abortProjectStream,
   type Conversation,
 } from "@/client/entities/session/index.js";
-import { useConversationDispatch } from "@/client/entities/conversation/index.js";
-import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
+import { qk } from "@/client/shared/queryKeys.js";
 import { localStore } from "@/client/shared/storage.js";
 
 export function useProject() {
@@ -26,32 +22,28 @@ export function useProject() {
   const projectDispatch = useProjectDispatch();
   const sessionState = useSessionState();
   const sessionDispatch = useSessionDispatch();
-  const conversationDispatch = useConversationDispatch();
-  const skillDispatch = useSkillDispatch();
+  const { mutate } = useSWRConfig();
+
+  const { data: projects = [] } = useProjects();
+  const {
+    create: createProjectMutation,
+    update: updateProjectMutation,
+    remove: deleteProjectMutation,
+    duplicate: duplicateProjectMutation,
+  } = useProjectMutations();
 
   // Ref so selectProject doesn't re-create on every stream delta.
   const sessionStateRef = useRef(sessionState);
   useEffect(() => { sessionStateRef.current = sessionState; });
 
-  const loadProjects = useCallback(async () => {
-    const projects = await apiFetchProjects();
-    projectDispatch({ type: "SET_PROJECTS", projects });
-    return projects;
-  }, [projectDispatch]);
-
   const activateProject = useCallback(
     async (slug: string): Promise<Conversation[]> => {
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug });
-      skillDispatch({ type: "CLEAR" });
-      const [conversations, skills] = await Promise.all([
-        fetchConversations(slug),
-        fetchSkills(slug),
-      ]);
-      conversationDispatch({ type: "SET_FOR_PROJECT", projectSlug: slug, conversations });
-      skillDispatch({ type: "SET_SKILLS", skills });
+      const conversations = await fetchConversations(slug);
+      void mutate(qk.conversations(slug), conversations, { revalidate: false });
       return conversations;
     },
-    [projectDispatch, conversationDispatch, skillDispatch],
+    [projectDispatch, mutate],
   );
 
   const selectProject = useCallback(
@@ -63,56 +55,52 @@ export function useProject() {
 
       localStore.lastProject.write(slug);
       const rememberedSessionId = selectSession(sessionStateRef.current, slug).conversationId;
-      const conversations = await activateProject(slug);
-      // Re-fetch even if remembered — server may have persisted assistant
-      // nodes from a background stream that we haven't seen yet.
+
+      // Conversations list + remembered detail fetch in parallel. The detail
+      // fetch is speculative (we don't yet know the remembered id is valid);
+      // if the conversation was deleted server-side, SWR's 404 leaves the
+      // cache untouched and we skip the dispatch below.
+      const [conversations] = await Promise.all([
+        activateProject(slug),
+        rememberedSessionId
+          ? mutate(qk.conversation(slug, rememberedSessionId))
+          : Promise.resolve(null),
+      ]);
+
       if (rememberedSessionId && conversations.some((c) => c.id === rememberedSessionId)) {
-        const data = await fetchConversation(slug, rememberedSessionId);
-        conversationDispatch({ type: "UPDATE", projectSlug: slug, conversation: data.conversation });
         sessionDispatch({
           type: "SET_ACTIVE_CONVERSATION",
           projectSlug: slug,
-          conversationId: data.conversation.id,
-          nodes: data.nodes,
-          activePath: data.activePath,
+          conversationId: rememberedSessionId,
         });
       }
     },
-    [projectState.activeProjectSlug, activateProject, sessionDispatch, conversationDispatch],
+    [projectState.activeProjectSlug, activateProject, sessionDispatch, mutate],
   );
 
   const createProject = useCallback(
     async (name: string, fromTemplate?: string) => {
-      const project = await apiCreate(name, fromTemplate);
-      projectDispatch({ type: "ADD_PROJECT", project });
+      const project = await createProjectMutation(name, fromTemplate);
       projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
-      skillDispatch({ type: "CLEAR" });
-      if (fromTemplate) {
-        const skills = await fetchSkills(project.slug);
-        skillDispatch({ type: "SET_SKILLS", skills });
-      }
       return project;
     },
-    [projectDispatch, skillDispatch],
+    [createProjectMutation, projectDispatch],
   );
 
   const duplicateProject = useCallback(
     async (sourceSlug: string, name: string) => {
-      const project = await apiDuplicate(sourceSlug, name);
-      projectDispatch({ type: "ADD_PROJECT", project });
+      const project = await duplicateProjectMutation(sourceSlug, name);
       await activateProject(project.slug);
       return project;
     },
-    [projectDispatch, activateProject],
+    [duplicateProjectMutation, activateProject],
   );
 
   const renameProject = useCallback(
     async (slug: string, name: string) => {
-      const updated = await apiUpdate(slug, { name });
-      projectDispatch({ type: "UPDATE_PROJECT", oldSlug: slug, project: updated });
-      return updated;
+      return updateProjectMutation(slug, { name });
     },
-    [projectDispatch],
+    [updateProjectMutation],
   );
 
   const deleteProject = useCallback(
@@ -122,21 +110,32 @@ export function useProject() {
       abortProjectStream(slug);
       sessionDispatch({ type: "CLOSE_SESSION", projectSlug: slug });
 
-      await apiDelete(slug);
-      projectDispatch({ type: "DELETE_PROJECT", slug });
-      conversationDispatch({ type: "REMOVE_PROJECT", projectSlug: slug });
+      await deleteProjectMutation(slug);
+
       if (projectState.activeProjectSlug === slug) {
-        const fallback = projectState.projects.find((p) => p.slug !== slug);
+        const fallback = projects.find((p) => p.slug !== slug);
         if (fallback) {
           localStore.lastProject.write(fallback.slug);
           await activateProject(fallback.slug);
+        } else {
+          projectDispatch({ type: "CLEAR_RENDER" });
         }
-        // No remaining projects — ProjectState.activeProjectSlug is already
-        // null via DELETE_PROJECT, so selectors naturally return empty view.
       }
     },
-    [projectState.activeProjectSlug, projectState.projects, projectDispatch, sessionDispatch, conversationDispatch, activateProject],
+    [
+      projectState.activeProjectSlug,
+      projects,
+      deleteProjectMutation,
+      sessionDispatch,
+      projectDispatch,
+      activateProject,
+    ],
   );
+
+  const loadProjects = useCallback(async () => {
+    const next = await mutate(qk.projects());
+    return next ?? projects;
+  }, [mutate, projects]);
 
   return {
     loadProjects,
@@ -146,6 +145,6 @@ export function useProject() {
     renameProject,
     deleteProject,
     activeProjectSlug: projectState.activeProjectSlug,
-    projects: projectState.projects,
+    projects,
   };
 }

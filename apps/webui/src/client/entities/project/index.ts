@@ -11,3 +11,6 @@ export type {
   RendererThemeTokens,
   ResolvedThemeVars,
 } from "./projectTheme.js";
+export {
+  useProjects, useProjectReadme, useWorkspaceFiles, useRendererJs, useProjectMutations,
+} from "./useProjects.js";

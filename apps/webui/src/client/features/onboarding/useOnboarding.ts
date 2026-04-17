@@ -1,14 +1,10 @@
 import { useState, useEffect } from "react";
 import {
-  useConfigState,
-  useConfigDispatch,
-  fetchApiKeys,
-  updateApiKey,
-  updateConfig,
-  fetchOnboardingStatus,
-  completeOnboarding,
+  useProviders,
+  useApiKeys,
+  useOnboarding as useOnboardingStatus,
+  useConfigMutations,
 } from "@/client/entities/config/index.js";
-import type { ApiKeyStatus } from "@/client/entities/config/index.js";
 import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { useProject } from "@/client/features/project/index.js";
 
@@ -16,31 +12,33 @@ export type OnboardingStep = 0 | 1 | 2;
 export const ONBOARDING_STEP_COUNT = 3;
 
 export function useOnboarding() {
-  const config = useConfigState();
-  const configDispatch = useConfigDispatch();
+  const { data: providers = [] } = useProviders();
+  const { data: apiKeys = {} } = useApiKeys();
+  const { data: status } = useOnboardingStatus();
+  const {
+    update,
+    updateApiKey: mutateApiKey,
+    completeOnboarding: mutateCompleteOnboarding,
+  } = useConfigMutations();
   const uiDispatch = useUIDispatch();
   const { createProject } = useProject();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>(0);
-  const [apiKeys, setApiKeys] = useState<ApiKeyStatus>({});
   const [oauthSignedIn, setOauthSignedIn] = useState<Record<string, boolean>>({});
-  const [ready, setReady] = useState(false);
+  const [decided, setDecided] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creatingSlug, setCreatingSlug] = useState<string | null>(null);
 
+  // Decide once whether to open the wizard, the moment SWR resolves the status.
+  // Re-firing on later refetches would reopen the wizard mid-session.
   useEffect(() => {
+    if (decided || status === undefined) return;
     const forceShow = new URLSearchParams(window.location.search).has("onboarding");
+    if (!status.completed || forceShow) setWizardOpen(true);
+    setDecided(true);
+  }, [status, decided]);
 
-    void Promise.all([fetchOnboardingStatus(), fetchApiKeys()]).then(
-      ([status, keys]) => {
-        setApiKeys(keys);
-        if (!status.completed || forceShow) {
-          setWizardOpen(true);
-        }
-      },
-    ).catch(() => {}).finally(() => setReady(true));
-  }, []);
-
+  const ready = decided;
   const hasAnyKey = Object.values(apiKeys).some((v) => v !== "");
   const hasAnySignedIn = Object.values(oauthSignedIn).some(Boolean);
   const hasAnyCredentials = hasAnyKey || hasAnySignedIn;
@@ -59,7 +57,7 @@ export function useOnboarding() {
   // All dismiss paths land on Templates — avoids the "empty main" failure mode
   // that STRATEGY.md §2-6 flags as an onboarding-to-activation hole.
   const dismiss = async () => {
-    await completeOnboarding();
+    await mutateCompleteOnboarding();
     setWizardOpen(false);
     uiDispatch({ type: "NAVIGATE", route: { page: "templates" } });
   };
@@ -69,7 +67,7 @@ export function useOnboarding() {
     setCreatingSlug(slug);
     try {
       await createProject(name, slug);
-      await completeOnboarding();
+      await mutateCompleteOnboarding();
       setWizardOpen(false);
       uiDispatch({ type: "NAVIGATE", route: { page: "main" } });
     } finally {
@@ -80,10 +78,8 @@ export function useOnboarding() {
   const saveApiKey = async (provider: string, key: string) => {
     setSaving(true);
     try {
-      const updated = await updateApiKey(provider, key);
-      setApiKeys(updated);
-      const result = await updateConfig({ provider });
-      configDispatch({ type: "SET_CONFIG", provider: result.provider, model: result.model });
+      await mutateApiKey(provider, key);
+      await update({ provider });
     } finally {
       setSaving(false);
     }
@@ -103,6 +99,6 @@ export function useOnboarding() {
     hasAnyCredentials,
     handleOAuthActiveChange,
     ready,
-    providers: config.providers,
+    providers,
   };
 }

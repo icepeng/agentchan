@@ -5,3 +5,4 @@ export {
   saveProjectAsTemplate,
   saveTemplateOrder,
 } from "./template.api.js";
+export { useTemplates, useTemplateReadme, useTemplateMutations } from "./useTemplates.js";
