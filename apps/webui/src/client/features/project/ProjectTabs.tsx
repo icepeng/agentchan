@@ -5,7 +5,7 @@ import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
 import { fetchTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useSessionState, selectStreamSlot } from "@/client/entities/session/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
@@ -248,10 +248,10 @@ export function ProjectTabs() {
 
       {projects.map((project) => {
         const isActive = activeProjectSlug === project.slug;
-        const slot = session.streams.get(project.slug);
-        const streamState: "idle" | "streaming" | "error" = slot?.streamError
+        const slot = selectStreamSlot(session, project.slug);
+        const streamState: "idle" | "streaming" | "error" = slot.streamError
           ? "error"
-          : slot?.isStreaming
+          : slot.isStreaming
             ? "streaming"
             : "idle";
 

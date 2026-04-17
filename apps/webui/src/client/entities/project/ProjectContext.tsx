@@ -13,7 +13,6 @@ import type { RendererTheme } from "./projectTheme.js";
 export interface ProjectState {
   projects: Project[];
   activeProjectSlug: string | null;
-  projectActiveSession: Map<string, string>;
   renderedHtml: string;
   rendererTheme: RendererTheme | null;
 }
@@ -22,7 +21,7 @@ export interface ProjectState {
 
 export type ProjectAction =
   | { type: "SET_PROJECTS"; projects: Project[] }
-  | { type: "SET_ACTIVE_PROJECT"; slug: string; currentConversationId?: string | null }
+  | { type: "SET_ACTIVE_PROJECT"; slug: string }
   | { type: "ADD_PROJECT"; project: Project }
   | { type: "UPDATE_PROJECT"; oldSlug: string; project: Project }
   | { type: "DELETE_PROJECT"; slug: string }
@@ -36,17 +35,12 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       return { ...state, projects: action.projects };
 
     case "SET_ACTIVE_PROJECT": {
-      const newMap = new Map(state.projectActiveSession);
-      if (state.activeProjectSlug && action.currentConversationId) {
-        newMap.set(state.activeProjectSlug, action.currentConversationId);
-      }
       // rendererTheme은 새 프로젝트의 renderer가 로드되어 SET_RENDER_OUTPUT이
       // 덮어쓸 때까지 유지한다. 즉시 null로 리셋하면 "이전 테마 → 기본 팔레트 →
       // 새 테마"의 두 단계 깜빡임이 발생하기 때문이다.
       return {
         ...state,
         activeProjectSlug: action.slug,
-        projectActiveSession: newMap,
         renderedHtml: "",
       };
     }
@@ -110,7 +104,6 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
 const initialState: ProjectState = {
   projects: [],
   activeProjectSlug: null,
-  projectActiveSession: new Map(),
   renderedHtml: "",
   rendererTheme: null,
 };

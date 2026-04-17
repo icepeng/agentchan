@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useProjectDispatch, fetchProjects } from "@/client/entities/project/index.js";
-import { useSessionDispatch, fetchConversations } from "@/client/entities/session/index.js";
+import { fetchConversations } from "@/client/entities/session/index.js";
+import { useConversationDispatch } from "@/client/entities/conversation/index.js";
 import { useConfigDispatch, fetchConfig, fetchProviders } from "@/client/entities/config/index.js";
 import { useSkillDispatch, fetchSkills } from "@/client/entities/skill/index.js";
 import { localStore } from "@/client/shared/storage.js";
@@ -9,7 +10,7 @@ import { AppShell } from "@/client/app/index.js";
 
 export function App() {
   const projectDispatch = useProjectDispatch();
-  const sessionDispatch = useSessionDispatch();
+  const conversationDispatch = useConversationDispatch();
   const configDispatch = useConfigDispatch();
   const skillDispatch = useSkillDispatch();
 
@@ -39,11 +40,15 @@ export function App() {
           fetchConversations(defaultProject.slug),
           fetchSkills(defaultProject.slug),
         ]);
-        sessionDispatch({ type: "SET_CONVERSATIONS", conversations });
+        conversationDispatch({
+          type: "SET_FOR_PROJECT",
+          projectSlug: defaultProject.slug,
+          conversations,
+        });
         skillDispatch({ type: "SET_SKILLS", skills });
       }
     });
-  }, [projectDispatch, sessionDispatch, configDispatch, skillDispatch]);
+  }, [projectDispatch, conversationDispatch, configDispatch, skillDispatch]);
 
   return <AppShell />;
 }

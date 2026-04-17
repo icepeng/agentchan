@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { useConfigDispatch, updateConfig } from "@/client/entities/config/index.js";
 import { useSkillState } from "@/client/entities/skill/index.js";
-import { useSessionState } from "@/client/entities/session/index.js";
+import { useActiveSession } from "@/client/entities/session/index.js";
+import { useActiveConversations } from "@/client/entities/conversation/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useConversation } from "./useConversation.js";
 import { useStreaming } from "./useStreaming.js";
@@ -11,7 +12,8 @@ import { useCommandPalette } from "./useCommandPalette.js";
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const configDispatch = useConfigDispatch();
   const skillState = useSkillState();
-  const session = useSessionState();
+  const session = useActiveSession();
+  const conversations = useActiveConversations();
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { create, compact } = useConversation();
@@ -88,8 +90,8 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
         (e): e is SkillSlashCommand => e.kind === "skill" && e.name === cmdName,
       );
       if (entry?.environment === "meta") {
-        const activeConv = session.conversations.find(
-          (c) => c.id === session.activeConversationId,
+        const activeConv = conversations.find(
+          (c) => c.id === session.conversationId,
         );
         if (activeConv?.mode === "meta") return false;
 
@@ -102,7 +104,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
 
       return false; // skill commands fall through to send()
     },
-    [executeLocalCommand, entries, session.conversations, session.activeConversationId, create, send, setText],
+    [executeLocalCommand, entries, conversations, session.conversationId, create, send, setText],
   );
 
   return { palette, selectCommand, tryExecuteCommand };

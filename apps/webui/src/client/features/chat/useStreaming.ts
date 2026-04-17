@@ -3,6 +3,7 @@ import { useProjectState } from "@/client/entities/project/index.js";
 import {
   useSessionState,
   useSessionDispatch,
+  selectSession,
   selectStreamSlot,
   sendMessage,
   regenerateResponse,
@@ -11,6 +12,7 @@ import {
   clearAbortController,
   type SSECallbacks,
 } from "@/client/entities/session/index.js";
+import { useConversationDispatch } from "@/client/entities/conversation/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import {
   isBackgroundStream,
@@ -22,10 +24,11 @@ export function useStreaming() {
   const projectState = useProjectState();
   const sessionState = useSessionState();
   const sessionDispatch = useSessionDispatch();
+  const conversationDispatch = useConversationDispatch();
   const { t } = useI18n();
   // Needed so notification onClick can perform a full project switch
-  // (SWITCH_PROJECT + fetchConversations + fetchSkills) — not just flip
-  // activeProjectSlug, which would leave SessionState stale.
+  // (fetchConversations + fetchSkills) — not just flip activeProjectSlug,
+  // which would leave ConversationContext without the target's list.
   const { selectProject } = useProject();
 
   const projectStateRef = useRef(projectState);
@@ -40,7 +43,7 @@ export function useStreaming() {
   /**
    * Shared streaming callbacks — identical for send and regenerate.
    * `projectSlug` is captured in closure so every dispatch can route to the
-   * correct stream slot even after the user has switched projects.
+   * correct session even after the user has switched projects.
    */
   const makeCallbacks = useCallback(
     (projectSlug: string, conversationId: string): SSECallbacks => ({
@@ -68,9 +71,10 @@ export function useStreaming() {
         const s = sessionStateRef.current;
         const projectName =
           p.projects.find((pr) => pr.slug === projectSlug)?.name ?? projectSlug;
+        const activeConversationId = selectSession(s, p.activeProjectSlug).conversationId;
 
         // Fire notification if user isn't actively viewing this project+conversation.
-        if (isBackgroundStream(projectSlug, conversationId, p.activeProjectSlug, s.activeConversationId)) {
+        if (isBackgroundStream(projectSlug, conversationId, p.activeProjectSlug, activeConversationId)) {
           notifyBackgroundCompletion({
             projectSlug,
             projectName,
@@ -80,9 +84,8 @@ export function useStreaming() {
             body: tRef.current("notifications.sessionCompleteBody"),
             onClick: () => {
               // Navigate back to the project that just finished. Use the full
-              // selectProject orchestration — otherwise SessionState would
-              // still hold the previous project's conversations, causing
-              // "Conversation not found" 404s when the user clicks a session.
+              // selectProject orchestration — otherwise ConversationContext would
+              // not have that project's conversation list loaded.
               if (projectStateRef.current.activeProjectSlug !== projectSlug) {
                 void selectProjectRef.current(projectSlug);
               }
@@ -100,9 +103,11 @@ export function useStreaming() {
           .then((data) => {
             // Double-check: user may have switched again during the fetch.
             if (projectStateRef.current.activeProjectSlug !== projectSlug) return;
+            conversationDispatch({ type: "UPDATE", projectSlug, conversation: data.conversation });
             sessionDispatch({
               type: "SET_ACTIVE_CONVERSATION",
-              conversation: data.conversation,
+              projectSlug,
+              conversationId: data.conversation.id,
               nodes: data.nodes,
               activePath: data.activePath,
             });
@@ -117,8 +122,9 @@ export function useStreaming() {
         const s = sessionStateRef.current;
         const projectName =
           p.projects.find((pr) => pr.slug === projectSlug)?.name ?? projectSlug;
+        const activeConversationId = selectSession(s, p.activeProjectSlug).conversationId;
 
-        if (isBackgroundStream(projectSlug, conversationId, p.activeProjectSlug, s.activeConversationId)) {
+        if (isBackgroundStream(projectSlug, conversationId, p.activeProjectSlug, activeConversationId)) {
           notifyBackgroundCompletion({
             projectSlug,
             projectName,
@@ -136,7 +142,7 @@ export function useStreaming() {
         }
       },
     }),
-    [sessionDispatch],
+    [sessionDispatch, conversationDispatch],
   );
 
   /**
@@ -148,17 +154,19 @@ export function useStreaming() {
     async (text: string, conversationId?: string) => {
       const p = projectStateRef.current;
       const s = sessionStateRef.current;
-      const convId = conversationId ?? s.activeConversationId;
-      if (!convId || !p.activeProjectSlug) return;
-
+      if (!p.activeProjectSlug) return;
       const projectSlug = p.activeProjectSlug;
+      const session = selectSession(s, projectSlug);
+      const convId = conversationId ?? session.conversationId;
+      if (!convId) return;
+
       const slot = selectStreamSlot(s, projectSlug);
       // Per-project concurrency guard: one in-flight stream per project.
       if (slot.isStreaming) return;
 
       const parentNodeId = conversationId
         ? null
-        : s.replyToNodeId ?? s.activePath[s.activePath.length - 1] ?? null;
+        : session.replyToNodeId ?? session.activePath[session.activePath.length - 1] ?? null;
 
       sessionDispatch({ type: "STREAM_START", projectSlug, conversationId: convId });
 
@@ -182,16 +190,18 @@ export function useStreaming() {
     async (userNodeId: string) => {
       const p = projectStateRef.current;
       const s = sessionStateRef.current;
-      if (!s.activeConversationId || !p.activeProjectSlug) return;
-
+      if (!p.activeProjectSlug) return;
       const projectSlug = p.activeProjectSlug;
+      const session = selectSession(s, projectSlug);
+      if (!session.conversationId) return;
+
       const slot = selectStreamSlot(s, projectSlug);
       if (slot.isStreaming) return;
 
       sessionDispatch({
         type: "STREAM_START",
         projectSlug,
-        conversationId: s.activeConversationId,
+        conversationId: session.conversationId,
       });
 
       const controller = new AbortController();
@@ -199,9 +209,9 @@ export function useStreaming() {
       try {
         await regenerateResponse(
           projectSlug,
-          s.activeConversationId,
+          session.conversationId,
           userNodeId,
-          makeCallbacks(projectSlug, s.activeConversationId),
+          makeCallbacks(projectSlug, session.conversationId),
           controller.signal,
         );
       } finally {
