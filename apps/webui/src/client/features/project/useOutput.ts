@@ -5,6 +5,7 @@ import {
   fetchWorkspaceFiles,
   fetchTranspiledRenderer,
   validateTheme,
+  resolveRawTheme,
 } from "@/client/entities/project/index.js";
 import type { RenderContext, RendererTheme } from "@/client/entities/project/index.js";
 
@@ -39,7 +40,7 @@ async function executeRenderer(
       return { html: errorHtml("renderer.ts must export a render() function"), theme: null };
     }
     const html: string = mod.render(context);
-    const theme = validateTheme(mod.theme);
+    const theme = validateTheme(resolveRawTheme(mod.theme, context));
     return { html, theme };
   } finally {
     URL.revokeObjectURL(url);

@@ -6,6 +6,8 @@
 //
 //   · 평상: Cartographer's Logbook 계승 — 크림 양피지 · 세피아 잉크 · 구리 채식
 //   · 전투: 촛불(일렁임) · 가죽(어두운 갈색) · 피(진홍) — data-mode="combat"
+//   · theme 은 함수 export. scene 의 마지막 [STATUS] mode 를 읽어 평시/전투 팔레트를
+//     선택, 전역 --color-* 를 교체한다 → Sidebar/AgentPanel 까지 톤 일관.
 //
 //   · 렌더러는 순수 함수: files → HTML. scripts가 쓰는 마커를 파싱해 UI 생성.
 //     scene.md 마커: [STATUS] [SYSTEM] [STAT] [BEAT:combat] [CHAR:] [item:] [quest:] + [slug:assets/key]
@@ -70,24 +72,6 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
-// ── Theme export ──────────────────────────────
-// 전투 모드는 renderer 내부 CSS 가 data-mode 로 자체 토글. 따라서 여기 base 만.
-
-export const theme: RendererTheme = {
-  base: {
-    void: "#e8dcc0",
-    base: "#eee3c8",
-    surface: "#f6ecd2",
-    elevated: "#fff8e4",
-    accent: "#3d7a6d",
-    fg: "#2d2015",
-    fg2: "#5a4530",
-    fg3: "#8a6e4d",
-    edge: "#3d2a15",
-  },
-  prefersScheme: "light",
-};
-
 // ── Palette (renderer internal) ───────────────
 
 const ILLUMINATED_COPPER = "#b36b2a"; // warn · vigor mid · 브랜딩
@@ -116,6 +100,66 @@ const CHARACTER_COLORS = [
   MIST_BLUE,           // sea navy
   "#8a3a2d",           // iron rust
 ];
+
+// ── Theme export ──────────────────────────────
+//
+// 평시: 크림 양피지 + 세피아 잉크. 전투: 가죽 + 촛불.
+// 함수로 내보내 매 refresh 마다 scene 의 마지막 [STATUS] mode 를 보고 팔레트를 교체한다.
+// 덕분에 렌더러 내부뿐 아니라 Sidebar / AgentPanel / BottomInput 까지 같은 톤으로 전환된다.
+
+const PEACE_THEME: RendererTheme = {
+  base: {
+    void: "#e8dcc0",
+    base: "#eee3c8",
+    surface: "#f6ecd2",
+    elevated: "#fff8e4",
+    accent: VERDIGRIS,
+    fg: "#2d2015",
+    fg2: "#5a4530",
+    fg3: "#8a6e4d",
+    edge: "#3d2a15",
+  },
+  prefersScheme: "light",
+};
+
+const COMBAT_THEME: RendererTheme = {
+  base: {
+    void: COMBAT_BASE,
+    base: COMBAT_BASE,
+    surface: COMBAT_SURFACE,
+    elevated: "#2e1c14",
+    accent: COMBAT_CANDLE,
+    fg: COMBAT_PARCH,
+    fg2: COMBAT_FG2,
+    fg3: COMBAT_FG3,
+    edge: "#3d2a1f",
+  },
+  prefersScheme: "dark",
+};
+
+export function theme(ctx: RenderContext): RendererTheme {
+  return detectCurrentMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
+}
+
+// theme 은 매 refresh 호출되므로, mode 한 줄을 얻으려 scene 전체를 풀파싱하지 않는다.
+// path 내림차순으로 scene 을 훑다가 처음 만나는 [STATUS] 블록의 mode 만 해석.
+function detectCurrentMode(ctx: RenderContext): "peace" | "combat" {
+  const sceneFiles = ctx.files.filter(
+    (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
+  );
+  if (sceneFiles.length === 0) return "peace";
+  const ordered = sceneFiles.sort((a, b) => a.path.localeCompare(b.path));
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    const content = ordered[i].content;
+    const close = content.toUpperCase().lastIndexOf("[/STATUS]");
+    if (close < 0) continue;
+    const open = content.toUpperCase().lastIndexOf("[STATUS]", close);
+    if (open < 0) continue;
+    const body = content.slice(open + "[STATUS]".length, close);
+    return parseStatusContent(body).mode;
+  }
+  return "peace";
+}
 
 // ── Hidden file guard ─────────────────────────
 //
