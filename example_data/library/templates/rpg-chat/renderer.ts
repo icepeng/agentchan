@@ -67,20 +67,22 @@ interface RendererTheme {
 // prefersScheme: "light" → Settings 이동 시 사용자의 원래 테마로 자동 복귀.
 // void는 페이지 외곽(조금 더 짙은 종이), surface는 로그북 본문의 가장 밝은 면.
 
-export const theme: RendererTheme = {
-  base: {
-    void: "#e8dcc0",     // 낡은 양피지 가장자리 (body bg)
-    base: "#eee3c8",     // 페이지 외곽
-    surface: "#f6ecd2",  // 로그북 본문
-    elevated: "#fff8e4", // 폴라로이드·스탬프 캐리어
-    accent: "#3d7a6d",   // verdigris — 풍화된 청동, anima·신뢰·성공
-    fg: "#2d2015",       // 진한 세피아 잉크
-    fg2: "#5a4530",      // 중간 잉크
-    fg3: "#8a6e4d",      // 흐린 펜
-    edge: "#3d2a15",     // 잉크 hairline 기준색
-  },
-  prefersScheme: "light",
-};
+export function theme(_ctx: RenderContext): RendererTheme {
+  return {
+    base: {
+      void: "#e8dcc0",     // 낡은 양피지 가장자리 (body bg)
+      base: "#eee3c8",     // 페이지 외곽
+      surface: "#f6ecd2",  // 로그북 본문
+      elevated: "#fff8e4", // 폴라로이드·스탬프 캐리어
+      accent: "#3d7a6d",   // verdigris — 풍화된 청동, anima·신뢰·성공
+      fg: "#2d2015",       // 진한 세피아 잉크
+      fg2: "#5a4530",      // 중간 잉크
+      fg3: "#8a6e4d",      // 흐린 펜
+      edge: "#3d2a15",     // 잉크 hairline 기준색
+    },
+    prefersScheme: "light",
+  };
+}
 
 // ── Palette (renderer internal) ──────────────
 //

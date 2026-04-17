@@ -88,6 +88,7 @@ export function createTreeTool(
           if (truncated) return;
 
           const dirent = dirents[i];
+          if (!dirent) continue;
           const isLast = i === dirents.length - 1;
           const connector = isLast ? "└── " : "├── ";
           const display = dirent.isDirectory()

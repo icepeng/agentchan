@@ -178,7 +178,7 @@ export function createProjectRepo(projectsDir: string) {
       const files: TreeEntry[] = filePaths.map((f, i) => ({
         path: f.relPath,
         type: "file" as const,
-        modifiedAt: stats[i].mtimeMs,
+        modifiedAt: stats[i]!.mtimeMs,
       }));
 
       return [...dirs, ...files];
@@ -190,7 +190,7 @@ export function createProjectRepo(projectsDir: string) {
       if (!fullPath.startsWith(root + sep)) return null;
 
       // Block access to hidden roots
-      const topSegment = filePath.split(/[/\\]/)[0];
+      const topSegment = filePath.split(/[/\\]/)[0] ?? "";
       if (HIDDEN_ROOTS.has(topSegment)) return null;
 
       return { fullPath };

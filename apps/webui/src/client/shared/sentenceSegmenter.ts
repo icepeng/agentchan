@@ -49,7 +49,7 @@ export function segmentSentences(text: string): SentenceSegments {
   if (allSegments.length === 0) return { confirmed: [], pending: "" };
 
   const confirmed = allSegments.slice(0, -1);
-  const pending = allSegments[allSegments.length - 1];
+  const pending = allSegments[allSegments.length - 1] ?? "";
 
   return { confirmed, pending };
 }

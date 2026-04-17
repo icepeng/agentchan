@@ -5,7 +5,7 @@ export type BubbleGroup =
   | { kind: "assistantTurn"; nodes: TreeNode[] };
 
 export function groupActivePath(
-  activePath: string[],
+  activePath: readonly string[],
   nodes: Map<string, TreeNode>,
 ): BubbleGroup[] {
   const groups: BubbleGroup[] = [];
