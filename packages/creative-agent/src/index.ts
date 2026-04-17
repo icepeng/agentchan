@@ -9,7 +9,7 @@ export { parseSlashInput } from "./slash/parse.js";
 export { slugify } from "./slug.js";
 
 // Types
-export type { AgentMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Conversation } from "./types.js";
+export type { AgentMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Session } from "./types.js";
 export type { ModelInfo, CustomApiFormat, ProviderInfo, CustomProviderDef, ThinkingLevel } from "./config-types.js";
 
 // Agent — orchestrator
@@ -22,27 +22,27 @@ export {
 export type { AgentEvent } from "@mariozechner/pi-agent-core";
 export type { ToolCall } from "@mariozechner/pi-ai";
 
-// Conversation — storage
+// Session — storage
 export type {
-  ConversationSnapshot,
+  SessionSnapshot,
   DeleteSubtreeResult,
   SwitchBranchResult,
-  ConversationStorage,
+  SessionStorage,
   SessionMode,
-} from "./conversation/index.js";
-export { createConversationStorage } from "./conversation/index.js";
+} from "./session/index.js";
+export { createSessionStorage } from "./session/index.js";
 
 // Agent — context, config, and LLM-touching ops
 export {
   createAgentContext,
-  createConversation,
-  deleteConversation,
-  compactConversation,
+  createSession,
+  deleteSession,
+  compactSession,
   runPrompt,
   runRegenerate,
   type AgentContext,
   type ResolvedAgentConfig,
-  type CreatedConversation,
+  type CreatedSession,
   type CompactResult,
   type SessionEvent,
 } from "./agent/index.js";

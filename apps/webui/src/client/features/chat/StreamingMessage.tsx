@@ -1,4 +1,4 @@
-import { useActiveStream } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/project-runtime/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { BubbleWrap } from "./MessageBubble.js";

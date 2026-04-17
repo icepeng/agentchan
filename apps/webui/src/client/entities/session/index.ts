@@ -1,28 +1,28 @@
-export {
-  SessionProvider,
-  useSessionState,
-  useSessionDispatch,
-  useActiveSession,
-  useActiveStream,
-  selectSession,
-  selectStreamSlot,
-  EMPTY_USAGE,
-} from "./SessionContext.js";
 export type {
-  SessionState,
-  SessionAction,
   Session,
-  SessionUsage,
-  StreamSlot,
-} from "./SessionContext.js";
-export { useActiveUsage } from "./useSessionData.js";
-export type {
-  Conversation, TreeNode, TokenUsage, ToolCallState,
-  ClientMessage, TextContent, ThinkingContent, ToolCallContent, ImageContent, AssistantContentBlock,
-} from "@/client/entities/conversation/index.js";
+  TreeNode,
+  TokenUsage,
+  ToolCallState,
+  ClientMessage,
+  TextContent,
+  ThinkingContent,
+  ToolCallContent,
+  ImageContent,
+  AssistantContentBlock,
+} from "./session.types.js";
+
 export {
-  fetchConversation, fetchConversations, createConversation, deleteConversation,
-  deleteNode, switchBranch, sendMessage, regenerateResponse, compactConversation,
+  useSessions,
+  useSessionData,
+  useSessionMutations,
+} from "./useSessions.js";
+export type { SessionData } from "./useSessions.js";
+
+export { insertNode, insertNodes, replaceTempNode } from "./tree.utils.js";
+
+export {
+  fetchSession, fetchSessions, createSession, deleteSession,
+  deleteNode, switchBranch, sendMessage, regenerateResponse, compactSession,
   registerAbortController, clearAbortController, abortProjectStream,
 } from "./session.api.js";
 export type { SSECallbacks } from "./session.api.js";

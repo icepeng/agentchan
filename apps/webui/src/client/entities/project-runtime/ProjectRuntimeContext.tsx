@@ -6,7 +6,7 @@ import {
   type Dispatch,
 } from "react";
 import { useProjectState } from "@/client/entities/project/index.js";
-import type { ToolCallState } from "@/client/entities/conversation/index.js";
+import type { ToolCallState } from "@/client/entities/session/index.js";
 
 // --- Types ---
 
@@ -20,16 +20,16 @@ export interface SessionUsage {
 }
 
 /**
- * Runtime snapshot of an active stream. `null` when the session is idle.
+ * Runtime snapshot of an active stream. `null` when the runtime is idle.
  *
  * `streamUsageDelta` accumulates usage summaries received mid-stream so the UI
  * can tick tokens up before `assistant_nodes` lands in the SWR cache. On
  * STREAM_RESET (per-round end) and STREAM_START the delta is cleared — once
- * nodes are written through to `qk.conversation(slug, id)`, the canonical
+ * nodes are written through to `qk.session(slug, id)`, the canonical
  * usage is derived from the node tree (`useActiveUsage`).
  */
 export interface StreamSlot {
-  conversationId: string;
+  sessionId: string;
   isStreaming: boolean;
   streamingText: string;
   streamingToolCalls: ToolCallState[];
@@ -38,33 +38,33 @@ export interface StreamSlot {
 }
 
 /**
- * Runtime state for a single project: which conversation is active, the
+ * Runtime state for a single project: which session is active, the
  * optional reply-to anchor the user has picked, and the in-flight stream slot.
  *
- * Everything server-backed (conversation tree, usage totals, conversation
- * list) lives in SWR caches keyed by `(slug, conversationId)`; this reducer
- * holds only the client-only bits (selection, reply-to, live stream deltas).
+ * Everything server-backed (session tree, usage totals, session list) lives
+ * in SWR caches keyed by `(slug, sessionId)`; this reducer holds only the
+ * client-only bits (selection, reply-to, live stream deltas).
  */
-export interface Session {
-  conversationId: string | null;
+export interface ProjectRuntime {
+  sessionId: string | null;
   replyToNodeId: string | null;
   stream: StreamSlot | null;
 }
 
-export interface SessionState {
-  sessions: Map<string /* projectSlug */, Session>;
+export interface ProjectRuntimeState {
+  runtimes: Map<string /* projectSlug */, ProjectRuntime>;
 }
 
 // --- Actions ---
 
-export type SessionAction =
+export type ProjectRuntimeAction =
   | {
-      type: "SET_ACTIVE_CONVERSATION";
+      type: "SET_ACTIVE_SESSION";
       projectSlug: string;
-      conversationId: string | null;
+      sessionId: string | null;
     }
   | { type: "SET_REPLY_TO"; projectSlug: string; nodeId: string | null }
-  | { type: "STREAM_START"; projectSlug: string; conversationId: string }
+  | { type: "STREAM_START"; projectSlug: string; sessionId: string }
   | { type: "STREAM_TEXT_DELTA"; projectSlug: string; text: string }
   | { type: "STREAM_TOOL_START"; projectSlug: string; id: string; name: string }
   | { type: "STREAM_TOOL_DELTA"; projectSlug: string; id: string; inputJson: string }
@@ -83,7 +83,7 @@ export type SessionAction =
     }
   | { type: "STREAM_RESET"; projectSlug: string }
   | { type: "STREAM_ERROR"; projectSlug: string; error: string }
-  | { type: "CLOSE_SESSION"; projectSlug: string };
+  | { type: "CLOSE_RUNTIME"; projectSlug: string };
 
 // --- Helpers ---
 
@@ -97,7 +97,7 @@ export const EMPTY_USAGE: SessionUsage = {
 };
 
 const EMPTY_STREAM: StreamSlot = {
-  conversationId: "",
+  sessionId: "",
   isStreaming: false,
   streamingText: "",
   streamingToolCalls: [],
@@ -105,50 +105,53 @@ const EMPTY_STREAM: StreamSlot = {
   streamUsageDelta: EMPTY_USAGE,
 };
 
-const EMPTY_SESSION: Session = {
-  conversationId: null,
+const EMPTY_RUNTIME: ProjectRuntime = {
+  sessionId: null,
   replyToNodeId: null,
   stream: null,
 };
 
-function updateSession(
-  state: SessionState,
+function updateRuntime(
+  state: ProjectRuntimeState,
   slug: string,
-  fn: (session: Session) => Session,
-): SessionState {
-  const current = state.sessions.get(slug) ?? EMPTY_SESSION;
+  fn: (runtime: ProjectRuntime) => ProjectRuntime,
+): ProjectRuntimeState {
+  const current = state.runtimes.get(slug) ?? EMPTY_RUNTIME;
   const updated = fn(current);
   if (updated === current) return state;
-  const next = new Map(state.sessions);
+  const next = new Map(state.runtimes);
   next.set(slug, updated);
-  return { sessions: next };
+  return { runtimes: next };
 }
 
 function updateStream(
-  state: SessionState,
+  state: ProjectRuntimeState,
   slug: string,
   fn: (stream: StreamSlot) => StreamSlot,
-): SessionState {
-  return updateSession(state, slug, (session) => ({
-    ...session,
-    stream: fn(session.stream ?? EMPTY_STREAM),
+): ProjectRuntimeState {
+  return updateRuntime(state, slug, (runtime) => ({
+    ...runtime,
+    stream: fn(runtime.stream ?? EMPTY_STREAM),
   }));
 }
 
 // --- Reducer ---
 
-function sessionReducer(state: SessionState, action: SessionAction): SessionState {
+function projectRuntimeReducer(
+  state: ProjectRuntimeState,
+  action: ProjectRuntimeAction,
+): ProjectRuntimeState {
   switch (action.type) {
-    case "SET_ACTIVE_CONVERSATION":
-      return updateSession(state, action.projectSlug, (session) => ({
-        ...session,
-        conversationId: action.conversationId,
+    case "SET_ACTIVE_SESSION":
+      return updateRuntime(state, action.projectSlug, (runtime) => ({
+        ...runtime,
+        sessionId: action.sessionId,
         replyToNodeId: null,
       }));
 
     case "SET_REPLY_TO":
-      return updateSession(state, action.projectSlug, (session) => ({
-        ...session,
+      return updateRuntime(state, action.projectSlug, (runtime) => ({
+        ...runtime,
         replyToNodeId: action.nodeId,
       }));
 
@@ -156,7 +159,7 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
 
     case "STREAM_START":
       return updateStream(state, action.projectSlug, () => ({
-        conversationId: action.conversationId,
+        sessionId: action.sessionId,
         isStreaming: true,
         streamingText: "",
         streamingToolCalls: [],
@@ -246,11 +249,11 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
         streamUsageDelta: EMPTY_USAGE,
       }));
 
-    case "CLOSE_SESSION": {
-      if (!state.sessions.has(action.projectSlug)) return state;
-      const next = new Map(state.sessions);
+    case "CLOSE_RUNTIME": {
+      if (!state.runtimes.has(action.projectSlug)) return state;
+      const next = new Map(state.runtimes);
       next.delete(action.projectSlug);
-      return { sessions: next };
+      return { runtimes: next };
     }
 
     default:
@@ -260,47 +263,47 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
 
 // --- Context ---
 
-const initialState: SessionState = { sessions: new Map() };
+const initialState: ProjectRuntimeState = { runtimes: new Map() };
 
-const SessionStateContext = createContext<SessionState>(initialState);
-const SessionDispatchContext = createContext<Dispatch<SessionAction>>(() => {});
+const ProjectRuntimeStateContext = createContext<ProjectRuntimeState>(initialState);
+const ProjectRuntimeDispatchContext = createContext<Dispatch<ProjectRuntimeAction>>(() => {});
 
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(sessionReducer, initialState);
+export function ProjectRuntimeProvider({ children }: { children: ReactNode }) {
+  const [state, dispatch] = useReducer(projectRuntimeReducer, initialState);
   return (
-    <SessionStateContext.Provider value={state}>
-      <SessionDispatchContext.Provider value={dispatch}>
+    <ProjectRuntimeStateContext.Provider value={state}>
+      <ProjectRuntimeDispatchContext.Provider value={dispatch}>
         {children}
-      </SessionDispatchContext.Provider>
-    </SessionStateContext.Provider>
+      </ProjectRuntimeDispatchContext.Provider>
+    </ProjectRuntimeStateContext.Provider>
   );
 }
 
-export function useSessionState() {
-  return use(SessionStateContext);
+export function useProjectRuntimeState() {
+  return use(ProjectRuntimeStateContext);
 }
 
-export function useSessionDispatch() {
-  return use(SessionDispatchContext);
+export function useProjectRuntimeDispatch() {
+  return use(ProjectRuntimeDispatchContext);
 }
 
 // --- Selectors ---
 
-export function selectSession(state: SessionState, projectSlug: string | null): Session {
-  if (!projectSlug) return EMPTY_SESSION;
-  return state.sessions.get(projectSlug) ?? EMPTY_SESSION;
+export function selectRuntime(state: ProjectRuntimeState, projectSlug: string | null): ProjectRuntime {
+  if (!projectSlug) return EMPTY_RUNTIME;
+  return state.runtimes.get(projectSlug) ?? EMPTY_RUNTIME;
 }
 
-export function selectStreamSlot(state: SessionState, projectSlug: string | null): StreamSlot {
-  return selectSession(state, projectSlug).stream ?? EMPTY_STREAM;
+export function selectStreamSlot(state: ProjectRuntimeState, projectSlug: string | null): StreamSlot {
+  return selectRuntime(state, projectSlug).stream ?? EMPTY_STREAM;
 }
 
-export function useActiveSession(): Session {
+export function useActiveRuntime(): ProjectRuntime {
   const { activeProjectSlug } = useProjectState();
-  const state = useSessionState();
-  return selectSession(state, activeProjectSlug);
+  const state = useProjectRuntimeState();
+  return selectRuntime(state, activeProjectSlug);
 }
 
 export function useActiveStream(): StreamSlot {
-  return useActiveSession().stream ?? EMPTY_STREAM;
+  return useActiveRuntime().stream ?? EMPTY_STREAM;
 }

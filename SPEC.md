@@ -43,7 +43,7 @@ project/
 │       ├── scripts/
 │       ├── assets/
 │       └── references/
-├── conversations/         # 내부: 세션 데이터 (JSONL)
+├── sessions/              # 내부: 세션 데이터 (JSONL)
 ├── renderer.ts            # 렌더링 함수
 └── files/                 # 워크스페이스: 에이전트의 작업 공간
     ├── characters/
@@ -60,7 +60,7 @@ project/
 ### 2.1 경계 규칙
 
 - `files/` 안 = 사용자 콘텐츠. 디렉토리 이름, 파일 이름, 구조 — 전부 프로젝트 작성자가 결정
-- `files/` 밖 = 시스템 인프라. `SYSTEM.md`, `skills/`, `conversations/`, `_project.json`, `renderer.ts`
+- `files/` 밖 = 시스템 인프라. `SYSTEM.md`, `skills/`, `sessions/`, `_project.json`, `renderer.ts`
 - `files/` 내부에 시스템이 예약한 이름이나 구조는 없다
 
 ---
@@ -159,7 +159,7 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 
 ### 6.2 제약
 
-- 입력은 `RenderContext` 뿐. conversations, skills, SYSTEM.md, 에이전트 상태에 접근 불가
+- 입력은 `RenderContext` 뿐. sessions, skills, SYSTEM.md, 에이전트 상태에 접근 불가
 - 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - 외부 모듈 import 불가. 타입은 파일 내에 인라인 선언
 - 출력은 HTML 문자열 하나
@@ -231,7 +231,7 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 - R2. 출력은 `render(ctx): string` — HTML 문자열 하나
 - R3. 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - R4. 외부 모듈 import 불가
-- R5. conversations, skills, SYSTEM.md, 에이전트 상태에 접근 불가
+- R5. sessions, skills, SYSTEM.md, 에이전트 상태에 접근 불가
 
 **도출 특성:**
 - (R1+R2) 순수 함수 — `files → HTML`
@@ -273,7 +273,7 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 - A1. 시스템 프롬프트 = DEFAULT_SYSTEM_PROMPT + SYSTEM.md + skill catalog
 - A2. 도구 = 파일 도구 (read, write, edit, append, grep, tree) + script + skill 활성화 도구
 - A3. 파일 도구는 projectDir에 scope (path traversal 차단)
-- A4. 에이전트는 렌더러, UI, conversation 저장소에 직접 접근 불가. 파일 도구를 통해서만 상호작용
+- A4. 에이전트는 렌더러, UI, session 저장소에 직접 접근 불가. 파일 도구를 통해서만 상호작용
 - A5. compaction: system prompt 보존, 대화 히스토리의 오래된 tool result는 placeholder 교체
 
 **도출 특성:**
@@ -282,7 +282,7 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 - (A3) 샌드박스 — projectDir 밖 접근 불가
 - (A2) shell 없음 — script 도구만으로 코드 실행
 
-### 8.6 Conversation 저장소
+### 8.6 Session 저장소
 
 **제약:**
 - V1. 트리 구조. 각 노드에 parentId → 분기/재생성 가능

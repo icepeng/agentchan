@@ -5,7 +5,7 @@ import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
 import { useTemplates } from "@/client/entities/template/index.js";
-import { useSessionState, selectStreamSlot } from "@/client/entities/session/index.js";
+import { useProjectRuntimeState, selectStreamSlot } from "@/client/entities/project-runtime/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
@@ -64,7 +64,7 @@ function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
 export function ProjectTabs() {
   const { t } = useI18n();
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
-  const session = useSessionState();
+  const runtimeState = useProjectRuntimeState();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
   const { data: templates } = useTemplates();
   const createInputRef = useRef<HTMLInputElement>(null);
@@ -243,7 +243,7 @@ export function ProjectTabs() {
 
       {projects.map((project) => {
         const isActive = activeProjectSlug === project.slug;
-        const slot = selectStreamSlot(session, project.slug);
+        const slot = selectStreamSlot(runtimeState, project.slug);
         const streamState: "idle" | "streaming" | "error" = slot.streamError
           ? "error"
           : slot.isStreaming

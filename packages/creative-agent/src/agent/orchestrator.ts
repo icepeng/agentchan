@@ -16,7 +16,7 @@ import { discoverProjectSkills } from "../skills/discovery.js";
 import { generateCatalog } from "../skills/catalog.js";
 import { createActivateSkillTool } from "../skills/manager.js";
 import type { SkillMetadata, SkillEnvironment, SkillRecord } from "../skills/types.js";
-import type { SessionMode } from "../conversation/format.js";
+import type { SessionMode } from "../session/format.js";
 import { microCompact, clearCompactState } from "./compact.js";
 import type { ResolvedAgentConfig } from "./config.js";
 import { analyzeContext } from "./context-analysis.js";
@@ -139,12 +139,12 @@ export function resolveModel(
 // --- Skill management ---
 
 /**
- * Tear down per-conversation caches owned by the agent layer. Currently
- * clears only the Google explicit-cache hook, which is keyed by conversationId.
+ * Tear down per-session caches owned by the agent layer. Currently
+ * clears only the Google explicit-cache hook, which is keyed by sessionId.
  */
-export function clearConversationAgentState(conversationId: string): void {
-  clearGoogleCache(conversationId);
-  clearCompactState(conversationId);
+export function clearSessionAgentState(sessionId: string): void {
+  clearGoogleCache(sessionId);
+  clearCompactState(sessionId);
 }
 
 export async function getSkills(projectDir: string): Promise<SkillMetadata[]> {
@@ -164,7 +164,7 @@ export async function setupCreativeAgent(
   config: ResolvedAgentConfig,
   projectDir: string,
   history: AgentMessage[],
-  conversationId: string,
+  sessionId: string,
   sessionMode?: SessionMode,
 ): Promise<CreativeAgentSetup> {
   const allSkills = await discoverProjectSkills(join(projectDir, "skills"));
@@ -204,7 +204,7 @@ export async function setupCreativeAgent(
   // Explicit context caching for models that lack implicit caching
   const needsExplicitCache = config.model === "gemini-3.1-pro-preview";
   const googleCacheHook = needsExplicitCache
-    ? createGoogleCacheHook(config.apiKey ?? getEnvApiKey("google") ?? "", conversationId)
+    ? createGoogleCacheHook(config.apiKey ?? getEnvApiKey("google") ?? "", sessionId)
     : undefined;
 
   const agent = new Agent({
@@ -218,11 +218,11 @@ export async function setupCreativeAgent(
     convertToLlm: (msgs: AgentMessage[]) => msgs as Message[],
     transformContext: (msgs: AgentMessage[]) =>
       Promise.resolve(microCompact(msgs, {
-        conversationId,
+        sessionId,
         protectFromIndex: historyLength,
       })),
     getApiKey: (provider: string) => config.apiKey ?? getEnvApiKey(provider),
-    sessionId: conversationId,
+    sessionId,
     toolExecution: "parallel",
     steeringMode: "all",
     streamFn: (m, ctx, opts) => {

@@ -12,10 +12,10 @@ export {
 export type { ResolvedAgentConfig } from "./config.js";
 
 export {
-  createConversation,
-  deleteConversation,
-  compactConversation,
-  type CreatedConversation,
+  createSession,
+  deleteSession,
+  compactSession,
+  type CreatedSession,
   type CompactResult,
 } from "./lifecycle.js";
 

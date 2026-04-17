@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/project-runtime/index.js";
 import { useUIState } from "@/client/entities/ui/index.js";
 import {
   useEditorState,

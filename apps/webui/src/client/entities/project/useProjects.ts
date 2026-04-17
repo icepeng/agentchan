@@ -35,7 +35,7 @@ export function useRendererJs(slug: string | null) {
 
 /**
  * Project mutations. `deleteProject` evicts every cache entry tagged with
- * the slug — predicate matcher walks all keys so per-project conversation
+ * the slug — predicate matcher walks all keys so per-project session
  * lists, tree, file content, etc. don't linger.
  */
 export function useProjectMutations() {

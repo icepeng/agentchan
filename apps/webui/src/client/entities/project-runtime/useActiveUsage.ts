@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { useProjectState } from "@/client/entities/project/index.js";
-import { useConversationData } from "@/client/entities/conversation/index.js";
-import type { TreeNode } from "@/client/entities/conversation/index.js";
+import { useSessionData } from "@/client/entities/session/index.js";
+import type { TreeNode } from "@/client/entities/session/index.js";
 import {
-  useActiveSession,
+  useActiveRuntime,
   EMPTY_USAGE,
   type SessionUsage,
-} from "./SessionContext.js";
+} from "./ProjectRuntimeContext.js";
 
 function computeUsageFromNodes(
   nodes: readonly TreeNode[],
@@ -49,7 +49,7 @@ function computeUsageFromNodes(
 }
 
 /**
- * The combined server + in-flight stream usage for the active session.
+ * The combined server + in-flight stream usage for the active project runtime.
  *
  *  - `base`: canonical sum across the current activePath's nodes (SWR).
  *  - `delta`: per-round accumulator from `STREAM_USAGE_SUMMARY`, reset on
@@ -64,9 +64,9 @@ function computeUsageFromNodes(
  */
 export function useActiveUsage(): SessionUsage {
   const { activeProjectSlug } = useProjectState();
-  const session = useActiveSession();
-  const { data } = useConversationData(activeProjectSlug, session.conversationId);
-  const delta = session.stream?.streamUsageDelta ?? EMPTY_USAGE;
+  const runtime = useActiveRuntime();
+  const { data } = useSessionData(activeProjectSlug, runtime.sessionId);
+  const delta = runtime.stream?.streamUsageDelta ?? EMPTY_USAGE;
   const base = useMemo(
     () => (data ? computeUsageFromNodes(data.nodes, data.activePath) : EMPTY_USAGE),
     [data],

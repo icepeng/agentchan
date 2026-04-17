@@ -31,9 +31,9 @@ export interface TreeNode {
   meta?: "compact-summary" | (string & {});
 }
 
-// --- Conversation metadata ---
+// --- Session metadata ---
 
-export interface Conversation {
+export interface Session {
   id: string;
   title: string;
   createdAt: number;
