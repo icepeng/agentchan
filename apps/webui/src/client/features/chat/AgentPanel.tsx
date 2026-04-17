@@ -12,8 +12,9 @@ import { MessageActionsProvider } from "./MessageActionsContext.js";
 import { useConversation } from "./useConversation.js";
 import { useStreaming } from "./useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
-import { MessageBubble } from "./MessageBubble.js";
+import { AssistantTurnBubble, MessageBubble } from "./MessageBubble.js";
 import { StreamingMessage } from "./StreamingMessage.js";
+import { groupActivePath } from "./groupActivePath.js";
 
 // ── Model Info Popover ───────────────────────
 
@@ -118,6 +119,11 @@ export function AgentPanel() {
     return parent?.children ?? [node.id];
   };
 
+  const groups = useMemo(
+    () => groupActivePath(activePath, nodeMap),
+    [activePath, nodeMap],
+  );
+
   if (!session.conversationId) {
     return (
       <div className="flex flex-col flex-1 min-h-0">
@@ -168,20 +174,35 @@ export function AgentPanel() {
           regenerate={regenerate}
           isStreaming={stream.isStreaming}
         >
-          {activePath.map((nodeId) => {
-            const node = nodeMap.get(nodeId);
-            if (!node) return null;
+          {groups.map((g) => {
+            if (g.kind === "user") {
+              return (
+                <MessageBubble
+                  key={g.node.id}
+                  node={g.node}
+                  siblings={getSiblings(g.node)}
+                  actions={actions}
+                  isStreaming={stream.isStreaming}
+                  variant="compact"
+                />
+              );
+            }
+            const first = g.nodes[0];
+            if (!first) return null;
+            const lastAssistant = [...g.nodes]
+              .reverse()
+              .find((n) => n.message.role === "assistant");
             return (
-              <MessageBubble
-                key={nodeId}
-                node={node}
-                siblings={getSiblings(node)}
+              <AssistantTurnBubble
+                key={first.id}
+                nodes={g.nodes}
+                siblings={getSiblings(first)}
                 actions={actions}
                 isStreaming={stream.isStreaming}
                 variant="compact"
                 footer={
-                  node.message.role === "assistant" && node.message.model
-                    ? <ModelInfoPopover node={node} />
+                  lastAssistant && lastAssistant.message.role === "assistant" && lastAssistant.message.model
+                    ? <ModelInfoPopover node={lastAssistant} />
                     : undefined
                 }
               />

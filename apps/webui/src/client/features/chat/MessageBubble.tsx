@@ -237,6 +237,97 @@ export interface MessageBubbleProps {
   footer?: ReactNode;
 }
 
+type BubbleKind =
+  | { type: "user" }
+  | { type: "assistant"; regenerateFromId: string | null };
+
+function BubbleShell({
+  kind,
+  variant,
+  siblings,
+  anchorNodeId,
+  actions,
+  isStreaming,
+  footer,
+  children,
+}: {
+  kind: BubbleKind;
+  variant: "compact" | "wide";
+  siblings: string[];
+  anchorNodeId: string;
+  actions?: MessageBubbleActions;
+  isStreaming?: boolean;
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+  const isWide = variant === "wide";
+  const isUser = kind.type === "user";
+  const headerLabel = isUser ? t("chat.you") : t("chat.agent");
+  const headerLabelClass = isUser ? "text-warm" : "text-accent";
+
+  return (
+    <BubbleWrap
+      variant={variant}
+      padding="loose"
+      className={`group ${isUser ? "animate-fade-slide" : "bg-surface/40"}`}
+    >
+      <div className={`flex items-start ${isWide ? "gap-3" : "gap-2.5"}`}>
+        {isUser ? <UserAvatar /> : <AgentAvatar />}
+
+        <div className="flex-1 min-w-0">
+          <div className={`flex items-center gap-2 ${isWide ? "mb-1.5" : "mb-1"}`}>
+            <span className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${headerLabelClass}`}>
+              {headerLabel}
+            </span>
+            {footer}
+            {actions?.onSwitchBranch && (
+              <BranchNavigator
+                nodeId={anchorNodeId}
+                siblings={siblings}
+                onSwitch={actions.onSwitchBranch}
+              />
+            )}
+            <div className="opacity-0 group-hover:opacity-100 ml-auto flex items-center gap-0.5 transition-all">
+              {kind.type === "assistant" && kind.regenerateFromId && actions?.onRegenerate && (
+                <button
+                  onClick={() => actions.onRegenerate!(kind.regenerateFromId!)}
+                  disabled={isStreaming}
+                  className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-accent disabled:opacity-30 px-1.5 py-0.5 rounded-md hover:bg-accent/8 transition-all"
+                  title={t("chat.regenerate")}
+                >
+                  {t("chat.regenerate")}
+                </button>
+              )}
+              {actions?.onBranchFrom && (
+                <button
+                  onClick={() => actions.onBranchFrom!(anchorNodeId)}
+                  className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-accent px-1.5 py-0.5 rounded-md hover:bg-accent/8 transition-all"
+                  title={t("chat.branchFromHere")}
+                >
+                  {t("chat.fork")}
+                </button>
+              )}
+              {actions?.onDelete && (
+                <button
+                  onClick={() => actions.onDelete!(anchorNodeId)}
+                  disabled={isStreaming}
+                  className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-danger disabled:opacity-30 px-1.5 py-0.5 rounded-md hover:bg-danger/8 transition-all"
+                  title={t("chat.delete")}
+                >
+                  {t("chat.delete")}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="text-sm text-fg">{children}</div>
+        </div>
+      </div>
+    </BubbleWrap>
+  );
+}
+
 export function MessageBubble({
   node,
   siblings,
@@ -245,13 +336,11 @@ export function MessageBubble({
   variant = "compact",
   footer,
 }: MessageBubbleProps) {
-  const { t } = useI18n();
-  const isWide = variant === "wide";
   const role = node.message.role;
 
-  if (role === "toolResult") return null;
+  if (role !== "user") return null;
 
-  if (role === "user" && node.meta === "skill-load") {
+  if (node.meta === "skill-load") {
     return <SkillChipBubble node={node} variant={variant} />;
   }
 
@@ -259,83 +348,70 @@ export function MessageBubble({
     return <CompactSummaryBubble node={node} variant={variant} />;
   }
 
-  const isUser = role === "user";
-
-  const displayContent: AssistantContentBlock[] =
-    node.message.role === "user"
-      ? [{ type: "text" as const, text: getUserText(node) }]
-      : node.message.content;
-
-  const content = (
-    <div className={`flex items-start ${isWide ? "gap-3" : "gap-2.5"}`}>
-      {isUser ? <UserAvatar /> : <AgentAvatar />}
-
-      <div className="flex-1 min-w-0">
-        {/* Header */}
-        <div className={`flex items-center gap-2 ${isWide ? "mb-1.5" : "mb-1"}`}>
-          <span
-            className={`text-[11px] font-semibold uppercase tracking-[0.1em] ${
-              isUser ? "text-warm" : "text-accent"
-            }`}
-          >
-            {isUser ? t("chat.you") : t("chat.agent")}
-          </span>
-          {footer}
-          {actions?.onSwitchBranch && (
-            <BranchNavigator
-              nodeId={node.id}
-              siblings={siblings}
-              onSwitch={actions.onSwitchBranch}
-            />
-          )}
-          <div className="opacity-0 group-hover:opacity-100 ml-auto flex items-center gap-0.5 transition-all">
-            {!isUser && node.parentId && actions?.onRegenerate && (
-              <button
-                onClick={() => actions.onRegenerate!(node.parentId!)}
-                disabled={isStreaming}
-                className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-accent disabled:opacity-30 px-1.5 py-0.5 rounded-md hover:bg-accent/8 transition-all"
-                title={t("chat.regenerate")}
-              >
-                {t("chat.regenerate")}
-              </button>
-            )}
-            {actions?.onBranchFrom && (
-              <button
-                onClick={() => actions.onBranchFrom!(node.id)}
-                className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-accent px-1.5 py-0.5 rounded-md hover:bg-accent/8 transition-all"
-                title={t("chat.branchFromHere")}
-              >
-                {t("chat.fork")}
-              </button>
-            )}
-            {actions?.onDelete && (
-              <button
-                onClick={() => actions.onDelete!(node.id)}
-                disabled={isStreaming}
-                className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-danger disabled:opacity-30 px-1.5 py-0.5 rounded-md hover:bg-danger/8 transition-all"
-                title={t("chat.delete")}
-              >
-                {t("chat.delete")}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="text-sm text-fg">
-          <MessageContent content={displayContent} />
-        </div>
-      </div>
-    </div>
-  );
+  const displayContent: AssistantContentBlock[] = [
+    { type: "text" as const, text: getUserText(node) },
+  ];
 
   return (
-    <BubbleWrap
+    <BubbleShell
+      kind={{ type: "user" }}
       variant={variant}
-      padding="loose"
-      className={`group ${isUser ? "animate-fade-slide" : "bg-surface/40"}`}
+      siblings={siblings}
+      anchorNodeId={node.id}
+      actions={actions}
+      isStreaming={isStreaming}
+      footer={footer}
     >
-      {content}
-    </BubbleWrap>
+      <MessageContent content={displayContent} />
+    </BubbleShell>
+  );
+}
+
+// ── Assistant Turn Bubble ─────────────────────
+// Renders one or more consecutive assistant/toolResult nodes as a single bubble
+// so that post-stream rendering matches the streaming UX (all tool calls in one
+// agent block). toolResult nodes contribute no content; they're retained in the
+// group only so actions/boundaries line up with the tree structure.
+
+export interface AssistantTurnBubbleProps {
+  nodes: TreeNode[];
+  siblings: string[];
+  actions?: MessageBubbleActions;
+  isStreaming?: boolean;
+  variant?: "compact" | "wide";
+  footer?: ReactNode;
+}
+
+export function AssistantTurnBubble({
+  nodes,
+  siblings,
+  actions,
+  isStreaming,
+  variant = "compact",
+  footer,
+}: AssistantTurnBubbleProps) {
+  const firstAssistant = nodes.find((n) => n.message.role === "assistant");
+  const mergedContent: AssistantContentBlock[] = useMemo(
+    () =>
+      nodes.flatMap((n) =>
+        n.message.role === "assistant" ? n.message.content : [],
+      ),
+    [nodes],
+  );
+
+  if (!firstAssistant) return null;
+
+  return (
+    <BubbleShell
+      kind={{ type: "assistant", regenerateFromId: firstAssistant.parentId }}
+      variant={variant}
+      siblings={siblings}
+      anchorNodeId={firstAssistant.id}
+      actions={actions}
+      isStreaming={isStreaming}
+      footer={footer}
+    >
+      <MessageContent content={mergedContent} />
+    </BubbleShell>
   );
 }
