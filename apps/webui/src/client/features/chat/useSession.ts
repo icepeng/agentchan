@@ -31,67 +31,52 @@ export function useSession() {
     return session;
   }, [slug, mutations, sessionSelectionDispatch]);
 
-  const load = useCallback(
-    (id: string) => {
-      if (!slug) return;
-      // Flip selection immediately; `useSessionData(slug, id)` auto-fetches
-      // under the new key. Mirrors `useProject.selectProject`, which flips
-      // `activeProjectSlug` before the sessions-list fetch resolves —
-      // subscribers fall back to empty arrays for the single render gap.
+  const load = (id: string) => {
+    if (!slug) return;
+    // Flip selection immediately; `useSessionData(slug, id)` auto-fetches
+    // under the new key. Mirrors `useProject.selectProject`, which flips
+    // `activeProjectSlug` before the sessions-list fetch resolves —
+    // subscribers fall back to empty arrays for the single render gap.
+    sessionSelectionDispatch({
+      type: "SET_ACTIVE_SESSION",
+      projectSlug: slug,
+      sessionId: id,
+    });
+  };
+
+  const remove = async (id: string) => {
+    if (!slug) return;
+    await mutations.remove(id);
+    if (selection.openSessionId === id) {
       sessionSelectionDispatch({
         type: "SET_ACTIVE_SESSION",
         projectSlug: slug,
-        sessionId: id,
+        sessionId: null,
       });
-    },
-    [slug, sessionSelectionDispatch],
-  );
+    }
+  };
 
-  const remove = useCallback(
-    async (id: string) => {
-      if (!slug) return;
-      await mutations.remove(id);
-      if (selection.openSessionId === id) {
-        sessionSelectionDispatch({
-          type: "SET_ACTIVE_SESSION",
-          projectSlug: slug,
-          sessionId: null,
-        });
-      }
-    },
-    [slug, mutations, sessionSelectionDispatch, selection.openSessionId],
-  );
-
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     if (!slug) return;
     await mutate(qk.sessions(slug));
-  }, [slug, mutate]);
+  };
 
-  const switchBranch = useCallback(
-    async (nodeId: string) => {
-      if (!selection.openSessionId || !slug) return;
-      await mutations.switchBranch(selection.openSessionId, nodeId);
-    },
-    [selection.openSessionId, slug, mutations],
-  );
+  const switchBranch = async (nodeId: string) => {
+    if (!selection.openSessionId || !slug) return;
+    await mutations.switchBranch(selection.openSessionId, nodeId);
+  };
 
-  const deleteNode = useCallback(
-    async (nodeId: string) => {
-      if (!selection.openSessionId || !slug) return;
-      await mutations.removeNode(selection.openSessionId, nodeId);
-    },
-    [selection.openSessionId, slug, mutations],
-  );
+  const deleteNode = async (nodeId: string) => {
+    if (!selection.openSessionId || !slug) return;
+    await mutations.removeNode(selection.openSessionId, nodeId);
+  };
 
-  const setReplyTo = useCallback(
-    (nodeId: string | null) => {
-      if (!slug) return;
-      sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
-    },
-    [slug, sessionSelectionDispatch],
-  );
+  const setReplyTo = (nodeId: string | null) => {
+    if (!slug) return;
+    sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
+  };
 
-  const compact = useCallback(async () => {
+  const compact = async () => {
     if (!slug || !selection.openSessionId) return;
     const sessionId = selection.openSessionId;
     // Stream START locks the input while compact runs server-side.
@@ -111,7 +96,7 @@ export function useSession() {
         error: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [slug, selection.openSessionId, mutations, sessionSelectionDispatch, streamDispatch]);
+  };
 
   return {
     create,
