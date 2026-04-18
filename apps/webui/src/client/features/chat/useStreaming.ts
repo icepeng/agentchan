@@ -291,37 +291,34 @@ export function useStreaming() {
     [streamDispatch, makeCallbacks],
   );
 
-  const regenerate = useCallback(
-    async (userNodeId: string) => {
-      const p = projectSelectionRef.current;
-      const sel = sessionSelectionStateRef.current;
-      const streams = streamStateRef.current;
-      if (!p.activeProjectSlug) return;
-      const projectSlug = p.activeProjectSlug;
-      const selection = selectSessionSelection(sel, projectSlug);
-      if (!selection.openSessionId) return;
+  const regenerate = async (userNodeId: string) => {
+    const p = projectSelectionRef.current;
+    const sel = sessionSelectionStateRef.current;
+    const streams = streamStateRef.current;
+    if (!p.activeProjectSlug) return;
+    const projectSlug = p.activeProjectSlug;
+    const selection = selectSessionSelection(sel, projectSlug);
+    if (!selection.openSessionId) return;
 
-      const slot = selectStreamSlot(streams, projectSlug);
-      if (slot.isStreaming) return;
+    const slot = selectStreamSlot(streams, projectSlug);
+    if (slot.isStreaming) return;
 
-      streamDispatch({ type: "START", projectSlug });
+    streamDispatch({ type: "START", projectSlug });
 
-      const controller = new AbortController();
-      registerAbortController(projectSlug, controller);
-      try {
-        await regenerateResponse(
-          projectSlug,
-          selection.openSessionId,
-          userNodeId,
-          makeCallbacks(projectSlug, selection.openSessionId, null),
-          controller.signal,
-        );
-      } finally {
-        clearAbortController(projectSlug, controller);
-      }
-    },
-    [streamDispatch, makeCallbacks],
-  );
+    const controller = new AbortController();
+    registerAbortController(projectSlug, controller);
+    try {
+      await regenerateResponse(
+        projectSlug,
+        selection.openSessionId,
+        userNodeId,
+        makeCallbacks(projectSlug, selection.openSessionId, null),
+        controller.signal,
+      );
+    } finally {
+      clearAbortController(projectSlug, controller);
+    }
+  };
 
   return { send, regenerate, isStreaming: activeSlot.isStreaming };
 }
