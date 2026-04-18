@@ -161,7 +161,6 @@ function agentEventToSSE(event: AgentEvent): { event: string; data: string } | n
         data: JSON.stringify({
           id: event.toolCallId,
           name: event.toolName,
-          parallel: false,
         }),
       };
     case "tool_execution_end":

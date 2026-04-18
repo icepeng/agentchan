@@ -21,7 +21,7 @@ export type StreamAction =
   | { type: "TOOL_START"; projectSlug: string; id: string; name: string }
   | { type: "TOOL_DELTA"; projectSlug: string; id: string; inputJson: string }
   | { type: "TOOL_END"; projectSlug: string; id: string }
-  | { type: "TOOL_EXEC_START"; projectSlug: string; id: string; parallel: boolean }
+  | { type: "TOOL_EXEC_START"; projectSlug: string; id: string }
   | { type: "TOOL_EXEC_END"; projectSlug: string; id: string; isError: boolean }
   | {
       type: "USAGE_SUMMARY";
@@ -103,9 +103,7 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
         toolCalls: slot.toolCalls.map((tc) =>
-          tc.id === action.id
-            ? { ...tc, executionStarted: true, parallel: action.parallel }
-            : tc,
+          tc.id === action.id ? { ...tc, executionStarted: true } : tc,
         ),
       }));
 

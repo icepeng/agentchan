@@ -67,7 +67,7 @@ export interface SSECallbacks {
   onToolUseStart: (id: string, name: string) => void;
   onToolUseDelta: (id: string, inputJson: string) => void;
   onToolUseEnd: (id: string) => void;
-  onToolExecStart: (id: string, name: string, parallel: boolean) => void;
+  onToolExecStart: (id: string, name: string) => void;
   onToolExecEnd: (id: string, isError: boolean) => void;
   onUsageSummary: (usage: TokenUsage) => void;
   onAssistantNodes: (nodes: TreeNode[]) => void;
@@ -103,7 +103,7 @@ function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): v
       }
       case "tool_exec_start": {
         const parsed = JSON.parse(data);
-        callbacks.onToolExecStart(parsed.id, parsed.name, parsed.parallel);
+        callbacks.onToolExecStart(parsed.id, parsed.name);
         break;
       }
       case "tool_exec_end": {

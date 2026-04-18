@@ -28,7 +28,6 @@ export interface ToolCallState {
   argsComplete: boolean;
   executionStarted: boolean;
   result?: { isError: boolean };
-  parallel?: boolean;
 }
 
 /**
