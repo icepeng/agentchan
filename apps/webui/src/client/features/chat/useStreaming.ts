@@ -181,7 +181,7 @@ export function useStreaming() {
         onToolExecEnd: (id, isError) =>
           streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id, isError }),
         onUsageSummary: (usage) =>
-          streamDispatch({ type: "USAGE_SUMMARY", projectSlug, ...usage }),
+          streamDispatch({ type: "USAGE_SUMMARY", projectSlug, usage }),
         onAssistantNodes: (nodes) => {
           // Write-through: splice persisted assistant nodes into the SWR
           // cache synchronously, then reset the stream slot. Next render

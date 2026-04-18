@@ -31,11 +31,6 @@ export {
   useSessionSelectionState,
   useSessionSelectionDispatch,
   selectSessionSelection,
-  EMPTY_SELECTION,
 } from "./SessionSelectionContext.js";
-export type {
-  SessionSelection,
-  SessionSelectionState,
-  SessionSelectionAction,
-} from "./SessionSelectionContext.js";
+export type { SessionSelection } from "./SessionSelectionContext.js";
 export { useActiveSessionSelection } from "./useSessionSelection.js";

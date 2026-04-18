@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
   useSessionData,
@@ -49,17 +48,14 @@ function computeUsageFromNodes(
 }
 
 /**
- * The combined server + in-flight stream usage for the active project.
+ * Combined server + in-flight stream usage for the active project.
  *
  *  - `base`: canonical sum across the current activePath's nodes (SWR).
  *  - `delta`: per-round accumulator from `USAGE_SUMMARY`, reset on
  *     `RESET` / `START`.
  *
  * `contextTokens` is latest-wins (LLM reports a snapshot per round), not
- * summed like the token counters — delta wins if non-zero, else base.
- *
- * `base` is memoized separately so the O(n) sum over nodes only re-runs when
- * the SWR cache produces a new data object, not on every text/tool delta.
+ * summed — delta wins if non-zero, else base.
  */
 export function useActiveUsage(): SessionUsage {
   const { activeProjectSlug } = useProjectSelectionState();
@@ -68,10 +64,7 @@ export function useActiveUsage(): SessionUsage {
   const slot = selectStreamSlot(streamState, activeProjectSlug);
   const { data } = useSessionData(activeProjectSlug, openSessionId);
   const delta = slot.streamUsageDelta;
-  const base = useMemo(
-    () => (data ? computeUsageFromNodes(data.nodes, data.activePath) : EMPTY_USAGE),
-    [data],
-  );
+  const base = data ? computeUsageFromNodes(data.nodes, data.activePath) : EMPTY_USAGE;
   return {
     inputTokens: base.inputTokens + delta.inputTokens,
     outputTokens: base.outputTokens + delta.outputTokens,

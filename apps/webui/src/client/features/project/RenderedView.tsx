@@ -27,7 +27,8 @@ export function RenderedView() {
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [phase, setPhase] = useState<TransitionPhase>("idle");
 
-  // rAF tick이 effect re-run 없이 최신 slot을 읽을 수 있도록 ref로 미러링.
+  // Mirror the latest slot into a ref so the rAF tick reads it without
+  // re-running the effect on every delta.
   const streamRef = useRef(stream);
   useEffect(() => {
     streamRef.current = stream;
@@ -38,10 +39,6 @@ export function RenderedView() {
   // morph effect below so snapshot runs before morph overwrites `frontEl`.
   // Clearing any in-flight cleanup timer here prevents a rapid A→B→C switch
   // from letting B's fading cleanup clobber C's fresh snapshot.
-  //
-  // HTML clear는 `useProject`의 activateProject/createProject에서 SET_ACTIVE_PROJECT와
-  // 함께 발화 — 이 컴포넌트가 off-screen일 때도 slug 변경이 반드시 html을 비우도록
-  // 보장한다. 여기서 중복 디스패치하지 않는다.
   useEffect(() => {
     const newSlug = project.activeProjectSlug;
     if (prevSlugRef.current !== null && prevSlugRef.current !== newSlug) {
@@ -71,14 +68,19 @@ export function RenderedView() {
     }
   }, [stream.isStreaming, project.activeProjectSlug, refresh]);
 
-  // 스트리밍 중 requestAnimationFrame 주기로 stream view 렌더를 트리거한다.
-  // refreshStream이 캐시된 렌더러를 동기 호출하므로 프레임 안에 끝나고,
-  // 동일 HTML이면 dispatch를 건너뛰어 RendererView 소비자 재렌더를 막는다.
+  // rAF-coalesced stream re-render. The reducer keeps slot references stable
+  // on no-op updates, so comparing refs lets the tick skip renderFn entirely
+  // when nothing changed — avoiding 60fps CPU burn while idle-streaming.
   useEffect(() => {
     if (!stream.isStreaming) return;
     let raf = 0;
+    let lastSlot = streamRef.current;
+    refreshStream(toRenderStream(lastSlot));
     const tick = () => {
-      refreshStream(toRenderStream(streamRef.current));
+      if (streamRef.current !== lastSlot) {
+        lastSlot = streamRef.current;
+        refreshStream(toRenderStream(lastSlot));
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

@@ -5,17 +5,19 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-import { EMPTY_STREAM, type StreamSlot } from "./stream.types.js";
+import type { TokenUsage } from "@/client/entities/session/index.js";
+import {
+  EMPTY_STREAM,
+  type SessionUsage,
+  type StreamSlot,
+  type ToolCallState,
+} from "./stream.types.js";
 
-// --- State ---
-
-export interface StreamState {
+interface StreamState {
   slots: Map<string /* projectSlug */, StreamSlot>;
 }
 
-// --- Actions ---
-
-export type StreamAction =
+type StreamAction =
   | { type: "START"; projectSlug: string }
   | { type: "TEXT_DELTA"; projectSlug: string; text: string }
   | { type: "TOOL_START"; projectSlug: string; id: string; name: string }
@@ -23,21 +25,10 @@ export type StreamAction =
   | { type: "TOOL_END"; projectSlug: string; id: string }
   | { type: "TOOL_EXEC_START"; projectSlug: string; id: string }
   | { type: "TOOL_EXEC_END"; projectSlug: string; id: string; isError: boolean }
-  | {
-      type: "USAGE_SUMMARY";
-      projectSlug: string;
-      inputTokens: number;
-      outputTokens: number;
-      cachedInputTokens?: number;
-      cacheCreationTokens?: number;
-      cost?: number;
-      contextTokens?: number;
-    }
+  | { type: "USAGE_SUMMARY"; projectSlug: string; usage: TokenUsage }
   | { type: "RESET"; projectSlug: string }
   | { type: "ERROR"; projectSlug: string; error: string }
   | { type: "CLOSE"; projectSlug: string };
-
-// --- Helpers ---
 
 function updateSlot(
   state: StreamState,
@@ -52,7 +43,28 @@ function updateSlot(
   return { slots: next };
 }
 
-// --- Reducer ---
+function patchToolCall(
+  slot: StreamSlot,
+  id: string,
+  patch: Partial<ToolCallState>,
+): StreamSlot {
+  return {
+    ...slot,
+    toolCalls: slot.toolCalls.map((tc) => (tc.id === id ? { ...tc, ...patch } : tc)),
+  };
+}
+
+function addUsage(base: SessionUsage, delta: TokenUsage): SessionUsage {
+  return {
+    inputTokens: base.inputTokens + delta.inputTokens,
+    outputTokens: base.outputTokens + delta.outputTokens,
+    cachedInputTokens: base.cachedInputTokens + (delta.cachedInputTokens ?? 0),
+    cacheCreationTokens: base.cacheCreationTokens + (delta.cacheCreationTokens ?? 0),
+    cost: base.cost + (delta.cost ?? 0),
+    // contextTokens is a snapshot per round — latest-wins, not summed.
+    contextTokens: delta.contextTokens ?? base.contextTokens,
+  };
+}
 
 function streamReducer(state: StreamState, action: StreamAction): StreamState {
   switch (action.type) {
@@ -84,50 +96,32 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
       }));
 
     case "TOOL_DELTA":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        toolCalls: slot.toolCalls.map((tc) =>
-          tc.id === action.id ? { ...tc, inputJson: tc.inputJson + action.inputJson } : tc,
-        ),
-      }));
+      return updateSlot(state, action.projectSlug, (slot) => {
+        const tc = slot.toolCalls.find((t) => t.id === action.id);
+        return tc
+          ? patchToolCall(slot, action.id, { inputJson: tc.inputJson + action.inputJson })
+          : slot;
+      });
 
     case "TOOL_END":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        toolCalls: slot.toolCalls.map((tc) =>
-          tc.id === action.id ? { ...tc, argsComplete: true } : tc,
-        ),
-      }));
+      return updateSlot(state, action.projectSlug, (slot) =>
+        patchToolCall(slot, action.id, { argsComplete: true }),
+      );
 
     case "TOOL_EXEC_START":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        toolCalls: slot.toolCalls.map((tc) =>
-          tc.id === action.id ? { ...tc, executionStarted: true } : tc,
-        ),
-      }));
+      return updateSlot(state, action.projectSlug, (slot) =>
+        patchToolCall(slot, action.id, { executionStarted: true }),
+      );
 
     case "TOOL_EXEC_END":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        toolCalls: slot.toolCalls.map((tc) =>
-          tc.id === action.id ? { ...tc, result: { isError: action.isError } } : tc,
-        ),
-      }));
+      return updateSlot(state, action.projectSlug, (slot) =>
+        patchToolCall(slot, action.id, { result: { isError: action.isError } }),
+      );
 
     case "USAGE_SUMMARY":
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
-        streamUsageDelta: {
-          inputTokens: slot.streamUsageDelta.inputTokens + action.inputTokens,
-          outputTokens: slot.streamUsageDelta.outputTokens + action.outputTokens,
-          cachedInputTokens:
-            slot.streamUsageDelta.cachedInputTokens + (action.cachedInputTokens ?? 0),
-          cacheCreationTokens:
-            slot.streamUsageDelta.cacheCreationTokens + (action.cacheCreationTokens ?? 0),
-          cost: slot.streamUsageDelta.cost + (action.cost ?? 0),
-          contextTokens: action.contextTokens ?? slot.streamUsageDelta.contextTokens,
-        },
+        streamUsageDelta: addUsage(slot.streamUsageDelta, action.usage),
       }));
 
     case "RESET":

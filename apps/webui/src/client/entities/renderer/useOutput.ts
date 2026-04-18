@@ -34,14 +34,8 @@ const NOT_FOUND_HTML = `<div style="color: var(--color-fg-4); font-size: 14px; f
 
 type RenderFn = (ctx: RenderContext) => string;
 
-// 렌더러 JS를 module로 import하여 render 함수와 raw theme export를 추출한다.
-// theme은 객체 또는 `(ctx) => theme` 함수 양쪽을 지원하므로, 이 단계에서는 검증하지 않고
-// 원본 값을 보존한다. 실제 테마 오브젝트는 refresh/refreshStream이 각자 context로
-// `resolveRawTheme` → `validateTheme`을 호출해 매 프레임 최신 파일 상태를 반영한다.
-//
-// 한 번 import한 module은 메모리에 남아 renderFn/rawTheme 클로저로 이후 호출이 가능하므로
-// Blob URL을 즉시 revoke해도 안전하다. rAF 루프에서 반복 import하지 않기 위해
-// snapshot에 renderFn과 rawTheme을 저장해 재사용한다.
+// The blob URL can be revoked immediately because the imported module
+// closures hold live references to renderFn/rawTheme.
 async function compileRenderer(jsCode: string): Promise<{
   renderFn: RenderFn;
   rawTheme: unknown;
@@ -70,13 +64,11 @@ export function useOutput() {
   const { activeProjectSlug } = useProjectSelectionState();
   const rendererViewDispatch = useRendererViewDispatch();
 
-  // Stream 중 refreshStream이 fetch/재컴파일 없이 재사용할 최근 성공 스냅샷.
-  // files 내용이 스트리밍 중 실제로 바뀌어도 STREAM_COMPLETE 시 full refresh가
-  // 다시 돌아 스냅샷이 갱신된다.
+  // Snapshot reused during streaming so refreshStream avoids refetch/recompile.
+  // files may drift during a stream; full refresh on completion resyncs it.
   const lastSnapshotRef = useRef<RendererSnapshot | null>(null);
 
-  // rAF 루프가 같은 HTML을 반복 dispatch하면 RendererView 소비자가 60fps로
-  // 재렌더되므로, 직전에 내보낸 HTML과 동일하면 dispatch를 건너뛴다.
+  // Skip dispatch when HTML output didn't change — avoids 60fps consumer churn.
   const lastHtmlRef = useRef<string>("");
 
   const refresh = useCallback(async () => {
@@ -131,8 +123,8 @@ export function useOutput() {
         lastHtmlRef.current = html;
         rendererViewDispatch({ type: "SET_OUTPUT", html, theme });
       } catch {
-        // 스트리밍 중 렌더러 에러는 조용히 무시 — 기존 HTML을 유지해야
-        // 사용자가 매 프레임 error screen을 보지 않는다.
+        // Keep the last good HTML — otherwise a per-frame renderer throw
+        // would flash an error screen during streaming.
       }
     },
     [activeProjectSlug, rendererViewDispatch],

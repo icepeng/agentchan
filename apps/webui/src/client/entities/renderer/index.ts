@@ -4,8 +4,6 @@ export type {
   RenderStreamView,
   RenderToolCallView,
   RendererTheme,
-  RendererThemeTokens,
-  ResolvedThemeVars,
   RendererAction,
 } from "./renderer.types.js";
 export { EMPTY_RENDER_STREAM } from "./renderer.types.js";
@@ -20,10 +18,6 @@ export {
   RendererViewProvider,
   useRendererViewState,
   useRendererViewDispatch,
-} from "./RendererViewContext.js";
-export type {
-  RendererViewState,
-  RendererViewAction,
 } from "./RendererViewContext.js";
 
 export {

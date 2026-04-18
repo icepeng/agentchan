@@ -1,10 +1,6 @@
 import type { ProjectFile } from "@agentchan/creative-agent";
 
-/**
- * 렌더러에 노출되는 스트림 상태의 **좁힌 view**. 내부 `StreamSlot`에 새 필드가
- * 추가돼도 `toRenderStream` 매퍼를 통과하지 않는 한 렌더러에 자동 노출되지
- * 않는다. idle 시점에는 `EMPTY_RENDER_STREAM`이 들어간다.
- */
+/** Narrowed stream view exposed to renderers. Idle = `EMPTY_RENDER_STREAM`. */
 export interface RenderStreamView {
   isStreaming: boolean;
   text: string;
@@ -12,14 +8,8 @@ export interface RenderStreamView {
 }
 
 /**
- * 도구 호출 수명주기의 선형 phase markers 둘 + 완료 sentinel(`result`).
- *
- * - `argsComplete=F`                                 → 입력 JSON 스트리밍 중
- * - `argsComplete=T, executionStarted=F`             → 실행 준비 중
- * - `argsComplete=T, executionStarted=T, result===undefined` → 실행 중
- * - `result !== undefined`                            → 완료 (`result.isError`로 성공/실패)
- *
- * 편의: `!tc.result`로 "아직 진행 중인 도구"를 골라낼 수 있다.
+ * Tool-call lifecycle for renderers. Check `!tc.result` for "still running"
+ * (covers both streaming-args and executing phases).
  */
 export interface RenderToolCallView {
   id: string;
@@ -67,6 +57,7 @@ export interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
+/** Output of `resolveThemeVars`, consumed by `<AppShell>`. */
 export interface ResolvedThemeVars {
   vars: Record<string, string>;
   effectiveScheme: "light" | "dark";

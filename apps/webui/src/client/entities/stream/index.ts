@@ -4,7 +4,6 @@ export {
   useStreamDispatch,
   selectStreamSlot,
 } from "./StreamContext.js";
-export type { StreamState, StreamAction } from "./StreamContext.js";
 export { useActiveStream } from "./useActiveStream.js";
 export { useActiveUsage } from "./useActiveUsage.js";
 export type {
@@ -12,5 +11,5 @@ export type {
   SessionUsage,
   ToolCallState,
 } from "./stream.types.js";
-export { EMPTY_USAGE, EMPTY_STREAM } from "./stream.types.js";
+export { EMPTY_USAGE } from "./stream.types.js";
 export { toRenderStream } from "./toRenderStream.js";
