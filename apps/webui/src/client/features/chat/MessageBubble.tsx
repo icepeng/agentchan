@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type { TreeNode, TextContent, ImageContent, AssistantContentBlock } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -155,23 +155,19 @@ function SkillChipBubble({
   const firstBlock = blocks[0];
   const firstText = firstBlock && "text" in firstBlock ? firstBlock.text : "";
 
-  const names = useMemo(() => {
-    const matches = [...firstText.matchAll(/<skill_content name="([^"]+)"/g)].map(
-      (m) => m[1],
-    );
-    return matches.length > 0 ? matches : ["unknown"];
-  }, [firstText]);
+  const skillMatches = [...firstText.matchAll(/<skill_content name="([^"]+)"/g)].map(
+    (m) => m[1],
+  );
+  const names = skillMatches.length > 0 ? skillMatches : ["unknown"];
 
   // Slash command: blocks[1] holds the serialized command text
-  const slashInfo = useMemo(() => {
-    const block = blocks[1];
-    if (!block || block.type !== "text") return null;
-    const text = "text" in block ? block.text : "";
-    const m = text.match(
-      /^<command-name>\/([a-z0-9][a-z0-9-]*)<\/command-name>(?:\s*<command-args>([\s\S]*?)<\/command-args>)?/,
-    );
-    return m ? { name: m[1], args: m[2] ?? "" } : null;
-  }, [blocks]);
+  const slashBlock = blocks[1];
+  const slashText =
+    slashBlock && slashBlock.type === "text" && "text" in slashBlock ? slashBlock.text : "";
+  const slashMatch = slashText.match(
+    /^<command-name>\/([a-z0-9][a-z0-9-]*)<\/command-name>(?:\s*<command-args>([\s\S]*?)<\/command-args>)?/,
+  );
+  const slashInfo = slashMatch ? { name: slashMatch[1], args: slashMatch[2] ?? "" } : null;
 
   const chipRow = (
     <div className={`flex items-center gap-2 text-xs text-fg-3 ${slashInfo ? "mt-1" : "py-1"} opacity-70`}>
@@ -391,12 +387,8 @@ export function AssistantTurnBubble({
   footer,
 }: AssistantTurnBubbleProps) {
   const firstAssistant = nodes.find((n) => n.message.role === "assistant");
-  const mergedContent: AssistantContentBlock[] = useMemo(
-    () =>
-      nodes.flatMap((n) =>
-        n.message.role === "assistant" ? n.message.content : [],
-      ),
-    [nodes],
+  const mergedContent: AssistantContentBlock[] = nodes.flatMap((n) =>
+    n.message.role === "assistant" ? n.message.content : [],
   );
 
   if (!firstAssistant) return null;
