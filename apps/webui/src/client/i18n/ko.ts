@@ -63,6 +63,8 @@ export const translations: Record<TranslationKey, string> = {
   "input.tokenIn": "입력",
   "input.tokenOut": "출력",
   "input.context": "컨텍스트",
+  "input.cacheHit": "캐시 히트",
+  "input.cost": "비용",
 
   // Slash command popup
   "slash.listboxLabel": "슬래시 명령",

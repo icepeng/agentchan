@@ -61,6 +61,8 @@ export const translations = {
   "input.tokenIn": "in",
   "input.tokenOut": "out",
   "input.context": "context",
+  "input.cacheHit": "cache hit",
+  "input.cost": "cost",
 
   // Slash command popup
   "slash.listboxLabel": "Slash commands",

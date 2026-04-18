@@ -73,19 +73,21 @@ export function useStreaming() {
   );
 
   const projectSelectionRef = useRef(projectSelection);
-  useEffect(() => { projectSelectionRef.current = projectSelection; });
   const projectsRef = useRef(projects);
-  useEffect(() => { projectsRef.current = projects; });
   const streamStateRef = useRef(streamState);
-  useEffect(() => { streamStateRef.current = streamState; });
   const sessionSelectionStateRef = useRef(sessionSelectionState);
-  useEffect(() => { sessionSelectionStateRef.current = sessionSelectionState; });
   const activeSessionDataRef = useRef(activeSessionData);
-  useEffect(() => { activeSessionDataRef.current = activeSessionData; });
   const tRef = useRef(t);
-  useEffect(() => { tRef.current = t; });
   const selectProjectRef = useRef(selectProject);
-  useEffect(() => { selectProjectRef.current = selectProject; });
+  useEffect(() => {
+    projectSelectionRef.current = projectSelection;
+    projectsRef.current = projects;
+    streamStateRef.current = streamState;
+    sessionSelectionStateRef.current = sessionSelectionState;
+    activeSessionDataRef.current = activeSessionData;
+    tRef.current = t;
+    selectProjectRef.current = selectProject;
+  });
 
   /**
    * Shared streaming callbacks — write-through SWR for persisted state (user

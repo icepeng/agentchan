@@ -61,7 +61,7 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
                 </div>
                 {cachePercent > 0 && (
                   <div className="flex justify-between gap-4 text-fg-3/60">
-                    <span>cache hit</span>
+                    <span>{t("input.cacheHit")}</span>
                     <span>{formatTokens(cachedInput)} ({cachePercent}%)</span>
                   </div>
                 )}
@@ -73,7 +73,7 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
                 </div>
                 {cost !== null && (
                   <div className="flex justify-between gap-4 border-t border-white/6 pt-1 mt-1">
-                    <span className="text-fg-3">cost</span>
+                    <span className="text-fg-3">{t("input.cost")}</span>
                     <span className="text-accent">{formatCost(cost)}</span>
                   </div>
                 )}
