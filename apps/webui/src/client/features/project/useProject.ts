@@ -46,13 +46,18 @@ export function useProject() {
   const activateProject = useCallback(
     async (slug: string): Promise<Session[]> => {
       projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug });
+      // slug-change 시점에 html을 동기적으로 비워야 off-screen 전환(Templates/Settings
+      // 체류 중 사이드바로 프로젝트 교체) 후 main 복귀 시 이전 프로젝트의 렌더러
+      // 출력이 잠깐 비치는 회귀를 막을 수 있음. theme은 의도적으로 유지해 새 출력
+      // 도착 전 기본 팔레트로 튀는 2단계 깜빡임을 회피.
+      rendererViewDispatch({ type: "CLEAR_HTML" });
       // Single GET: SWR's fetcher runs, result seeds the cache atomically.
       // Calling `fetchSessions` separately risked a duplicate fetch when
       // `useSessions(slug)` mounted outside the dedupe window.
       const sessions = await mutate<Session[]>(qk.sessions(slug));
       return sessions ?? [];
     },
-    [projectSelectionDispatch, mutate],
+    [projectSelectionDispatch, rendererViewDispatch, mutate],
   );
 
   const selectProject = useCallback(
@@ -94,9 +99,11 @@ export function useProject() {
     async (name: string, fromTemplate?: string) => {
       const project = await createProjectMutation(name, fromTemplate);
       projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
+      // activateProject와 동일한 이유로 slug 변경과 동기적으로 html clear.
+      rendererViewDispatch({ type: "CLEAR_HTML" });
       return project;
     },
-    [createProjectMutation, projectSelectionDispatch],
+    [createProjectMutation, projectSelectionDispatch, rendererViewDispatch],
   );
 
   const duplicateProject = useCallback(

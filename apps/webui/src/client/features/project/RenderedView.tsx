@@ -5,7 +5,6 @@ import { useActiveStream } from "@/client/entities/stream/index.js";
 import {
   useOutput,
   useRendererViewState,
-  useRendererViewDispatch,
   useRendererActionDispatch,
 } from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
@@ -18,7 +17,6 @@ const FADE_DURATION_MS = 300;
 export function RenderedView() {
   const project = useProjectSelectionState();
   const rendererView = useRendererViewState();
-  const rendererViewDispatch = useRendererViewDispatch();
   const stream = useActiveStream();
   const { refresh } = useOutput();
   const actionDispatch = useRendererActionDispatch();
@@ -34,6 +32,10 @@ export function RenderedView() {
   // morph effect below so snapshot runs before morph overwrites `frontEl`.
   // Clearing any in-flight cleanup timer here prevents a rapid A→B→C switch
   // from letting B's fading cleanup clobber C's fresh snapshot.
+  //
+  // HTML clear는 `useProject`의 activateProject/createProject에서 SET_ACTIVE_PROJECT와
+  // 함께 발화 — 이 컴포넌트가 off-screen일 때도 slug 변경이 반드시 html을 비우도록
+  // 보장한다. 여기서 중복 디스패치하지 않는다.
   useEffect(() => {
     const newSlug = project.activeProjectSlug;
     if (prevSlugRef.current !== null && prevSlugRef.current !== newSlug) {
@@ -52,13 +54,10 @@ export function RenderedView() {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- snapshot DOM과 phase가 같은 커밋에 묶여야 overlay가 먼저 paint됨
         setPhase("capture");
       }
-      // Reset html immediately on project switch — theme stays until new
-      // renderer output replaces it, avoiding a two-step palette flicker.
-      rendererViewDispatch({ type: "CLEAR_HTML" });
     }
     prevSlugRef.current = newSlug;
     void refresh();
-  }, [project.activeProjectSlug, refresh, rendererViewDispatch]);
+  }, [project.activeProjectSlug, refresh]);
 
   useEffect(() => {
     if (!stream.isStreaming && project.activeProjectSlug) {
