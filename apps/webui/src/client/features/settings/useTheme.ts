@@ -4,7 +4,6 @@ import {
   useState,
   useEffect,
   useCallback,
-  useMemo,
   type ReactNode,
 } from "react";
 import { createElement } from "react";
@@ -96,9 +95,9 @@ const darkIcon = createElement("svg", { width: 20, height: 20, viewBox: "0 0 24 
 
 export function useThemeOptions() {
   const { t } = useI18n();
-  return useMemo(() => [
+  return [
     { value: "system" as ThemePreference, label: t("globalSettings.themeSystem"), desc: t("globalSettings.themeSystemDesc"), icon: systemIcon },
     { value: "light" as ThemePreference, label: t("globalSettings.themeLight"), desc: t("globalSettings.themeLightDesc"), icon: lightIcon },
     { value: "dark" as ThemePreference, label: t("globalSettings.themeDark"), desc: t("globalSettings.themeDarkDesc"), icon: darkIcon },
-  ], [t]);
+  ];
 }

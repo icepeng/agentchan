@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from "react";
 import { useConfigMutations } from "@/client/entities/config/index.js";
 import { useSkills } from "@/client/entities/skill/index.js";
 import {
@@ -23,91 +22,79 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
   const { create, compact } = useSession();
   const { send } = useStreaming();
 
-  const entries = useMemo(
-    () => buildSlashEntries(skills),
-    [skills],
-  );
+  const entries = buildSlashEntries(skills);
 
-  const executeLocalCommand = useCallback(
-    async (name: string, arg: string) => {
-      switch (name) {
-        case "new":
-          await create();
-          break;
-        case "compact":
-          await compact();
-          break;
-        case "edit":
-          uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
-          break;
-        case "readme":
-          uiDispatch({ type: "OPEN_README" });
-          break;
-        case "model": {
-          await updateConfig({ model: arg });
-          break;
-        }
-        case "provider": {
-          await updateConfig({ provider: arg });
-          break;
-        }
+  const executeLocalCommand = async (name: string, arg: string) => {
+    switch (name) {
+      case "new":
+        await create();
+        break;
+      case "compact":
+        await compact();
+        break;
+      case "edit":
+        uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
+        break;
+      case "readme":
+        uiDispatch({ type: "OPEN_README" });
+        break;
+      case "model": {
+        await updateConfig({ model: arg });
+        break;
       }
-      setText("");
-    },
-    [create, compact, updateConfig, uiDispatch, ui.viewMode, setText],
-  );
+      case "provider": {
+        await updateConfig({ provider: arg });
+        break;
+      }
+    }
+    setText("");
+  };
 
-  const selectCommand = useCallback(
-    (cmd: SlashEntry) => {
-      // Skill commands always allow free-form args; local commands ask
-      // explicitly via needsArg. Both cases just prefill the textbox.
-      const needsTextInsert = cmd.kind === "skill" || cmd.needsArg;
-      if (needsTextInsert) setText("/" + cmd.name + " ");
-      else void executeLocalCommand(cmd.name, "");
-    },
-    [executeLocalCommand, setText],
-  );
+  const selectCommand = (cmd: SlashEntry) => {
+    // Skill commands always allow free-form args; local commands ask
+    // explicitly via needsArg. Both cases just prefill the textbox.
+    const needsTextInsert = cmd.kind === "skill" || cmd.needsArg;
+    if (needsTextInsert) setText("/" + cmd.name + " ");
+    else void executeLocalCommand(cmd.name, "");
+  };
 
   const palette = useCommandPalette({ text, setText, entries, onSelect: selectCommand });
 
-  const tryExecuteCommand = useCallback(
-    (input: string): boolean => {
-      if (!input.startsWith("/")) return false;
+  const tryExecuteCommand = (input: string): boolean => {
+    if (!input.startsWith("/")) return false;
 
-      const withoutSlash = input.slice(1).trim();
-      const spaceIdx = withoutSlash.indexOf(" ");
-      const cmdName = spaceIdx >= 0 ? withoutSlash.slice(0, spaceIdx) : withoutSlash;
-      const arg = spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
+    const withoutSlash = input.slice(1).trim();
+    const spaceIdx = withoutSlash.indexOf(" ");
+    const cmdName = spaceIdx >= 0 ? withoutSlash.slice(0, spaceIdx) : withoutSlash;
+    const arg = spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
 
-      const local = LOCAL_COMMANDS.find((c) => c.name === cmdName);
-      if (local) {
-        if (local.needsArg && !arg) return false;
-        void executeLocalCommand(cmdName, arg);
-        return true;
-      }
+    const local = LOCAL_COMMANDS.find((c) => c.name === cmdName);
+    if (local) {
+      if (local.needsArg && !arg) return false;
+      void executeLocalCommand(cmdName, arg);
+      return true;
+    }
 
-      // Meta skill: auto-create meta session and send the command there.
-      // If already in a meta session, fall through to normal send.
-      const entry = entries.find(
-        (e): e is SkillSlashCommand => e.kind === "skill" && e.name === cmdName,
+    // Meta skill: auto-create meta session and send the command there.
+    // If already in a meta session, fall through to normal send.
+    const entry = entries.find(
+      (e): e is SkillSlashCommand => e.kind === "skill" && e.name === cmdName,
+    );
+    if (entry?.environment === "meta") {
+      const activeSession = sessions.find(
+        (s) => s.id === selection.openSessionId,
       );
-      if (entry?.environment === "meta") {
-        const activeSession = sessions.find(
-          (s) => s.id === selection.openSessionId,
-        );
-        if (activeSession?.mode === "meta") return false;
+      if (activeSession?.mode === "meta") return false;
 
-        setText("");
-        void create("meta").then((sess) => {
-          if (sess) void send(input, sess.id);
-        });
-        return true;
-      }
+      setText("");
+      void create("meta").then((sess) => {
+        if (sess) void send(input, sess.id);
+      });
+      return true;
+    }
 
-      return false; // skill commands fall through to send()
-    },
-    [executeLocalCommand, entries, sessions, selection.openSessionId, create, send, setText],
-  );
+    return false; // skill commands fall through to send()
+  };
 
   return { palette, selectCommand, tryExecuteCommand };
 }
