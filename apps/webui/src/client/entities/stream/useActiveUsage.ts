@@ -1,12 +1,12 @@
 import { useMemo } from "react";
-import { useProjectState } from "@/client/entities/project/index.js";
-import { useSessionData } from "@/client/entities/session/index.js";
-import type { TreeNode } from "@/client/entities/session/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
-  useActiveRuntime,
-  EMPTY_USAGE,
-  type SessionUsage,
-} from "./ProjectRuntimeContext.js";
+  useSessionData,
+  useActiveSessionSelection,
+} from "@/client/entities/session/index.js";
+import type { TreeNode } from "@/client/entities/session/index.js";
+import { useStreamState, selectStreamSlot } from "./StreamContext.js";
+import { EMPTY_USAGE, type SessionUsage } from "./stream.types.js";
 
 function computeUsageFromNodes(
   nodes: readonly TreeNode[],
@@ -49,24 +49,25 @@ function computeUsageFromNodes(
 }
 
 /**
- * The combined server + in-flight stream usage for the active project runtime.
+ * The combined server + in-flight stream usage for the active project.
  *
  *  - `base`: canonical sum across the current activePath's nodes (SWR).
- *  - `delta`: per-round accumulator from `STREAM_USAGE_SUMMARY`, reset on
- *     `STREAM_RESET` / `STREAM_START`.
+ *  - `delta`: per-round accumulator from `USAGE_SUMMARY`, reset on
+ *     `RESET` / `START`.
  *
  * `contextTokens` is latest-wins (LLM reports a snapshot per round), not
  * summed like the token counters — delta wins if non-zero, else base.
  *
  * `base` is memoized separately so the O(n) sum over nodes only re-runs when
- * the SWR cache produces a new data object, not on every text/tool delta
- * (which only changes `delta` — a new reducer object each dispatch).
+ * the SWR cache produces a new data object, not on every text/tool delta.
  */
 export function useActiveUsage(): SessionUsage {
-  const { activeProjectSlug } = useProjectState();
-  const runtime = useActiveRuntime();
-  const { data } = useSessionData(activeProjectSlug, runtime.sessionId);
-  const delta = runtime.stream?.streamUsageDelta ?? EMPTY_USAGE;
+  const { activeProjectSlug } = useProjectSelectionState();
+  const { openSessionId } = useActiveSessionSelection();
+  const streamState = useStreamState();
+  const slot = selectStreamSlot(streamState, activeProjectSlug);
+  const { data } = useSessionData(activeProjectSlug, openSessionId);
+  const delta = slot.streamUsageDelta;
   const base = useMemo(
     () => (data ? computeUsageFromNodes(data.nodes, data.activePath) : EMPTY_USAGE),
     [data],

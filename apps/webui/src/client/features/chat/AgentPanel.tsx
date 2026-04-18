@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { useActiveRuntime, useActiveStream } from "@/client/entities/project-runtime/index.js";
-import { useProjectState } from "@/client/entities/project/index.js";
-import { useSessionData } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/stream/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useSessionData,
+  useActiveSessionSelection,
+} from "@/client/entities/session/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
@@ -89,12 +92,12 @@ const EMPTY_NODES: readonly TreeNode[] = [];
 const EMPTY_PATH: readonly string[] = [];
 
 export function AgentPanel() {
-  const runtime = useActiveRuntime();
+  const selection = useActiveSessionSelection();
   const stream = useActiveStream();
-  const { activeProjectSlug } = useProjectState();
+  const { activeProjectSlug } = useProjectSelectionState();
   const { data: sessionData } = useSessionData(
     activeProjectSlug,
-    runtime.sessionId,
+    selection.openSessionId,
   );
   const nodes = sessionData?.nodes ?? EMPTY_NODES;
   const activePath = sessionData?.activePath ?? EMPTY_PATH;
@@ -124,7 +127,7 @@ export function AgentPanel() {
     [activePath, nodeMap],
   );
 
-  if (!runtime.sessionId) {
+  if (!selection.openSessionId) {
     return (
       <div className="flex flex-col flex-1 min-h-0">
         <SessionTabs />
@@ -150,7 +153,7 @@ export function AgentPanel() {
       <SessionTabs />
 
       {/* Reply-to banner */}
-      {runtime.replyToNodeId && (
+      {selection.replyToNodeId && (
         <div className="px-3 py-2 bg-accent/5 border-b border-accent/10 flex items-center justify-between">
           <span className="text-[11px] text-accent tracking-wide flex items-center gap-1.5">
             <CornerUpLeft size={10} strokeWidth={2} />

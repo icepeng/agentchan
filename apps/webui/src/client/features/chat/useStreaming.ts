@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef } from "react";
 import { mutate as globalMutate } from "swr";
-import { useProjectState, useProjects } from "@/client/entities/project/index.js";
 import {
-  useProjectRuntimeState,
-  useProjectRuntimeDispatch,
-  useActiveRuntime,
-  selectRuntime,
+  useProjectSelectionState,
+  useProjects,
+} from "@/client/entities/project/index.js";
+import {
+  useStreamState,
+  useStreamDispatch,
   selectStreamSlot,
-} from "@/client/entities/project-runtime/index.js";
+} from "@/client/entities/stream/index.js";
 import {
+  useSessionSelectionState,
+  selectSessionSelection,
   useSessionData,
   insertNode,
   insertNodes,
@@ -46,31 +49,37 @@ function makeTempUserNode(text: string, parentId: string | null): TreeNode {
 }
 
 export function useStreaming() {
-  const projectState = useProjectState();
+  const projectSelection = useProjectSelectionState();
   const { data: projects } = useProjects();
-  const runtimeState = useProjectRuntimeState();
-  const runtimeDispatch = useProjectRuntimeDispatch();
-  const runtime = useActiveRuntime();
+  const streamState = useStreamState();
+  const streamDispatch = useStreamDispatch();
+  const sessionSelectionState = useSessionSelectionState();
   const { t } = useI18n();
   // Needed so notification onClick can perform a full project switch
   // (fetchSessions + fetchSkills) — not just flip activeProjectSlug,
   // which would leave the target project's SWR caches cold.
   const { selectProject } = useProject();
 
+  const activeSlug = projectSelection.activeProjectSlug;
+  const activeSelection = selectSessionSelection(sessionSelectionState, activeSlug);
+  const activeSlot = selectStreamSlot(streamState, activeSlug);
+
   // Live data for the current active session so send/regenerate can
   // compute the parent node without re-fetching. Refs avoid re-creating the
   // callbacks on every delta.
   const { data: activeSessionData } = useSessionData(
-    projectState.activeProjectSlug,
-    runtime.sessionId,
+    activeSlug,
+    activeSelection.openSessionId,
   );
 
-  const projectStateRef = useRef(projectState);
-  useEffect(() => { projectStateRef.current = projectState; });
+  const projectSelectionRef = useRef(projectSelection);
+  useEffect(() => { projectSelectionRef.current = projectSelection; });
   const projectsRef = useRef(projects);
   useEffect(() => { projectsRef.current = projects; });
-  const runtimeStateRef = useRef(runtimeState);
-  useEffect(() => { runtimeStateRef.current = runtimeState; });
+  const streamStateRef = useRef(streamState);
+  useEffect(() => { streamStateRef.current = streamState; });
+  const sessionSelectionStateRef = useRef(sessionSelectionState);
+  useEffect(() => { sessionSelectionStateRef.current = sessionSelectionState; });
   const activeSessionDataRef = useRef(activeSessionData);
   useEffect(() => { activeSessionDataRef.current = activeSessionData; });
   const tRef = useRef(t);
@@ -83,7 +92,7 @@ export function useStreaming() {
    * node, assistant nodes), reducer for in-flight ephemera (streamingText,
    * tool call input deltas, usage delta). `projectSlug` + `sessionId`
    * are captured in closure so mutations and dispatches route to the right
-   * cache key / runtime slot even after the user switches projects.
+   * cache key / stream slot even after the user switches projects.
    *
    * `tempUserId`: the optimistic temp id we inserted for the user message.
    * When the server echoes back `onUserNode` with the real node, we splice
@@ -97,11 +106,11 @@ export function useStreaming() {
         kind: "done" | "error",
         errorMessage?: string,
       ) => {
-        const p = projectStateRef.current;
-        const s = runtimeStateRef.current;
+        const p = projectSelectionRef.current;
+        const sel = sessionSelectionStateRef.current;
         const projectName =
           projectsRef.current?.find((pr) => pr.slug === projectSlug)?.name ?? projectSlug;
-        const activeSessionId = selectRuntime(s, p.activeProjectSlug).sessionId;
+        const activeSessionId = selectSessionSelection(sel, p.activeProjectSlug).openSessionId;
         if (!isBackgroundStream(projectSlug, sessionId, p.activeProjectSlug, activeSessionId)) return;
         notifyBackgroundCompletion({
           projectSlug,
@@ -117,7 +126,7 @@ export function useStreaming() {
             kind === "done" ? "notifications.sessionCompleteBody" : "notifications.sessionErrorBody",
           ),
           onClick: () => {
-            if (projectStateRef.current.activeProjectSlug !== projectSlug) {
+            if (projectSelectionRef.current.activeProjectSlug !== projectSlug) {
               void selectProjectRef.current(projectSlug);
             }
           },
@@ -160,19 +169,19 @@ export function useStreaming() {
           );
         },
         onTextDelta: (text) =>
-          runtimeDispatch({ type: "STREAM_TEXT_DELTA", projectSlug, text }),
+          streamDispatch({ type: "TEXT_DELTA", projectSlug, text }),
         onToolUseStart: (id, name) =>
-          runtimeDispatch({ type: "STREAM_TOOL_START", projectSlug, id, name }),
+          streamDispatch({ type: "TOOL_START", projectSlug, id, name }),
         onToolUseDelta: (id, inputJson) =>
-          runtimeDispatch({ type: "STREAM_TOOL_DELTA", projectSlug, id, inputJson }),
+          streamDispatch({ type: "TOOL_DELTA", projectSlug, id, inputJson }),
         onToolUseEnd: (id) =>
-          runtimeDispatch({ type: "STREAM_TOOL_END", projectSlug, id }),
+          streamDispatch({ type: "TOOL_END", projectSlug, id }),
         onToolExecStart: (id, _name, parallel) =>
-          runtimeDispatch({ type: "TOOL_EXEC_START", projectSlug, id, parallel }),
+          streamDispatch({ type: "TOOL_EXEC_START", projectSlug, id, parallel }),
         onToolExecEnd: (id) =>
-          runtimeDispatch({ type: "TOOL_EXEC_END", projectSlug, id }),
+          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id }),
         onUsageSummary: (usage) =>
-          runtimeDispatch({ type: "STREAM_USAGE_SUMMARY", projectSlug, ...usage }),
+          streamDispatch({ type: "USAGE_SUMMARY", projectSlug, ...usage }),
         onAssistantNodes: (nodes) => {
           // Write-through: splice persisted assistant nodes into the SWR
           // cache synchronously, then reset the stream slot. Next render
@@ -190,7 +199,7 @@ export function useStreaming() {
             },
             { revalidate: false },
           );
-          runtimeDispatch({ type: "STREAM_RESET", projectSlug });
+          streamDispatch({ type: "RESET", projectSlug });
         },
         onDone: () => {
           // Always revalidate — write-throughs already seeded canonical data
@@ -204,7 +213,7 @@ export function useStreaming() {
         },
         onError: (message) => {
           console.error("Stream error:", message);
-          runtimeDispatch({ type: "STREAM_ERROR", projectSlug, error: message });
+          streamDispatch({ type: "ERROR", projectSlug, error: message });
           // Reconcile — server may have partially persisted, or the temp
           // user node may or may not survive the retry. SWR revalidate gives
           // the authoritative tree.
@@ -213,26 +222,27 @@ export function useStreaming() {
         },
       };
     },
-    [runtimeDispatch],
+    [streamDispatch],
   );
 
   const send = useCallback(
     async (text: string, sessionId?: string) => {
-      const p = projectStateRef.current;
-      const s = runtimeStateRef.current;
+      const p = projectSelectionRef.current;
+      const sel = sessionSelectionStateRef.current;
+      const streams = streamStateRef.current;
       if (!p.activeProjectSlug) return;
       const projectSlug = p.activeProjectSlug;
-      const rt = selectRuntime(s, projectSlug);
-      const sid = sessionId ?? rt.sessionId;
+      const selection = selectSessionSelection(sel, projectSlug);
+      const sid = sessionId ?? selection.openSessionId;
       if (!sid) return;
 
-      const slot = selectStreamSlot(s, projectSlug);
+      const slot = selectStreamSlot(streams, projectSlug);
       // Per-project concurrency guard: one in-flight stream per project.
       if (slot.isStreaming) return;
 
       // Parent: explicit reply-to > last activePath node > null.
       // For freshly-created sessions (`sessionId` passed in), there is
-      // no prior activePath in the current runtime ref, so pass null.
+      // no prior activePath in the current ref, so pass null.
       const data = activeSessionDataRef.current;
       const sameSession = data?.session.id === sid;
       const lastActive = sameSession
@@ -240,7 +250,7 @@ export function useStreaming() {
         : null;
       const parentNodeId = sessionId
         ? null
-        : rt.replyToNodeId ?? lastActive ?? null;
+        : selection.replyToNodeId ?? lastActive ?? null;
 
       // Optimistic user bubble — server persists the real user node before
       // streaming; when `onUserNode` echoes back we replace the temp.
@@ -261,7 +271,7 @@ export function useStreaming() {
         { revalidate: false, rollbackOnError: false },
       );
 
-      runtimeDispatch({ type: "STREAM_START", projectSlug, sessionId: sid });
+      streamDispatch({ type: "START", projectSlug });
 
       const controller = new AbortController();
       registerAbortController(projectSlug, controller);
@@ -278,44 +288,40 @@ export function useStreaming() {
         clearAbortController(projectSlug, controller);
       }
     },
-    [runtimeDispatch, makeCallbacks],
+    [streamDispatch, makeCallbacks],
   );
 
   const regenerate = useCallback(
     async (userNodeId: string) => {
-      const p = projectStateRef.current;
-      const s = runtimeStateRef.current;
+      const p = projectSelectionRef.current;
+      const sel = sessionSelectionStateRef.current;
+      const streams = streamStateRef.current;
       if (!p.activeProjectSlug) return;
       const projectSlug = p.activeProjectSlug;
-      const rt = selectRuntime(s, projectSlug);
-      if (!rt.sessionId) return;
+      const selection = selectSessionSelection(sel, projectSlug);
+      if (!selection.openSessionId) return;
 
-      const slot = selectStreamSlot(s, projectSlug);
+      const slot = selectStreamSlot(streams, projectSlug);
       if (slot.isStreaming) return;
 
-      runtimeDispatch({
-        type: "STREAM_START",
-        projectSlug,
-        sessionId: rt.sessionId,
-      });
+      streamDispatch({ type: "START", projectSlug });
 
       const controller = new AbortController();
       registerAbortController(projectSlug, controller);
       try {
         await regenerateResponse(
           projectSlug,
-          rt.sessionId,
+          selection.openSessionId,
           userNodeId,
-          makeCallbacks(projectSlug, rt.sessionId, null),
+          makeCallbacks(projectSlug, selection.openSessionId, null),
           controller.signal,
         );
       } finally {
         clearAbortController(projectSlug, controller);
       }
     },
-    [runtimeDispatch, makeCallbacks],
+    [streamDispatch, makeCallbacks],
   );
 
-  const activeSlot = selectStreamSlot(runtimeState, projectState.activeProjectSlug);
   return { send, regenerate, isStreaming: activeSlot.isStreaming };
 }

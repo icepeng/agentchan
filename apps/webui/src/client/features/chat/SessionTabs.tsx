@@ -1,15 +1,17 @@
 import { ChevronsRight, Plus, Settings, X } from "lucide-react";
-import { useActiveRuntime } from "@/client/entities/project-runtime/index.js";
-import { useSessions } from "@/client/entities/session/index.js";
-import { useProjectState } from "@/client/entities/project/index.js";
+import {
+  useSessions,
+  useActiveSessionSelection,
+} from "@/client/entities/session/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { useSession } from "./useSession.js";
 
 export function SessionTabs() {
-  const runtime = useActiveRuntime();
-  const { activeProjectSlug } = useProjectState();
+  const selection = useActiveSessionSelection();
+  const { activeProjectSlug } = useProjectSelectionState();
   const { data: sessions = [] } = useSessions(activeProjectSlug);
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
@@ -25,7 +27,7 @@ export function SessionTabs() {
         viewportClassName="flex items-center gap-0.5 px-1.5 py-1.5"
       >
         {sessions.map((sess) => {
-          const isActive = runtime.sessionId === sess.id;
+          const isActive = selection.openSessionId === sess.id;
           return (
             <button
               key={sess.id}

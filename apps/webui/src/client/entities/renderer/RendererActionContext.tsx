@@ -5,12 +5,7 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-
-// --- Action Types ---
-
-export type RendererAction =
-  | { type: "send"; text: string }
-  | { type: "fill"; text: string };
+import type { RendererAction } from "./renderer.types.js";
 
 // --- State ---
 

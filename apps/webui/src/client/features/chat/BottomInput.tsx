@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
-import { useActiveRuntime, useActiveUsage } from "@/client/entities/project-runtime/index.js";
+import { useActiveUsage } from "@/client/entities/stream/index.js";
+import { useActiveSessionSelection } from "@/client/entities/session/index.js";
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -12,7 +13,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import {
   useRendererActionState,
   useRendererActionDispatch,
-} from "@/client/entities/renderer-action/index.js";
+} from "@/client/entities/renderer/index.js";
 import { useStreaming } from "./useStreaming.js";
 import { useSession } from "./useSession.js";
 import { useSlashCommands } from "./useSlashCommands.js";
@@ -24,7 +25,7 @@ interface BottomInputProps {
 }
 
 export function BottomInput({ variant = "standalone" }: BottomInputProps) {
-  const runtime = useActiveRuntime();
+  const selection = useActiveSessionSelection();
   const usage = useActiveUsage();
   const { data: config } = useConfig();
   const ui = useUIState();
@@ -56,7 +57,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   // Focus on mount and session change
   useEffect(() => {
     textareaRef.current?.focus();
-  }, [runtime.sessionId]);
+  }, [selection.openSessionId]);
 
   // Handle renderer actions (send / fill)
   useEffect(() => {
@@ -69,7 +70,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
       setText(action.text);
       textareaRef.current?.focus();
     } else if (action.type === "send") {
-      if (!runtime.sessionId) {
+      if (!selection.openSessionId) {
         void create().then((sess) => {
           if (sess) void send(action.text, sess.id);
         });
@@ -77,7 +78,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
         void send(action.text);
       }
     }
-  }, [rendererAction.pending, rendererActionDispatch, runtime.sessionId, create, send]);
+  }, [rendererAction.pending, rendererActionDispatch, selection.openSessionId, create, send]);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();
@@ -95,7 +96,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
 
     setText("");
 
-    if (!runtime.sessionId) {
+    if (!selection.openSessionId) {
       const sess = await create();
       if (sess) await send(trimmed, sess.id);
       return;
@@ -144,7 +145,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              runtime.replyToNodeId
+              selection.replyToNodeId
                 ? t("input.branchPlaceholder")
                 : t("input.placeholder")
             }

@@ -2,7 +2,6 @@ export type {
   Session,
   TreeNode,
   TokenUsage,
-  ToolCallState,
   ClientMessage,
   TextContent,
   ThinkingContent,
@@ -26,3 +25,17 @@ export {
   registerAbortController, clearAbortController, abortProjectStream,
 } from "./session.api.js";
 export type { SSECallbacks } from "./session.api.js";
+
+export {
+  SessionSelectionProvider,
+  useSessionSelectionState,
+  useSessionSelectionDispatch,
+  selectSessionSelection,
+  EMPTY_SELECTION,
+} from "./SessionSelectionContext.js";
+export type {
+  SessionSelection,
+  SessionSelectionState,
+  SessionSelectionAction,
+} from "./SessionSelectionContext.js";
+export { useActiveSessionSelection } from "./useSessionSelection.js";
