@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useLayoutEffect } from "react";
+import { useRef, useEffect, useLayoutEffect } from "react";
 
 interface ResizeHandleProps {
   onResizeStart?: () => void;
@@ -16,7 +16,7 @@ export function ResizeHandle({ onResizeStart, onResize, onResizeEnd }: ResizeHan
 
   useEffect(() => () => cleanupRef.current?.(), []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
 
@@ -40,7 +40,7 @@ export function ResizeHandle({ onResizeStart, onResize, onResizeEnd }: ResizeHan
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
     cleanupRef.current = cleanup;
-  }, []);
+  };
 
   return (
     <div
