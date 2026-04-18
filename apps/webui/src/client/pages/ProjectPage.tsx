@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, Suspense, lazy } from "react";
+import { useState, useRef, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useUIState, useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
@@ -33,12 +33,12 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
 
   const isEdit = ui.viewMode === "edit";
 
-  const handlePanelResize = useCallback((delta: number) => {
+  const handlePanelResize = (delta: number) => {
     const container = containerRef.current;
     if (!container) return;
     const maxWidth = container.getBoundingClientRect().width * MAX_PANEL_RATIO;
     setPanelWidth(Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, dragStartRef.current - delta)));
-  }, []);
+  };
 
   return (
     <>
