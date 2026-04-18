@@ -91,30 +91,30 @@ interface RendererTheme {
 // ── Palette (renderer internal) ───────────────
 
 const ILLUMINATED_COPPER = "#b36b2a"; // warn · vigor mid · 브랜딩
-const VERDIGRIS = "#3d7a6d";          // accent · 성공 · anima
-const VERMILION = "#a83225";          // danger · 상태이상 · HP low
-const MANUSCRIPT_VIOLET = "#6a45a0";  // magic 관련
-const MIST_BLUE = "#4a6b8a";          // 차가운 정보 (시간 · 위치)
+const VERDIGRIS = "#3d7a6d"; // accent · 성공 · anima
+const VERMILION = "#a83225"; // danger · 상태이상 · HP low
+const MANUSCRIPT_VIOLET = "#6a45a0"; // magic 관련
+const MIST_BLUE = "#4a6b8a"; // 차가운 정보 (시간 · 위치)
 
 // 전투 팔레트 — data-mode="combat" 전용.
-const COMBAT_BASE = "#1a110a";        // 페이지 바탕
-const COMBAT_SURFACE = "#251810";     // 라운드 블록
-const COMBAT_CANDLE = "#d48a1f";      // 촛불 황금
-const COMBAT_BLOOD = "#a02420";       // 피
-const COMBAT_PARCH = "#d8c9a8";       // 촛불 아래 양피지
-const COMBAT_FG2 = "#b8a38a";         // 중간 잉크 (어두운 버전)
-const COMBAT_FG3 = "#8a7658";         // 흐린 잉크
+const COMBAT_BASE = "#1a110a"; // 페이지 바탕
+const COMBAT_SURFACE = "#251810"; // 라운드 블록
+const COMBAT_CANDLE = "#d48a1f"; // 촛불 황금
+const COMBAT_BLOOD = "#a02420"; // 피
+const COMBAT_PARCH = "#d8c9a8"; // 촛불 아래 양피지
+const COMBAT_FG2 = "#b8a38a"; // 중간 잉크 (어두운 버전)
+const COMBAT_FG3 = "#8a7658"; // 흐린 잉크
 
 // NPC/PC 각자 잉크 톤. frontmatter color 가 있으면 우선. 없으면 fallback 팔레트.
 const CHARACTER_COLORS = [
-  VERDIGRIS,           // verdigris
-  ILLUMINATED_COPPER,  // copper
-  MANUSCRIPT_VIOLET,   // royal violet
-  "#a83a70",           // magenta ink
-  "#4a7a3a",           // moss
-  "#c84a28",           // vermilion orange
-  MIST_BLUE,           // sea navy
-  "#8a3a2d",           // iron rust
+  VERDIGRIS, // verdigris
+  ILLUMINATED_COPPER, // copper
+  MANUSCRIPT_VIOLET, // royal violet
+  "#a83a70", // magenta ink
+  "#4a7a3a", // moss
+  "#c84a28", // vermilion orange
+  MIST_BLUE, // sea navy
+  "#8a3a2d", // iron rust
 ];
 
 // ── Theme export ──────────────────────────────
@@ -195,7 +195,12 @@ function isVisible(file: ProjectFile): boolean {
 // ── Helpers ───────────────────────────────────
 
 // hot path: scene 당 수백~수천 번 호출. 단일 정규식 + lookup 으로 4 회 스캔 → 1 회.
-const HTML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+};
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (c) => HTML_ESCAPES[c]);
@@ -206,7 +211,11 @@ function escapeText(text: string): string {
   return text.replace(/[&<>]/g, (c) => HTML_ESCAPES[c]);
 }
 
-function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
+function resolveImageUrl(
+  ctx: RenderContext,
+  dir: string,
+  imageKey: string,
+): string {
   return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
 }
 
@@ -236,12 +245,12 @@ function firstChar(s: string): string {
 // ── Name map (avatar · color 공통 resolver) ──
 
 interface NameMapEntry {
-  slug: string;           // 캐릭터 slug (디렉토리명 + frontmatter name)
-  dir: string;            // 캐릭터 디렉토리 (예: "characters/riwu", files/ 하위 기준)
-  displayName: string;    // 표시 이름 (display-name 또는 name)
-  avatarImage?: string;   // 기본 avatar 이미지 키
-  color?: string;         // 기본 color
-  role?: string;          // companion | npc | pc | persona
+  slug: string; // 캐릭터 slug (디렉토리명 + frontmatter name)
+  dir: string; // 캐릭터 디렉토리 (예: "characters/riwu", files/ 하위 기준)
+  displayName: string; // 표시 이름 (display-name 또는 name)
+  avatarImage?: string; // 기본 avatar 이미지 키
+  color?: string; // 기본 color
+  role?: string; // companion | npc | pc | persona
 }
 
 function buildCharacterIndex(ctx: RenderContext): Map<string, NameMapEntry> {
@@ -250,7 +259,9 @@ function buildCharacterIndex(ctx: RenderContext): Map<string, NameMapEntry> {
     if (file.type !== "text" || !file.frontmatter) continue;
     const fm = file.frontmatter;
     const name = fm.name ? String(fm.name) : undefined;
-    const displayName = fm["display-name"] ? String(fm["display-name"]) : name ?? "";
+    const displayName = fm["display-name"]
+      ? String(fm["display-name"])
+      : (name ?? "");
     if (!name && !displayName) continue;
 
     const dir = file.path.substring(0, file.path.lastIndexOf("/"));
@@ -293,15 +304,18 @@ interface PartyData {
     mp: HpMp;
     conditions: string[];
   };
-  companions: Record<string, {
-    hp: HpMp;
-    mp: HpMp;
-    trust: number;
-    approval: "rising" | "falling" | "steady";
-    conditions: string[];
-    in_party: boolean;
-    quest_stage: string;
-  }>;
+  companions: Record<
+    string,
+    {
+      hp: HpMp;
+      mp: HpMp;
+      trust: number;
+      approval: "rising" | "falling" | "steady";
+      conditions: string[];
+      in_party: boolean;
+      quest_stage: string;
+    }
+  >;
 }
 
 interface StatsData {
@@ -346,7 +360,7 @@ interface InventoryData {
 interface QuestEntry {
   slug: string;
   title: string;
-  status: string;      // active | complete | failed | dormant
+  status: string; // active | complete | failed | dormant
   act: number;
   giver?: string | null;
   description?: string;
@@ -377,9 +391,11 @@ interface WorldStateData {
 }
 
 function findDataFile(ctx: RenderContext, path: string): DataFile | null {
-  return (ctx.files.find(
-    (f): f is DataFile => f.type === "data" && f.path === path,
-  )) ?? null;
+  return (
+    ctx.files.find(
+      (f): f is DataFile => f.type === "data" && f.path === path,
+    ) ?? null
+  );
 }
 
 function asRecord(x: unknown): Record<string, unknown> | null {
@@ -505,7 +521,9 @@ function extractInventoryData(ctx: RenderContext): InventoryData {
     .map((r) => ({
       slug: asString(r.slug, ""),
       name: asString(r.name, ""),
-      acquired_at_scene: r.acquired_at_scene ? asString(r.acquired_at_scene, "") : undefined,
+      acquired_at_scene: r.acquired_at_scene
+        ? asString(r.acquired_at_scene, "")
+        : undefined,
       notes: r.notes ? asString(r.notes, "") : undefined,
       related_npcs: asStringArray(r.related_npcs),
     }))
@@ -538,11 +556,14 @@ function extractQuestsData(ctx: RenderContext): QuestsData {
         act: asNumber(r.act, 1),
         giver: r.giver ? asString(r.giver, "") : null,
         description: r.description ? asString(r.description, "") : undefined,
-        current_step: r.current_step !== null && r.current_step !== undefined
-          ? asString(r.current_step, "")
-          : null,
+        current_step:
+          r.current_step !== null && r.current_step !== undefined
+            ? asString(r.current_step, "")
+            : null,
         steps_completed: asStringArray(r.steps_completed),
-        completion_flag: r.completion_flag ? asString(r.completion_flag, "") : undefined,
+        completion_flag: r.completion_flag
+          ? asString(r.completion_flag, "")
+          : undefined,
         owner: r.owner ? asString(r.owner, "") : undefined,
       }))
       .filter((q) => q.slug);
@@ -570,7 +591,9 @@ function extractWorldState(ctx: RenderContext): WorldStateData | null {
     weather: asString(root.weather, ""),
     location: asString(root.location, ""),
     party_status: asString(root.party_status, "ready"),
-    last_summary: root.last_summary ? asString(root.last_summary, "") : undefined,
+    last_summary: root.last_summary
+      ? asString(root.last_summary, "")
+      : undefined,
   };
 }
 
@@ -583,9 +606,11 @@ function buildLocationTitles(ctx: RenderContext): Map<string, string> {
     if (!f.path.startsWith("locations/")) continue;
     const slug = f.path.replace(/^locations\//, "").replace(/\.md$/, "");
     const fm = f.frontmatter;
-    const title = fm?.title ? String(fm.title)
-      : fm?.name ? String(fm.name)
-      : slug;
+    const title = fm?.title
+      ? String(fm.title)
+      : fm?.name
+        ? String(fm.name)
+        : slug;
     map.set(slug, title);
   }
   return map;
@@ -641,17 +666,28 @@ type SceneEvent =
   | { kind: "image"; slug: string; key: string }
   | { kind: "divider" }
   | { kind: "system"; text: string }
-  | { kind: "stat"; npc: string; delta: number; trigger: string; direction: "rising" | "falling" | "steady" }
+  | {
+      kind: "stat";
+      npc: string;
+      delta: number;
+      trigger: string;
+      direction: "rising" | "falling" | "steady";
+    }
   | { kind: "item"; slug: string; change: string; text?: string }
-  | { kind: "quest"; slug: string; event: "step" | "complete" | "fail"; step?: string }
+  | {
+      kind: "quest";
+      slug: string;
+      event: "step" | "complete" | "fail";
+      step?: string;
+    }
   | { kind: "combat"; round: number; inner: SceneEvent[] };
 
 // 플레이어 선택지 — next-choices.yaml 에서 로드되는 persistent 블록 (씬 로그 아님).
 interface ChoiceOption {
   label: string;
   action: string;
-  stat: string;      // "" 면 배지 표시 안 함
-  dc: number;        // 0 이면 DC 배지 표시 안 함
+  stat: string; // "" 면 배지 표시 안 함
+  dc: number; // 0 이면 DC 배지 표시 안 함
 }
 
 interface ParsedStatus {
@@ -675,8 +711,10 @@ const CHAR_LINE_RE = /^\[CHAR:([a-z0-9][a-z0-9_-]*)\]\s*(.*)$/i;
 const BOLD_SPEAKER_RE = /^\*\*([^*\n]+?)\*\*\s*:?\s*(.+)$/;
 const IMAGE_TOKEN_RE = /^\[([a-z0-9][a-z0-9_-]*):(assets\/[^\]]+)\]$/i;
 const INLINE_IMAGE_RE = /\[([a-z0-9][a-z0-9_-]*):(assets\/[^\]]+)\]/gi;
-const STAT_LINE_RE = /^\[STAT\]\s+([a-z0-9][a-z0-9_-]*)\s+([+-]?\d+)\s+\(([^)]+)\)(?:\s+(rising|falling|steady))?/i;
-const ITEM_LINE_RE = /^\[item:([a-z0-9][a-z0-9_-]*)\s+([^\]]+)\]\s*(?:"([^"]*)")?/i;
+const STAT_LINE_RE =
+  /^\[STAT\]\s+([a-z0-9][a-z0-9_-]*)\s+([+-]?\d+)\s+\(([^)]+)\)(?:\s+(rising|falling|steady))?/i;
+const ITEM_LINE_RE =
+  /^\[item:([a-z0-9][a-z0-9_-]*)\s+([^\]]+)\]\s*(?:"([^"]*)")?/i;
 const QUEST_STEP_RE = /^\[quest:([a-z0-9][a-z0-9_-]*)\s+step="([^"]+)"\]/i;
 const QUEST_COMPLETE_RE = /^\[quest:([a-z0-9][a-z0-9_-]*)\s+(complete|fail)\]/i;
 const BEAT_COMBAT_OPEN_RE = /^<beat\s+type="combat"(?:\s+round="(\d+)")?>$/i;
@@ -694,12 +732,20 @@ function parseStatusContent(body: string): ParsedStatus {
     switch (key) {
       case "hp": {
         const mm = val.match(/(\d+)\s*\/\s*(\d+)/);
-        if (mm) status.hp = { current: parseInt(mm[1], 10), max: parseInt(mm[2], 10) };
+        if (mm)
+          status.hp = {
+            current: parseInt(mm[1], 10),
+            max: parseInt(mm[2], 10),
+          };
         break;
       }
       case "mp": {
         const mm = val.match(/(\d+)\s*\/\s*(\d+)/);
-        if (mm) status.mp = { current: parseInt(mm[1], 10), max: parseInt(mm[2], 10) };
+        if (mm)
+          status.mp = {
+            current: parseInt(mm[1], 10),
+            max: parseInt(mm[2], 10),
+          };
         break;
       }
       case "location":
@@ -758,7 +804,7 @@ function parseStatLine(line: string): SceneEvent | null {
   const m = line.match(STAT_LINE_RE);
   if (!m) return null;
   const [, npc, deltaStr, trigger, dir] = m;
-  const direction = (dir === "rising" || dir === "falling") ? dir : "steady";
+  const direction = dir === "rising" || dir === "falling" ? dir : "steady";
   return {
     kind: "stat",
     npc,
@@ -799,7 +845,8 @@ function parseInlineLine(
   if (userMatch) return { kind: "user", text: userMatch[1] };
 
   const charMatch = trimmed.match(CHAR_LINE_RE);
-  if (charMatch) return { kind: "char", slug: charMatch[1], text: charMatch[2] };
+  if (charMatch)
+    return { kind: "char", slug: charMatch[1], text: charMatch[2] };
 
   // LLM 의 자연스러운 RP 형식 — `**리우:** "..."` 를 CHAR 와 동치로 승격.
   // charIndex 에 이름이 있어야만 발화로 인정, 아니면 일반 narration (볼드 포함) 으로 fallback.
@@ -808,7 +855,8 @@ function parseInlineLine(
     if (boldMatch) {
       const name = boldMatch[1].trim().replace(/:$/, "");
       const entry = charIndex.get(name);
-      if (entry) return { kind: "char", slug: entry.slug, text: boldMatch[2].trim() };
+      if (entry)
+        return { kind: "char", slug: entry.slug, text: boldMatch[2].trim() };
     }
   }
 
@@ -1109,11 +1157,16 @@ function renderDividerEvent(id: string): string {
 
 function statLabel(stat: string): string {
   switch (stat) {
-    case "strength": return "힘";
-    case "agility": return "민첩";
-    case "insight": return "통찰";
-    case "charisma": return "화술";
-    default: return stat;
+    case "strength":
+      return "힘";
+    case "agility":
+      return "민첩";
+    case "insight":
+      return "통찰";
+    case "charisma":
+      return "화술";
+    default:
+      return stat;
   }
 }
 
@@ -1122,7 +1175,8 @@ function statLabel(stat: string): string {
 function renderNextChoices(options: ChoiceOption[]): string {
   if (options.length === 0) return "";
   const rows = options
-    .map((opt, i) => `
+    .map(
+      (opt, i) => `
         <button type="button"
                 class="rpg-check-option"
                 style="--i: ${i}"
@@ -1133,7 +1187,8 @@ function renderNextChoices(options: ChoiceOption[]): string {
             ${opt.stat ? `<span class="rpg-check-stat">${escapeText(statLabel(opt.stat))}</span>` : ""}
             ${opt.dc > 0 ? `<span class="rpg-check-dc">DC&nbsp;${opt.dc}</span>` : ""}
           </span>
-        </button>`)
+        </button>`,
+    )
     .join("");
   return `
     <div class="rpg-check" role="group" aria-label="이 턴의 선택지">
@@ -1173,7 +1228,8 @@ function renderSystemEvent(text: string, id: string): string {
   const parsed = parseSystemRoll(text);
   if (parsed.outcome) {
     const glyph = parsed.outcome === "SUCCESS" ? "&#x2713;" : "&#x2717;";
-    const cls = parsed.outcome === "SUCCESS" ? "rpg-system--ok" : "rpg-system--fail";
+    const cls =
+      parsed.outcome === "SUCCESS" ? "rpg-system--ok" : "rpg-system--fail";
     return `
       <div id="${id}" class="rpg-system ${cls}">
         <span class="rpg-system-glyph" aria-hidden="true">${glyph}</span>
@@ -1201,16 +1257,26 @@ function renderSystemEvent(text: string, id: string): string {
     </div>`;
 }
 
-function renderStatEvent(event: Extract<SceneEvent, { kind: "stat" }>, id: string, charIndex: Map<string, NameMapEntry>): string {
+function renderStatEvent(
+  event: Extract<SceneEvent, { kind: "stat" }>,
+  id: string,
+  charIndex: Map<string, NameMapEntry>,
+): string {
   const entry = charIndex.get(event.npc);
   const name = entry?.displayName ?? event.npc;
   const sign = event.delta > 0 ? "+" : "";
   const dirGlyph =
-    event.direction === "rising" ? "&#x2197;" :
-    event.direction === "falling" ? "&#x2198;" : "&rarr;";
+    event.direction === "rising"
+      ? "&#x2197;"
+      : event.direction === "falling"
+        ? "&#x2198;"
+        : "&rarr;";
   const cls =
-    event.delta > 0 ? "rpg-stat rpg-stat--up" :
-    event.delta < 0 ? "rpg-stat rpg-stat--down" : "rpg-stat";
+    event.delta > 0
+      ? "rpg-stat rpg-stat--up"
+      : event.delta < 0
+        ? "rpg-stat rpg-stat--down"
+        : "rpg-stat";
   return `
     <div id="${id}" class="${cls}">
       <span class="rpg-stat-name">${escapeText(name)}</span>
@@ -1220,16 +1286,26 @@ function renderStatEvent(event: Extract<SceneEvent, { kind: "stat" }>, id: strin
     </div>`;
 }
 
-function renderItemEvent(event: Extract<SceneEvent, { kind: "item" }>, id: string): string {
+function renderItemEvent(
+  event: Extract<SceneEvent, { kind: "item" }>,
+  id: string,
+): string {
   const changeMatch = event.change.match(/^([+-]?\d+)$/);
   const isEquipped = /equipped/i.test(event.change);
-  const glyph = isEquipped ? "&#x29bf;"
-    : changeMatch && parseInt(changeMatch[1], 10) > 0 ? "&#x2295;"
-    : changeMatch && parseInt(changeMatch[1], 10) < 0 ? "&#x2296;"
-    : "&middot;";
-  const cls = changeMatch && parseInt(changeMatch[1], 10) < 0 ? "rpg-ledger rpg-ledger--spent"
-    : "rpg-ledger rpg-ledger--gain";
-  const body = event.text ? `<span class="rpg-ledger-desc">${escapeText(event.text)}</span>` : "";
+  const glyph = isEquipped
+    ? "&#x29bf;"
+    : changeMatch && parseInt(changeMatch[1], 10) > 0
+      ? "&#x2295;"
+      : changeMatch && parseInt(changeMatch[1], 10) < 0
+        ? "&#x2296;"
+        : "&middot;";
+  const cls =
+    changeMatch && parseInt(changeMatch[1], 10) < 0
+      ? "rpg-ledger rpg-ledger--spent"
+      : "rpg-ledger rpg-ledger--gain";
+  const body = event.text
+    ? `<span class="rpg-ledger-desc">${escapeText(event.text)}</span>`
+    : "";
   return `
     <div id="${id}" class="${cls}">
       <span class="rpg-ledger-glyph" aria-hidden="true">${glyph}</span>
@@ -1240,14 +1316,24 @@ function renderItemEvent(event: Extract<SceneEvent, { kind: "item" }>, id: strin
     </div>`;
 }
 
-function renderQuestEvent(event: Extract<SceneEvent, { kind: "quest" }>, id: string): string {
-  const glyph = event.event === "complete" ? "&#x2726;"
-    : event.event === "fail" ? "&#x2717;"
-    : "&#x223D;";
-  const cls = event.event === "complete" ? "rpg-ledger rpg-ledger--quest-done"
-    : event.event === "fail" ? "rpg-ledger rpg-ledger--quest-fail"
-    : "rpg-ledger rpg-ledger--quest";
-  const detail = event.step ? `<span class="rpg-ledger-desc">${escapeText(event.step)}</span>`
+function renderQuestEvent(
+  event: Extract<SceneEvent, { kind: "quest" }>,
+  id: string,
+): string {
+  const glyph =
+    event.event === "complete"
+      ? "&#x2726;"
+      : event.event === "fail"
+        ? "&#x2717;"
+        : "&#x223D;";
+  const cls =
+    event.event === "complete"
+      ? "rpg-ledger rpg-ledger--quest-done"
+      : event.event === "fail"
+        ? "rpg-ledger rpg-ledger--quest-fail"
+        : "rpg-ledger rpg-ledger--quest";
+  const detail = event.step
+    ? `<span class="rpg-ledger-desc">${escapeText(event.step)}</span>`
     : `<span class="rpg-ledger-desc">${event.event === "complete" ? "완료" : "실패"}</span>`;
   return `
     <div id="${id}" class="${cls}">
@@ -1269,16 +1355,26 @@ function renderEvent(
   isLead: boolean = false,
 ): string {
   switch (e.kind) {
-    case "user": return renderUserEcho(e.text, id);
-    case "char": return renderCharEvent(e.slug, e.text, ctx, charIndex, fallback, id);
-    case "narration": return renderNarrationEvent(e.text, ctx, charIndex, id, isLead);
-    case "image": return renderImageEvent(e.slug, e.key, ctx, charIndex, id);
-    case "system": return renderSystemEvent(e.text, id);
-    case "stat": return renderStatEvent(e, id, charIndex);
-    case "item": return renderItemEvent(e, id);
-    case "quest": return renderQuestEvent(e, id);
-    case "divider": return renderDividerEvent(id);
-    case "combat": return renderCombatBeat(e, ctx, charIndex, fallback, id);
+    case "user":
+      return renderUserEcho(e.text, id);
+    case "char":
+      return renderCharEvent(e.slug, e.text, ctx, charIndex, fallback, id);
+    case "narration":
+      return renderNarrationEvent(e.text, ctx, charIndex, id, isLead);
+    case "image":
+      return renderImageEvent(e.slug, e.key, ctx, charIndex, id);
+    case "system":
+      return renderSystemEvent(e.text, id);
+    case "stat":
+      return renderStatEvent(e, id, charIndex);
+    case "item":
+      return renderItemEvent(e, id);
+    case "quest":
+      return renderQuestEvent(e, id);
+    case "divider":
+      return renderDividerEvent(id);
+    case "combat":
+      return renderCombatBeat(e, ctx, charIndex, fallback, id);
   }
 }
 
@@ -1336,10 +1432,14 @@ function renderEvents(
 
 function actRoman(act: number): string {
   switch (act) {
-    case 1: return "Ⅰ";
-    case 2: return "Ⅱ";
-    case 3: return "Ⅲ";
-    default: return String(act);
+    case 1:
+      return "Ⅰ";
+    case 2:
+      return "Ⅱ";
+    case 3:
+      return "Ⅲ";
+    default:
+      return String(act);
   }
 }
 
@@ -1412,7 +1512,12 @@ function hpTone(pct: number): string {
   return VERMILION;
 }
 
-function renderVitalBar(label: string, cur: number, max: number, color: string): string {
+function renderVitalBar(
+  label: string,
+  cur: number,
+  max: number,
+  color: string,
+): string {
   const pct = max > 0 ? clamp(cur / max, 0, 1) : 0;
   const filled = (pct * 100).toFixed(1);
   const rest = (100 - Number(filled)).toFixed(1);
@@ -1442,10 +1547,10 @@ function renderTrustTicks(trust: number, mode: "active" | "filled"): string {
   for (let i = 0; i < 11; i++) {
     const val = i - 5;
     const active = val === trust;
-    const filled = mode === "filled" && (
-      (trust >= 0 && val > 0 && val <= trust) ||
-      (trust < 0 && val < 0 && val >= trust)
-    );
+    const filled =
+      mode === "filled" &&
+      ((trust >= 0 && val > 0 && val <= trust) ||
+        (trust < 0 && val < 0 && val >= trust));
     let c = "rpg-trust-tick";
     if (filled) c += " rpg-trust-tick--fill";
     if (active) c += " rpg-trust-tick--active";
@@ -1466,7 +1571,12 @@ function renderPcCard(
   const mp = pc?.mp ?? pcData?.mp ?? { current: 0, max: 0 };
   const conditions = pc?.conditions ?? [];
   const preset = pcData?.preset ?? null;
-  const attrs = pcData?.attributes ?? { strength: 0, agility: 0, insight: 0, charisma: 0 };
+  const attrs = pcData?.attributes ?? {
+    strength: 0,
+    agility: 0,
+    insight: 0,
+    charisma: 0,
+  };
 
   const info = resolvePortrait(preset ?? "pc", ctx, charIndex, fallback);
   const portraitHtml = preset
@@ -1477,17 +1587,22 @@ function renderPcCard(
       </div>`;
   const portraitColor = preset ? info.color : VERDIGRIS;
 
-  const presetLabel = preset === "warrior" ? "전사"
-    : preset === "rogue" ? "도적"
-    : preset === "scholar" ? "학자"
-    : "프리셋 미선택";
+  const presetLabel =
+    preset === "warrior"
+      ? "전사"
+      : preset === "rogue"
+        ? "도적"
+        : preset === "scholar"
+          ? "학자"
+          : "프리셋 미선택";
 
   const hpColor = hpTone(hp.max > 0 ? hp.current / hp.max : 0);
   const mpVisible = mp.max > 0;
 
   const attrRow = (label: string, val: number) => {
     const sign = val > 0 ? "+" : val < 0 ? "" : "";
-    const cls = val > 0 ? "rpg-attr--pos" : val < 0 ? "rpg-attr--neg" : "rpg-attr--zero";
+    const cls =
+      val > 0 ? "rpg-attr--pos" : val < 0 ? "rpg-attr--neg" : "rpg-attr--zero";
     return `
       <div class="rpg-attr ${cls}">
         <span class="rpg-attr-label">${label}</span>
@@ -1550,10 +1665,18 @@ function renderCompanionCard(
   const hpColor = hpTone(comp.hp.max > 0 ? comp.hp.current / comp.hp.max : 0);
   const mpVisible = comp.mp.max > 0;
   const trustSigned = comp.trust > 0 ? `+${comp.trust}` : `${comp.trust}`;
-  const trustCls = comp.trust > 0 ? "rpg-trust--pos" : comp.trust < 0 ? "rpg-trust--neg" : "rpg-trust--zero";
-  const apGlyph = comp.approval === "rising" ? "&#x2197;"
-    : comp.approval === "falling" ? "&#x2198;"
-    : "&rarr;";
+  const trustCls =
+    comp.trust > 0
+      ? "rpg-trust--pos"
+      : comp.trust < 0
+        ? "rpg-trust--neg"
+        : "rpg-trust--zero";
+  const apGlyph =
+    comp.approval === "rising"
+      ? "&#x2197;"
+      : comp.approval === "falling"
+        ? "&#x2198;"
+        : "&rarr;";
 
   return `
     <section class="rpg-member rpg-member--comp" style="--c: ${escapeHtml(info.color)}">
@@ -1585,10 +1708,18 @@ function renderPartyPanel(
   charIndex: Map<string, NameMapEntry>,
   fallback: Map<string, string>,
 ): string {
-  const pcCard = renderPcCard(party?.pc ?? null, pcData, ctx, charIndex, fallback);
+  const pcCard = renderPcCard(
+    party?.pc ?? null,
+    pcData,
+    ctx,
+    charIndex,
+    fallback,
+  );
   const compCards = party
     ? Object.entries(party.companions)
-        .map(([slug, comp]) => renderCompanionCard(slug, comp, ctx, charIndex, fallback))
+        .map(([slug, comp]) =>
+          renderCompanionCard(slug, comp, ctx, charIndex, fallback),
+        )
         .join("")
     : "";
   return `
@@ -1646,22 +1777,31 @@ function renderQuestPane(quests: QuestsData): string {
     if (list.length === 0) return "";
     const rows = list
       .map((q) => {
-        const statusGlyph = q.status === "complete" ? "&#x2713;"
-          : q.status === "failed" ? "&#x2717;"
-          : q.status === "active" ? "&#x223D;"
-          : "&#x25CB;";
-        const statusCls = q.status === "complete" ? "rpg-quest-status--done"
-          : q.status === "failed" ? "rpg-quest-status--fail"
-          : q.status === "active" ? "rpg-quest-status--active"
-          : "rpg-quest-status--dormant";
+        const statusGlyph =
+          q.status === "complete"
+            ? "&#x2713;"
+            : q.status === "failed"
+              ? "&#x2717;"
+              : q.status === "active"
+                ? "&#x223D;"
+                : "&#x25CB;";
+        const statusCls =
+          q.status === "complete"
+            ? "rpg-quest-status--done"
+            : q.status === "failed"
+              ? "rpg-quest-status--fail"
+              : q.status === "active"
+                ? "rpg-quest-status--active"
+                : "rpg-quest-status--dormant";
         const step = q.current_step
           ? `<div class="rpg-quest-step">▸ ${escapeText(q.current_step)}</div>`
           : "";
-        const steps = q.steps_completed && q.steps_completed.length > 0
-          ? `<ul class="rpg-quest-steps">${q.steps_completed
-              .map((s) => `<li>${escapeText(s)}</li>`)
-              .join("")}</ul>`
-          : "";
+        const steps =
+          q.steps_completed && q.steps_completed.length > 0
+            ? `<ul class="rpg-quest-steps">${q.steps_completed
+                .map((s) => `<li>${escapeText(s)}</li>`)
+                .join("")}</ul>`
+            : "";
         const desc = q.description
           ? `<div class="rpg-quest-desc">${escapeText(q.description.trim())}</div>`
           : "";
@@ -1691,7 +1831,9 @@ function renderQuestPane(quests: QuestsData): string {
     section("메인", quests.quests.main),
     section("동료", quests.quests.companion),
     section("사이드", quests.quests.side),
-  ].filter(Boolean).join("");
+  ]
+    .filter(Boolean)
+    .join("");
 
   if (!body) {
     return `<div class="rpg-pane rpg-pane--empty">아직 진행 중인 퀘스트가 없습니다.</div>`;
@@ -1707,13 +1849,18 @@ function renderInventoryPane(inv: InventoryData): string {
     </div>`;
 
   const eqRow = (label: string, eq: Equipment | null): string => {
-    const val = eq && (eq.name || eq.slug)
-      ? `<span class="rpg-eq-name">${escapeText(eq.name ?? eq.slug ?? "")}</span>${
-          eq.damage ? `<span class="rpg-eq-meta">${escapeText(eq.damage)}</span>` : ""
-        }${eq.soak !== undefined ? `<span class="rpg-eq-meta">soak ${eq.soak}</span>` : ""}${
-          eq.schools && eq.schools.length > 0 ? `<span class="rpg-eq-meta">${eq.schools.map((s) => escapeText(s)).join(" · ")}</span>` : ""
-        }`
-      : `<span class="rpg-eq-empty">—</span>`;
+    const val =
+      eq && (eq.name || eq.slug)
+        ? `<span class="rpg-eq-name">${escapeText(eq.name ?? eq.slug ?? "")}</span>${
+            eq.damage
+              ? `<span class="rpg-eq-meta">${escapeText(eq.damage)}</span>`
+              : ""
+          }${eq.soak !== undefined ? `<span class="rpg-eq-meta">soak ${eq.soak}</span>` : ""}${
+            eq.schools && eq.schools.length > 0
+              ? `<span class="rpg-eq-meta">${eq.schools.map((s) => escapeText(s)).join(" · ")}</span>`
+              : ""
+          }`
+        : `<span class="rpg-eq-empty">—</span>`;
     return `
       <div class="rpg-eq-row">
         <span class="rpg-eq-slot">${label}</span>
@@ -1733,8 +1880,12 @@ function renderInventoryPane(inv: InventoryData): string {
 
   const items = inv.items
     .map((it) => {
-      const qty = it.qty && it.qty > 1 ? `<span class="rpg-item-qty">×${it.qty}</span>` : "";
-      const tag = (it.tags ?? []).slice(0, 1)
+      const qty =
+        it.qty && it.qty > 1
+          ? `<span class="rpg-item-qty">×${it.qty}</span>`
+          : "";
+      const tag = (it.tags ?? [])
+        .slice(0, 1)
         .map((t) => `<span class="rpg-item-tag">${escapeText(t)}</span>`)
         .join("");
       const desc = it.description
@@ -1751,15 +1902,20 @@ function renderInventoryPane(inv: InventoryData): string {
     })
     .join("");
 
-  const itemsBlock = inv.items.length > 0 ? `
+  const itemsBlock =
+    inv.items.length > 0
+      ? `
     <div class="rpg-pane-group">
       <div class="rpg-pane-group-head">소지품</div>
       <ul class="rpg-inv-list">${items}</ul>
-    </div>` : "";
+    </div>`
+      : "";
 
   const evidence = inv.evidence
     .map((e) => {
-      const note = e.notes ? `<span class="rpg-item-desc">${escapeText(e.notes)}</span>` : "";
+      const note = e.notes
+        ? `<span class="rpg-item-desc">${escapeText(e.notes)}</span>`
+        : "";
       const where = e.acquired_at_scene
         ? `<span class="rpg-item-tag">${escapeText(e.acquired_at_scene)}</span>`
         : "";
@@ -1773,11 +1929,14 @@ function renderInventoryPane(inv: InventoryData): string {
     })
     .join("");
 
-  const evidenceBlock = inv.evidence.length > 0 ? `
+  const evidenceBlock =
+    inv.evidence.length > 0
+      ? `
     <div class="rpg-pane-group">
       <div class="rpg-pane-group-head">단서 · 증거</div>
       <ul class="rpg-inv-list rpg-inv-list--evidence">${evidence}</ul>
-    </div>` : "";
+    </div>`
+      : "";
 
   return `
     <div class="rpg-pane">
@@ -1836,13 +1995,21 @@ function renderRelationsPane(
 
   const items = rows
     .map((r) => {
-      const cls = r.trust > 0 ? "rpg-rel--pos"
-        : r.trust < 0 ? "rpg-rel--neg"
-        : "rpg-rel--neutral";
+      const cls =
+        r.trust > 0
+          ? "rpg-rel--pos"
+          : r.trust < 0
+            ? "rpg-rel--neg"
+            : "rpg-rel--neutral";
       const sign = r.trust > 0 ? `+${r.trust}` : `${r.trust}`;
-      const arrow = r.approval === "rising" ? "&#x2197;"
-        : r.approval === "falling" ? "&#x2198;"
-        : r.approval === "steady" ? "&rarr;" : "";
+      const arrow =
+        r.approval === "rising"
+          ? "&#x2197;"
+          : r.approval === "falling"
+            ? "&#x2198;"
+            : r.approval === "steady"
+              ? "&rarr;"
+              : "";
       return `
         <li class="rpg-rel ${cls}">
           <div class="rpg-rel-name">
@@ -1873,10 +2040,14 @@ function renderLogPane(world: WorldStateData | null): string {
   if (!world) {
     return `<div class="rpg-pane rpg-pane--empty">아직 세계의 시계가 시작되지 않았습니다.</div>`;
   }
-  const partyStatusLabel = world.party_status === "in_combat" ? "전투 중"
-    : world.party_status === "resting" ? "휴식"
-    : world.party_status === "traveling" ? "이동 중"
-    : "준비";
+  const partyStatusLabel =
+    world.party_status === "in_combat"
+      ? "전투 중"
+      : world.party_status === "resting"
+        ? "휴식"
+        : world.party_status === "traveling"
+          ? "이동 중"
+          : "준비";
   return `
     <div class="rpg-pane">
       <div class="rpg-pane-group">
@@ -1890,16 +2061,24 @@ function renderLogPane(world: WorldStateData | null): string {
           <div class="rpg-log-cell"><span class="rpg-log-label">상태</span><span class="rpg-log-val">${partyStatusLabel}</span></div>
         </div>
       </div>
-      ${world.weather ? `
+      ${
+        world.weather
+          ? `
         <div class="rpg-pane-group">
           <div class="rpg-pane-group-head">날씨</div>
           <div class="rpg-log-weather">${escapeText(world.weather)}</div>
-        </div>` : ""}
-      ${world.last_summary ? `
+        </div>`
+          : ""
+      }
+      ${
+        world.last_summary
+          ? `
         <div class="rpg-pane-group">
           <div class="rpg-pane-group-head">지난 이야기</div>
           <div class="rpg-log-summary">${escapeText(world.last_summary.trim())}</div>
-        </div>` : ""}
+        </div>`
+          : ""
+      }
     </div>`;
 }
 
@@ -1949,7 +2128,8 @@ function renderEmptySeeds(needsPreset: boolean): string {
   const seeds = needsPreset ? EMPTY_SEEDS_FIRST : EMPTY_SEEDS_CONTINUE;
   const title = needsPreset ? "이렇게 시작해 보세요" : "이렇게 이어가 보세요";
   const rows = seeds
-    .map((s, i) => `
+    .map(
+      (s, i) => `
         <button type="button"
                 class="rpg-seed-option"
                 style="--i: ${i}"
@@ -1957,7 +2137,8 @@ function renderEmptySeeds(needsPreset: boolean): string {
                 data-text="${escapeHtml(s.action)}">
           <span class="rpg-seed-mark" aria-hidden="true">&#x276F;</span>
           <span class="rpg-seed-label">${escapeText(s.label)}</span>
-        </button>`)
+        </button>`,
+    )
     .join("");
   return `
       <div class="rpg-seed" role="group" aria-label="${escapeText(title)}">
@@ -1980,9 +2161,11 @@ function renderEmptyReel(pcData: PcData | null): string {
       </svg>
       <h2 class="rpg-empty-title">Three Winds await.</h2>
       <p class="rpg-empty-sub">
-        ${needsPreset
-          ? "첫 메시지를 보내면 GM 이 세 명의 프리셋(전사 · 도적 · 학자) 중 하나를 고르게 합니다."
-          : "이어갈 준비가 되어 있습니다. 씬을 시작하는 문장을 보내세요."}
+        ${
+          needsPreset
+            ? "첫 메시지를 보내면 GM 이 세 명의 프리셋(전사 · 도적 · 학자) 중 하나를 고르게 합니다."
+            : "이어갈 준비가 되어 있습니다. 씬을 시작하는 문장을 보내세요."
+        }
       </p>
       ${renderEmptySeeds(needsPreset)}
       <div class="rpg-empty-hint">
@@ -2014,7 +2197,7 @@ const STYLES = `<style>
     --rpg-ink: #1a0f08;
 
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto 1fr auto;
     height: 100%;
     min-height: 100%;
     overflow: hidden;
@@ -4138,6 +4321,7 @@ const STYLES = `<style>
     .rpg-narration--lead .rpg-narration-text::first-letter { font-size: 4em; }
     .rpg-check-head { grid-template-columns: auto 1fr; }
     .rpg-check-hint { grid-column: 1 / -1; justify-self: start; text-align: left; }
+    .rpg-pending { padding: 12px 18px 14px; }
   }
   /* 매우 좁은 reel (드롭캡이 한글 wrap을 깨뜨릴 수 있는 폭) — 드롭캡 비활성 */
   @container rpg-stage (max-width: 460px) {
@@ -4153,12 +4337,11 @@ const STYLES = `<style>
     }
   }
 
-  /* ── PENDING CARD ── reel viewport 하단(채팅바 바로 위)에 sticky */
+  /* ── PENDING CARD ── stage grid의 세 번째 row(auto)에 고정 — 채팅바 바로 위 sentinel */
   .rpg-pending {
-    position: sticky;
-    bottom: 0;
-    z-index: 20;
-    margin: 18px -36px -40px;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
     padding: 12px 36px 14px;
     border-top: 1px solid color-mix(in srgb, var(--rpg-gold) 50%, transparent);
     background:
@@ -4203,7 +4386,7 @@ const STYLES = `<style>
   }
   .rpg-pending-tool {
     margin-left: auto;
-    font-family: var(--rpg-font-num);
+    font-family: var(--rpg-font-body);
     font-size: 10px;
     letter-spacing: 0.1em;
     color: color-mix(in srgb, var(--color-fg-3) 80%, currentColor);
@@ -4233,19 +4416,40 @@ const STYLES = `<style>
 </style>`;
 
 // ── Pending card ──────────────────────────────
-// 스트리밍 중에만 reel 말미에 "잉크가 마르는 중…" 양피지 카드를 표시한다.
+// 스트리밍 중 stage 바닥(채팅바 위)에 고정되는 양피지 카드.
 // 평상/전투 data-mode를 상속하여 팔레트가 자동 전환된다.
+
+// 원시 tool 이름 대신 RPG 톤 문구로 노출 — 렌더러는 tc.name만 보므로 단순 lookup.
+// activate_skill은 어떤 skill인지 args가 노출되지 않아 단일 문구로 묶는다.
+const TOOL_LABELS: Record<string, string> = {
+  read: "고문서를 펼친다",
+  write: "새 페이지에 기록한다",
+  append: "두루마리에 덧붙인다",
+  edit: "양피지를 고쳐 쓴다",
+  grep: "단서를 추적한다",
+  tree: "성채의 지도를 살핀다",
+  script: "주문을 외운다",
+  activate_skill: "비법서를 펼친다",
+  "validate-renderer": "룬의 균형을 살핀다",
+};
+
+function toolLabelFor(name: string): string {
+  return TOOL_LABELS[name] ?? "비의를 엮는다";
+}
 
 function renderPendingCard(
   stream: RenderStreamView,
   mode: "peace" | "combat",
 ): string {
   // 항상 DOM에 유지하고 hidden으로만 토글 — Idiomorph가 id 기반으로 매칭한다.
-  const active = stream.toolCalls.find((tc) => !tc.result);
+  // 진행 중인 도구를 우선, 없으면 가장 최근 엔트리(완료 포함)를 노출해 turn 내 flashing 제거.
+  // StreamContext는 RESET 전까지 toolCalls를 누적 유지하므로 "직전 tool" 참조가 안전.
+  const inFlight = stream.toolCalls.find((tc) => !tc.result);
+  const latest = inFlight ?? stream.toolCalls[stream.toolCalls.length - 1];
   const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
   const raw = stream.text.trim();
   const clipped = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;
-  const toolLabel = active ? active.name.replace(/_/g, " ") : "";
+  const toolLabel = latest ? toolLabelFor(latest.name) : "";
   const hidden = stream.isStreaming ? "" : " hidden";
   return `
     <aside id="rpg-pending" class="rpg-pending" data-mode="${mode}"${hidden} role="status" aria-live="polite">
@@ -4292,13 +4496,27 @@ export function render(ctx: RenderContext): string {
   const mode = parsed.lastStatus?.mode ?? "peace";
 
   const hud = renderHud(parsed.lastStatus, world, locTitles);
-  const partyPanel = renderPartyPanel(party, pcData, visibleCtx, charIndex, fallback);
-  const sidePanel = renderSidePanel(stats, party, inventory, quests, world, charIndex);
+  const partyPanel = renderPartyPanel(
+    party,
+    pcData,
+    visibleCtx,
+    charIndex,
+    fallback,
+  );
+  const sidePanel = renderSidePanel(
+    stats,
+    party,
+    inventory,
+    quests,
+    world,
+    charIndex,
+  );
 
   const choices = extractNextChoices(visibleCtx);
-  const reelEvents = parsed.events.length === 0
-    ? renderEmptyReel(pcData)
-    : renderEvents(parsed.events, visibleCtx, charIndex, fallback);
+  const reelEvents =
+    parsed.events.length === 0
+      ? renderEmptyReel(pcData)
+      : renderEvents(parsed.events, visibleCtx, charIndex, fallback);
   const choicesBlock = renderNextChoices(choices);
 
   return `${STYLES}
@@ -4310,10 +4528,10 @@ export function render(ctx: RenderContext): string {
           <div class="rpg-reel-filigree" aria-hidden="true"></div>
           ${reelEvents}
           ${choicesBlock}
-          ${renderPendingCard(ctx.stream, mode)}
           <div data-chat-anchor></div>
         </main>
         ${sidePanel}
       </div>
+      ${renderPendingCard(ctx.stream, mode)}
     </div>`;
 }
