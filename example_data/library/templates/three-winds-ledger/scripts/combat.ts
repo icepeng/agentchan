@@ -13,13 +13,15 @@
  *                     [--weapon <slug>]       (for PC attack — reads inventory.yaml)
  *                     [--damage <formula>]    (override damage formula, e.g. "1d4+3")
  *                     [--spell <slug>]        (for PC spell — reads spells.yaml)
+ *                     [--round <N>]           (active combat round — emitted as attr)
  *
  * Usage (mode 2 — passive):
- *   scripts/combat.ts --actor <pc|riwu> --take-damage <N>
+ *   scripts/combat.ts --actor <pc|riwu> --take-damage <N> [--round <N>]
  *
  * 동작: party.yaml 을 직접 수정한다. stdout 마지막 줄에 JSON 한 줄을 출력:
- *   {"changed":[...],"deltas":{...},"summary":"...","scene_block":"[BEAT:combat]...[/BEAT]"?}
+ *   {"changed":[...],"deltas":{...},"summary":"...","scene_block":"<beat type=\"combat\" round=\"N\">...</beat>"?}
  * scene_block 은 active 모드(attack/spell)에서만 반환 — 그대로 scene.md 에 append.
+ * round 는 에이전트가 추적 (전투 시작=1, 매 라운드 +1). 생략 시 `<beat type="combat">` 만 출력.
  */
 
 import { randomInt } from "node:crypto";
@@ -35,6 +37,7 @@ interface Args {
   damage?: string;
   spell?: string;
   takeDamage?: number;
+  round?: number;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -62,6 +65,11 @@ function parseArgs(argv: string[]): Args {
   if (args.damage) out.damage = args.damage;
   if (args.spell) out.spell = args.spell;
   if (args["take-damage"]) out.takeDamage = parseInt(args["take-damage"], 10);
+  if (args.round) {
+    const r = parseInt(args.round, 10);
+    if (isNaN(r) || r < 1) { console.error(`--round must be a positive integer. got: ${args.round}`); process.exit(1); }
+    out.round = r;
+  }
   return out;
 }
 
@@ -199,9 +207,10 @@ function updatePartyField(actor: "pc" | "riwu", field: "hp" | "mp", newCurrent: 
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-// scene.md 에 append 할 [BEAT:combat] 블록 — 결정적 텍스트, 에이전트가 그대로 복사.
-function buildSceneBlock(systemLine: string): string {
-  return ["[BEAT:combat]", `[SYSTEM] ${systemLine}`, "[/BEAT]"].join("\n");
+// scene.md 에 append 할 <beat type="combat"> 블록. 에이전트가 그대로 복사.
+function buildSceneBlock(systemLine: string, round?: number): string {
+  const open = round !== undefined ? `<beat type="combat" round="${round}">` : `<beat type="combat">`;
+  return [open, `<roll>${systemLine}</roll>`, `</beat>`].join("\n");
 }
 
 function emitResult(result: {
@@ -281,7 +290,7 @@ function main() {
       summary: hit
         ? `${args.actor} 명중 (${hitTotal} vs DC ${args.targetDc}), 피해 ${damageTotal}`
         : `${args.actor} 빗나감 (${hitTotal} vs DC ${args.targetDc})`,
-      scene_block: buildSceneBlock(systemLine),
+      scene_block: buildSceneBlock(systemLine, args.round),
     });
     return;
   }
@@ -331,7 +340,7 @@ function main() {
         ? `pc 시전 ${args.spell} 성공 (${castTotal} vs DC ${spell.dc}), MP ${state.mp.current}→${newMp}` +
           (damageTotal !== null ? `, 피해 ${damageTotal}` : "")
         : `pc 시전 ${args.spell} 실패 (fizzle), MP ${state.mp.current}→${newMp}`,
-      scene_block: buildSceneBlock(systemLine),
+      scene_block: buildSceneBlock(systemLine, args.round),
     });
     return;
   }
