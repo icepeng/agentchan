@@ -1,17 +1,17 @@
 import { useCallback, useRef } from "react";
 import {
-  useProjectState,
-  useProjectDispatch,
+  useProjectSelectionState,
   fetchWorkspaceFiles,
   fetchTranspiledRenderer,
-  validateTheme,
-  resolveRawTheme,
 } from "@/client/entities/project/index.js";
-import type {
-  ProjectFile,
-  RenderContext,
-  RenderPendingState,
-} from "@/client/entities/project/index.js";
+import { useRendererViewDispatch } from "./RendererViewContext.js";
+import { validateTheme, resolveRawTheme } from "./projectTheme.js";
+import {
+  EMPTY_RENDER_STREAM,
+  type ProjectFile,
+  type RenderContext,
+  type RenderStreamView,
+} from "./renderer.types.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -36,7 +36,7 @@ type RenderFn = (ctx: RenderContext) => string;
 
 // 렌더러 JS를 module로 import하여 render 함수와 raw theme export를 추출한다.
 // theme은 객체 또는 `(ctx) => theme` 함수 양쪽을 지원하므로, 이 단계에서는 검증하지 않고
-// 원본 값을 보존한다. 실제 테마 오브젝트는 refresh/refreshPending이 각자 context로
+// 원본 값을 보존한다. 실제 테마 오브젝트는 refresh/refreshStream이 각자 context로
 // `resolveRawTheme` → `validateTheme`을 호출해 매 프레임 최신 파일 상태를 반영한다.
 //
 // 한 번 import한 module은 메모리에 남아 renderFn/rawTheme 클로저로 이후 호출이 가능하므로
@@ -67,20 +67,20 @@ interface RendererSnapshot {
 }
 
 export function useOutput() {
-  const projectState = useProjectState();
-  const projectDispatch = useProjectDispatch();
+  const { activeProjectSlug } = useProjectSelectionState();
+  const rendererViewDispatch = useRendererViewDispatch();
 
-  // Stream 중 refreshPending이 fetch/재컴파일 없이 재사용할 최근 성공 스냅샷.
+  // Stream 중 refreshStream이 fetch/재컴파일 없이 재사용할 최근 성공 스냅샷.
   // files 내용이 스트리밍 중 실제로 바뀌어도 STREAM_COMPLETE 시 full refresh가
   // 다시 돌아 스냅샷이 갱신된다.
   const lastSnapshotRef = useRef<RendererSnapshot | null>(null);
 
-  // rAF 루프가 같은 HTML을 반복 dispatch하면 Context 소비자 전체가 60fps로
+  // rAF 루프가 같은 HTML을 반복 dispatch하면 RendererView 소비자가 60fps로
   // 재렌더되므로, 직전에 내보낸 HTML과 동일하면 dispatch를 건너뛴다.
   const lastHtmlRef = useRef<string>("");
 
   const refresh = useCallback(async () => {
-    const slug = projectState.activeProjectSlug;
+    const slug = activeProjectSlug;
     if (!slug) return;
 
     try {
@@ -93,27 +93,28 @@ export function useOutput() {
       const context: RenderContext = {
         files: filesResult.files,
         baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
+        stream: EMPTY_RENDER_STREAM,
       };
       const html = renderFn(context);
       const theme = validateTheme(resolveRawTheme(rawTheme, context));
       lastSnapshotRef.current = { slug, files: filesResult.files, renderFn, rawTheme };
       lastHtmlRef.current = html;
-      projectDispatch({ type: "SET_RENDER_OUTPUT", html, theme });
+      rendererViewDispatch({ type: "SET_OUTPUT", html, theme });
     } catch (e: unknown) {
       lastSnapshotRef.current = null;
       lastHtmlRef.current = "";
       if (e instanceof Error && e.message.includes("404")) {
-        projectDispatch({ type: "SET_RENDER_OUTPUT", html: NOT_FOUND_HTML, theme: null });
+        rendererViewDispatch({ type: "SET_OUTPUT", html: NOT_FOUND_HTML, theme: null });
       } else {
         const message = e instanceof Error ? e.message : String(e);
-        projectDispatch({ type: "SET_RENDER_OUTPUT", html: errorHtml(message), theme: null });
+        rendererViewDispatch({ type: "SET_OUTPUT", html: errorHtml(message), theme: null });
       }
     }
-  }, [projectState.activeProjectSlug, projectDispatch]);
+  }, [activeProjectSlug, rendererViewDispatch]);
 
-  const refreshPending = useCallback(
-    (pending: RenderPendingState) => {
-      const slug = projectState.activeProjectSlug;
+  const refreshStream = useCallback(
+    (stream: RenderStreamView) => {
+      const slug = activeProjectSlug;
       if (!slug) return;
       const snap = lastSnapshotRef.current;
       if (!snap || snap.slug !== slug) return;
@@ -122,20 +123,20 @@ export function useOutput() {
         const context: RenderContext = {
           files: snap.files,
           baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
-          pending,
+          stream,
         };
         const html = snap.renderFn(context);
         const theme = validateTheme(resolveRawTheme(snap.rawTheme, context));
         if (html === lastHtmlRef.current) return;
         lastHtmlRef.current = html;
-        projectDispatch({ type: "SET_RENDER_OUTPUT", html, theme });
+        rendererViewDispatch({ type: "SET_OUTPUT", html, theme });
       } catch {
         // 스트리밍 중 렌더러 에러는 조용히 무시 — 기존 HTML을 유지해야
         // 사용자가 매 프레임 error screen을 보지 않는다.
       }
     },
-    [projectState.activeProjectSlug, projectDispatch],
+    [activeProjectSlug, rendererViewDispatch],
   );
 
-  return { refresh, refreshPending };
+  return { refresh, refreshStream };
 }

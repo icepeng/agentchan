@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { useActiveSession, useActiveStream } from "@/client/entities/session/index.js";
-import { useProjectState } from "@/client/entities/project/index.js";
-import { useConversationData } from "@/client/entities/conversation/index.js";
+import { useActiveStream } from "@/client/entities/stream/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useSessionData,
+  useActiveSessionSelection,
+} from "@/client/entities/session/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { MessageActionsProvider } from "./MessageActionsContext.js";
-import { useConversation } from "./useConversation.js";
+import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
 import { AssistantTurnBubble, MessageBubble } from "./MessageBubble.js";
@@ -89,15 +92,15 @@ const EMPTY_NODES: readonly TreeNode[] = [];
 const EMPTY_PATH: readonly string[] = [];
 
 export function AgentPanel() {
-  const session = useActiveSession();
+  const selection = useActiveSessionSelection();
   const stream = useActiveStream();
-  const { activeProjectSlug } = useProjectState();
-  const { data: conversationData } = useConversationData(
+  const { activeProjectSlug } = useProjectSelectionState();
+  const { data: sessionData } = useSessionData(
     activeProjectSlug,
-    session.conversationId,
+    selection.openSessionId,
   );
-  const nodes = conversationData?.nodes ?? EMPTY_NODES;
-  const activePath = conversationData?.activePath ?? EMPTY_PATH;
+  const nodes = sessionData?.nodes ?? EMPTY_NODES;
+  const activePath = sessionData?.activePath ?? EMPTY_PATH;
   const nodeMap = useMemo(() => {
     const m = new Map<string, TreeNode>();
     for (const n of nodes) m.set(n.id, n);
@@ -105,7 +108,7 @@ export function AgentPanel() {
   }, [nodes]);
 
   const { t } = useI18n();
-  const { switchBranch, setReplyTo, deleteNode } = useConversation();
+  const { switchBranch, setReplyTo, deleteNode } = useSession();
   const { regenerate } = useStreaming();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -124,7 +127,7 @@ export function AgentPanel() {
     [activePath, nodeMap],
   );
 
-  if (!session.conversationId) {
+  if (!selection.openSessionId) {
     return (
       <div className="flex flex-col flex-1 min-h-0">
         <SessionTabs />
@@ -150,7 +153,7 @@ export function AgentPanel() {
       <SessionTabs />
 
       {/* Reply-to banner */}
-      {session.replyToNodeId && (
+      {selection.replyToNodeId && (
         <div className="px-3 py-2 bg-accent/5 border-b border-accent/10 flex items-center justify-between">
           <span className="text-[11px] text-accent tracking-wide flex items-center gap-1.5">
             <CornerUpLeft size={10} strokeWidth={2} />

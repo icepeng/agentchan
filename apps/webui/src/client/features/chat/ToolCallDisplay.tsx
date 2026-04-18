@@ -1,4 +1,5 @@
-import type { ToolCallContent, ToolCallState } from "@/client/entities/session/index.js";
+import type { ToolCallContent } from "@/client/entities/session/index.js";
+import type { ToolCallState } from "@/client/entities/stream/index.js";
 import { Indicator, ScrollArea } from "@/client/shared/ui/index.js";
 
 const SUMMARY_CLASS =

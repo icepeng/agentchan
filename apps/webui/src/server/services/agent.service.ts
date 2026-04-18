@@ -25,7 +25,7 @@ export function createAgentService(
     async sendMessage(
       stream: SSEStreamingApi,
       slug: string,
-      conversationId: string,
+      sessionId: string,
       parentNodeId: string | null,
       text: string,
       signal?: AbortSignal,
@@ -35,7 +35,7 @@ export function createAgentService(
       try {
         await runPrompt(
           ctx,
-          { slug, conversationId, parentNodeId, text },
+          { slug, sessionId, parentNodeId, text },
           (ev) => queue.push(ev),
           signal,
         );
@@ -47,7 +47,7 @@ export function createAgentService(
     async regenerate(
       stream: SSEStreamingApi,
       slug: string,
-      conversationId: string,
+      sessionId: string,
       userNodeId: string,
       signal?: AbortSignal,
     ) {
@@ -56,7 +56,7 @@ export function createAgentService(
       try {
         await runRegenerate(
           ctx,
-          { slug, conversationId, userNodeId },
+          { slug, sessionId, userNodeId },
           (ev) => queue.push(ev),
           signal,
         );

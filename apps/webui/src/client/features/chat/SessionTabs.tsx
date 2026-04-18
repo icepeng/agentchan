@@ -1,19 +1,21 @@
 import { ChevronsRight, Plus, Settings, X } from "lucide-react";
-import { useActiveSession } from "@/client/entities/session/index.js";
-import { useConversations } from "@/client/entities/conversation/index.js";
-import { useProjectState } from "@/client/entities/project/index.js";
+import {
+  useSessions,
+  useActiveSessionSelection,
+} from "@/client/entities/session/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
-import { useConversation } from "./useConversation.js";
+import { useSession } from "./useSession.js";
 
 export function SessionTabs() {
-  const session = useActiveSession();
-  const { activeProjectSlug } = useProjectState();
-  const { data: conversations = [] } = useConversations(activeProjectSlug);
+  const selection = useActiveSessionSelection();
+  const { activeProjectSlug } = useProjectSelectionState();
+  const { data: sessions = [] } = useSessions(activeProjectSlug);
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
-  const { create, load, remove } = useConversation();
+  const { create, load, remove } = useSession();
 
   return (
     <div className="flex items-center border-b border-edge/6">
@@ -24,29 +26,29 @@ export function SessionTabs() {
         className="flex-1 min-w-0"
         viewportClassName="flex items-center gap-0.5 px-1.5 py-1.5"
       >
-        {conversations.map((conv) => {
-          const isActive = session.conversationId === conv.id;
+        {sessions.map((sess) => {
+          const isActive = selection.openSessionId === sess.id;
           return (
             <button
-              key={conv.id}
-              onClick={() => load(conv.id)}
+              key={sess.id}
+              onClick={() => load(sess.id)}
               className={`group relative flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs tracking-wide transition-all duration-150 max-w-[160px] ${
                 isActive
                   ? "bg-elevated text-accent border border-accent/15"
                   : "text-fg-3 hover:text-fg-2 hover:bg-elevated/40 border border-transparent"
               }`}
             >
-              {conv.mode === "meta" ? (
+              {sess.mode === "meta" ? (
                 <Settings size={10} strokeWidth={2} className="flex-shrink-0 text-fg-4" />
               ) : isActive ? (
                 <span className="w-1 h-1 rounded-full bg-accent flex-shrink-0" />
               ) : null}
-              <span className="truncate">{conv.title}</span>
+              <span className="truncate">{sess.title}</span>
               <span
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!confirm(t("session.deleteConfirm", { title: conv.title }))) return;
-                  void remove(conv.id);
+                  if (!confirm(t("session.deleteConfirm", { title: sess.title }))) return;
+                  void remove(sess.id);
                 }}
                 className="opacity-0 group-hover:opacity-100 flex-shrink-0 hover:text-danger transition-all cursor-pointer"
               >

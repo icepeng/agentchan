@@ -5,7 +5,7 @@ import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
 import { useTemplates } from "@/client/entities/template/index.js";
-import { useSessionState, selectStreamSlot } from "@/client/entities/session/index.js";
+import { useStreamState, selectStreamSlot } from "@/client/entities/stream/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
@@ -64,7 +64,7 @@ function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
 export function ProjectTabs() {
   const { t } = useI18n();
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
-  const session = useSessionState();
+  const streamState = useStreamState();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
   const { data: templates } = useTemplates();
   const createInputRef = useRef<HTMLInputElement>(null);
@@ -243,8 +243,8 @@ export function ProjectTabs() {
 
       {projects.map((project) => {
         const isActive = activeProjectSlug === project.slug;
-        const slot = selectStreamSlot(session, project.slug);
-        const streamState: "idle" | "streaming" | "error" = slot.streamError
+        const slot = selectStreamSlot(streamState, project.slug);
+        const streamBadge: "idle" | "streaming" | "error" = slot.streamError
           ? "error"
           : slot.isStreaming
             ? "streaming"
@@ -299,7 +299,7 @@ export function ProjectTabs() {
                 <button
                   data-testid="project-tab"
                   data-slug={project.slug}
-                  data-stream-state={streamState}
+                  data-stream-state={streamBadge}
                   onClick={() => selectProject(project.slug)}
                   onDoubleClick={() => modeDispatch({ type: "START_EDIT", slug: project.slug, name: project.name })}
                   className={`group relative w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left transition-all duration-150 ${
@@ -315,7 +315,7 @@ export function ProjectTabs() {
               )}
               <CoverImage type="projects" slug={project.slug} hasCover={project.hasCover} size="sm" />
               <span className="flex-1 truncate">{project.name}</span>
-              {streamState === "streaming" && (
+              {streamBadge === "streaming" && (
                 <span
                   data-testid="project-tab-indicator"
                   data-slug={project.slug}
@@ -323,7 +323,7 @@ export function ProjectTabs() {
                   title={t("sidebar.streamingIndicator")}
                 />
               )}
-              {streamState === "error" && (
+              {streamBadge === "error" && (
                 <span
                   data-testid="project-tab-indicator"
                   data-slug={project.slug}

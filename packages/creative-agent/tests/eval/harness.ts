@@ -1,8 +1,8 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
-import { setupCreativeAgent, clearConversationAgentState } from "../../src/agent/orchestrator.js";
+import { setupCreativeAgent, clearSessionAgentState } from "../../src/agent/orchestrator.js";
 import { createAgentContext } from "../../src/agent/context.js";
-import { createConversation } from "../../src/agent/lifecycle.js";
+import { createSession } from "../../src/agent/lifecycle.js";
 import { createFixture, cleanupFixture, type Fixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
@@ -55,7 +55,7 @@ export class EvalHarness {
   private constructor(
     readonly fixture: Fixture,
     private agent: Agent,
-    private conversationId: string,
+    private sessionId: string,
     private timeoutMs: number,
     readonly systemPromptLength: number,
   ) {}
@@ -83,24 +83,24 @@ export class EvalHarness {
       prePopulate: options.prePopulate,
     });
 
-    // Drive the production conversation-bootstrap path. New conversations
+    // Drive the production session-bootstrap path. New sessions
     // start empty — SYSTEM.md and skill catalog are in the system prompt.
     const ctx = createAgentContext({
       projectsDir: fixture.projectsDir,
       resolveAgentConfig: () => ({ provider, model, apiKey, temperature: 0 }),
     });
-    const created = await createConversation(ctx, fixture.slug);
-    const conversationId = created.conversation.id;
+    const created = await createSession(ctx, fixture.slug);
+    const sessionId = created.session.id;
     const history: AgentMessage[] = [];
 
     const { agent, systemPrompt } = await setupCreativeAgent(
       { provider, model, apiKey, temperature: 0 },
       fixture.projectDir,
       history,
-      conversationId,
+      sessionId,
     );
 
-    const harness = new EvalHarness(fixture, agent, conversationId, timeoutMs, systemPrompt.length);
+    const harness = new EvalHarness(fixture, agent, sessionId, timeoutMs, systemPrompt.length);
 
     agent.subscribe((event: AgentEvent) => {
       if (event.type === "tool_execution_start") {
@@ -166,7 +166,7 @@ export class EvalHarness {
   }
 
   async cleanup(): Promise<void> {
-    clearConversationAgentState(this.conversationId);
+    clearSessionAgentState(this.sessionId);
     await cleanupFixture(this.fixture);
   }
 

@@ -6,9 +6,9 @@
  *
  * Usage:
  *   bun play.ts templates                        사용 가능한 템플릿 목록
- *   bun play.ts new <template> [name]            프로젝트 + 대화 생성
- *   bun play.ts use <slug> [convId]              기존 프로젝트에 state 바인딩
- *   bun play.ts conv                             현재 프로젝트에 새 대화 생성
+ *   bun play.ts new <template> [name]            프로젝트 + 세션 생성
+ *   bun play.ts use <slug> [sessionId]           기존 프로젝트에 state 바인딩
+ *   bun play.ts sess                             현재 프로젝트에 새 세션 생성
  *   bun play.ts send "<text>"                    메시지 전송 (SSE 실시간 출력)
  *   bun play.ts read <path>                      프로젝트 파일 읽기 (path=files/...)
  *   bun play.ts write <path> [content|@<file>]   프로젝트 파일 쓰기
@@ -38,7 +38,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 type State = {
   projectSlug: string;
-  conversationId: string;
+  sessionId: string;
   lastNodeId?: string | null;
 };
 
@@ -93,42 +93,42 @@ async function cmdNew(template?: string, name?: string) {
   });
   console.log(C.green(`[ok] project: ${project.slug}`));
 
-  const convRes = await api<{ conversation: { id: string } }>(
-    `/api/projects/${project.slug}/conversations`,
+  const sessRes = await api<{ session: { id: string } }>(
+    `/api/projects/${project.slug}/sessions`,
     { method: "POST", body: JSON.stringify({}) },
   );
-  console.log(C.green(`[ok] conversation: ${convRes.conversation.id}`));
+  console.log(C.green(`[ok] session: ${sessRes.session.id}`));
 
   saveState({
     projectSlug: project.slug,
-    conversationId: convRes.conversation.id,
+    sessionId: sessRes.session.id,
     lastNodeId: null,
   });
 }
 
-async function cmdUse(slug?: string, convId?: string) {
+async function cmdUse(slug?: string, sessionId?: string) {
   if (!slug) throw new Error("slug 필수");
-  if (!convId) {
-    const convs = await api<Array<{ id: string }>>(`/api/projects/${slug}/conversations`);
-    if (!convs.length) throw new Error(`no conversations in ${slug}; run \`conv\` to create one`);
-    convId = convs[0].id;
+  if (!sessionId) {
+    const sessions = await api<Array<{ id: string }>>(`/api/projects/${slug}/sessions`);
+    if (!sessions.length) throw new Error(`no sessions in ${slug}; run \`sess\` to create one`);
+    sessionId = sessions[0].id;
   }
-  const conv = await api<{ activePath: string[] }>(`/api/projects/${slug}/conversations/${convId}`);
-  const lastNodeId = conv.activePath[conv.activePath.length - 1] ?? null;
-  saveState({ projectSlug: slug, conversationId: convId, lastNodeId });
-  console.log(C.green(`[ok] bound to ${slug} / ${convId} (lastNode=${lastNodeId})`));
+  const sess = await api<{ activePath: string[] }>(`/api/projects/${slug}/sessions/${sessionId}`);
+  const lastNodeId = sess.activePath[sess.activePath.length - 1] ?? null;
+  saveState({ projectSlug: slug, sessionId, lastNodeId });
+  console.log(C.green(`[ok] bound to ${slug} / ${sessionId} (lastNode=${lastNodeId})`));
 }
 
-async function cmdConv() {
+async function cmdSess() {
   const s = requireState();
-  const convRes = await api<{ conversation: { id: string } }>(
-    `/api/projects/${s.projectSlug}/conversations`,
+  const sessRes = await api<{ session: { id: string } }>(
+    `/api/projects/${s.projectSlug}/sessions`,
     { method: "POST", body: JSON.stringify({}) },
   );
-  s.conversationId = convRes.conversation.id;
+  s.sessionId = sessRes.session.id;
   s.lastNodeId = null;
   saveState(s);
-  console.log(C.green(`[ok] new conversation: ${convRes.conversation.id}`));
+  console.log(C.green(`[ok] new session: ${sessRes.session.id}`));
 }
 
 async function cmdSend(text: string) {
@@ -138,7 +138,7 @@ async function cmdSend(text: string) {
   console.log("");
 
   const res = await fetch(
-    `${BASE}/api/projects/${s.projectSlug}/conversations/${s.conversationId}/messages`,
+    `${BASE}/api/projects/${s.projectSlug}/sessions/${s.sessionId}/messages`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -286,11 +286,11 @@ async function cmdConfig(kvs: string[]) {
 
 async function cmdRaw() {
   const s = requireState();
-  const conv = await api<{ nodes: any[]; activePath: string[] }>(
-    `/api/projects/${s.projectSlug}/conversations/${s.conversationId}`,
+  const sess = await api<{ nodes: any[]; activePath: string[] }>(
+    `/api/projects/${s.projectSlug}/sessions/${s.sessionId}`,
   );
-  const byId = new Map(conv.nodes.map((n) => [n.id, n]));
-  for (const id of conv.activePath) {
+  const byId = new Map(sess.nodes.map((n) => [n.id, n]));
+  for (const id of sess.activePath) {
     const n = byId.get(id);
     if (!n) continue;
     console.log(C.bold(`--- node ${n.id} (parent=${n.parentId}) ---`));
@@ -311,8 +311,8 @@ try {
     case "use":
       await cmdUse(args[0], args[1]);
       break;
-    case "conv":
-      await cmdConv();
+    case "sess":
+      await cmdSess();
       break;
     case "send":
       await cmdSend(args.join(" "));

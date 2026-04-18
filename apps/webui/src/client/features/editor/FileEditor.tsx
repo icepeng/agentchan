@@ -23,7 +23,7 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { useI18n } from "@/client/i18n/index.js";
-import { useProjectState } from "@/client/entities/project/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { isImagePath } from "@/client/entities/editor/index.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
 
@@ -238,7 +238,7 @@ interface FileEditorProps {
 
 export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEditorProps) {
   const { t } = useI18n();
-  const project = useProjectState();
+  const project = useProjectSelectionState();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onDocChangeRef = useRef(onDocChange);

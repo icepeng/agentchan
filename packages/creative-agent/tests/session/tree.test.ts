@@ -5,7 +5,7 @@ import {
   pathToNode,
   switchBranch,
   generateTitle,
-} from "../../src/conversation/tree.js";
+} from "../../src/session/tree.js";
 import type { TreeNodeWithChildren } from "../../src/types.js";
 
 // --- Helpers ---

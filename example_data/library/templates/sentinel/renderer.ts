@@ -14,23 +14,22 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | BinaryFile;
 
-interface RenderPendingToolCall {
+interface RenderToolCallView {
   id: string;
   name: string;
-  done: boolean;
-  executing?: boolean;
+  status: "streaming" | "executing" | "done";
 }
 
-interface RenderPendingState {
+interface RenderStreamView {
   isStreaming: boolean;
-  streamingText: string;
-  toolCalls: RenderPendingToolCall[];
+  text: string;
+  toolCalls: ReadonlyArray<RenderToolCallView>;
 }
 
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
-  pending?: RenderPendingState;
+  stream: RenderStreamView;
 }
 
 // ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
@@ -1700,18 +1699,16 @@ const STYLES = `<style>
 
 // ── Pending strip ────────────────────────────
 // 에이전트가 스트리밍 중일 때만 sticky 스트립을 그린다. 도구 실행 중이면
-// 현재 도구 이름을 노출, 그 외는 "STREAMING RESPONSE". 스트리밍 외 시점에는
-// ctx.pending이 없거나 isStreaming이 false이므로 빈 문자열 반환.
+// 현재 도구 이름을 노출, 그 외는 "STREAMING RESPONSE".
 
-function renderPendingStrip(pending: RenderPendingState | undefined): string {
+function renderPendingStrip(stream: RenderStreamView): string {
   // 항상 DOM에 존재시키고 `hidden` 속성으로만 토글 — Idiomorph가 id 기반으로
   // 매칭하여 element를 유지하므로 ms-body 맨 위에 안정적으로 들어간다.
-  const isStreaming = !!pending?.isStreaming;
-  const active = pending?.toolCalls.find((tc) => !tc.done);
+  const active = stream.toolCalls.find((tc) => tc.status !== "done");
   const detail = active
     ? `EXEC :: ${active.name.toUpperCase().replace(/_/g, " ")}`
     : "STREAMING RESPONSE";
-  const hidden = isStreaming ? "" : " hidden";
+  const hidden = stream.isStreaming ? "" : " hidden";
   return `
     <div id="ms-pending" class="ms-pending-strip"${hidden} role="status" aria-live="polite">
       <span class="ms-pending-glyph" aria-hidden="true"></span>
@@ -1749,7 +1746,7 @@ export function render(ctx: RenderContext): string {
         <div class="ms-body">
           ${renderEmptyStandby()}
         </div>
-        ${renderPendingStrip(ctx.pending)}
+        ${renderPendingStrip(ctx.stream)}
       </div>`;
   }
 
@@ -1815,6 +1812,6 @@ export function render(ctx: RenderContext): string {
         ${bodyParts.join("\n")}
         <div data-chat-anchor></div>
       </div>
-      ${renderPendingStrip(ctx.pending)}
+      ${renderPendingStrip(ctx.stream)}
     </div>`;
 }

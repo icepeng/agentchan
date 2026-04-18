@@ -28,9 +28,9 @@ interface TextFile { type: "text"; path: string; content: string; frontmatter: R
 interface BinaryFile { type: "binary"; path: string; modifiedAt: number; }
 type ProjectFile = TextFile | BinaryFile;
 
-interface RenderPendingToolCall { id: string; name: string; done: boolean; executing?: boolean; }
-interface RenderPendingState { isStreaming: boolean; streamingText: string; toolCalls: RenderPendingToolCall[]; }
-interface RenderContext { files: ProjectFile[]; baseUrl: string; pending?: RenderPendingState; }
+interface RenderToolCallView { id: string; name: string; status: "streaming" | "executing" | "done"; }
+interface RenderStreamView { isStreaming: boolean; text: string; toolCalls: ReadonlyArray<RenderToolCallView>; }
+interface RenderContext { files: ProjectFile[]; baseUrl: string; stream: RenderStreamView; }
 
 export function render(ctx: RenderContext): string {
   // ctx.files에서 콘텐츠를 읽고, ctx.baseUrl로 에셋 URL을 구성하여 HTML 문자열 반환

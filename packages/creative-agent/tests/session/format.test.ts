@@ -1,10 +1,10 @@
 import { describe, test, expect } from "bun:test";
 import {
-  parseConversationFile,
+  parseSessionFile,
   buildTreeMap,
-  deriveConversation,
-  serializeConversation,
-} from "../../src/conversation/format.js";
+  deriveSession,
+  serializeSession,
+} from "../../src/session/format.js";
 import type { TreeNode } from "../../src/types.js";
 
 // --- Helpers ---
@@ -39,16 +39,16 @@ function buildJSONL(...lines: string[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// parseConversationFile
+// parseSessionFile
 // ---------------------------------------------------------------------------
 
-describe("parseConversationFile", () => {
+describe("parseSessionFile", () => {
   test("parses header + nodes", () => {
     const node1 = makeTreeNode("n1", null);
     const node2 = makeTreeNode("n2", "n1");
     const content = buildJSONL(HEADER_LINE, JSON.stringify(node1), JSON.stringify(node2));
 
-    const result = parseConversationFile(content);
+    const result = parseSessionFile(content);
 
     expect(result.header).not.toBeNull();
     expect(result.header!._header).toBe(true);
@@ -63,7 +63,7 @@ describe("parseConversationFile", () => {
     const node = makeTreeNode("n1", null);
     const content = buildJSONL(JSON.stringify(node));
 
-    const result = parseConversationFile(content);
+    const result = parseSessionFile(content);
 
     expect(result.header).toBeNull();
     expect(result.headerLine).toBeNull();
@@ -71,13 +71,13 @@ describe("parseConversationFile", () => {
   });
 
   test("handles empty content", () => {
-    const result = parseConversationFile("");
+    const result = parseSessionFile("");
     expect(result.header).toBeNull();
     expect(result.nodes).toEqual([]);
   });
 
   test("handles whitespace-only content", () => {
-    const result = parseConversationFile("  \n  \n  ");
+    const result = parseSessionFile("  \n  \n  ");
     expect(result.header).toBeNull();
     expect(result.nodes).toEqual([]);
   });
@@ -95,7 +95,7 @@ describe("parseConversationFile", () => {
       marker,
     );
 
-    const result = parseConversationFile(content);
+    const result = parseSessionFile(content);
 
     expect(result.nodes).toHaveLength(3);
     const n1 = result.nodes.find((n) => n.id === "n1")!;
@@ -117,7 +117,7 @@ describe("parseConversationFile", () => {
       marker2,
     );
 
-    const result = parseConversationFile(content);
+    const result = parseSessionFile(content);
     const n1 = result.nodes.find((n) => n.id === "n1")!;
     expect(n1.activeChildId).toBe("n3");
   });
@@ -127,7 +127,7 @@ describe("parseConversationFile", () => {
     const marker = JSON.stringify({ _marker: "branch", nodeId: "UNKNOWN", activeChildId: "n1" });
     const content = buildJSONL(HEADER_LINE, JSON.stringify(node1), marker);
 
-    const result = parseConversationFile(content);
+    const result = parseSessionFile(content);
     expect(result.nodes).toHaveLength(1);
     expect(result.nodes[0].activeChildId).toBeUndefined();
   });
@@ -142,7 +142,7 @@ describe("parseConversationFile", () => {
       mode: "meta",
     });
     const content = buildJSONL(header);
-    const result = parseConversationFile(content);
+    const result = parseSessionFile(content);
 
     expect(result.header!.compactedFrom).toBe("old-session");
     expect(result.header!.mode).toBe("meta");
@@ -192,45 +192,45 @@ describe("buildTreeMap", () => {
 });
 
 // ---------------------------------------------------------------------------
-// deriveConversation
+// deriveSession
 // ---------------------------------------------------------------------------
 
-describe("deriveConversation", () => {
+describe("deriveSession", () => {
   test("derives metadata from header and nodes", () => {
     const nodes: TreeNode[] = [
       makeTreeNode("n1", null, "user", "Hello there!"),
       makeTreeNode("n2", "n1", "assistant", "Hi!"),
     ];
     const tree = buildTreeMap(nodes);
-    const conv = deriveConversation("sess-1", {
+    const session = deriveSession("sess-1", {
       _header: true,
       createdAt: 1000,
       provider: "google",
       model: "gemini-test",
     }, nodes, tree);
 
-    expect(conv.id).toBe("sess-1");
-    expect(conv.title).toBe("Hello there!");
-    expect(conv.createdAt).toBe(1000);
-    expect(conv.rootNodeId).toBe("n1");
-    expect(conv.activeLeafId).toBe("n2");
+    expect(session.id).toBe("sess-1");
+    expect(session.title).toBe("Hello there!");
+    expect(session.createdAt).toBe(1000);
+    expect(session.rootNodeId).toBe("n1");
+    expect(session.activeLeafId).toBe("n2");
   });
 
   test("title truncated at 50 chars", () => {
     const longText = "x".repeat(60);
     const nodes: TreeNode[] = [makeTreeNode("n1", null, "user", longText)];
     const tree = buildTreeMap(nodes);
-    const conv = deriveConversation("s", null, nodes, tree);
+    const session = deriveSession("s", null, nodes, tree);
 
-    expect(conv.title.length).toBe(53);
-    expect(conv.title.endsWith("...")).toBe(true);
+    expect(session.title.length).toBe(53);
+    expect(session.title.endsWith("...")).toBe(true);
   });
 
-  test("falls back to 'New conversation' when no user messages", () => {
+  test("falls back to 'New session' when no user messages", () => {
     const nodes: TreeNode[] = [makeTreeNode("n1", null, "assistant", "Hi!")];
     const tree = buildTreeMap(nodes);
-    const conv = deriveConversation("s", null, nodes, tree);
-    expect(conv.title).toBe("New conversation");
+    const session = deriveSession("s", null, nodes, tree);
+    expect(session.title).toBe("New session");
   });
 
   test("uses last assistant provider/model over header", () => {
@@ -239,41 +239,41 @@ describe("deriveConversation", () => {
       makeTreeNode("n2", "n1", "assistant", "hi"),
     ];
     const tree = buildTreeMap(nodes);
-    const conv = deriveConversation("s", {
+    const session = deriveSession("s", {
       _header: true, createdAt: 1000, provider: "old-provider", model: "old-model",
     }, nodes, tree);
 
-    expect(conv.provider).toBe("google");
-    expect(conv.model).toBe("gemini-test");
+    expect(session.provider).toBe("google");
+    expect(session.model).toBe("gemini-test");
   });
 
   test("uses header provider/model when no assistant messages", () => {
     const nodes: TreeNode[] = [makeTreeNode("n1", null, "user", "hello")];
     const tree = buildTreeMap(nodes);
-    const conv = deriveConversation("s", {
+    const session = deriveSession("s", {
       _header: true, createdAt: 1000, provider: "google", model: "gemini-test",
     }, nodes, tree);
 
-    expect(conv.provider).toBe("google");
-    expect(conv.model).toBe("gemini-test");
+    expect(session.provider).toBe("google");
+    expect(session.model).toBe("gemini-test");
   });
 
   test("empty nodes with no header", () => {
-    const conv = deriveConversation("s", null, []);
-    expect(conv.title).toBe("New conversation");
-    expect(conv.rootNodeId).toBe("");
-    expect(conv.activeLeafId).toBe("");
-    expect(conv.provider).toBe("");
-    expect(conv.model).toBe("");
+    const session = deriveSession("s", null, []);
+    expect(session.title).toBe("New session");
+    expect(session.rootNodeId).toBe("");
+    expect(session.activeLeafId).toBe("");
+    expect(session.provider).toBe("");
+    expect(session.model).toBe("");
   });
 
   test("compactedFrom and mode propagated from header", () => {
-    const conv = deriveConversation("s", {
+    const session = deriveSession("s", {
       _header: true, createdAt: 1000, provider: "g", model: "m",
       compactedFrom: "old-id", mode: "meta",
     }, []);
-    expect(conv.compactedFrom).toBe("old-id");
-    expect(conv.mode).toBe("meta");
+    expect(session.compactedFrom).toBe("old-id");
+    expect(session.mode).toBe("meta");
   });
 
   test("updatedAt uses last node's createdAt", () => {
@@ -283,25 +283,25 @@ describe("deriveConversation", () => {
       { ...makeTreeNode("n3", "n2"), createdAt: 3000 },
     ];
     const tree = buildTreeMap(nodes);
-    const conv = deriveConversation("s", null, nodes, tree);
-    expect(conv.updatedAt).toBe(3000);
+    const session = deriveSession("s", null, nodes, tree);
+    expect(session.updatedAt).toBe(3000);
   });
 });
 
 // ---------------------------------------------------------------------------
-// serializeConversation
+// serializeSession
 // ---------------------------------------------------------------------------
 
-describe("serializeConversation", () => {
+describe("serializeSession", () => {
   test("round-trips through parse → build → serialize → parse", () => {
     const node1 = makeTreeNode("n1", null);
     const node2 = makeTreeNode("n2", "n1");
     const original = buildJSONL(HEADER_LINE, JSON.stringify(node1), JSON.stringify(node2));
 
-    const parsed = parseConversationFile(original);
+    const parsed = parseSessionFile(original);
     const tree = buildTreeMap(parsed.nodes);
-    const serialized = serializeConversation(parsed.headerLine, tree);
-    const reparsed = parseConversationFile(serialized);
+    const serialized = serializeSession(parsed.headerLine, tree);
+    const reparsed = parseSessionFile(serialized);
 
     expect(reparsed.header).not.toBeNull();
     expect(reparsed.header!.provider).toBe("google");
@@ -313,10 +313,10 @@ describe("serializeConversation", () => {
   test("serializes without header", () => {
     const nodes: TreeNode[] = [makeTreeNode("n1", null)];
     const tree = buildTreeMap(nodes);
-    const serialized = serializeConversation(null, tree);
+    const serialized = serializeSession(null, tree);
 
     expect(serialized).not.toContain("_header");
-    const reparsed = parseConversationFile(serialized);
+    const reparsed = parseSessionFile(serialized);
     expect(reparsed.header).toBeNull();
     expect(reparsed.nodes).toHaveLength(1);
   });
@@ -327,7 +327,7 @@ describe("serializeConversation", () => {
       makeTreeNode("n2", "n1"),
     ];
     const tree = buildTreeMap(nodes);
-    const serialized = serializeConversation(null, tree);
+    const serialized = serializeSession(null, tree);
 
     // The serialized JSON should not contain the "children" key
     expect(serialized).not.toContain('"children"');
@@ -335,7 +335,7 @@ describe("serializeConversation", () => {
 
   test("empty tree serializes to header + empty node content", () => {
     const tree = buildTreeMap([]);
-    const serialized = serializeConversation(HEADER_LINE, tree);
+    const serialized = serializeSession(HEADER_LINE, tree);
     // allNodes is [], join produces "", + "\n" = "\n"
     // so result is HEADER_LINE + "\n" + "\n"
     expect(serialized).toBe(HEADER_LINE + "\n\n");

@@ -1,22 +1,17 @@
-export { ProjectProvider, useProjectState, useProjectDispatch } from "./ProjectContext.js";
-export type { ProjectState, ProjectAction } from "./ProjectContext.js";
+export {
+  ProjectSelectionProvider,
+  useProjectSelectionState,
+  useProjectSelectionDispatch,
+} from "./ProjectSelectionContext.js";
 export type {
-  Project,
-  ProjectFile,
-  RenderContext,
-  RenderPendingState,
-  RenderPendingToolCall,
-} from "./project.types.js";
+  ProjectSelectionState,
+  ProjectSelectionAction,
+} from "./ProjectSelectionContext.js";
+export type { Project } from "./project.types.js";
 export {
   fetchProjects, createProject, updateProject, deleteProject, duplicateProject,
   fetchWorkspaceFiles, fetchTranspiledRenderer, fetchProjectReadme,
 } from "./project.api.js";
-export { validateTheme, resolveThemeVars, resolveRawTheme } from "./projectTheme.js";
-export type {
-  RendererTheme,
-  RendererThemeTokens,
-  ResolvedThemeVars,
-} from "./projectTheme.js";
 export {
   useProjects, useProjectReadme, useWorkspaceFiles, useRendererJs, useProjectMutations,
 } from "./useProjects.js";

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../types.js";
-import { createConversationRoutes } from "./conversations.routes.js";
+import { createSessionRoutes } from "./sessions.routes.js";
 import { createSkillRoutes } from "./skills.routes.js";
 
 import { IMAGE_EXTS } from "../paths.js";
@@ -289,7 +289,7 @@ export function createProjectRoutes() {
     }
   });
 
-  app.route("/:slug/conversations", createConversationRoutes());
+  app.route("/:slug/sessions", createSessionRoutes());
   app.route("/:slug/skills", createSkillRoutes());
 
   return app;

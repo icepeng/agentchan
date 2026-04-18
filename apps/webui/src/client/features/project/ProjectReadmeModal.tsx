@@ -8,7 +8,7 @@ import { useProjectReadme } from "@/client/entities/project/index.js";
 
 /**
  * In-project README viewer invoked by the `/readme` slash command. Pure client
- * widget — no agent round-trip, no conversation noise.
+ * widget — no agent round-trip, no session noise.
  */
 export function ProjectReadmeModal() {
   const { t } = useI18n();

@@ -1,24 +1,26 @@
 import { useCallback, useMemo } from "react";
 import { useConfigMutations } from "@/client/entities/config/index.js";
 import { useSkills } from "@/client/entities/skill/index.js";
-import { useActiveSession } from "@/client/entities/session/index.js";
-import { useConversations } from "@/client/entities/conversation/index.js";
-import { useProjectState } from "@/client/entities/project/index.js";
+import {
+  useSessions,
+  useActiveSessionSelection,
+} from "@/client/entities/session/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
-import { useConversation } from "./useConversation.js";
+import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
 import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry, type SkillSlashCommand } from "./commands.js";
 import { useCommandPalette } from "./useCommandPalette.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const { update: updateConfig } = useConfigMutations();
-  const session = useActiveSession();
-  const { activeProjectSlug } = useProjectState();
+  const selection = useActiveSessionSelection();
+  const { activeProjectSlug } = useProjectSelectionState();
   const { data: skills = [] } = useSkills(activeProjectSlug);
-  const { data: conversations = [] } = useConversations(activeProjectSlug);
+  const { data: sessions = [] } = useSessions(activeProjectSlug);
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
-  const { create, compact } = useConversation();
+  const { create, compact } = useSession();
   const { send } = useStreaming();
 
   const entries = useMemo(
@@ -90,21 +92,21 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
         (e): e is SkillSlashCommand => e.kind === "skill" && e.name === cmdName,
       );
       if (entry?.environment === "meta") {
-        const activeConv = conversations.find(
-          (c) => c.id === session.conversationId,
+        const activeSession = sessions.find(
+          (s) => s.id === selection.openSessionId,
         );
-        if (activeConv?.mode === "meta") return false;
+        if (activeSession?.mode === "meta") return false;
 
         setText("");
-        void create("meta").then((conv) => {
-          if (conv) void send(input, conv.id);
+        void create("meta").then((sess) => {
+          if (sess) void send(input, sess.id);
         });
         return true;
       }
 
       return false; // skill commands fall through to send()
     },
-    [executeLocalCommand, entries, conversations, session.conversationId, create, send, setText],
+    [executeLocalCommand, entries, sessions, selection.openSessionId, create, send, setText],
   );
 
   return { palette, selectCommand, tryExecuteCommand };

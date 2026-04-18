@@ -43,7 +43,7 @@ project/
 │       ├── scripts/
 │       ├── assets/
 │       └── references/
-├── conversations/         # 내부: 세션 데이터 (JSONL)
+├── sessions/              # 내부: 세션 데이터 (JSONL)
 ├── renderer.ts            # 렌더링 함수
 └── files/                 # 워크스페이스: 에이전트의 작업 공간
     ├── characters/
@@ -60,7 +60,7 @@ project/
 ### 2.1 경계 규칙
 
 - `files/` 안 = 사용자 콘텐츠. 디렉토리 이름, 파일 이름, 구조 — 전부 프로젝트 작성자가 결정
-- `files/` 밖 = 시스템 인프라. `SYSTEM.md`, `skills/`, `conversations/`, `_project.json`, `renderer.ts`
+- `files/` 밖 = 시스템 인프라. `SYSTEM.md`, `skills/`, `sessions/`, `_project.json`, `renderer.ts`
 - `files/` 내부에 시스템이 예약한 이름이나 구조는 없다
 
 ---
@@ -148,19 +148,22 @@ interface BinaryFile {
 ### 6.1 계약
 
 ```typescript
-interface RenderPendingToolCall {
-  id: string; name: string; done: boolean; executing?: boolean;
+interface RenderToolCallView {
+  id: string;
+  name: string;
+  // "streaming"=tool_use 입력 JSON 수신 중, "executing"=실행 중, "done"=완료
+  status: "streaming" | "executing" | "done";
 }
-interface RenderPendingState {
-  isStreaming: boolean;
-  streamingText: string;
-  toolCalls: RenderPendingToolCall[];
+interface RenderStreamView {
+  isStreaming: boolean;                        // idle이면 false
+  text: string;                                // 현재 assistant 턴의 누적 텍스트 (델타 아님)
+  toolCalls: ReadonlyArray<RenderToolCallView>;
 }
 
 interface RenderContext {
-  files: ProjectFile[];    // files/ 전체 스캔 결과
-  baseUrl: string;         // 에셋 URL prefix
-  pending?: RenderPendingState;  // 에이전트 스트리밍 중에만 주입
+  files: ProjectFile[];       // files/ 전체 스캔 결과
+  baseUrl: string;            // 에셋 URL prefix
+  stream: RenderStreamView;   // 항상 present. idle 시 EMPTY_RENDER_STREAM
 }
 
 // 렌더러가 export해야 하는 함수
@@ -169,11 +172,12 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 
 ### 6.2 제약
 
-- 입력은 `RenderContext` 뿐. conversations, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `pending?`으로 한정된 요약(isStreaming/streamingText/toolCalls)만 노출
+- 입력은 `RenderContext` 뿐. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출하며 `entities/stream/toRenderStream.ts` 매퍼가 단독 경계
 - 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - 외부 모듈 import 불가. 타입은 파일 내에 인라인 선언
 - 출력은 HTML 문자열 하나
 - 스트리밍 중에는 requestAnimationFrame 주기로 재호출되므로 렌더 비용이 프레임 안에 들어와야 한다 (idiomorph가 DOM diff로 부담을 낮춘다)
+- 스트리밍 구간(`stream.isStreaming` true) 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷이다. 완료 시 full refresh로 1회 재동기화된다
 
 ### 6.3 도출 특성
 
@@ -238,11 +242,11 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 ### 8.2 Renderer (`renderer.ts`)
 
 **제약:**
-- R1. 입력은 `RenderContext { files, baseUrl, pending? }` 뿐이다
+- R1. 입력은 `RenderContext { files, baseUrl, stream }` 뿐이다 (`stream`은 항상 present — idle 시 `EMPTY_RENDER_STREAM`)
 - R2. 출력은 `render(ctx): string` — HTML 문자열 하나
 - R3. 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - R4. 외부 모듈 import 불가
-- R5. conversations, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `pending?`으로 한정된 요약(isStreaming/streamingText/toolCalls)만 노출
+- R5. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출. 내부 `StreamSlot`과의 경계는 `entities/stream/toRenderStream.ts` 매퍼 단독
 
 **도출 특성:**
 - (R1+R2) 순수 함수 — `files → HTML`
@@ -284,7 +288,7 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 - A1. 시스템 프롬프트 = DEFAULT_SYSTEM_PROMPT + SYSTEM.md + skill catalog
 - A2. 도구 = 파일 도구 (read, write, edit, append, grep, tree) + script + skill 활성화 도구
 - A3. 파일 도구는 projectDir에 scope (path traversal 차단)
-- A4. 에이전트는 렌더러, UI, conversation 저장소에 직접 접근 불가. 파일 도구를 통해서만 상호작용
+- A4. 에이전트는 렌더러, UI, session 저장소에 직접 접근 불가. 파일 도구를 통해서만 상호작용
 - A5. compaction: system prompt 보존, 대화 히스토리의 오래된 tool result는 placeholder 교체
 
 **도출 특성:**
@@ -293,7 +297,7 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 - (A3) 샌드박스 — projectDir 밖 접근 불가
 - (A2) shell 없음 — script 도구만으로 코드 실행
 
-### 8.6 Conversation 저장소
+### 8.6 Session 저장소
 
 **제약:**
 - V1. 트리 구조. 각 노드에 parentId → 분기/재생성 가능

@@ -47,23 +47,22 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | DataFile | BinaryFile;
 
-interface RenderPendingToolCall {
+interface RenderToolCallView {
   id: string;
   name: string;
-  done: boolean;
-  executing?: boolean;
+  status: "streaming" | "executing" | "done";
 }
 
-interface RenderPendingState {
+interface RenderStreamView {
   isStreaming: boolean;
-  streamingText: string;
-  toolCalls: RenderPendingToolCall[];
+  text: string;
+  toolCalls: ReadonlyArray<RenderToolCallView>;
 }
 
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
-  pending?: RenderPendingState;
+  stream: RenderStreamView;
 }
 
 // ── Renderer theme contract (인라인 선언) ──
@@ -4234,17 +4233,16 @@ const STYLES = `<style>
 // 평상/전투 data-mode를 상속하여 팔레트가 자동 전환된다.
 
 function renderPendingCard(
-  pending: RenderPendingState | undefined,
+  stream: RenderStreamView,
   mode: "peace" | "combat",
 ): string {
   // 항상 DOM에 유지하고 hidden으로만 토글 — Idiomorph가 id 기반으로 매칭한다.
-  const isStreaming = !!pending?.isStreaming;
-  const active = pending?.toolCalls.find((tc) => !tc.done);
+  const active = stream.toolCalls.find((tc) => tc.status !== "done");
   const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
-  const raw = pending?.streamingText?.trim() ?? "";
+  const raw = stream.text.trim();
   const clipped = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;
   const toolLabel = active ? active.name.replace(/_/g, " ") : "";
-  const hidden = isStreaming ? "" : " hidden";
+  const hidden = stream.isStreaming ? "" : " hidden";
   return `
     <aside id="rpg-pending" class="rpg-pending" data-mode="${mode}"${hidden} role="status" aria-live="polite">
       <div class="rpg-pending-head">
@@ -4263,6 +4261,7 @@ export function render(ctx: RenderContext): string {
   const visibleCtx: RenderContext = {
     files: ctx.files.filter(isVisible),
     baseUrl: ctx.baseUrl,
+    stream: ctx.stream,
   };
 
   const charIndex = buildCharacterIndex(visibleCtx);
@@ -4307,7 +4306,7 @@ export function render(ctx: RenderContext): string {
           <div class="rpg-reel-filigree" aria-hidden="true"></div>
           ${reelEvents}
           ${choicesBlock}
-          ${renderPendingCard(ctx.pending, mode)}
+          ${renderPendingCard(ctx.stream, mode)}
           <div data-chat-anchor></div>
         </main>
         ${sidePanel}

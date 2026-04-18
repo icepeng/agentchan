@@ -31,9 +31,9 @@ export interface TreeNode {
   meta?: "compact-summary" | (string & {});
 }
 
-// --- Conversation metadata ---
+// --- Session metadata ---
 
-export interface Conversation {
+export interface Session {
   id: string;
   title: string;
   createdAt: number;
@@ -44,15 +44,4 @@ export interface Conversation {
   model: string;
   compactedFrom?: string;
   mode?: "creative" | "meta";
-}
-
-// --- Runtime-only: tool call in-progress view ---
-
-export interface ToolCallState {
-  id: string;
-  name: string;
-  inputJson: string;
-  done: boolean;
-  executing?: boolean;
-  parallel?: boolean;
 }
