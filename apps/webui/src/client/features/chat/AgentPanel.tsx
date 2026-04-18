@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useActiveStream } from "@/client/entities/stream/index.js";
@@ -101,11 +101,8 @@ export function AgentPanel() {
   );
   const nodes = sessionData?.nodes ?? EMPTY_NODES;
   const activePath = sessionData?.activePath ?? EMPTY_PATH;
-  const nodeMap = useMemo(() => {
-    const m = new Map<string, TreeNode>();
-    for (const n of nodes) m.set(n.id, n);
-    return m;
-  }, [nodes]);
+  const nodeMap = new Map<string, TreeNode>();
+  for (const n of nodes) nodeMap.set(n.id, n);
 
   const { t } = useI18n();
   const { switchBranch, setReplyTo, deleteNode } = useSession();
@@ -122,10 +119,7 @@ export function AgentPanel() {
     return parent?.children ?? [node.id];
   };
 
-  const groups = useMemo(
-    () => groupActivePath(activePath, nodeMap),
-    [activePath, nodeMap],
-  );
+  const groups = groupActivePath(activePath, nodeMap);
 
   if (!selection.openSessionId) {
     return (
