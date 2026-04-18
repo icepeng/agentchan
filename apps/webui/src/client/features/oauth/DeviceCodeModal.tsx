@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, Button } from "@/client/shared/ui/index.js";
 import { useClipboard } from "@/client/shared/useClipboard.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -22,12 +22,10 @@ export function DeviceCodeModal({
   const abortRef = useRef<AbortController | null>(null);
   const { copied, copy } = useClipboard();
 
-  const deviceCode = useMemo(() => {
-    const raw = authInfo?.instructions?.trim();
-    if (!raw) return null;
-    const match = raw.match(/:\s*(\S.*)$/);
-    return (match?.[1] ?? raw).trim();
-  }, [authInfo?.instructions]);
+  const rawInstructions = authInfo?.instructions?.trim();
+  const deviceCode = rawInstructions
+    ? (rawInstructions.match(/:\s*(\S.*)$/)?.[1] ?? rawInstructions).trim()
+    : null;
 
   // loginOAuth identity rotates each render — capture in a ref so the streaming
   // useEffect doesn't restart and abort its own in-flight poll.

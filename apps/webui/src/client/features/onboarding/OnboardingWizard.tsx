@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useI18n } from "@/client/i18n/index.js";
 import { Dialog, Button, Badge, Indicator, Select } from "@/client/shared/ui/index.js";
@@ -264,14 +264,13 @@ function TemplatePickerStep({
 }) {
   const { t } = useI18n();
   const { data: allTemplates, isLoading } = useTemplates();
-  const templates = useMemo<TemplateMeta[] | null>(() => {
-    if (isLoading) return null;
-    if (!allTemplates) return [];
-    const bySlug = new Map(allTemplates.map((tpl) => [tpl.slug, tpl]));
-    return FEATURED_SLUGS.map((slug) => bySlug.get(slug)).filter(
-      (tpl): tpl is TemplateMeta => tpl !== undefined,
-    );
-  }, [allTemplates, isLoading]);
+  const templates: TemplateMeta[] | null = isLoading
+    ? null
+    : allTemplates
+      ? FEATURED_SLUGS.map((slug) =>
+          allTemplates.find((tpl) => tpl.slug === slug),
+        ).filter((tpl): tpl is TemplateMeta => tpl !== undefined)
+      : [];
 
   return (
     <div className="w-full max-w-2xl animate-fade">
