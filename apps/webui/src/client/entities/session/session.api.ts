@@ -1,21 +1,21 @@
 import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
 import type { TokenUsage } from "@/client/shared/pricing.utils.js";
-import type { Conversation, TreeNode } from "@/client/entities/conversation/index.js";
+import type { Session, TreeNode } from "./session.types.js";
 
-// --- Conversations ---
+// --- Sessions ---
 
 function projectBase(projectSlug: string): string {
-  return `/projects/${encodeURIComponent(projectSlug)}/conversations`;
+  return `/projects/${encodeURIComponent(projectSlug)}/sessions`;
 }
 
-export function fetchConversations(projectSlug: string): Promise<Conversation[]> {
+export function fetchSessions(projectSlug: string): Promise<Session[]> {
   return json(projectBase(projectSlug));
 }
 
-export function createConversation(
+export function createSession(
   projectSlug: string,
   mode?: "creative" | "meta",
-): Promise<{ conversation: Conversation }> {
+): Promise<{ session: Session }> {
   return json(projectBase(projectSlug), {
     method: "POST",
     ...(mode && {
@@ -25,34 +25,34 @@ export function createConversation(
   });
 }
 
-export function fetchConversation(projectSlug: string, id: string): Promise<{
-  conversation: Conversation;
+export function fetchSession(projectSlug: string, id: string): Promise<{
+  session: Session;
   nodes: TreeNode[];
   activePath: string[];
 }> {
   return json(`${projectBase(projectSlug)}/${id}`);
 }
 
-export function deleteConversation(projectSlug: string, id: string): Promise<void> {
+export function deleteSession(projectSlug: string, id: string): Promise<void> {
   return json(`${projectBase(projectSlug)}/${id}`, { method: "DELETE" });
 }
 
 export function deleteNode(
   projectSlug: string,
-  conversationId: string,
+  sessionId: string,
   nodeId: string,
 ): Promise<{ activePath: string[]; activeLeafId: string; rootNodeId: string }> {
-  return json(`${projectBase(projectSlug)}/${conversationId}/nodes/${nodeId}`, {
+  return json(`${projectBase(projectSlug)}/${sessionId}/nodes/${nodeId}`, {
     method: "DELETE",
   });
 }
 
 export function switchBranch(
   projectSlug: string,
-  conversationId: string,
+  sessionId: string,
   nodeId: string,
 ): Promise<{ activePath: string[]; activeLeafId: string }> {
-  return json(`${projectBase(projectSlug)}/${conversationId}/branch`, {
+  return json(`${projectBase(projectSlug)}/${sessionId}/branch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nodeId }),
@@ -205,14 +205,14 @@ export function abortProjectStream(projectSlug: string): void {
 
 export function sendMessage(
   projectSlug: string,
-  conversationId: string,
+  sessionId: string,
   parentNodeId: string | null,
   text: string,
   callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
   return postSSE(
-    `${BASE}${projectBase(projectSlug)}/${conversationId}/messages`,
+    `${BASE}${projectBase(projectSlug)}/${sessionId}/messages`,
     { parentNodeId, text },
     callbacks,
     signal,
@@ -221,13 +221,13 @@ export function sendMessage(
 
 export function regenerateResponse(
   projectSlug: string,
-  conversationId: string,
+  sessionId: string,
   userNodeId: string,
   callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
   return postSSE(
-    `${BASE}${projectBase(projectSlug)}/${conversationId}/regenerate`,
+    `${BASE}${projectBase(projectSlug)}/${sessionId}/regenerate`,
     { userNodeId },
     callbacks,
     signal,
@@ -236,11 +236,11 @@ export function regenerateResponse(
 
 // --- Compact ---
 
-export function compactConversation(
+export function compactSession(
   projectSlug: string,
-  conversationId: string,
-): Promise<{ conversation: Conversation; nodes: TreeNode[]; sourceConversationId: string }> {
-  return json(`${projectBase(projectSlug)}/${conversationId}/compact`, {
+  sessionId: string,
+): Promise<{ session: Session; nodes: TreeNode[]; sourceSessionId: string }> {
+  return json(`${projectBase(projectSlug)}/${sessionId}/compact`, {
     method: "POST",
   });
 }

@@ -1,4 +1,5 @@
-import type { ToolCallContent, ToolCallState } from "@/client/entities/session/index.js";
+import type { ToolCallContent } from "@/client/entities/session/index.js";
+import type { ToolCallState } from "@/client/entities/stream/index.js";
 import { Indicator, ScrollArea } from "@/client/shared/ui/index.js";
 
 const SUMMARY_CLASS =
@@ -46,7 +47,7 @@ export function StreamingToolCall({ tc }: { tc: ToolCallState }) {
       <summary className={SUMMARY_CLASS}>
         <Indicator />
         <span className="font-mono text-xs text-accent font-medium">{tc.name}</span>
-        {!tc.done && <Indicator pulse />}
+        {!tc.result && <Indicator pulse />}
         <Chevron />
       </summary>
       {tc.inputJson && (

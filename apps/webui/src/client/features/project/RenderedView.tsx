@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Idiomorph } from "idiomorph";
-import { useOutput } from "./useOutput.js";
-import { useProjectState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/session/index.js";
-import { useRendererActionDispatch } from "@/client/entities/renderer-action/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import { useActiveStream, toRenderStream } from "@/client/entities/stream/index.js";
+import {
+  useOutput,
+  useRendererViewState,
+  useRendererActionDispatch,
+} from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 
 type TransitionPhase = "idle" | "capture" | "fading";
@@ -12,9 +15,10 @@ type TransitionPhase = "idle" | "capture" | "fading";
 const FADE_DURATION_MS = 300;
 
 export function RenderedView() {
-  const project = useProjectState();
+  const project = useProjectSelectionState();
+  const rendererView = useRendererViewState();
   const stream = useActiveStream();
-  const { refresh } = useOutput();
+  const { refresh, refreshStream } = useOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
@@ -23,11 +27,21 @@ export function RenderedView() {
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [phase, setPhase] = useState<TransitionPhase>("idle");
 
+  // rAF tick이 effect re-run 없이 최신 slot을 읽을 수 있도록 ref로 미러링.
+  const streamRef = useRef(stream);
+  useEffect(() => {
+    streamRef.current = stream;
+  });
+
   // Snapshot the current renderer DOM into the back layer so it can cross-fade
   // out while the new project's renderer loads. Must stay declared above the
   // morph effect below so snapshot runs before morph overwrites `frontEl`.
   // Clearing any in-flight cleanup timer here prevents a rapid A→B→C switch
   // from letting B's fading cleanup clobber C's fresh snapshot.
+  //
+  // HTML clear는 `useProject`의 activateProject/createProject에서 SET_ACTIVE_PROJECT와
+  // 함께 발화 — 이 컴포넌트가 off-screen일 때도 slug 변경이 반드시 html을 비우도록
+  // 보장한다. 여기서 중복 디스패치하지 않는다.
   useEffect(() => {
     const newSlug = project.activeProjectSlug;
     if (prevSlugRef.current !== null && prevSlugRef.current !== newSlug) {
@@ -57,22 +71,36 @@ export function RenderedView() {
     }
   }, [stream.isStreaming, project.activeProjectSlug, refresh]);
 
+  // 스트리밍 중 requestAnimationFrame 주기로 stream view 렌더를 트리거한다.
+  // refreshStream이 캐시된 렌더러를 동기 호출하므로 프레임 안에 끝나고,
+  // 동일 HTML이면 dispatch를 건너뛰어 RendererView 소비자 재렌더를 막는다.
+  useEffect(() => {
+    if (!stream.isStreaming) return;
+    let raf = 0;
+    const tick = () => {
+      refreshStream(toRenderStream(streamRef.current));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [stream.isStreaming, refreshStream]);
+
   useEffect(() => {
     const el = frontRef.current;
     if (!el) return;
-    if (!project.renderedHtml) return;
-    Idiomorph.morph(el, project.renderedHtml, {
+    if (!rendererView.html) return;
+    Idiomorph.morph(el, rendererView.html, {
       morphStyle: "innerHTML",
       ignoreActiveValue: true,
     });
-  }, [project.renderedHtml]);
+  }, [rendererView.html]);
 
   // Two rAFs: the first lets the `capture` className paint, the second lets
   // the browser register the fading transition class before opacity flips —
   // otherwise capture→fading is coalesced and the transition is skipped.
   useEffect(() => {
     if (phase !== "capture") return;
-    if (!project.renderedHtml) return;
+    if (!rendererView.html) return;
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => setPhase("fading"));
@@ -81,7 +109,7 @@ export function RenderedView() {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [phase, project.renderedHtml]);
+  }, [phase, rendererView.html]);
 
   useEffect(() => {
     if (phase !== "fading") return;
@@ -105,7 +133,7 @@ export function RenderedView() {
     if (anchor) {
       anchor.scrollIntoView({ behavior: "smooth" });
     }
-  }, [project.renderedHtml]);
+  }, [rendererView.html]);
 
   useEffect(() => {
     const el = frontRef.current;

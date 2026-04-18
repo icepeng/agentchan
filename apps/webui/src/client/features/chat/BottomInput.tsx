@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
-import { useActiveSession, useActiveUsage } from "@/client/entities/session/index.js";
+import { useActiveUsage } from "@/client/entities/stream/index.js";
+import { useActiveSessionSelection } from "@/client/entities/session/index.js";
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -12,9 +13,9 @@ import { useI18n } from "@/client/i18n/index.js";
 import {
   useRendererActionState,
   useRendererActionDispatch,
-} from "@/client/entities/renderer-action/index.js";
+} from "@/client/entities/renderer/index.js";
 import { useStreaming } from "./useStreaming.js";
-import { useConversation } from "./useConversation.js";
+import { useSession } from "./useSession.js";
 import { useSlashCommands } from "./useSlashCommands.js";
 import { SlashCommandPopup } from "./SlashCommandPopup.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
@@ -24,14 +25,14 @@ interface BottomInputProps {
 }
 
 export function BottomInput({ variant = "standalone" }: BottomInputProps) {
-  const session = useActiveSession();
+  const selection = useActiveSessionSelection();
   const usage = useActiveUsage();
   const { data: config } = useConfig();
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
   const { send, isStreaming } = useStreaming();
-  const { create } = useConversation();
+  const { create } = useSession();
   const rendererAction = useRendererActionState();
   const rendererActionDispatch = useRendererActionDispatch();
   const [text, setText] = useState("");
@@ -53,10 +54,10 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     }
   }, [text]);
 
-  // Focus on mount and conversation change
+  // Focus on mount and session change
   useEffect(() => {
     textareaRef.current?.focus();
-  }, [session.conversationId]);
+  }, [selection.openSessionId]);
 
   // Handle renderer actions (send / fill)
   useEffect(() => {
@@ -69,15 +70,15 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
       setText(action.text);
       textareaRef.current?.focus();
     } else if (action.type === "send") {
-      if (!session.conversationId) {
-        void create().then((conv) => {
-          if (conv) void send(action.text, conv.id);
+      if (!selection.openSessionId) {
+        void create().then((sess) => {
+          if (sess) void send(action.text, sess.id);
         });
       } else {
         void send(action.text);
       }
     }
-  }, [rendererAction.pending, rendererActionDispatch, session.conversationId, create, send]);
+  }, [rendererAction.pending, rendererActionDispatch, selection.openSessionId, create, send]);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();
@@ -95,9 +96,9 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
 
     setText("");
 
-    if (!session.conversationId) {
-      const conv = await create();
-      if (conv) await send(trimmed, conv.id);
+    if (!selection.openSessionId) {
+      const sess = await create();
+      if (sess) await send(trimmed, sess.id);
       return;
     }
 
@@ -144,7 +145,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              session.replyToNodeId
+              selection.replyToNodeId
                 ? t("input.branchPlaceholder")
                 : t("input.placeholder")
             }

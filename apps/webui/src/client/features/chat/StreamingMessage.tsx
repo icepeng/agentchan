@@ -1,4 +1,4 @@
-import { useActiveStream } from "@/client/entities/session/index.js";
+import { useActiveStream } from "@/client/entities/stream/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { BubbleWrap } from "./MessageBubble.js";
@@ -18,7 +18,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
   const stream = useActiveStream();
   const { t } = useI18n();
   const { confirmedSentences, animatingIndices } =
-    useSentenceAnimation(stream.streamingText, stream.isStreaming);
+    useSentenceAnimation(stream.text, stream.isStreaming);
 
   const isWide = variant === "wide";
 
@@ -46,7 +46,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
   if (!stream.isStreaming) return null;
 
   const hasText = confirmedSentences.length > 0;
-  const showCursor = stream.streamingToolCalls.length === 0;
+  const showCursor = stream.toolCalls.length === 0;
 
   return (
     <BubbleWrap variant={variant} padding="loose" className="bg-surface/40 animate-fade">
@@ -74,7 +74,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
                 )}
               </div>
             )}
-            {stream.streamingToolCalls.map((tc) => (
+            {stream.toolCalls.map((tc) => (
               <StreamingToolCall key={tc.id} tc={tc} />
             ))}
           </div>

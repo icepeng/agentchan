@@ -486,7 +486,8 @@ LLM이 한쪽을 실수해도 다른 쪽이 막도록 설계된 것.
 
 ### Compact 후
 
-- agentchan의 conversation compact가 발동되어도 `files/`는 그대로 보존.
+- agentchan의 session compact가 발동되어도 `files/`는 그대로 보존.
+- `world-state.yaml`의 `last_summary` 필드를 컴팩트 중 자동 갱신 (미래 M2 스크립트 작업).
 
 </session_resume>
 

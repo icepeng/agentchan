@@ -1,19 +1,19 @@
 /**
- * JSONL conversation file format: header + tree node lines.
+ * JSONL session file format: header + tree node lines.
  *
  * Pure data transforms — no fs, no LLM. Storage uses these to read/write
- * conversation files; nothing else should depend on this module.
+ * session files; nothing else should depend on this module.
  */
 
 import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
-import type { TreeNode, TreeNodeWithChildren, Conversation } from "../types.js";
+import type { TreeNode, TreeNodeWithChildren, Session } from "../types.js";
 import { computeActivePath, generateTitle } from "./tree.js";
 
 // --- Header ---
 
 export type SessionMode = "creative" | "meta";
 
-export interface ConversationHeader {
+export interface SessionHeader {
   _header: true;
   createdAt: number;
   provider: string;
@@ -25,9 +25,9 @@ export interface ConversationHeader {
 
 // --- Parsing ---
 
-export interface ParsedConversation {
+export interface ParsedSession {
   headerLine: string | null;
-  header: ConversationHeader | null;
+  header: SessionHeader | null;
   nodes: TreeNode[];
 }
 
@@ -38,19 +38,19 @@ export interface BranchMarker {
   activeChildId: string;
 }
 
-export function parseConversationFile(content: string): ParsedConversation {
+export function parseSessionFile(content: string): ParsedSession {
   const lines = content.split("\n").filter((line) => line.trim());
   if (lines.length === 0) return { headerLine: null, header: null, nodes: [] };
 
   let headerLine: string | null = null;
-  let header: ConversationHeader | null = null;
+  let header: SessionHeader | null = null;
   let startIdx = 0;
   const firstLine = lines[0];
   try {
     const first = JSON.parse(firstLine!);
     if (first._header) {
       headerLine = firstLine!;
-      header = first as ConversationHeader;
+      header = first as SessionHeader;
       startIdx = 1;
     }
   } catch { /* not valid JSON — treat all as nodes */ }
@@ -109,18 +109,18 @@ function extractUserText(node: TreeNode): string {
   return "";
 }
 
-// --- Derivation: header + nodes → Conversation metadata ---
+// --- Derivation: header + nodes → Session metadata ---
 
-export function deriveConversation(
+export function deriveSession(
   id: string,
-  header: ConversationHeader | null,
+  header: SessionHeader | null,
   nodes: TreeNode[],
   tree?: Map<string, TreeNodeWithChildren>,
-): Conversation {
+): Session {
   const firstUser = nodes.find((n) => n.message.role === "user");
   const title = firstUser
     ? generateTitle(extractUserText(firstUser))
-    : "New conversation";
+    : "New session";
 
   const createdAt = header?.createdAt ?? nodes[0]?.createdAt ?? Date.now();
   const updatedAt = nodes[nodes.length - 1]?.createdAt ?? createdAt;
@@ -155,10 +155,10 @@ export function deriveConversation(
 // --- Serialization ---
 
 /**
- * Render a conversation tree back to JSONL text. Storage writes the result
+ * Render a session tree back to JSONL text. Storage writes the result
  * with `writeFile` — separating serialization here keeps fs out of format/.
  */
-export function serializeConversation(
+export function serializeSession(
   headerLine: string | null,
   tree: Map<string, TreeNodeWithChildren>,
 ): string {

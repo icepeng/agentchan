@@ -1,9 +1,9 @@
-import { useProjectState } from "@/client/entities/project/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useSkills } from "@/client/entities/skill/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 
 export function SkillList() {
-  const { activeProjectSlug } = useProjectState();
+  const { activeProjectSlug } = useProjectSelectionState();
   const { data: skills = [] } = useSkills(activeProjectSlug);
   const { t } = useI18n();
 

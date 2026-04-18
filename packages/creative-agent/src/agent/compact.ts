@@ -20,7 +20,7 @@ const CACHE_TTL_MS = 5 * 60_000;
 // ── micro-compact ──────────────────────────────────────────────────
 
 /**
- * Per-conversation: [compacted count, last call timestamp].
+ * Per-session: [compacted count, last call timestamp].
  * Count only increases — when cache expires or context is full.
  * This keeps the prompt prefix stable between API calls.
  */
@@ -29,14 +29,14 @@ const state = new Map<string, [count: number, ms: number]>();
 export function clearCompactState(id: string): void { state.delete(id); }
 
 export interface MicroCompactOptions {
-  conversationId: string;
+  sessionId: string;
   protectFromIndex: number;
   keepRecentTokens?: number;
 }
 
 export function microCompact(
   messages: AgentMessage[],
-  { conversationId: id, protectFromIndex: limit, keepRecentTokens }: MicroCompactOptions,
+  { sessionId: id, protectFromIndex: limit, keepRecentTokens }: MicroCompactOptions,
 ): AgentMessage[] {
   const refs = scanToolResults(messages, limit);
   const [prev = 0, prevMs = 0] = state.get(id) ?? [];

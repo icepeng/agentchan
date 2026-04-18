@@ -11,11 +11,11 @@ import type {
   TreeNode,
   TreeNodeWithChildren,
 } from "../types.js";
-import type { SessionMode } from "../conversation/format.js";
+import type { SessionMode } from "../session/format.js";
 import {
   pathToNode,
   flattenPathToMessages,
-} from "../conversation/tree.js";
+} from "../session/tree.js";
 import { setupCreativeAgent } from "./orchestrator.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { type AgentContext, projectDirOf } from "./context.js";
@@ -39,14 +39,14 @@ export type Emit = (ev: SessionEvent) => void;
 
 export interface PromptInput {
   slug: string;
-  conversationId: string;
+  sessionId: string;
   parentNodeId: string | null;
   text: string;
 }
 
 export interface RegenerateInput {
   slug: string;
-  conversationId: string;
+  sessionId: string;
   userNodeId: string;
 }
 
@@ -74,7 +74,7 @@ export function runPrompt(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.conversationId);
+    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.sessionId);
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
 
     const { nodes: userNodes, llmText } = buildUserNodeForPrompt(
@@ -85,7 +85,7 @@ export function runPrompt(
     );
 
     for (const node of userNodes) {
-      await persistAndInsertNode(ctx, input.slug, input.conversationId, tree, node);
+      await persistAndInsertNode(ctx, input.slug, input.sessionId, tree, node);
       emit({ type: "user_node", node });
     }
 
@@ -95,7 +95,7 @@ export function runPrompt(
     await runAgentTurn({
       ctx,
       slug: input.slug,
-      conversationId: input.conversationId,
+      sessionId: input.sessionId,
       projectDir,
       tree,
       promptParentId: last.id,
@@ -116,7 +116,7 @@ export function runRegenerate(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.conversationId);
+    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.sessionId);
 
     const userNode = tree.get(input.userNodeId);
     if (!userNode) {
@@ -132,7 +132,7 @@ export function runRegenerate(
     await runAgentTurn({
       ctx,
       slug: input.slug,
-      conversationId: input.conversationId,
+      sessionId: input.sessionId,
       projectDir,
       tree,
       promptParentId: input.userNodeId,
@@ -167,13 +167,13 @@ async function runWithEnvelope(emit: Emit, fn: () => Promise<void>): Promise<voi
 async function loadFreshTree(
   ctx: AgentContext,
   slug: string,
-  conversationId: string,
+  sessionId: string,
 ): Promise<{ tree: Map<string, TreeNodeWithChildren>; mode: SessionMode | undefined }> {
-  const loaded = await ctx.storage.loadConversationWithTree(slug, conversationId);
+  const loaded = await ctx.storage.loadSessionWithTree(slug, sessionId);
   if (!loaded) {
-    throw new Error(`Conversation not found: ${slug}/${conversationId}`);
+    throw new Error(`Session not found: ${slug}/${sessionId}`);
   }
-  return { tree: loaded.tree, mode: loaded.conversation.mode };
+  return { tree: loaded.tree, mode: loaded.session.mode };
 }
 
 /**
@@ -186,11 +186,11 @@ async function loadFreshTree(
 async function persistAndInsertNode(
   ctx: AgentContext,
   slug: string,
-  conversationId: string,
+  sessionId: string,
   tree: Map<string, TreeNodeWithChildren>,
   node: TreeNode,
 ): Promise<void> {
-  await ctx.storage.appendNode(slug, conversationId, node);
+  await ctx.storage.appendNode(slug, sessionId, node);
   tree.set(node.id, { ...node, children: [] });
   if (node.parentId && tree.has(node.parentId)) {
     const parent = tree.get(node.parentId)!;
@@ -202,7 +202,7 @@ async function persistAndInsertNode(
 interface AgentTurnArgs {
   ctx: AgentContext;
   slug: string;
-  conversationId: string;
+  sessionId: string;
   projectDir: string;
   tree: Map<string, TreeNodeWithChildren>;
   promptParentId: string;
@@ -214,7 +214,7 @@ interface AgentTurnArgs {
 }
 
 async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
-  const { ctx, slug, conversationId, projectDir, tree, emit, signal } = args;
+  const { ctx, slug, sessionId, projectDir, tree, emit, signal } = args;
 
   const cfg = ctx.resolveAgentConfig();
   if (!cfg.apiKey && !cfg.baseUrl) {
@@ -238,7 +238,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     cfg,
     projectDir,
     history,
-    conversationId,
+    sessionId,
     args.sessionMode,
   );
 
@@ -313,7 +313,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
   }
 
   for (const node of newNodes) {
-    await persistAndInsertNode(ctx, slug, conversationId, tree, node);
+    await persistAndInsertNode(ctx, slug, sessionId, tree, node);
   }
 
   if (turnUsage) emit({ type: "usage_summary", usage: turnUsage });

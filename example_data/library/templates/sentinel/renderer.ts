@@ -14,9 +14,24 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | BinaryFile;
 
+interface RenderToolCallView {
+  id: string;
+  name: string;
+  argsComplete: boolean;
+  executionStarted: boolean;
+  result?: { isError: boolean };
+}
+
+interface RenderStreamView {
+  isStreaming: boolean;
+  text: string;
+  toolCalls: ReadonlyArray<RenderToolCallView>;
+}
+
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
+  stream: RenderStreamView;
 }
 
 // ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
@@ -1610,6 +1625,68 @@ const STYLES = `<style>
     50% { opacity: 0; }
   }
 
+  /* ── PENDING STRIP ── ScrollArea viewport 하단(채팅바 바로 위)에 sticky */
+  .ms-pending-strip {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: color-mix(in srgb, var(--ms-panel-raised) 94%, transparent);
+    border-top: 1px solid color-mix(in srgb, var(--ms-warm) 50%, transparent);
+    font-family: var(--ms-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--ms-warm);
+    text-transform: uppercase;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .ms-pending-glyph {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ms-warm);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--ms-warm) 80%, transparent);
+    animation: ms-pending-pulse 1.6s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .ms-pending-sep {
+    color: color-mix(in srgb, var(--ms-warm) 55%, transparent);
+  }
+  .ms-pending-detail {
+    color: var(--ms-ink);
+    letter-spacing: 0.1em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ms-pending-dots {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: auto;
+  }
+  .ms-pending-dots i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: ms-pending-dot 1.2s ease-in-out infinite;
+  }
+  .ms-pending-dots i:nth-child(2) { animation-delay: 0.15s; }
+  .ms-pending-dots i:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes ms-pending-pulse {
+    0%, 100% { opacity: 0.45; transform: scale(0.9); }
+    50%      { opacity: 1;    transform: scale(1.1); }
+  }
+  @keyframes ms-pending-dot {
+    0%, 80%, 100% { opacity: 0.25; }
+    40%           { opacity: 1; }
+  }
+
   /* ── RESPONSIVE ── */
   @media (max-width: 720px) {
     .ms-suspects { grid-template-columns: 1fr; }
@@ -1621,6 +1698,28 @@ const STYLES = `<style>
     .ms-body { padding: 24px 16px 64px; }
   }
 </style>`;
+
+// ── Pending strip ────────────────────────────
+// 에이전트가 스트리밍 중일 때만 sticky 스트립을 그린다. 도구 실행 중이면
+// 현재 도구 이름을 노출, 그 외는 "STREAMING RESPONSE".
+
+function renderPendingStrip(stream: RenderStreamView): string {
+  // 항상 DOM에 존재시키고 `hidden` 속성으로만 토글 — Idiomorph가 id 기반으로
+  // 매칭하여 element를 유지하므로 ms-body 맨 위에 안정적으로 들어간다.
+  const active = stream.toolCalls.find((tc) => !tc.result);
+  const detail = active
+    ? `EXEC :: ${active.name.toUpperCase().replace(/_/g, " ")}`
+    : "STREAMING RESPONSE";
+  const hidden = stream.isStreaming ? "" : " hidden";
+  return `
+    <div id="ms-pending" class="ms-pending-strip"${hidden} role="status" aria-live="polite">
+      <span class="ms-pending-glyph" aria-hidden="true"></span>
+      <span class="ms-pending-label">SCANNING</span>
+      <span class="ms-pending-sep">::</span>
+      <span class="ms-pending-detail">${escapeHtml(detail)}</span>
+      <span class="ms-pending-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>`;
+}
 
 // ── Main renderer ────────────────────────────
 
@@ -1649,6 +1748,7 @@ export function render(ctx: RenderContext): string {
         <div class="ms-body">
           ${renderEmptyStandby()}
         </div>
+        ${renderPendingStrip(ctx.stream)}
       </div>`;
   }
 
@@ -1714,5 +1814,6 @@ export function render(ctx: RenderContext): string {
         ${bodyParts.join("\n")}
         <div data-chat-anchor></div>
       </div>
+      ${renderPendingStrip(ctx.stream)}
     </div>`;
 }

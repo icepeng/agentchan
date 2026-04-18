@@ -17,11 +17,14 @@ import { createUpdateRepo } from "./repositories/update.repo.js";
 // --- Services ---
 import { createConfigService } from "./services/config.service.js";
 import { createProjectService } from "./services/project.service.js";
-import { createConversationService } from "./services/conversation.service.js";
+import { createSessionService } from "./services/session.service.js";
 import { createAgentService } from "./services/agent.service.js";
 import { createTemplateService } from "./services/template.service.js";
 import { createSkillService } from "./services/skill.service.js";
 import { createUpdateService } from "./services/update.service.js";
+
+// --- Migrations ---
+import { migrateConversationsToSessions } from "./migrations/rename-conversations-to-sessions.js";
 
 // --- Routes ---
 import { createConfigRoutes } from "./routes/config.routes.js";
@@ -67,13 +70,14 @@ const agentContext = createAgentContext({
     };
   },
 });
-const conversationService = createConversationService(agentContext);
+const sessionService = createSessionService(agentContext);
 const agentService = createAgentService(agentContext, async () => {
   await configService.ensureOAuthToken(configService.getConfig().provider);
 });
 
 // ===== 3. Bootstrap =====
 await templateRepo.ensureDir();
+await migrateConversationsToSessions(PROJECTS_DIR);
 
 // ===== 4. Hono App =====
 const app = new Hono<AppEnv>();
@@ -91,7 +95,7 @@ app.use("/api/*", cors());
 app.use("/api/*", async (c, next) => {
   c.set("configService", configService);
   c.set("projectService", projectService);
-  c.set("conversationService", conversationService);
+  c.set("sessionService", sessionService);
   c.set("agentService", agentService);
   c.set("templateService", templateService);
   c.set("skillService", skillService);

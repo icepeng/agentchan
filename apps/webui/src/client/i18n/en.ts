@@ -170,7 +170,7 @@ export const translations = {
   "globalSettings.removeKey": "Remove",
   "globalSettings.savingKey": "Saving...",
   "globalSettings.activeProvider": "Active Provider & Model",
-  "globalSettings.activeProviderDesc": "Select which provider and model to use for conversations",
+  "globalSettings.activeProviderDesc": "Select which provider and model to use for sessions",
 
   // OAuth providers (e.g. GitHub Copilot)
   "oauth.signIn": "Sign in with {{provider}}",

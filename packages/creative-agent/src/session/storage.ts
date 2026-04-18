@@ -2,32 +2,32 @@ import { appendFile, readFile, mkdir, unlink, writeFile, readdir } from "node:fs
 import { existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { nanoid } from "nanoid";
-import type { TreeNode, TreeNodeWithChildren, Conversation } from "../types.js";
+import type { TreeNode, TreeNodeWithChildren, Session } from "../types.js";
 import {
   computeActivePath,
   switchBranch as switchBranchInTree,
 } from "./tree.js";
 import {
-  type ConversationHeader,
+  type SessionHeader,
   type SessionMode,
   type BranchMarker,
-  type ParsedConversation,
-  parseConversationFile,
+  type ParsedSession,
+  parseSessionFile,
   buildTreeMap,
-  deriveConversation,
-  serializeConversation,
+  deriveSession,
+  serializeSession,
 } from "./format.js";
 
 // --- Public types ---
 
-export interface LoadedConversation {
-  conversation: Conversation;
+export interface LoadedSession {
+  session: Session;
   tree: Map<string, TreeNodeWithChildren>;
   activePath: string[];
 }
 
-export interface ConversationSnapshot {
-  conversation: Conversation;
+export interface SessionSnapshot {
+  session: Session;
   nodes: TreeNodeWithChildren[];
   activePath: string[];
 }
@@ -45,44 +45,44 @@ export interface SwitchBranchResult {
 
 // --- Storage interface ---
 
-export interface ConversationStorage {
-  // Conversation CRUD
-  listConversations(projectSlug: string): Promise<Conversation[]>;
-  getConversation(projectSlug: string, id: string): Promise<Conversation | null>;
-  loadConversationWithTree(projectSlug: string, id: string): Promise<LoadedConversation | null>;
-  loadSnapshot(projectSlug: string, id: string): Promise<ConversationSnapshot | null>;
-  createConversation(projectSlug: string, provider: string, model: string, compactedFrom?: string, mode?: SessionMode): Promise<Conversation>;
-  deleteConversation(projectSlug: string, id: string): Promise<void>;
+export interface SessionStorage {
+  // Session CRUD
+  listSessions(projectSlug: string): Promise<Session[]>;
+  getSession(projectSlug: string, id: string): Promise<Session | null>;
+  loadSessionWithTree(projectSlug: string, id: string): Promise<LoadedSession | null>;
+  loadSnapshot(projectSlug: string, id: string): Promise<SessionSnapshot | null>;
+  createSession(projectSlug: string, provider: string, model: string, compactedFrom?: string, mode?: SessionMode): Promise<Session>;
+  deleteSession(projectSlug: string, id: string): Promise<void>;
 
   // Tree node operations
-  appendNode(projectSlug: string, conversationId: string, node: TreeNode): Promise<void>;
-  appendNodes(projectSlug: string, conversationId: string, nodes: TreeNode[]): Promise<void>;
+  appendNode(projectSlug: string, sessionId: string, node: TreeNode): Promise<void>;
+  appendNodes(projectSlug: string, sessionId: string, nodes: TreeNode[]): Promise<void>;
   deleteSubtree(
     projectSlug: string,
-    conversationId: string,
+    sessionId: string,
     nodeId: string,
   ): Promise<DeleteSubtreeResult>;
   switchBranch(
     projectSlug: string,
-    conversationId: string,
+    sessionId: string,
     nodeId: string,
   ): Promise<SwitchBranchResult | null>;
 }
 
 // --- JSONL Implementation ---
 
-export function createConversationStorage(projectsDir: string): ConversationStorage {
+export function createSessionStorage(projectsDir: string): SessionStorage {
   // Path helpers
-  function conversationsDir(projectSlug: string): string {
-    return join(projectsDir, projectSlug, "conversations");
+  function sessionsDir(projectSlug: string): string {
+    return join(projectsDir, projectSlug, "sessions");
   }
 
-  function conversationPath(projectSlug: string, id: string): string {
-    return join(conversationsDir(projectSlug), `${id}.jsonl`);
+  function sessionPath(projectSlug: string, id: string): string {
+    return join(sessionsDir(projectSlug), `${id}.jsonl`);
   }
 
-  async function ensureConversationsDir(slug: string): Promise<void> {
-    await mkdir(conversationsDir(slug), { recursive: true });
+  async function ensureSessionsDir(slug: string): Promise<void> {
+    await mkdir(sessionsDir(slug), { recursive: true });
   }
 
   async function appendJsonLines(path: string, items: unknown[]): Promise<void> {
@@ -92,19 +92,19 @@ export function createConversationStorage(projectsDir: string): ConversationStor
 
   async function writeNodeLines(
     projectSlug: string,
-    conversationId: string,
+    sessionId: string,
     nodes: TreeNode[],
   ): Promise<void> {
-    await ensureConversationsDir(projectSlug);
-    await appendJsonLines(conversationPath(projectSlug, conversationId), nodes);
+    await ensureSessionsDir(projectSlug);
+    await appendJsonLines(sessionPath(projectSlug, sessionId), nodes);
   }
 
-  /** Read, parse, and build tree from a single conversation file. */
-  async function readFull(projectSlug: string, id: string): Promise<(ParsedConversation & { tree: Map<string, TreeNodeWithChildren> }) | null> {
-    const path = conversationPath(projectSlug, id);
+  /** Read, parse, and build tree from a single session file. */
+  async function readFull(projectSlug: string, id: string): Promise<(ParsedSession & { tree: Map<string, TreeNodeWithChildren> }) | null> {
+    const path = sessionPath(projectSlug, id);
     try {
       const content = await readFile(path, "utf-8");
-      const parsed = parseConversationFile(content);
+      const parsed = parseSessionFile(content);
       const tree = buildTreeMap(parsed.nodes);
       return { ...parsed, tree };
     } catch {
@@ -113,8 +113,8 @@ export function createConversationStorage(projectsDir: string): ConversationStor
   }
 
   return {
-    async listConversations(projectSlug: string): Promise<Conversation[]> {
-      const dir = conversationsDir(projectSlug);
+    async listSessions(projectSlug: string): Promise<Session[]> {
+      const dir = sessionsDir(projectSlug);
       if (!existsSync(dir)) return [];
 
       const entries = await readdir(dir);
@@ -125,60 +125,60 @@ export function createConversationStorage(projectsDir: string): ConversationStor
           const id = basename(file, ".jsonl");
           const data = await readFull(projectSlug, id);
           if (!data) return null;
-          return deriveConversation(id, data.header, data.nodes, data.tree);
+          return deriveSession(id, data.header, data.nodes, data.tree);
         }),
       );
 
       return results
-        .filter((c): c is Conversation => c !== null)
+        .filter((s): s is Session => s !== null)
         .sort((a, b) => b.updatedAt - a.updatedAt);
     },
 
-    async getConversation(projectSlug: string, id: string): Promise<Conversation | null> {
+    async getSession(projectSlug: string, id: string): Promise<Session | null> {
       const data = await readFull(projectSlug, id);
       if (!data) return null;
-      return deriveConversation(id, data.header, data.nodes, data.tree);
+      return deriveSession(id, data.header, data.nodes, data.tree);
     },
 
-    async loadConversationWithTree(projectSlug: string, id: string): Promise<LoadedConversation | null> {
+    async loadSessionWithTree(projectSlug: string, id: string): Promise<LoadedSession | null> {
       const data = await readFull(projectSlug, id);
       if (!data) return null;
-      const conversation = deriveConversation(id, data.header, data.nodes, data.tree);
-      const activePath = conversation.rootNodeId ? computeActivePath(data.tree, conversation.rootNodeId) : [];
-      return { conversation, tree: data.tree, activePath };
+      const session = deriveSession(id, data.header, data.nodes, data.tree);
+      const activePath = session.rootNodeId ? computeActivePath(data.tree, session.rootNodeId) : [];
+      return { session, tree: data.tree, activePath };
     },
 
-    async loadSnapshot(projectSlug: string, id: string): Promise<ConversationSnapshot | null> {
-      const loaded = await this.loadConversationWithTree(projectSlug, id);
+    async loadSnapshot(projectSlug: string, id: string): Promise<SessionSnapshot | null> {
+      const loaded = await this.loadSessionWithTree(projectSlug, id);
       if (!loaded) return null;
       return {
-        conversation: loaded.conversation,
+        session: loaded.session,
         nodes: [...loaded.tree.values()],
         activePath: loaded.activePath,
       };
     },
 
-    async createConversation(
+    async createSession(
       projectSlug: string,
       provider: string,
       model: string,
       compactedFrom?: string,
       mode?: SessionMode,
-    ): Promise<Conversation> {
-      await ensureConversationsDir(projectSlug);
+    ): Promise<Session> {
+      await ensureSessionsDir(projectSlug);
       const id = nanoid(12);
       const now = Date.now();
 
-      const header: ConversationHeader = {
+      const header: SessionHeader = {
         _header: true, createdAt: now, provider, model,
         ...(compactedFrom ? { compactedFrom } : {}),
         ...(mode ? { mode } : {}),
       };
-      await writeFile(conversationPath(projectSlug, id), JSON.stringify(header) + "\n");
+      await writeFile(sessionPath(projectSlug, id), JSON.stringify(header) + "\n");
 
       return {
         id,
-        title: "New conversation",
+        title: "New session",
         createdAt: now,
         updatedAt: now,
         rootNodeId: "",
@@ -190,30 +190,30 @@ export function createConversationStorage(projectsDir: string): ConversationStor
       };
     },
 
-    async deleteConversation(projectSlug: string, id: string): Promise<void> {
+    async deleteSession(projectSlug: string, id: string): Promise<void> {
       try {
-        await unlink(conversationPath(projectSlug, id));
+        await unlink(sessionPath(projectSlug, id));
       } catch { /* ignore ENOENT */ }
     },
 
-    async appendNode(projectSlug: string, conversationId: string, node: TreeNode): Promise<void> {
-      await writeNodeLines(projectSlug, conversationId, [node]);
+    async appendNode(projectSlug: string, sessionId: string, node: TreeNode): Promise<void> {
+      await writeNodeLines(projectSlug, sessionId, [node]);
     },
 
-    async appendNodes(projectSlug: string, conversationId: string, nodes: TreeNode[]): Promise<void> {
+    async appendNodes(projectSlug: string, sessionId: string, nodes: TreeNode[]): Promise<void> {
       if (nodes.length === 0) return;
-      await writeNodeLines(projectSlug, conversationId, nodes);
+      await writeNodeLines(projectSlug, sessionId, nodes);
     },
 
     async deleteSubtree(
       projectSlug: string,
-      conversationId: string,
+      sessionId: string,
       nodeId: string,
     ): Promise<{ rootNodeId: string; activeLeafId: string; activePath: string[] }> {
       // Single file read: parse header + build tree
-      const path = conversationPath(projectSlug, conversationId);
+      const path = sessionPath(projectSlug, sessionId);
       const content = await readFile(path, "utf-8");
-      const { headerLine, nodes } = parseConversationFile(content);
+      const { headerLine, nodes } = parseSessionFile(content);
       const tree = buildTreeMap(nodes);
 
       const target = tree.get(nodeId);
@@ -243,7 +243,7 @@ export function createConversationStorage(projectsDir: string): ConversationStor
         return { rootNodeId: "", activeLeafId: "", activePath: [] };
       }
 
-      await writeFile(path, serializeConversation(headerLine, tree), "utf-8");
+      await writeFile(path, serializeSession(headerLine, tree), "utf-8");
 
       const rootNode = [...tree.values()].find((n) => !n.parentId);
       const rootNodeId = rootNode?.id ?? "";
@@ -256,10 +256,10 @@ export function createConversationStorage(projectsDir: string): ConversationStor
 
     async switchBranch(
       projectSlug: string,
-      conversationId: string,
+      sessionId: string,
       nodeId: string,
     ): Promise<SwitchBranchResult | null> {
-      const loaded = await this.loadConversationWithTree(projectSlug, conversationId);
+      const loaded = await this.loadSessionWithTree(projectSlug, sessionId);
       if (!loaded) return null;
       const tree = loaded.tree;
       if (!tree.has(nodeId)) return null;
@@ -269,11 +269,11 @@ export function createConversationStorage(projectsDir: string): ConversationStor
         .filter((n) => n.activeChildId)
         .map((n): BranchMarker => ({ _marker: "branch", nodeId: n.id, activeChildId: n.activeChildId! }));
       if (markers.length > 0) {
-        const path = conversationPath(projectSlug, conversationId);
+        const path = sessionPath(projectSlug, sessionId);
         await appendJsonLines(path, markers);
       }
 
-      const { rootNodeId } = loaded.conversation;
+      const { rootNodeId } = loaded.session;
       const activePath = rootNodeId ? computeActivePath(tree, rootNodeId) : [];
       return { activePath, activeLeafId: newLeafId };
     },

@@ -1,7 +1,7 @@
 // --- Re-export pi-ai/pi-agent-core message types as canonical persistence types ---
 
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { SessionMode } from "./conversation/format.js";
+import type { SessionMode } from "./session/format.js";
 
 export type { AgentMessage };
 
@@ -16,7 +16,7 @@ export interface TokenUsage {
   contextTokens?: number;
 }
 
-// --- Conversation tree node ---
+// --- Session tree node ---
 
 /**
  * Node meta tags drive UI rendering decisions in MessageBubble.
@@ -27,7 +27,7 @@ export interface TokenUsage {
 export type NodeMeta = "skill-load" | "compact-summary";
 
 /**
- * A node in the conversation tree. Wraps a pi-ai AgentMessage with tree
+ * A node in the session tree. Wraps a pi-ai AgentMessage with tree
  * metadata (id, parentId, activeChildId) and agentchan-specific fields.
  */
 export interface TreeNode {
@@ -40,9 +40,9 @@ export interface TreeNode {
   meta?: NodeMeta;
 }
 
-// --- Conversation metadata ---
+// --- Session metadata ---
 
-export interface Conversation {
+export interface Session {
   id: string;
   title: string;
   createdAt: number;
