@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -43,47 +43,47 @@ export function FileTree({
   onSelect, onDelete, onDeleteDir, onReveal, onRename, onCreateFile, onCreateDir,
 }: FileTreeProps) {
   const { t } = useI18n();
-  const tree = useMemo(() => buildTree(entries), [entries]);
+  const tree = buildTree(entries);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [inlineEdit, setInlineEdit] = useState<InlineEdit>(null);
 
-  const toggle = useCallback((path: string) => {
+  const toggle = (path: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
       return next;
     });
-  }, []);
+  };
 
-  const expandFolder = useCallback((path: string) => {
+  const expandFolder = (path: string) => {
     setCollapsed((prev) => {
       if (!prev.has(path)) return prev;
       const next = new Set(prev);
       next.delete(path);
       return next;
     });
-  }, []);
+  };
 
-  const startNewFile = useCallback((parentPath: string | null) => {
+  const startNewFile = (parentPath: string | null) => {
     if (parentPath) expandFolder(parentPath);
     setInlineEdit({ mode: "new-file", parentPath });
-  }, [expandFolder]);
+  };
 
-  const startNewDir = useCallback((parentPath: string | null) => {
+  const startNewDir = (parentPath: string | null) => {
     if (parentPath) expandFolder(parentPath);
     setInlineEdit({ mode: "new-dir", parentPath });
-  }, [expandFolder]);
+  };
 
-  const startRename = useCallback((path: string, currentName: string) => {
+  const startRename = (path: string, currentName: string) => {
     setInlineEdit({ mode: "rename", path, currentName });
-  }, []);
+  };
 
-  const cancelInline = useCallback(() => {
+  const cancelInline = () => {
     setInlineEdit(null);
-  }, []);
+  };
 
-  const commitInline = useCallback((value: string) => {
+  const commitInline = (value: string) => {
     if (!inlineEdit) return;
     const name = value.trim();
     if (!name || name.includes("/") || name.includes("\\")) {
@@ -101,7 +101,7 @@ export function FileTree({
       }
     }
     setInlineEdit(null);
-  }, [inlineEdit, onCreateFile, onCreateDir, onRename]);
+  };
 
   const rootInline = inlineEdit && inlineEdit.mode !== "rename" && inlineEdit.parentPath === null;
 
