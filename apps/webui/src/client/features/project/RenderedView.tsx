@@ -128,14 +128,18 @@ export function RenderedView() {
     return () => clearTimeout(timer);
   }, [phase]);
 
+  // 스트리밍 중 pending UI가 매 rAF마다 anchor를 다시 잡으면서 스크롤을 끌어내리므로,
+  // 스트리밍이 끝난 직후 한 번만 바닥으로 이동시킨다. isStreaming이 true→false로 바뀌는
+  // 전이에서 effect가 재실행되며 최종 결과로 스크롤된다.
   useEffect(() => {
+    if (stream.isStreaming) return;
     const el = containerRef.current;
     if (!el) return;
     const anchor = el.querySelector("[data-chat-anchor]");
     if (anchor) {
       anchor.scrollIntoView({ behavior: "smooth" });
     }
-  }, [rendererView.html]);
+  }, [rendererView.html, stream.isStreaming]);
 
   useEffect(() => {
     const el = frontRef.current;
