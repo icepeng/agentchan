@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect, useLayoutEffect } from "react";
+import { useRef, useState, useEffect, useLayoutEffect } from "react";
 import { segmentSentences } from "@/client/shared/sentenceSegmenter.js";
 
 export interface SentenceAnimationState {
@@ -19,17 +19,10 @@ export function useSentenceAnimation(
     new Set(),
   );
 
-  const { confirmed, pending } = useMemo(
-    () => segmentSentences(text),
-    [text],
-  );
+  const { confirmed, pending } = segmentSentences(text);
 
-  const confirmedSentences = useMemo(() => {
-    if (!isStreaming && pending) {
-      return [...confirmed, pending];
-    }
-    return confirmed;
-  }, [confirmed, pending, isStreaming]);
+  const confirmedSentences =
+    !isStreaming && pending ? [...confirmed, pending] : confirmed;
 
   useLayoutEffect(() => {
     const prevCount = animatedCountRef.current;
