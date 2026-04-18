@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -245,11 +245,11 @@ export function SaveAsTemplateModal({ slug, onClose }: SaveAsTemplateModalProps)
     });
   }, [slug]);
 
-  const tree = useMemo(() => buildTree(fileEntries), [fileEntries]);
-  const filePathsMap = useMemo(() => buildFilePathsMap(tree), [tree]);
+  const tree = buildTree(fileEntries);
+  const filePathsMap = buildFilePathsMap(tree);
   const hasFiles = fileEntries.length > 0;
 
-  const toggleExclude = useCallback((node: TreeNode) => {
+  const toggleExclude = (node: TreeNode) => {
     setExcluded((prev) => {
       const next = new Set(prev);
       const paths = collectFilePaths(node);
@@ -261,18 +261,18 @@ export function SaveAsTemplateModal({ slug, onClose }: SaveAsTemplateModalProps)
       }
       return next;
     });
-  }, []);
+  };
 
-  const toggleCollapse = useCallback((path: string) => {
+  const toggleCollapse = (path: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
       return next;
     });
-  }, []);
+  };
 
-  const doSave = useCallback(async (overwrite: boolean) => {
+  const doSave = async (overwrite: boolean) => {
     if (!slug) return;
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -299,7 +299,7 @@ export function SaveAsTemplateModal({ slug, onClose }: SaveAsTemplateModalProps)
     } catch {
       setSaving(false);
     }
-  }, [slug, name, description, excluded, onClose]);
+  };
 
   return (
     <Dialog open={slug !== null} onOpenChange={(open) => { if (!open) onClose(); }} size={hasFiles ? "xl" : "md"}>
