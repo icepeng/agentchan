@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
 import { FileTree } from "./FileTree.js";
 import { FileEditor } from "./FileEditor.js";
 import { UnsavedDialog } from "./UnsavedDialog.js";
@@ -40,9 +40,9 @@ export function EditModePanel() {
   const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
   const dragStartRef = useRef(0);
 
-  const handleTreeResize = useCallback((delta: number) => {
+  const handleTreeResize = (delta: number) => {
     setTreeWidth(Math.max(MIN_TREE_WIDTH, Math.min(MAX_TREE_WIDTH, dragStartRef.current + delta)));
-  }, []);
+  };
 
   return (
     <>
