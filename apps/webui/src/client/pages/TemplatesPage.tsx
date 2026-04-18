@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, BookOpen, GripVertical } from "lucide-react";
 import { useSWRConfig } from "swr";
 import {
@@ -133,19 +133,17 @@ export function TemplatesPage() {
 
   // Show cached README when available, otherwise synthesize a doc from the
   // template meta so the hero/cover still render while the body fetches.
-  const displayDoc: ReadmeDoc | null = useMemo(() => {
-    if (!selectedTemplate) return null;
-    if (readme) return readme;
-    return {
-      frontmatter: {
-        name: selectedTemplate.name,
-        description: selectedTemplate.description,
-      },
-      body: "",
-    };
-  }, [selectedTemplate, readme]);
+  const displayDoc: ReadmeDoc | null = selectedTemplate
+    ? readme ?? {
+        frontmatter: {
+          name: selectedTemplate.name,
+          description: selectedTemplate.description,
+        },
+        body: "",
+      }
+    : null;
 
-  const handleCreate = useCallback(async () => {
+  const handleCreate = async () => {
     if (!selectedSlug || creating) return;
     const name = nameInput.trim();
     if (!name) {
@@ -159,24 +157,21 @@ export function TemplatesPage() {
     } finally {
       setCreating(false);
     }
-  }, [selectedSlug, creating, nameInput, createProject, uiDispatch]);
+  };
 
-  const handleKeyNav = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!templates || templates.length === 0) return;
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const cur = selectedIndex < 0 ? 0 : selectedIndex;
-        const next =
-          e.key === "ArrowDown"
-            ? Math.min(cur + 1, templates.length - 1)
-            : Math.max(cur - 1, 0);
-        const nextTemplate = templates[next];
-        if (nextTemplate) setSelectedSlug(nextTemplate.slug);
-      }
-    },
-    [templates, selectedIndex],
-  );
+  const handleKeyNav = (e: React.KeyboardEvent) => {
+    if (!templates || templates.length === 0) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const cur = selectedIndex < 0 ? 0 : selectedIndex;
+      const next =
+        e.key === "ArrowDown"
+          ? Math.min(cur + 1, templates.length - 1)
+          : Math.max(cur - 1, 0);
+      const nextTemplate = templates[next];
+      if (nextTemplate) setSelectedSlug(nextTemplate.slug);
+    }
+  };
 
   const sensors = useSensors(
     // Require a small drag distance so that clicks on the handle (to focus it)
@@ -185,38 +180,35 @@ export function TemplatesPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const handleDragEnd = useCallback(
-    async (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      if (!templates) return;
-      const from = templates.findIndex((x) => x.slug === active.id);
-      const to = templates.findIndex((x) => x.slug === over.id);
-      if (from < 0 || to < 0) return;
-      const next = arrayMove(templates, from, to);
-      try {
-        await mutate<TemplateMeta[]>(
-          qk.templates(),
-          async () => {
-            await saveTemplateOrder(next.map((x) => x.slug));
-            return next;
-          },
-          {
-            optimisticData: next,
-            rollbackOnError: true,
-            revalidate: false,
-            populateCache: true,
-          },
-        );
-      } catch (err) {
-        console.error("[templates] reorder failed", err);
-        alert(t("templates.reorderFailed"));
-      }
-    },
-    [templates, mutate, t],
-  );
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    if (!templates) return;
+    const from = templates.findIndex((x) => x.slug === active.id);
+    const to = templates.findIndex((x) => x.slug === over.id);
+    if (from < 0 || to < 0) return;
+    const next = arrayMove(templates, from, to);
+    try {
+      await mutate<TemplateMeta[]>(
+        qk.templates(),
+        async () => {
+          await saveTemplateOrder(next.map((x) => x.slug));
+          return next;
+        },
+        {
+          optimisticData: next,
+          rollbackOnError: true,
+          revalidate: false,
+          populateCache: true,
+        },
+      );
+    } catch (err) {
+      console.error("[templates] reorder failed", err);
+      alert(t("templates.reorderFailed"));
+    }
+  };
 
-  const templateIds = useMemo(() => templates?.map((tpl) => tpl.slug) ?? [], [templates]);
+  const templateIds = templates?.map((tpl) => tpl.slug) ?? [];
 
   return (
     <div
