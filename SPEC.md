@@ -148,9 +148,22 @@ interface BinaryFile {
 ### 6.1 계약
 
 ```typescript
+interface RenderToolCallView {
+  id: string;
+  name: string;
+  // "streaming"=tool_use 입력 JSON 수신 중, "executing"=실행 중, "done"=완료
+  status: "streaming" | "executing" | "done";
+}
+interface RenderStreamView {
+  isStreaming: boolean;                        // idle이면 false
+  text: string;                                // 현재 assistant 턴의 누적 텍스트 (델타 아님)
+  toolCalls: ReadonlyArray<RenderToolCallView>;
+}
+
 interface RenderContext {
-  files: ProjectFile[];    // files/ 전체 스캔 결과
-  baseUrl: string;         // 에셋 URL prefix
+  files: ProjectFile[];       // files/ 전체 스캔 결과
+  baseUrl: string;            // 에셋 URL prefix
+  stream: RenderStreamView;   // 항상 present. idle 시 EMPTY_RENDER_STREAM
 }
 
 // 렌더러가 export해야 하는 함수
@@ -159,10 +172,12 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 
 ### 6.2 제약
 
-- 입력은 `RenderContext` 뿐. sessions, skills, SYSTEM.md, 에이전트 상태에 접근 불가
+- 입력은 `RenderContext` 뿐. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출하며 `entities/stream/toRenderStream.ts` 매퍼가 단독 경계
 - 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - 외부 모듈 import 불가. 타입은 파일 내에 인라인 선언
 - 출력은 HTML 문자열 하나
+- 스트리밍 중에는 requestAnimationFrame 주기로 재호출되므로 렌더 비용이 프레임 안에 들어와야 한다 (idiomorph가 DOM diff로 부담을 낮춘다)
+- 스트리밍 구간(`stream.isStreaming` true) 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷이다. 완료 시 full refresh로 1회 재동기화된다
 
 ### 6.3 도출 특성
 
@@ -227,11 +242,11 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 ### 8.2 Renderer (`renderer.ts`)
 
 **제약:**
-- R1. 입력은 `RenderContext { files, baseUrl }` 뿐이다
+- R1. 입력은 `RenderContext { files, baseUrl, stream }` 뿐이다 (`stream`은 항상 present — idle 시 `EMPTY_RENDER_STREAM`)
 - R2. 출력은 `render(ctx): string` — HTML 문자열 하나
 - R3. 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
 - R4. 외부 모듈 import 불가
-- R5. sessions, skills, SYSTEM.md, 에이전트 상태에 접근 불가
+- R5. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출. 내부 `StreamSlot`과의 경계는 `entities/stream/toRenderStream.ts` 매퍼 단독
 
 **도출 특성:**
 - (R1+R2) 순수 함수 — `files → HTML`

@@ -13,3 +13,4 @@ export type {
   ToolCallState,
 } from "./stream.types.js";
 export { EMPTY_USAGE, EMPTY_STREAM } from "./stream.types.js";
+export { toRenderStream } from "./toRenderStream.js";

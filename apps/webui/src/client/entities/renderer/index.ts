@@ -1,11 +1,14 @@
 export type {
   RenderContext,
   ProjectFile,
+  RenderStreamView,
+  RenderToolCallView,
   RendererTheme,
   RendererThemeTokens,
   ResolvedThemeVars,
   RendererAction,
 } from "./renderer.types.js";
+export { EMPTY_RENDER_STREAM } from "./renderer.types.js";
 
 export {
   validateTheme,

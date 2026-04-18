@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Idiomorph } from "idiomorph";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/stream/index.js";
+import { useActiveStream, toRenderStream } from "@/client/entities/stream/index.js";
 import {
   useOutput,
   useRendererViewState,
@@ -18,7 +18,7 @@ export function RenderedView() {
   const project = useProjectSelectionState();
   const rendererView = useRendererViewState();
   const stream = useActiveStream();
-  const { refresh } = useOutput();
+  const { refresh, refreshStream } = useOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
@@ -26,6 +26,12 @@ export function RenderedView() {
   const prevSlugRef = useRef<string | null>(project.activeProjectSlug);
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [phase, setPhase] = useState<TransitionPhase>("idle");
+
+  // rAF tick이 effect re-run 없이 최신 slot을 읽을 수 있도록 ref로 미러링.
+  const streamRef = useRef(stream);
+  useEffect(() => {
+    streamRef.current = stream;
+  });
 
   // Snapshot the current renderer DOM into the back layer so it can cross-fade
   // out while the new project's renderer loads. Must stay declared above the
@@ -64,6 +70,20 @@ export function RenderedView() {
       void refresh();
     }
   }, [stream.isStreaming, project.activeProjectSlug, refresh]);
+
+  // 스트리밍 중 requestAnimationFrame 주기로 stream view 렌더를 트리거한다.
+  // refreshStream이 캐시된 렌더러를 동기 호출하므로 프레임 안에 끝나고,
+  // 동일 HTML이면 dispatch를 건너뛰어 RendererView 소비자 재렌더를 막는다.
+  useEffect(() => {
+    if (!stream.isStreaming) return;
+    let raf = 0;
+    const tick = () => {
+      refreshStream(toRenderStream(streamRef.current));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [stream.isStreaming, refreshStream]);
 
   useEffect(() => {
     const el = frontRef.current;

@@ -47,9 +47,22 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | DataFile | BinaryFile;
 
+interface RenderToolCallView {
+  id: string;
+  name: string;
+  status: "streaming" | "executing" | "done";
+}
+
+interface RenderStreamView {
+  isStreaming: boolean;
+  text: string;
+  toolCalls: ReadonlyArray<RenderToolCallView>;
+}
+
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
+  stream: RenderStreamView;
 }
 
 // ── Renderer theme contract (인라인 선언) ──
@@ -4135,7 +4148,111 @@ const STYLES = `<style>
       margin: 0;
     }
   }
+
+  /* ── PENDING CARD ── reel viewport 하단(채팅바 바로 위)에 sticky */
+  .rpg-pending {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    margin: 18px -36px -40px;
+    padding: 12px 36px 14px;
+    border-top: 1px solid color-mix(in srgb, var(--rpg-gold) 50%, transparent);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--color-elevated) 94%, transparent),
+        color-mix(in srgb, var(--color-elevated) 98%, transparent));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: rpg-pending-fade 0.4s ease-out;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .rpg-pending[data-mode="combat"] {
+    border-top-color: color-mix(in srgb, var(--rpg-wax) 60%, transparent);
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, ${COMBAT_SURFACE} 94%, transparent),
+        color-mix(in srgb, ${COMBAT_SURFACE} 98%, transparent));
+  }
+  .rpg-pending-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--rpg-font-display);
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--rpg-gold);
+  }
+  .rpg-pending[data-mode="combat"] .rpg-pending-head {
+    color: var(--rpg-wax);
+  }
+  .rpg-pending-glyph {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px color-mix(in srgb, currentColor 80%, transparent);
+    animation: rpg-pending-breathe 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .rpg-pending-tool {
+    margin-left: auto;
+    font-family: var(--rpg-font-num);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: color-mix(in srgb, var(--color-fg-3) 80%, currentColor);
+    text-transform: none;
+  }
+  .rpg-pending-preview {
+    margin: 0;
+    font-family: var(--rpg-font-body);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 1.6;
+    color: color-mix(in srgb, var(--color-fg-2) 85%, var(--rpg-ink));
+    border-left: 2px solid color-mix(in srgb, var(--rpg-gold) 35%, transparent);
+    padding-left: 10px;
+  }
+  .rpg-pending[data-mode="combat"] .rpg-pending-preview {
+    border-left-color: color-mix(in srgb, var(--rpg-wax) 50%, transparent);
+  }
+  @keyframes rpg-pending-fade {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes rpg-pending-breathe {
+    0%, 100% { opacity: 0.5; transform: scale(0.85); }
+    50%      { opacity: 1;   transform: scale(1.15); }
+  }
 </style>`;
+
+// ── Pending card ──────────────────────────────
+// 스트리밍 중에만 reel 말미에 "잉크가 마르는 중…" 양피지 카드를 표시한다.
+// 평상/전투 data-mode를 상속하여 팔레트가 자동 전환된다.
+
+function renderPendingCard(
+  stream: RenderStreamView,
+  mode: "peace" | "combat",
+): string {
+  // 항상 DOM에 유지하고 hidden으로만 토글 — Idiomorph가 id 기반으로 매칭한다.
+  const active = stream.toolCalls.find((tc) => tc.status !== "done");
+  const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
+  const raw = stream.text.trim();
+  const clipped = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;
+  const toolLabel = active ? active.name.replace(/_/g, " ") : "";
+  const hidden = stream.isStreaming ? "" : " hidden";
+  return `
+    <aside id="rpg-pending" class="rpg-pending" data-mode="${mode}"${hidden} role="status" aria-live="polite">
+      <div class="rpg-pending-head">
+        <span class="rpg-pending-glyph" aria-hidden="true"></span>
+        <span>${escapeHtml(label)}</span>
+        <span class="rpg-pending-tool"${toolLabel ? "" : " hidden"}>· ${escapeHtml(toolLabel)}</span>
+      </div>
+      <p class="rpg-pending-preview"${clipped ? "" : " hidden"}>${escapeHtml(clipped)}</p>
+    </aside>`;
+}
 
 // ── Main render function ──────────────────────
 
@@ -4144,6 +4261,7 @@ export function render(ctx: RenderContext): string {
   const visibleCtx: RenderContext = {
     files: ctx.files.filter(isVisible),
     baseUrl: ctx.baseUrl,
+    stream: ctx.stream,
   };
 
   const charIndex = buildCharacterIndex(visibleCtx);
@@ -4188,6 +4306,7 @@ export function render(ctx: RenderContext): string {
           <div class="rpg-reel-filigree" aria-hidden="true"></div>
           ${reelEvents}
           ${choicesBlock}
+          ${renderPendingCard(ctx.stream, mode)}
           <div data-chat-anchor></div>
         </main>
         ${sidePanel}

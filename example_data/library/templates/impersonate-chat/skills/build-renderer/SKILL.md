@@ -27,7 +27,10 @@ renderer.ts는 외부 import 없이 단일 파일로 작성한다. 모든 타입
 interface TextFile { type: "text"; path: string; content: string; frontmatter: Record<string, unknown> | null; modifiedAt: number; }
 interface BinaryFile { type: "binary"; path: string; modifiedAt: number; }
 type ProjectFile = TextFile | BinaryFile;
-interface RenderContext { files: ProjectFile[]; baseUrl: string; }
+
+interface RenderToolCallView { id: string; name: string; status: "streaming" | "executing" | "done"; }
+interface RenderStreamView { isStreaming: boolean; text: string; toolCalls: ReadonlyArray<RenderToolCallView>; }
+interface RenderContext { files: ProjectFile[]; baseUrl: string; stream: RenderStreamView; }
 
 export function render(ctx: RenderContext): string {
   // ctx.files에서 콘텐츠를 읽고, ctx.baseUrl로 에셋 URL을 구성하여 HTML 문자열 반환
