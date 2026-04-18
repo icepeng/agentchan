@@ -1,9 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { useConfigMutations } from "@/client/entities/config/index.js";
 import { useSkills } from "@/client/entities/skill/index.js";
-import { useActiveRuntime } from "@/client/entities/project-runtime/index.js";
-import { useSessions } from "@/client/entities/session/index.js";
-import { useProjectState } from "@/client/entities/project/index.js";
+import {
+  useSessions,
+  useActiveSessionSelection,
+} from "@/client/entities/session/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
@@ -12,8 +14,8 @@ import { useCommandPalette } from "./useCommandPalette.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const { update: updateConfig } = useConfigMutations();
-  const runtime = useActiveRuntime();
-  const { activeProjectSlug } = useProjectState();
+  const selection = useActiveSessionSelection();
+  const { activeProjectSlug } = useProjectSelectionState();
   const { data: skills = [] } = useSkills(activeProjectSlug);
   const { data: sessions = [] } = useSessions(activeProjectSlug);
   const ui = useUIState();
@@ -91,7 +93,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
       );
       if (entry?.environment === "meta") {
         const activeSession = sessions.find(
-          (s) => s.id === runtime.sessionId,
+          (s) => s.id === selection.openSessionId,
         );
         if (activeSession?.mode === "meta") return false;
 
@@ -104,7 +106,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
 
       return false; // skill commands fall through to send()
     },
-    [executeLocalCommand, entries, sessions, runtime.sessionId, create, send, setText],
+    [executeLocalCommand, entries, sessions, selection.openSessionId, create, send, setText],
   );
 
   return { palette, selectCommand, tryExecuteCommand };

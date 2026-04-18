@@ -1,4 +1,9 @@
-import type { RenderContext } from "./project.types.js";
+import type {
+  RenderContext,
+  RendererTheme,
+  RendererThemeTokens,
+  ResolvedThemeVars,
+} from "./renderer.types.js";
 
 /**
  * Renderer-owned theme: 렌더러가 프로젝트 페이지 한정으로 전역 CSS custom property를
@@ -10,30 +15,6 @@ import type { RenderContext } from "./project.types.js";
  * - `theme` export는 정적 객체 또는 `(ctx: RenderContext) => RendererTheme` 함수 둘 다 지원.
  *   함수면 매 refresh마다 현재 files를 보고 팔레트를 다르게 반환할 수 있다 (예: 전투/평시 분기).
  */
-
-/**
- * 토큰 이름은 agentchan 전역 CSS 변수(`--color-*`)와 1:1로 대응한다.
- * 렌더러 작성자가 토큰을 선언하면 그대로 해당 `--color-*`가 오버라이드된다.
- */
-export interface RendererThemeTokens {
-  void?: string; // --color-void     (앱 최상위 배경)
-  base?: string; // --color-base     (Sidebar / AgentPanel / BottomInput)
-  surface?: string; // --color-surface  (카드 / 인풋 박스)
-  elevated?: string; // --color-elevated (hover / 강조)
-  accent?: string; // --color-accent   (포인트 색)
-  fg?: string; // --color-fg       (본문 텍스트)
-  fg2?: string; // --color-fg-2     (메타 텍스트 / 아이콘 기본)
-  fg3?: string; // --color-fg-3     (부드러운 텍스트)
-  edge?: string; // --color-edge     (테두리 베이스)
-}
-
-export interface RendererTheme {
-  base: RendererThemeTokens;
-  /** base(=light) 위에 덮어쓰는 dark 토큰. 생략하면 base 단일 모드. */
-  dark?: Partial<RendererThemeTokens>;
-  /** 명시되면 프로젝트 페이지 안에서 사용자 토글과 무관하게 해당 scheme으로 강제 고정. */
-  prefersScheme?: "light" | "dark";
-}
 
 const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
   void: "--color-void",
@@ -121,15 +102,6 @@ export function validateTheme(raw: unknown): RendererTheme | null {
   }
 
   return theme;
-}
-
-export interface ResolvedThemeVars {
-  /** 주입할 CSS custom property 맵. CSSProperties로 캐스팅해서 `style`에 꽂는다. */
-  vars: Record<string, string>;
-  /** 이 테마가 유도하는 실효 scheme. prefersScheme 강제 시 사용. */
-  effectiveScheme: "light" | "dark";
-  /** 사용자의 scheme과 실제 적용 scheme이 어긋나는가? (data-theme override 필요성) */
-  forceScheme: boolean;
 }
 
 /**

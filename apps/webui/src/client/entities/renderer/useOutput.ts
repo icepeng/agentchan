@@ -1,13 +1,12 @@
 import { useCallback } from "react";
 import {
-  useProjectState,
-  useProjectDispatch,
+  useProjectSelectionState,
   fetchWorkspaceFiles,
   fetchTranspiledRenderer,
-  validateTheme,
-  resolveRawTheme,
 } from "@/client/entities/project/index.js";
-import type { RenderContext, RendererTheme } from "@/client/entities/project/index.js";
+import { useRendererViewDispatch } from "./RendererViewContext.js";
+import { validateTheme, resolveRawTheme } from "./projectTheme.js";
+import type { RenderContext, RendererTheme } from "./renderer.types.js";
 
 function escapeHtml(text: string): string {
   return text
@@ -48,11 +47,11 @@ async function executeRenderer(
 }
 
 export function useOutput() {
-  const projectState = useProjectState();
-  const projectDispatch = useProjectDispatch();
+  const { activeProjectSlug } = useProjectSelectionState();
+  const rendererViewDispatch = useRendererViewDispatch();
 
   const refresh = useCallback(async () => {
-    const slug = projectState.activeProjectSlug;
+    const slug = activeProjectSlug;
     if (!slug) return;
 
     try {
@@ -67,16 +66,16 @@ export function useOutput() {
       };
 
       const { html, theme } = await executeRenderer(rendererResult.js, context);
-      projectDispatch({ type: "SET_RENDER_OUTPUT", html, theme });
+      rendererViewDispatch({ type: "SET_OUTPUT", html, theme });
     } catch (e: unknown) {
       if (e instanceof Error && e.message.includes("404")) {
-        projectDispatch({ type: "SET_RENDER_OUTPUT", html: NOT_FOUND_HTML, theme: null });
+        rendererViewDispatch({ type: "SET_OUTPUT", html: NOT_FOUND_HTML, theme: null });
       } else {
         const message = e instanceof Error ? e.message : String(e);
-        projectDispatch({ type: "SET_RENDER_OUTPUT", html: errorHtml(message), theme: null });
+        rendererViewDispatch({ type: "SET_OUTPUT", html: errorHtml(message), theme: null });
       }
     }
-  }, [projectState.activeProjectSlug, projectDispatch]);
+  }, [activeProjectSlug, rendererViewDispatch]);
 
   return { refresh };
 }

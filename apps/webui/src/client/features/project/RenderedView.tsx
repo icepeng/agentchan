@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Idiomorph } from "idiomorph";
-import { useOutput } from "./useOutput.js";
-import { useProjectState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/project-runtime/index.js";
-import { useRendererActionDispatch } from "@/client/entities/renderer-action/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import { useActiveStream } from "@/client/entities/stream/index.js";
+import {
+  useOutput,
+  useRendererViewState,
+  useRendererViewDispatch,
+  useRendererActionDispatch,
+} from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 
 type TransitionPhase = "idle" | "capture" | "fading";
@@ -12,7 +16,9 @@ type TransitionPhase = "idle" | "capture" | "fading";
 const FADE_DURATION_MS = 300;
 
 export function RenderedView() {
-  const project = useProjectState();
+  const project = useProjectSelectionState();
+  const rendererView = useRendererViewState();
+  const rendererViewDispatch = useRendererViewDispatch();
   const stream = useActiveStream();
   const { refresh } = useOutput();
   const actionDispatch = useRendererActionDispatch();
@@ -46,10 +52,13 @@ export function RenderedView() {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- snapshot DOM과 phase가 같은 커밋에 묶여야 overlay가 먼저 paint됨
         setPhase("capture");
       }
+      // Reset html immediately on project switch — theme stays until new
+      // renderer output replaces it, avoiding a two-step palette flicker.
+      rendererViewDispatch({ type: "CLEAR_HTML" });
     }
     prevSlugRef.current = newSlug;
     void refresh();
-  }, [project.activeProjectSlug, refresh]);
+  }, [project.activeProjectSlug, refresh, rendererViewDispatch]);
 
   useEffect(() => {
     if (!stream.isStreaming && project.activeProjectSlug) {
@@ -60,19 +69,19 @@ export function RenderedView() {
   useEffect(() => {
     const el = frontRef.current;
     if (!el) return;
-    if (!project.renderedHtml) return;
-    Idiomorph.morph(el, project.renderedHtml, {
+    if (!rendererView.html) return;
+    Idiomorph.morph(el, rendererView.html, {
       morphStyle: "innerHTML",
       ignoreActiveValue: true,
     });
-  }, [project.renderedHtml]);
+  }, [rendererView.html]);
 
   // Two rAFs: the first lets the `capture` className paint, the second lets
   // the browser register the fading transition class before opacity flips —
   // otherwise capture→fading is coalesced and the transition is skipped.
   useEffect(() => {
     if (phase !== "capture") return;
-    if (!project.renderedHtml) return;
+    if (!rendererView.html) return;
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => setPhase("fading"));
@@ -81,7 +90,7 @@ export function RenderedView() {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [phase, project.renderedHtml]);
+  }, [phase, rendererView.html]);
 
   useEffect(() => {
     if (phase !== "fading") return;
@@ -105,7 +114,7 @@ export function RenderedView() {
     if (anchor) {
       anchor.scrollIntoView({ behavior: "smooth" });
     }
-  }, [project.renderedHtml]);
+  }, [rendererView.html]);
 
   useEffect(() => {
     const el = frontRef.current;

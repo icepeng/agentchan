@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
-import { useProjectState } from "@/client/entities/project/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useUIState, useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
@@ -23,7 +23,7 @@ interface ProjectPageProps {
 }
 
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
-  const project = useProjectState();
+  const project = useProjectSelectionState();
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();

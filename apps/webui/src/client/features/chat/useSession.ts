@@ -1,31 +1,35 @@
 import { useCallback } from "react";
 import { useSWRConfig } from "swr";
-import { useProjectState } from "@/client/entities/project/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
-  useActiveRuntime,
-  useProjectRuntimeDispatch,
-} from "@/client/entities/project-runtime/index.js";
-import { useSessionMutations } from "@/client/entities/session/index.js";
+  useStreamDispatch,
+} from "@/client/entities/stream/index.js";
+import {
+  useSessionMutations,
+  useActiveSessionSelection,
+  useSessionSelectionDispatch,
+} from "@/client/entities/session/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 
 export function useSession() {
-  const projectState = useProjectState();
-  const runtime = useActiveRuntime();
-  const runtimeDispatch = useProjectRuntimeDispatch();
-  const slug = projectState.activeProjectSlug;
+  const projectSelection = useProjectSelectionState();
+  const selection = useActiveSessionSelection();
+  const sessionSelectionDispatch = useSessionSelectionDispatch();
+  const streamDispatch = useStreamDispatch();
+  const slug = projectSelection.activeProjectSlug;
   const mutations = useSessionMutations(slug);
   const { mutate } = useSWRConfig();
 
   const create = useCallback(async (mode?: "creative" | "meta") => {
     if (!slug) return;
     const { session } = await mutations.create(mode);
-    runtimeDispatch({
+    sessionSelectionDispatch({
       type: "SET_ACTIVE_SESSION",
       projectSlug: slug,
       sessionId: session.id,
     });
     return session;
-  }, [slug, mutations, runtimeDispatch]);
+  }, [slug, mutations, sessionSelectionDispatch]);
 
   const load = useCallback(
     (id: string) => {
@@ -34,28 +38,28 @@ export function useSession() {
       // under the new key. Mirrors `useProject.selectProject`, which flips
       // `activeProjectSlug` before the sessions-list fetch resolves —
       // subscribers fall back to empty arrays for the single render gap.
-      runtimeDispatch({
+      sessionSelectionDispatch({
         type: "SET_ACTIVE_SESSION",
         projectSlug: slug,
         sessionId: id,
       });
     },
-    [slug, runtimeDispatch],
+    [slug, sessionSelectionDispatch],
   );
 
   const remove = useCallback(
     async (id: string) => {
       if (!slug) return;
       await mutations.remove(id);
-      if (runtime.sessionId === id) {
-        runtimeDispatch({
+      if (selection.openSessionId === id) {
+        sessionSelectionDispatch({
           type: "SET_ACTIVE_SESSION",
           projectSlug: slug,
           sessionId: null,
         });
       }
     },
-    [slug, mutations, runtimeDispatch, runtime.sessionId],
+    [slug, mutations, sessionSelectionDispatch, selection.openSessionId],
   );
 
   const refresh = useCallback(async () => {
@@ -65,49 +69,49 @@ export function useSession() {
 
   const switchBranch = useCallback(
     async (nodeId: string) => {
-      if (!runtime.sessionId || !slug) return;
-      await mutations.switchBranch(runtime.sessionId, nodeId);
+      if (!selection.openSessionId || !slug) return;
+      await mutations.switchBranch(selection.openSessionId, nodeId);
     },
-    [runtime.sessionId, slug, mutations],
+    [selection.openSessionId, slug, mutations],
   );
 
   const deleteNode = useCallback(
     async (nodeId: string) => {
-      if (!runtime.sessionId || !slug) return;
-      await mutations.removeNode(runtime.sessionId, nodeId);
+      if (!selection.openSessionId || !slug) return;
+      await mutations.removeNode(selection.openSessionId, nodeId);
     },
-    [runtime.sessionId, slug, mutations],
+    [selection.openSessionId, slug, mutations],
   );
 
   const setReplyTo = useCallback(
     (nodeId: string | null) => {
       if (!slug) return;
-      runtimeDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
+      sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
     },
-    [slug, runtimeDispatch],
+    [slug, sessionSelectionDispatch],
   );
 
   const compact = useCallback(async () => {
-    if (!slug || !runtime.sessionId) return;
-    const sessionId = runtime.sessionId;
-    // STREAM_START locks the input while compact runs server-side.
-    runtimeDispatch({ type: "STREAM_START", projectSlug: slug, sessionId });
+    if (!slug || !selection.openSessionId) return;
+    const sessionId = selection.openSessionId;
+    // Stream START locks the input while compact runs server-side.
+    streamDispatch({ type: "START", projectSlug: slug });
     try {
       const result = await mutations.compact(sessionId);
-      runtimeDispatch({
+      sessionSelectionDispatch({
         type: "SET_ACTIVE_SESSION",
         projectSlug: slug,
         sessionId: result.session.id,
       });
-      runtimeDispatch({ type: "STREAM_RESET", projectSlug: slug });
+      streamDispatch({ type: "RESET", projectSlug: slug });
     } catch (err) {
-      runtimeDispatch({
-        type: "STREAM_ERROR",
+      streamDispatch({
+        type: "ERROR",
         projectSlug: slug,
         error: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [slug, runtime.sessionId, mutations, runtimeDispatch]);
+  }, [slug, selection.openSessionId, mutations, sessionSelectionDispatch, streamDispatch]);
 
   return {
     create,
@@ -118,6 +122,6 @@ export function useSession() {
     setReplyTo,
     deleteNode,
     compact,
-    activeSessionId: runtime.sessionId,
+    activeSessionId: selection.openSessionId,
   };
 }

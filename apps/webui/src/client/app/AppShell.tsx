@@ -1,10 +1,11 @@
 import { Suspense, lazy, useEffect, useMemo } from "react";
 import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
-  useProjectState,
+  useRendererViewState,
   resolveThemeVars,
-} from "@/client/entities/project/index.js";
+} from "@/client/entities/renderer/index.js";
 import { useTheme } from "@/client/features/settings/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { markSeen } from "@/client/shared/notifications.js";
@@ -37,7 +38,8 @@ function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
 export function AppShell() {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
-  const project = useProjectState();
+  const project = useProjectSelectionState();
+  const rendererView = useRendererViewState();
   const { resolved: userScheme } = useTheme();
   const { t } = useI18n();
 
@@ -67,14 +69,14 @@ export function AppShell() {
   // Renderer-owned theme is active only on the project page in chat mode.
   // Edit mode / Settings / Templates stay neutral on the base Obsidian Teal palette.
   const themeActive =
-    project.rendererTheme !== null &&
+    rendererView.theme !== null &&
     ui.currentPage.page === "main" &&
     ui.viewMode === "chat";
 
   const resolvedTheme = useMemo(() => {
-    if (!themeActive || !project.rendererTheme) return null;
-    return resolveThemeVars(project.rendererTheme, userScheme);
-  }, [themeActive, project.rendererTheme, userScheme]);
+    if (!themeActive || !rendererView.theme) return null;
+    return resolveThemeVars(rendererView.theme, userScheme);
+  }, [themeActive, rendererView.theme, userScheme]);
 
   const rootStyle = resolvedTheme?.vars;
   // data-theme는 prefersScheme가 명시된 경우에만 scope-local override.

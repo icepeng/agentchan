@@ -45,14 +45,3 @@ export interface Session {
   compactedFrom?: string;
   mode?: "creative" | "meta";
 }
-
-// --- Runtime-only: tool call in-progress view ---
-
-export interface ToolCallState {
-  id: string;
-  name: string;
-  inputJson: string;
-  done: boolean;
-  executing?: boolean;
-  parallel?: boolean;
-}

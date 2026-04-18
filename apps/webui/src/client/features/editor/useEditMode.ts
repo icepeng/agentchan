@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
-import { useProjectState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/project-runtime/index.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import { useActiveStream } from "@/client/entities/stream/index.js";
 import { useUIState } from "@/client/entities/ui/index.js";
 import {
   useEditorState,
@@ -14,7 +14,7 @@ import { qk } from "@/client/shared/queryKeys.js";
 
 export function useEditMode() {
   const ui = useUIState();
-  const project = useProjectState();
+  const project = useProjectSelectionState();
   const stream = useActiveStream();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();

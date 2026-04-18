@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { useProjectDispatch, useProjects } from "@/client/entities/project/index.js";
+import { useProjectSelectionDispatch, useProjects } from "@/client/entities/project/index.js";
 import { localStore } from "@/client/shared/storage.js";
 
 import { AppShell } from "@/client/app/index.js";
 
 export function App() {
-  const projectDispatch = useProjectDispatch();
+  const projectDispatch = useProjectSelectionDispatch();
   const { data: projects } = useProjects();
   const decidedRef = useRef(false);
 

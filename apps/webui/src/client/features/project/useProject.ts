@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSWRConfig } from "swr";
 import {
-  useProjectState,
-  useProjectDispatch,
+  useProjectSelectionState,
+  useProjectSelectionDispatch,
   useProjects,
   useProjectMutations,
 } from "@/client/entities/project/index.js";
 import {
-  useProjectRuntimeState,
-  useProjectRuntimeDispatch,
-  selectRuntime,
-} from "@/client/entities/project-runtime/index.js";
+  useStreamDispatch,
+} from "@/client/entities/stream/index.js";
 import {
+  useRendererViewDispatch,
+} from "@/client/entities/renderer/index.js";
+import {
+  useSessionSelectionState,
+  useSessionSelectionDispatch,
+  selectSessionSelection,
   abortProjectStream,
   type Session,
 } from "@/client/entities/session/index.js";
@@ -19,10 +23,12 @@ import { qk } from "@/client/shared/queryKeys.js";
 import { localStore } from "@/client/shared/storage.js";
 
 export function useProject() {
-  const projectState = useProjectState();
-  const projectDispatch = useProjectDispatch();
-  const runtimeState = useProjectRuntimeState();
-  const runtimeDispatch = useProjectRuntimeDispatch();
+  const projectSelection = useProjectSelectionState();
+  const projectSelectionDispatch = useProjectSelectionDispatch();
+  const sessionSelectionState = useSessionSelectionState();
+  const sessionSelectionDispatch = useSessionSelectionDispatch();
+  const streamDispatch = useStreamDispatch();
+  const rendererViewDispatch = useRendererViewDispatch();
   const { mutate } = useSWRConfig();
 
   const { data: projects = [] } = useProjects();
@@ -34,19 +40,19 @@ export function useProject() {
   } = useProjectMutations();
 
   // Ref so selectProject doesn't re-create on every stream delta.
-  const runtimeStateRef = useRef(runtimeState);
-  useEffect(() => { runtimeStateRef.current = runtimeState; });
+  const sessionSelectionRef = useRef(sessionSelectionState);
+  useEffect(() => { sessionSelectionRef.current = sessionSelectionState; });
 
   const activateProject = useCallback(
     async (slug: string): Promise<Session[]> => {
-      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug });
+      projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug });
       // Single GET: SWR's fetcher runs, result seeds the cache atomically.
       // Calling `fetchSessions` separately risked a duplicate fetch when
       // `useSessions(slug)` mounted outside the dedupe window.
       const sessions = await mutate<Session[]>(qk.sessions(slug));
       return sessions ?? [];
     },
-    [projectDispatch, mutate],
+    [projectSelectionDispatch, mutate],
   );
 
   const selectProject = useCallback(
@@ -54,10 +60,13 @@ export function useProject() {
       // No-op if already active. Otherwise SET_ACTIVE_PROJECT would re-fire
       // and clear renderedHtml, but the slug-keyed useEffect in RenderedView
       // wouldn't re-run (primitive equality), leaving the renderer blank.
-      if (projectState.activeProjectSlug === slug) return;
+      if (projectSelection.activeProjectSlug === slug) return;
 
       localStore.lastProject.write(slug);
-      const rememberedSessionId = selectRuntime(runtimeStateRef.current, slug).sessionId;
+      const rememberedSessionId = selectSessionSelection(
+        sessionSelectionRef.current,
+        slug,
+      ).openSessionId;
 
       // Sessions list + remembered detail fetch in parallel. The detail
       // fetch is speculative (we don't yet know the remembered id is valid);
@@ -71,23 +80,23 @@ export function useProject() {
       ]);
 
       if (rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)) {
-        runtimeDispatch({
+        sessionSelectionDispatch({
           type: "SET_ACTIVE_SESSION",
           projectSlug: slug,
           sessionId: rememberedSessionId,
         });
       }
     },
-    [projectState.activeProjectSlug, activateProject, runtimeDispatch, mutate],
+    [projectSelection.activeProjectSlug, activateProject, sessionSelectionDispatch, mutate],
   );
 
   const createProject = useCallback(
     async (name: string, fromTemplate?: string) => {
       const project = await createProjectMutation(name, fromTemplate);
-      projectDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
+      projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
       return project;
     },
-    [createProjectMutation, projectDispatch],
+    [createProjectMutation, projectSelectionDispatch],
   );
 
   const duplicateProject = useCallback(
@@ -109,28 +118,33 @@ export function useProject() {
   const deleteProject = useCallback(
     async (slug: string) => {
       // Abort any in-flight stream so pi-agent-core cancels the LLM request
-      // and drop the runtime slot so stale completion events can't resurrect it.
+      // and drop the stream+selection slots so stale completion events can't
+      // resurrect them.
       abortProjectStream(slug);
-      runtimeDispatch({ type: "CLOSE_RUNTIME", projectSlug: slug });
+      streamDispatch({ type: "CLOSE", projectSlug: slug });
+      sessionSelectionDispatch({ type: "CLEAR", projectSlug: slug });
 
       await deleteProjectMutation(slug);
 
-      if (projectState.activeProjectSlug === slug) {
+      if (projectSelection.activeProjectSlug === slug) {
         const fallback = projects.find((p) => p.slug !== slug);
         if (fallback) {
           localStore.lastProject.write(fallback.slug);
           await activateProject(fallback.slug);
         } else {
-          projectDispatch({ type: "CLEAR_RENDER" });
+          projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: null });
+          rendererViewDispatch({ type: "CLEAR" });
         }
       }
     },
     [
-      projectState.activeProjectSlug,
+      projectSelection.activeProjectSlug,
       projects,
       deleteProjectMutation,
-      runtimeDispatch,
-      projectDispatch,
+      streamDispatch,
+      sessionSelectionDispatch,
+      projectSelectionDispatch,
+      rendererViewDispatch,
       activateProject,
     ],
   );
@@ -147,7 +161,7 @@ export function useProject() {
     duplicateProject,
     renameProject,
     deleteProject,
-    activeProjectSlug: projectState.activeProjectSlug,
+    activeProjectSlug: projectSelection.activeProjectSlug,
     projects,
   };
 }

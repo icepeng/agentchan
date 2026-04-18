@@ -9,9 +9,4 @@ export interface Project {
   hasCover?: boolean;
 }
 
-export interface RenderContext {
-  files: ProjectFile[];
-  baseUrl: string;
-}
-
 export type { ProjectFile };
