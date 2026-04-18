@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorView, keymap, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
@@ -250,9 +250,9 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
   useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     if (dirtyRef.current) await onSaveRef.current();
-  }, []);
+  };
 
   const language = path ? detectLanguage(path) : undefined;
 
