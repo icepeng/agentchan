@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect, useCallback, useState } from "react";
+import { useReducer, useRef, useEffect, useState } from "react";
 import { Check, Plus, Settings, X } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
@@ -83,7 +83,7 @@ export function ProjectTabs() {
     if (isEditing) editInputRef.current?.focus();
   }, [isEditing]);
 
-  const handleCreate = useCallback(async () => {
+  const handleCreate = async () => {
     if (mode.type !== "creating") return;
     if (submittingRef.current) return;
     const name = mode.value.trim();
@@ -99,9 +99,9 @@ export function ProjectTabs() {
     } finally {
       submittingRef.current = false;
     }
-  }, [mode, createProject]);
+  };
 
-  const handleDuplicate = useCallback(async () => {
+  const handleDuplicate = async () => {
     if (mode.type !== "duplicating") return;
     if (submittingRef.current) return;
     const name = mode.value.trim();
@@ -117,7 +117,7 @@ export function ProjectTabs() {
     } finally {
       submittingRef.current = false;
     }
-  }, [mode, duplicateProject]);
+  };
 
   const handleRename = async (slug: string) => {
     if (mode.type !== "editing") return;
@@ -148,15 +148,12 @@ export function ProjectTabs() {
   const [settingsSlug, setSettingsSlug] = useState<string | null>(null);
   const [saveAsTemplateSlug, setSaveAsTemplateSlug] = useState<string | null>(null);
 
-  const handleOpenSettings = useCallback(
-    (slug: string) => {
-      if (activeProjectSlug !== slug) {
-        void selectProject(slug);
-      }
-      setSettingsSlug(slug);
-    },
-    [activeProjectSlug, selectProject],
-  );
+  const handleOpenSettings = (slug: string) => {
+    if (activeProjectSlug !== slug) {
+      void selectProject(slug);
+    }
+    setSettingsSlug(slug);
+  };
 
   return (
     <div className="px-2 py-1 space-y-0.5">
