@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
@@ -73,10 +73,10 @@ export function AppShell() {
     ui.currentPage.page === "main" &&
     ui.viewMode === "chat";
 
-  const resolvedTheme = useMemo(() => {
-    if (!themeActive || !rendererView.theme) return null;
-    return resolveThemeVars(rendererView.theme, userScheme);
-  }, [themeActive, rendererView.theme, userScheme]);
+  const resolvedTheme =
+    themeActive && rendererView.theme
+      ? resolveThemeVars(rendererView.theme, userScheme)
+      : null;
 
   const rootStyle = resolvedTheme?.vars;
   // data-theme는 prefersScheme가 명시된 경우에만 scope-local override.
