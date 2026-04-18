@@ -89,7 +89,7 @@ export function useStreaming() {
 
   /**
    * Shared streaming callbacks — write-through SWR for persisted state (user
-   * node, assistant nodes), reducer for in-flight ephemera (streamingText,
+   * node, assistant nodes), reducer for in-flight ephemera (text,
    * tool call input deltas, usage delta). `projectSlug` + `sessionId`
    * are captured in closure so mutations and dispatches route to the right
    * cache key / stream slot even after the user switches projects.
@@ -178,8 +178,8 @@ export function useStreaming() {
           streamDispatch({ type: "TOOL_END", projectSlug, id }),
         onToolExecStart: (id, _name, parallel) =>
           streamDispatch({ type: "TOOL_EXEC_START", projectSlug, id, parallel }),
-        onToolExecEnd: (id) =>
-          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id }),
+        onToolExecEnd: (id, isError) =>
+          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id, isError }),
         onUsageSummary: (usage) =>
           streamDispatch({ type: "USAGE_SUMMARY", projectSlug, ...usage }),
         onAssistantNodes: (nodes) => {

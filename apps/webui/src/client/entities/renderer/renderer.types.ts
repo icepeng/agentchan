@@ -1,13 +1,9 @@
 import type { ProjectFile } from "@agentchan/creative-agent";
 
 /**
- * 렌더러에 노출되는 스트림 상태의 **좁힌 view**. `entities/stream`의 내부
- * `StreamSlot`과 구조가 일부 겹치지만 별개 타입으로 유지한다 — 내부 필드
- * (`streamError`, `streamUsageDelta`, `inputJson` 등) 추가가 렌더러 계약 변경
- * 없이 가능하도록 `toRenderStream` mapper가 유일한 다리 역할을 한다.
- *
- * idle 시점에는 `EMPTY_RENDER_STREAM` (isStreaming=false, text="", toolCalls=[])이
- * 들어간다. 렌더러는 `ctx.stream.isStreaming`으로 스트리밍 중 여부를 판단한다.
+ * 렌더러에 노출되는 스트림 상태의 **좁힌 view**. 내부 `StreamSlot`에 새 필드가
+ * 추가돼도 `toRenderStream` 매퍼를 통과하지 않는 한 렌더러에 자동 노출되지
+ * 않는다. idle 시점에는 `EMPTY_RENDER_STREAM`이 들어간다.
  */
 export interface RenderStreamView {
   isStreaming: boolean;
@@ -16,14 +12,21 @@ export interface RenderStreamView {
 }
 
 /**
- * `streaming`: 모델이 tool_use 블록의 입력 JSON을 아직 스트리밍 중.
- * `executing`: JSON 수신 완료, 도구 실행 중.
- * `done`: 실행 완료.
+ * 도구 호출 수명주기의 선형 phase markers 둘 + 완료 sentinel(`result`).
+ *
+ * - `argsComplete=F`                                 → 입력 JSON 스트리밍 중
+ * - `argsComplete=T, executionStarted=F`             → 실행 준비 중
+ * - `argsComplete=T, executionStarted=T, result===undefined` → 실행 중
+ * - `result !== undefined`                            → 완료 (`result.isError`로 성공/실패)
+ *
+ * 편의: `!tc.result`로 "아직 진행 중인 도구"를 골라낼 수 있다.
  */
 export interface RenderToolCallView {
   id: string;
   name: string;
-  status: "streaming" | "executing" | "done";
+  argsComplete: boolean;
+  executionStarted: boolean;
+  result?: { isError: boolean };
 }
 
 export const EMPTY_RENDER_STREAM: RenderStreamView = {

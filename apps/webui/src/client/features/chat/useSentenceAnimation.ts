@@ -11,7 +11,7 @@ export interface SentenceAnimationState {
  * are newly confirmed so the caller can apply a one-shot entrance animation.
  */
 export function useSentenceAnimation(
-  streamingText: string,
+  text: string,
   isStreaming: boolean,
 ): SentenceAnimationState {
   const animatedCountRef = useRef(0);
@@ -20,8 +20,8 @@ export function useSentenceAnimation(
   );
 
   const { confirmed, pending } = useMemo(
-    () => segmentSentences(streamingText),
-    [streamingText],
+    () => segmentSentences(text),
+    [text],
   );
 
   const confirmedSentences = useMemo(() => {
@@ -52,12 +52,12 @@ export function useSentenceAnimation(
   }, [confirmedSentences.length]);
 
   useEffect(() => {
-    if (!streamingText) {
+    if (!text) {
       animatedCountRef.current = 0;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- 스트리밍 종료 시 애니메이션 리셋
       setAnimatingIndices(new Set());
     }
-  }, [streamingText]);
+  }, [text]);
 
   return { confirmedSentences, animatingIndices };
 }

@@ -50,7 +50,9 @@ type ProjectFile = TextFile | DataFile | BinaryFile;
 interface RenderToolCallView {
   id: string;
   name: string;
-  status: "streaming" | "executing" | "done";
+  argsComplete: boolean;
+  executionStarted: boolean;
+  result?: { isError: boolean };
 }
 
 interface RenderStreamView {
@@ -4237,7 +4239,7 @@ function renderPendingCard(
   mode: "peace" | "combat",
 ): string {
   // 항상 DOM에 유지하고 hidden으로만 토글 — Idiomorph가 id 기반으로 매칭한다.
-  const active = stream.toolCalls.find((tc) => tc.status !== "done");
+  const active = stream.toolCalls.find((tc) => !tc.result);
   const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
   const raw = stream.text.trim();
   const clipped = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;

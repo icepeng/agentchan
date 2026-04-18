@@ -28,7 +28,7 @@ interface TextFile { type: "text"; path: string; content: string; frontmatter: R
 interface BinaryFile { type: "binary"; path: string; modifiedAt: number; }
 type ProjectFile = TextFile | BinaryFile;
 
-interface RenderToolCallView { id: string; name: string; status: "streaming" | "executing" | "done"; }
+interface RenderToolCallView { id: string; name: string; argsComplete: boolean; executionStarted: boolean; result?: { isError: boolean }; }
 interface RenderStreamView { isStreaming: boolean; text: string; toolCalls: ReadonlyArray<RenderToolCallView>; }
 interface RenderContext { files: ProjectFile[]; baseUrl: string; stream: RenderStreamView; }
 

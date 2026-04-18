@@ -151,8 +151,10 @@ interface BinaryFile {
 interface RenderToolCallView {
   id: string;
   name: string;
-  // "streaming"=tool_use 입력 JSON 수신 중, "executing"=실행 중, "done"=완료
-  status: "streaming" | "executing" | "done";
+  // 선형 phase markers 둘 (false→true 단조 증가) + 완료 sentinel:
+  argsComplete: boolean;             // 입력 JSON 스트리밍 완료
+  executionStarted: boolean;         // 도구 실행 시작
+  result?: { isError: boolean };     // 완료 시 채워짐. 완료 체크는 `!!tc.result`
 }
 interface RenderStreamView {
   isStreaming: boolean;                        // idle이면 false

@@ -5,11 +5,7 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-import {
-  EMPTY_STREAM,
-  EMPTY_USAGE,
-  type StreamSlot,
-} from "./stream.types.js";
+import { EMPTY_STREAM, type StreamSlot } from "./stream.types.js";
 
 // --- State ---
 
@@ -26,7 +22,7 @@ export type StreamAction =
   | { type: "TOOL_DELTA"; projectSlug: string; id: string; inputJson: string }
   | { type: "TOOL_END"; projectSlug: string; id: string }
   | { type: "TOOL_EXEC_START"; projectSlug: string; id: string; parallel: boolean }
-  | { type: "TOOL_EXEC_END"; projectSlug: string; id: string }
+  | { type: "TOOL_EXEC_END"; projectSlug: string; id: string; isError: boolean }
   | {
       type: "USAGE_SUMMARY";
       projectSlug: string;
@@ -62,32 +58,35 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
   switch (action.type) {
     case "START":
       return updateSlot(state, action.projectSlug, () => ({
+        ...EMPTY_STREAM,
         isStreaming: true,
-        streamingText: "",
-        streamingToolCalls: [],
-        streamError: null,
-        streamUsageDelta: EMPTY_USAGE,
       }));
 
     case "TEXT_DELTA":
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
-        streamingText: slot.streamingText + action.text,
+        text: slot.text + action.text,
       }));
 
     case "TOOL_START":
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
-        streamingToolCalls: [
-          ...slot.streamingToolCalls,
-          { id: action.id, name: action.name, inputJson: "", done: false },
+        toolCalls: [
+          ...slot.toolCalls,
+          {
+            id: action.id,
+            name: action.name,
+            inputJson: "",
+            argsComplete: false,
+            executionStarted: false,
+          },
         ],
       }));
 
     case "TOOL_DELTA":
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
-        streamingToolCalls: slot.streamingToolCalls.map((tc) =>
+        toolCalls: slot.toolCalls.map((tc) =>
           tc.id === action.id ? { ...tc, inputJson: tc.inputJson + action.inputJson } : tc,
         ),
       }));
@@ -95,24 +94,26 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
     case "TOOL_END":
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
-        streamingToolCalls: slot.streamingToolCalls.map((tc) =>
-          tc.id === action.id ? { ...tc, done: true } : tc,
+        toolCalls: slot.toolCalls.map((tc) =>
+          tc.id === action.id ? { ...tc, argsComplete: true } : tc,
         ),
       }));
 
     case "TOOL_EXEC_START":
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
-        streamingToolCalls: slot.streamingToolCalls.map((tc) =>
-          tc.id === action.id ? { ...tc, executing: true, parallel: action.parallel } : tc,
+        toolCalls: slot.toolCalls.map((tc) =>
+          tc.id === action.id
+            ? { ...tc, executionStarted: true, parallel: action.parallel }
+            : tc,
         ),
       }));
 
     case "TOOL_EXEC_END":
       return updateSlot(state, action.projectSlug, (slot) => ({
         ...slot,
-        streamingToolCalls: slot.streamingToolCalls.map((tc) =>
-          tc.id === action.id ? { ...tc, executing: false } : tc,
+        toolCalls: slot.toolCalls.map((tc) =>
+          tc.id === action.id ? { ...tc, result: { isError: action.isError } } : tc,
         ),
       }));
 
@@ -132,23 +133,12 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
       }));
 
     case "RESET":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        isStreaming: false,
-        streamingText: "",
-        streamingToolCalls: [],
-        streamError: null,
-        streamUsageDelta: EMPTY_USAGE,
-      }));
+      return updateSlot(state, action.projectSlug, () => EMPTY_STREAM);
 
     case "ERROR":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        isStreaming: false,
-        streamingText: "",
-        streamingToolCalls: [],
+      return updateSlot(state, action.projectSlug, () => ({
+        ...EMPTY_STREAM,
         streamError: action.error,
-        streamUsageDelta: EMPTY_USAGE,
       }));
 
     case "CLOSE": {

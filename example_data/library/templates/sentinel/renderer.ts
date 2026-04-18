@@ -17,7 +17,9 @@ type ProjectFile = TextFile | BinaryFile;
 interface RenderToolCallView {
   id: string;
   name: string;
-  status: "streaming" | "executing" | "done";
+  argsComplete: boolean;
+  executionStarted: boolean;
+  result?: { isError: boolean };
 }
 
 interface RenderStreamView {
@@ -1704,7 +1706,7 @@ const STYLES = `<style>
 function renderPendingStrip(stream: RenderStreamView): string {
   // 항상 DOM에 존재시키고 `hidden` 속성으로만 토글 — Idiomorph가 id 기반으로
   // 매칭하여 element를 유지하므로 ms-body 맨 위에 안정적으로 들어간다.
-  const active = stream.toolCalls.find((tc) => tc.status !== "done");
+  const active = stream.toolCalls.find((tc) => !tc.result);
   const detail = active
     ? `EXEC :: ${active.name.toUpperCase().replace(/_/g, " ")}`
     : "STREAMING RESPONSE";

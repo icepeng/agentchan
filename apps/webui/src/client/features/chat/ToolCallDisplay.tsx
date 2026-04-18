@@ -47,7 +47,7 @@ export function StreamingToolCall({ tc }: { tc: ToolCallState }) {
       <summary className={SUMMARY_CLASS}>
         <Indicator />
         <span className="font-mono text-xs text-accent font-medium">{tc.name}</span>
-        {!tc.done && <Indicator pulse />}
+        {!tc.result && <Indicator pulse />}
         <Chevron />
       </summary>
       {tc.inputJson && (
