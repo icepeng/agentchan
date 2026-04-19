@@ -22,7 +22,11 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
     case "SYNC_EXTERNAL_CONTENT":
       return { ...state, localContent: action.content, dirty: false };
     case "UPDATE_LOCAL_CONTENT":
-      return { ...state, localContent: action.content, dirty: true };
+      return {
+        ...state,
+        localContent: action.content,
+        dirty: action.content !== action.serverContent,
+      };
     case "MARK_CLEAN":
       return { ...state, dirty: false };
     case "DESELECT_FILE":

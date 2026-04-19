@@ -250,19 +250,21 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
   useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
-  const handleSave = async () => {
-    if (dirtyRef.current) await onSaveRef.current();
-  };
-
   const language = path ? detectLanguage(path) : undefined;
+  const hasContent = content !== null;
 
-  // Create / destroy EditorView when path changes
+  // Create / destroy EditorView when path changes or content first loads.
+  // hasContent toggles the effect on null→value transition so the view is built
+  // once content arrives; subsequent value→value edits don't re-run (would destroy focus/history).
   useEffect(() => {
     if (!containerRef.current || !path || content === null || isImagePath(path)) return;
 
     const saveKeymap = keymap.of([{
       key: "Mod-s",
-      run: () => { void handleSave(); return true; },
+      run: () => {
+        if (dirtyRef.current) void onSaveRef.current();
+        return true;
+      },
     }]);
 
     const updateListener = EditorView.updateListener.of((update) => {
@@ -316,7 +318,7 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
       view.destroy();
       viewRef.current = null;
     };
-  }, [path, language, handleSave]); // eslint-disable-line react-hooks/exhaustive-deps -- content used only for initial doc
+  }, [path, language, hasContent]); // eslint-disable-line react-hooks/exhaustive-deps -- content used only for initial doc; save/docChange via refs
 
   // Sync external content changes (e.g. agent wrote to this file)
   useEffect(() => {

@@ -104,7 +104,11 @@ export function useEditMode() {
   };
 
   const handleDocChange = (content: string) => {
-    editorDispatch({ type: "UPDATE_LOCAL_CONTENT", content });
+    // Without a server baseline we can't compute dirty; drop the edit rather
+    // than mark the buffer dirty against an unknown reference (would surface
+    // "save changes?" dialogs for files the user never touched).
+    if (!fileData) return;
+    editorDispatch({ type: "UPDATE_LOCAL_CONTENT", content, serverContent: fileData.content });
   };
 
   // Unsaved dialog handlers
