@@ -917,7 +917,7 @@ function renderPackManifest(items: InventoryItem[]): string {
   return `
     <details class="lg-appendix-section">
       <summary class="lg-appendix-head">
-        <span class="lg-appendix-title">Pack Manifest</span>
+        <span class="lg-appendix-title" data-short="Pack">Pack Manifest</span>
         <span class="lg-appendix-count">${items.length.toString().padStart(2, "0")}</span>
         <span class="lg-appendix-chevron" aria-hidden="true"></span>
       </summary>
@@ -952,7 +952,7 @@ function renderStandingCharts(quests: QuestEntry[]): string {
   return `
     <details class="lg-appendix-section">
       <summary class="lg-appendix-head">
-        <span class="lg-appendix-title">Standing Charts</span>
+        <span class="lg-appendix-title" data-short="Charts">Standing Charts</span>
         <span class="lg-appendix-count">${openCount.toString().padStart(2, "0")}</span>
         <span class="lg-appendix-chevron" aria-hidden="true"></span>
       </summary>
@@ -979,7 +979,7 @@ function renderAbilityScores(stats: RpgStats | null): string {
   return `
     <details class="lg-appendix-section" open>
       <summary class="lg-appendix-head">
-        <span class="lg-appendix-title">Ability Scores</span>
+        <span class="lg-appendix-title" data-short="Scores">Ability Scores</span>
         <span class="lg-appendix-count">4</span>
         <span class="lg-appendix-chevron" aria-hidden="true"></span>
       </summary>
@@ -1853,10 +1853,12 @@ const STYLES = `<style>
     margin: 0 auto;
     padding: 0 28px 24px;
     box-sizing: border-box;
+    container-type: inline-size;
+    container-name: lg-side;
   }
   @container (min-width: 1080px) {
     .lg-body {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(180px, 1fr);
     }
     .lg-reel { grid-column: 2; }
     .lg-side {
@@ -1867,7 +1869,7 @@ const STYLES = `<style>
       align-self: start;
       max-width: 300px;
       margin: 0;
-      padding: 28px 24px 32px 24px;
+      padding: 28px clamp(12px, 4cqi, 24px) 32px;
       max-height: calc(100vh - 96px);
       overflow-y: auto;
     }
@@ -2983,6 +2985,68 @@ const STYLES = `<style>
   }
   .lg-ability--weak .lg-ability-mod {
     color: var(--color-fg-4);
+  }
+
+  /* ── Margin gloss: 우측 카드가 자체 폭에 반응 ────────────────── */
+  @container lg-side (max-width: 280px) {
+    .lg-appendix-head { padding: 10px 14px; gap: 8px; }
+    .lg-appendix-title { letter-spacing: 0.14em; }
+    .lg-item-list, .lg-quest-list { padding: 4px 14px 14px; }
+    .lg-ability-list {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px;
+      padding: 4px 14px 14px;
+    }
+    .lg-item-desc, .lg-quest-desc {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  }
+  @container lg-side (max-width: 220px) {
+    .lg-appendix-title { font-size: 0; letter-spacing: 0; }
+    .lg-appendix-title::before {
+      content: attr(data-short);
+      font-family: var(--font-family-display);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-fg-2);
+    }
+    .lg-appendix-head { padding: 8px 12px; }
+    .lg-item-qty,
+    .lg-quest-flag,
+    .lg-item-flag { display: none; }
+    .lg-quest--pursuing .lg-quest-glyph { color: ${ILLUMINATED_COPPER}; }
+    .lg-item--expended .lg-item-glyph { opacity: 0.4; }
+    .lg-item, .lg-quest {
+      grid-template-columns: 14px minmax(0, 1fr);
+      grid-template-areas:
+        "glyph header"
+        ".     desc";
+    }
+    .lg-ability {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "mod"
+        "ko";
+      row-gap: 0;
+      padding: 6px 8px;
+      text-align: center;
+    }
+    .lg-ability-mod {
+      grid-area: mod;
+      font-size: 16px;
+    }
+    .lg-ability-ko {
+      grid-area: ko;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--color-fg-3);
+    }
+    .lg-item-list, .lg-quest-list, .lg-ability-list { padding: 4px 10px 12px; }
   }
 
   /* ── Empty state: Uncharted Shores ────────────────────────────── */
