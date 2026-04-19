@@ -14,10 +14,10 @@ import {
 
 const STEPS: OnboardingStep[] = [0, 1, 2];
 
-// Strategy §2-7 — game-like renderer.ts showcase first. Order is strategic
-// priority (not _order.json), so we hard-code it and gracefully skip any
-// slug that isn't present on disk (e.g. three-winds-ledger in a pruned branch).
-const FEATURED_SLUGS: readonly string[] = ["sentinel", "three-winds-ledger"];
+// Strategic priority, separate from _order.json (the Templates page sort
+// hint). Slugs missing from disk are filtered out so pruned branches or
+// template renames don't break the wizard.
+const FEATURED_SLUGS: readonly string[] = ["sentinel", "tides-of-moonhaven"];
 
 export function OnboardingWizard() {
   const ob = useOnboarding();
