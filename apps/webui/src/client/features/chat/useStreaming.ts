@@ -56,7 +56,7 @@ export function useStreaming() {
   const sessionSelectionState = useSessionSelectionState();
   const { t } = useI18n();
   // Needed so notification onClick can perform a full project switch
-  // (fetchSessions + fetchSkills) — not just flip activeProjectSlug,
+  // (sessions + skills SWR warm-up) — not just flip activeProjectSlug,
   // which would leave the target project's SWR caches cold.
   const { selectProject } = useProject();
 

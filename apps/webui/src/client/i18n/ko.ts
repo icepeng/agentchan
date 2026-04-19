@@ -11,9 +11,6 @@ export const translations: Record<TranslationKey, string> = {
   "provider.label": "프로바이더",
   "model.label": "모델",
 
-  // Skills
-  "skills.label": "스킬",
-
   // Theme
   "theme.title": "테마: {{preference}}",
 

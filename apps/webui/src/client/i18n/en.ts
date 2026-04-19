@@ -9,9 +9,6 @@ export const translations = {
   "provider.label": "Provider",
   "model.label": "Model",
 
-  // Skills
-  "skills.label": "Skills",
-
   // Theme
   "theme.title": "Theme: {{preference}}",
 
