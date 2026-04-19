@@ -1,5 +1,5 @@
 /**
- * Dice roller for rpg-chat. Returns human-readable text (multi-line).
+ * Dice roller for tides-of-moonhaven. Returns human-readable text (multi-line).
  *
  * Usage: <dice> [DC]
  *   dice: Standard notation (1d20, 2d6+3, 4d6kh3, d100)
