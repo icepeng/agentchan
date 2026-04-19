@@ -1,0 +1,9 @@
+hp:
+  current: 20
+  max: 20
+mp:
+  current: 0
+  max: 0
+emotion: 🙂
+location: 시작 지점
+conditions: []

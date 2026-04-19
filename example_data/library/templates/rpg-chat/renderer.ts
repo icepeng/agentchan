@@ -34,11 +34,35 @@ interface BinaryFile {
   modifiedAt: number;
 }
 
-type ProjectFile = TextFile | BinaryFile;
+interface DataFile {
+  type: "data";
+  path: string;
+  content: string;
+  data: unknown;
+  format: "yaml" | "json";
+  modifiedAt: number;
+}
+
+type ProjectFile = TextFile | BinaryFile | DataFile;
+
+interface RenderToolCall {
+  id: string;
+  name: string;
+  argsComplete: boolean;
+  executionStarted: boolean;
+  result?: { isError: boolean };
+}
+
+interface RenderStreamView {
+  isStreaming: boolean;
+  text: string;
+  toolCalls: RenderToolCall[];
+}
 
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
+  stream: RenderStreamView;
 }
 
 // ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
@@ -61,27 +85,58 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
-// ── Theme: Vellum Day — 크림 양피지 · 세피아 잉크 · 풍화 청동 · 채식 구리 ──
+// ── Theme: Vellum Day(평상) ↔ Iron Vigil(전투) ──
 //
-// sentinel과 동일한 override 패턴이지만 scheme이 light.
-// prefersScheme: "light" → Settings 이동 시 사용자의 원래 테마로 자동 복귀.
-// void는 페이지 외곽(조금 더 짙은 종이), surface는 로그북 본문의 가장 밝은 면.
+// world-state.yaml 의 mode 필드(peace|combat)에 따라 팔레트를 분기.
+// peace: 크림 양피지 · 세피아 잉크 · 풍화 청동 · 채식 구리 (light scheme)
+// combat: 어두운 가죽 · 촛불 황금 · 핏빛 잉크 (dark scheme)
+// 둘 다 prefersScheme 명시 → Settings 이동 시 사용자의 원래 테마로 자동 복귀.
 
-export function theme(_ctx: RenderContext): RendererTheme {
-  return {
-    base: {
-      void: "#e8dcc0",     // 낡은 양피지 가장자리 (body bg)
-      base: "#eee3c8",     // 페이지 외곽
-      surface: "#f6ecd2",  // 로그북 본문
-      elevated: "#fff8e4", // 폴라로이드·스탬프 캐리어
-      accent: "#3d7a6d",   // verdigris — 풍화된 청동, anima·신뢰·성공
-      fg: "#2d2015",       // 진한 세피아 잉크
-      fg2: "#5a4530",      // 중간 잉크
-      fg3: "#8a6e4d",      // 흐린 펜
-      edge: "#3d2a15",     // 잉크 hairline 기준색
-    },
-    prefersScheme: "light",
-  };
+const PEACE_THEME: RendererTheme = {
+  base: {
+    void: "#e8dcc0",     // 낡은 양피지 가장자리 (body bg)
+    base: "#eee3c8",     // 페이지 외곽
+    surface: "#f6ecd2",  // 로그북 본문
+    elevated: "#fff8e4", // 폴라로이드·스탬프 캐리어
+    accent: "#3d7a6d",   // verdigris — 풍화된 청동, anima·신뢰·성공
+    fg: "#2d2015",       // 진한 세피아 잉크
+    fg2: "#5a4530",      // 중간 잉크
+    fg3: "#8a6e4d",      // 흐린 펜
+    edge: "#3d2a15",     // 잉크 hairline 기준색
+  },
+  prefersScheme: "light",
+};
+
+const COMBAT_THEME: RendererTheme = {
+  base: {
+    void: "#1a110a",     // 검은 가죽 가장자리
+    base: "#1a110a",     // 어두운 가죽 본문
+    surface: "#251810",  // 패널
+    elevated: "#2e1c14", // 카드·스탬프
+    accent: "#d48a1f",   // 촛불 황금 — 강조·성공·고리
+    fg: "#d8c9a8",       // 촛불 아래 양피지 색
+    fg2: "#b8a38a",      // 어두운 잉크
+    fg3: "#8a7658",      // 흐린 어두운 잉크
+    edge: "#3d2a1f",     // 어두운 가죽 hairline
+  },
+  prefersScheme: "dark",
+};
+
+function readWorldMode(ctx: RenderContext): "peace" | "combat" {
+  const file = ctx.files.find(
+    (f): f is DataFile => f.type === "data" && f.path === "world-state.yaml",
+  );
+  if (!file) return "peace";
+  const root =
+    file.data && typeof file.data === "object"
+      ? (file.data as Record<string, unknown>)
+      : null;
+  if (!root) return "peace";
+  return root.mode === "combat" ? "combat" : "peace";
+}
+
+export function theme(ctx: RenderContext): RendererTheme {
+  return readWorldMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
 }
 
 // ── Palette (renderer internal) ──────────────
@@ -246,100 +301,190 @@ function formatInline(
 // ── RPG Types ───────────────────────────────
 
 interface RpgStatus {
-  hp?: { current: number; max: number };
-  mp?: { current: number; max: number };
+  hp: { current: number; max: number };
+  mp: { current: number; max: number };
   emotion?: string;
   location?: string;
-  effects?: string;
+  conditions: string[];
 }
 
 interface InventoryItem {
-  type: "+" | "-" | "=";
+  slug: string;
   name: string;
-  description?: string;
+  qty?: number;
+  note?: string;
 }
 
 interface QuestEntry {
-  type: "~" | "+" | "\u2713";
-  name: string;
-  description?: string;
+  id: string;
+  status: "active" | "done";
+  title: string;
+  note?: string;
 }
 
-// ── RPG Parsing (기존 로직 보존) ────────────
+interface RpgStats {
+  strength: number;
+  agility: number;
+  insight: number;
+  charisma: number;
+}
 
-function parseStatusBlock(content: string): RpgStatus | null {
-  const blocks = [...content.matchAll(/\[STATUS\]\n([\s\S]*?)\n?\[\/STATUS\]/g)];
-  if (blocks.length === 0) return null;
-  const lastBlock = blocks[blocks.length - 1][1];
+interface ChoiceOption {
+  label: string;
+  action: string;
+  stat?: string;
+  dc?: number;
+}
 
-  const status: RpgStatus = {};
-  for (const line of lastBlock.split("\n")) {
-    const match = line.match(/^(\S+):\s*(.+)$/);
-    if (!match) continue;
-    const [, key, value] = match;
-    switch (key) {
-      case "HP": {
-        const m = value.match(/(\d+)\/(\d+)/);
-        if (m) status.hp = { current: parseInt(m[1]), max: parseInt(m[2]) };
-        break;
-      }
-      case "MP": {
-        const m = value.match(/(\d+)\/(\d+)/);
-        if (m) status.mp = { current: parseInt(m[1]), max: parseInt(m[2]) };
-        break;
-      }
-      case "감정":
-        status.emotion = value.trim();
-        break;
-      case "위치":
-        status.location = value.trim();
-        break;
-      case "상태":
-        status.effects = value.trim();
-        break;
+// ── YAML Readers (DataFile.data is pre-parsed by scanner) ────────────
+
+function findDataFile(ctx: RenderContext, path: string): DataFile | null {
+  const file = ctx.files.find(
+    (f): f is DataFile => f.type === "data" && f.path === path,
+  );
+  return file ?? null;
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function readStatusYaml(ctx: RenderContext): RpgStatus | null {
+  const file = findDataFile(ctx, "status.yaml");
+  if (!file) return null;
+  const root = asObject(file.data);
+  if (!root) return null;
+  const hpObj = asObject(root.hp) ?? {};
+  const mpObj = asObject(root.mp) ?? {};
+  const conditionsRaw = Array.isArray(root.conditions) ? root.conditions : [];
+  return {
+    hp: {
+      current: asNumber(hpObj.current, 0),
+      max: asNumber(hpObj.max, 0),
+    },
+    mp: {
+      current: asNumber(mpObj.current, 0),
+      max: asNumber(mpObj.max, 0),
+    },
+    emotion: asString(root.emotion),
+    location: asString(root.location),
+    conditions: conditionsRaw
+      .map((c) => (typeof c === "string" ? c : null))
+      .filter((c): c is string => c !== null && c.length > 0),
+  };
+}
+
+function readInventoryYaml(ctx: RenderContext): InventoryItem[] {
+  const file = findDataFile(ctx, "inventory.yaml");
+  if (!file) return [];
+  const root = asObject(file.data);
+  if (!root) return [];
+  const items = Array.isArray(root.items) ? root.items : [];
+  const out: InventoryItem[] = [];
+  for (const raw of items) {
+    const obj = asObject(raw);
+    if (!obj) continue;
+    const slug = asString(obj.slug) ?? "";
+    const name = asString(obj.name) ?? slug;
+    if (!name) continue;
+    const item: InventoryItem = { slug, name };
+    if (typeof obj.qty === "number") item.qty = obj.qty;
+    const note = asString(obj.note);
+    if (note) item.note = note;
+    out.push(item);
+  }
+  return out;
+}
+
+function readStatsYaml(ctx: RenderContext): RpgStats | null {
+  const file = findDataFile(ctx, "stats.yaml");
+  if (!file) return null;
+  const root = asObject(file.data);
+  if (!root) return null;
+  return {
+    strength: asNumber(root.strength, 0),
+    agility: asNumber(root.agility, 0),
+    insight: asNumber(root.insight, 0),
+    charisma: asNumber(root.charisma, 0),
+  };
+}
+
+function readQuestYaml(ctx: RenderContext): QuestEntry[] {
+  const file = findDataFile(ctx, "quest.yaml");
+  if (!file) return [];
+  const root = asObject(file.data);
+  if (!root) return [];
+  const quests = Array.isArray(root.quests) ? root.quests : [];
+  const out: QuestEntry[] = [];
+  for (const raw of quests) {
+    const obj = asObject(raw);
+    if (!obj) continue;
+    const id = asString(obj.id) ?? "";
+    const title = asString(obj.title) ?? id;
+    if (!title) continue;
+    const status = obj.status === "done" ? "done" : "active";
+    const entry: QuestEntry = { id, status, title };
+    const note = asString(obj.note);
+    if (note) entry.note = note;
+    out.push(entry);
+  }
+  return out;
+}
+
+// ── [CHOICES] marker parser ────────────
+//
+// scene.md 의 마지막 [CHOICES]…[/CHOICES] 블록만 활성으로 추출한다.
+// 매 응답 끝에 새 [CHOICES] 가 append 되므로 자연스럽게 stale 제거.
+//
+// 라인 형식:  - label: ... | action: ... | stat: ... | dc: ...
+
+function parseChoicesMarker(content: string): ChoiceOption[] {
+  const blocks = [...content.matchAll(/\[CHOICES\]\n([\s\S]*?)\n?\[\/CHOICES\]/g)];
+  if (blocks.length === 0) return [];
+  const last = blocks[blocks.length - 1];
+  const body = last && last[1] ? last[1] : "";
+
+  const options: ChoiceOption[] = [];
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.replace(/^\s*-\s*/, "").trim();
+    if (!line) continue;
+    const fields: Record<string, string> = {};
+    for (const part of line.split("|")) {
+      const idx = part.indexOf(":");
+      if (idx < 0) continue;
+      const key = part.slice(0, idx).trim();
+      const value = part.slice(idx + 1).trim();
+      if (key) fields[key] = value;
     }
+    const label = fields.label;
+    const action = fields.action;
+    if (!label || !action) continue;
+    const opt: ChoiceOption = { label, action };
+    if (fields.stat) opt.stat = fields.stat;
+    if (fields.dc) {
+      const dcNum = parseInt(fields.dc, 10);
+      if (Number.isFinite(dcNum)) opt.dc = dcNum;
+    }
+    options.push(opt);
   }
-  return status;
-}
-
-function parseInventoryBlock(content: string): InventoryItem[] {
-  const blocks = [...content.matchAll(/\[INVENTORY\]\n([\s\S]*?)\n?\[\/INVENTORY\]/g)];
-  if (blocks.length === 0) return [];
-  const lastBlock = blocks[blocks.length - 1][1];
-
-  const items: InventoryItem[] = [];
-  for (const line of lastBlock.split("\n")) {
-    const match = line.match(/^([+\-=])\s+(.+?)(?:\s+\u2014\s+(.+))?$/);
-    if (!match) continue;
-    items.push({
-      type: match[1] as "+" | "-" | "=",
-      name: match[2].trim(),
-      description: match[3]?.trim(),
-    });
-  }
-  return items;
-}
-
-function parseQuestBlock(content: string): QuestEntry[] {
-  const blocks = [...content.matchAll(/\[QUEST\]\n([\s\S]*?)\n?\[\/QUEST\]/g)];
-  if (blocks.length === 0) return [];
-  const lastBlock = blocks[blocks.length - 1][1];
-
-  const quests: QuestEntry[] = [];
-  for (const line of lastBlock.split("\n")) {
-    const match = line.match(/^([~+\u2713])\s+(.+?)(?:\s+\u2014\s+(.+))?$/);
-    if (!match) continue;
-    quests.push({
-      type: match[1] as "~" | "+" | "\u2713",
-      name: match[2].trim(),
-      description: match[3]?.trim(),
-    });
-  }
-  return quests;
+  return options;
 }
 
 function stripRpgBlocks(content: string): string {
+  // [CHOICES] 는 렌더러가 별도 처리. 본문에서 제거.
+  // 구버전 [STATUS]/[INVENTORY]/[QUEST] 가 남아있을 수 있어 호환 차원에서 함께 제거.
   return content
+    .replace(/\[CHOICES\]\n[\s\S]*?\n?\[\/CHOICES\]\n?/g, "")
     .replace(/\[STATUS\]\n[\s\S]*?\n?\[\/STATUS\]\n?/g, "")
     .replace(/\[INVENTORY\]\n[\s\S]*?\n?\[\/INVENTORY\]\n?/g, "")
     .replace(/\[QUEST\]\n[\s\S]*?\n?\[\/QUEST\]\n?/g, "");
@@ -689,8 +834,8 @@ function renderLogHeader(status: RpgStatus | null, entryCode: string): string {
     : "";
 
   const effects =
-    status.effects && status.effects !== "없음"
-      ? `<span class="lg-effect">${escapeText(status.effects)}</span>`
+    status.conditions.length > 0
+      ? `<span class="lg-effect">${escapeText(status.conditions.join(" · "))}</span>`
       : "";
 
   return `
@@ -724,31 +869,15 @@ function renderLogHeader(status: RpgStatus | null, entryCode: string): string {
 
 function renderPackManifest(items: InventoryItem[]): string {
   if (items.length === 0) return "";
-  const activeCount = items.filter((i) => i.type !== "-").length;
   const rows = items
     .map((item) => {
-      const cls =
-        item.type === "+"
-          ? "lg-item lg-item--acquired"
-          : item.type === "-"
-            ? "lg-item lg-item--expended"
-            : "lg-item lg-item--kept";
-      const glyph =
-        item.type === "+"
-          ? `<span class="lg-item-glyph" style="color:${VERDIGRIS}">&#x2295;</span>`
-          : item.type === "-"
-            ? `<span class="lg-item-glyph" style="color:${VERMILION}">&#x2296;</span>`
-            : '<span class="lg-item-glyph">&middot;</span>';
-      const note =
-        item.type === "+"
-          ? '<span class="lg-item-flag">acquired</span>'
-          : item.type === "-"
-            ? '<span class="lg-item-flag lg-item-flag--spent">expended</span>'
-            : "";
-      const desc = item.description
-        ? ` <span class="lg-item-desc">— ${escapeText(item.description)}</span>`
+      const qty = typeof item.qty === "number" && item.qty > 1
+        ? ` <span class="lg-item-qty">&times;${item.qty}</span>`
         : "";
-      return `<li class="${cls}">${glyph}<span class="lg-item-name">${escapeText(item.name)}</span>${desc}${note}</li>`;
+      const note = item.note
+        ? ` <span class="lg-item-desc">— ${escapeText(item.note)}</span>`
+        : "";
+      return `<li class="lg-item lg-item--kept"><span class="lg-item-glyph">&middot;</span><span class="lg-item-name">${escapeText(item.name)}</span>${qty}${note}</li>`;
     })
     .join("");
 
@@ -756,7 +885,7 @@ function renderPackManifest(items: InventoryItem[]): string {
     <details class="lg-appendix-section">
       <summary class="lg-appendix-head">
         <span class="lg-appendix-title">Pack Manifest</span>
-        <span class="lg-appendix-count">${activeCount.toString().padStart(2, "0")}</span>
+        <span class="lg-appendix-count">${items.length.toString().padStart(2, "0")}</span>
         <span class="lg-appendix-chevron" aria-hidden="true"></span>
       </summary>
       <ul class="lg-item-list">${rows}</ul>
@@ -765,31 +894,25 @@ function renderPackManifest(items: InventoryItem[]): string {
 
 function renderStandingCharts(quests: QuestEntry[]): string {
   if (quests.length === 0) return "";
-  const openCount = quests.filter((q) => q.type !== "\u2713").length;
+  const openCount = quests.filter((q) => q.status !== "done").length;
   const rows = quests
     .map((q) => {
       const cls =
-        q.type === "~"
-          ? "lg-quest lg-quest--pursuing"
-          : q.type === "+"
-            ? "lg-quest lg-quest--sighted"
-            : "lg-quest lg-quest--closed";
+        q.status === "done"
+          ? "lg-quest lg-quest--closed"
+          : "lg-quest lg-quest--pursuing";
       const glyph =
-        q.type === "~"
-          ? `<span class="lg-quest-glyph" style="color:${ILLUMINATED_COPPER}">&#x223D;</span>`
-          : q.type === "+"
-            ? `<span class="lg-quest-glyph" style="color:${VERDIGRIS}">&#x2726;</span>`
-            : '<span class="lg-quest-glyph">&#x203B;</span>';
+        q.status === "done"
+          ? '<span class="lg-quest-glyph">&#x2713;</span>'
+          : `<span class="lg-quest-glyph" style="color:${ILLUMINATED_COPPER}">&#x223D;</span>`;
       const flag =
-        q.type === "~"
-          ? '<span class="lg-quest-flag">in pursuit</span>'
-          : q.type === "+"
-            ? '<span class="lg-quest-flag lg-quest-flag--new">new sighting</span>'
-            : '<span class="lg-quest-flag lg-quest-flag--closed">closed</span>';
-      const desc = q.description
-        ? ` <span class="lg-quest-desc">— ${escapeText(q.description)}</span>`
+        q.status === "done"
+          ? '<span class="lg-quest-flag lg-quest-flag--closed">closed</span>'
+          : '<span class="lg-quest-flag">in pursuit</span>';
+      const desc = q.note
+        ? ` <span class="lg-quest-desc">— ${escapeText(q.note)}</span>`
         : "";
-      return `<li class="${cls}">${glyph}<span class="lg-quest-name">${escapeText(q.name)}</span>${desc}${flag}</li>`;
+      return `<li class="${cls}">${glyph}<span class="lg-quest-name">${escapeText(q.title)}</span>${desc}${flag}</li>`;
     })
     .join("");
 
@@ -804,15 +927,162 @@ function renderStandingCharts(quests: QuestEntry[]): string {
     </details>`;
 }
 
-function renderAppendix(items: InventoryItem[], quests: QuestEntry[]): string {
+// Ability Scores — stats.yaml 의 4개 능력치를 보정치 형태(+/-)로 표시.
+// 0 이상은 +prefix, 음수는 그대로. 값 강도에 따라 highlight 클래스 토글.
+
+const STAT_META: Array<{ key: keyof RpgStats; ko: string; abbr: string }> = [
+  { key: "strength", ko: "힘", abbr: "STR" },
+  { key: "agility", ko: "민첩", abbr: "AGI" },
+  { key: "insight", ko: "통찰", abbr: "INS" },
+  { key: "charisma", ko: "화술", abbr: "CHA" },
+];
+
+function renderAbilityScores(stats: RpgStats | null): string {
+  if (!stats) return "";
+  const rows = STAT_META.map(({ key, ko, abbr }) => {
+    const value = stats[key];
+    const mod = formatMod(value);
+    const tone =
+      value >= 3 ? "lg-ability--strong" : value <= -1 ? "lg-ability--weak" : "";
+    return `<li class="lg-ability ${tone}">
+      <span class="lg-ability-abbr">${abbr}</span>
+      <span class="lg-ability-ko">${escapeText(ko)}</span>
+      <span class="lg-ability-mod">${mod}</span>
+    </li>`;
+  }).join("");
+
+  return `
+    <details class="lg-appendix-section" open>
+      <summary class="lg-appendix-head">
+        <span class="lg-appendix-title">Ability Scores</span>
+        <span class="lg-appendix-count">4</span>
+        <span class="lg-appendix-chevron" aria-hidden="true"></span>
+      </summary>
+      <ul class="lg-ability-list">${rows}</ul>
+    </details>`;
+}
+
+function renderAppendix(
+  items: InventoryItem[],
+  quests: QuestEntry[],
+  stats: RpgStats | null,
+): string {
+  const abilities = renderAbilityScores(stats);
   const manifest = renderPackManifest(items);
   const charts = renderStandingCharts(quests);
-  if (!manifest && !charts) return "";
+  if (!abilities && !manifest && !charts) return "";
   return `
     <footer class="lg-appendix">
+      ${abilities}
       ${manifest}
       ${charts}
     </footer>`;
+}
+
+// ── Next Choices (선택지 버튼) ──────────────
+//
+// scene.md 의 마지막 [CHOICES] 블록만 렌더링. data-action="fill" 로 클릭 시 입력창에 채움.
+// 메타 칩(stat / dc) 은 옵션. 계단식 등장(--i 인덱스 기반).
+
+function statLabel(stat: string): string {
+  const map: Record<string, string> = {
+    strength: "힘",
+    agility: "민첩",
+    insight: "통찰",
+    charisma: "화술",
+  };
+  return map[stat.toLowerCase()] ?? stat;
+}
+
+function formatMod(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+function lookupStatMod(stats: RpgStats | null, stat: string): number | null {
+  if (!stats) return null;
+  const key = stat.toLowerCase();
+  if (key === "strength" || key === "agility" || key === "insight" || key === "charisma") {
+    return stats[key];
+  }
+  return null;
+}
+
+function renderNextChoices(options: ChoiceOption[], stats: RpgStats | null): string {
+  if (options.length === 0) return "";
+  const rows = options
+    .map((opt, i) => {
+      const mod = opt.stat ? lookupStatMod(stats, opt.stat) : null;
+      const statText = opt.stat
+        ? mod !== null
+          ? `${statLabel(opt.stat)} ${formatMod(mod)}`
+          : statLabel(opt.stat)
+        : "";
+      const stat = statText
+        ? `<span class="lg-choice-stat">${escapeText(statText)}</span>`
+        : "";
+      const dc =
+        typeof opt.dc === "number"
+          ? `<span class="lg-choice-dc">DC ${opt.dc}</span>`
+          : "";
+      const meta = stat || dc ? `<span class="lg-choice-meta">${stat}${dc}</span>` : "";
+      return `<button type="button"
+                class="lg-choice-option"
+                style="--i:${i}"
+                data-action="fill"
+                data-text="${escapeHtml(opt.action)}">
+                <span class="lg-choice-label">${escapeText(opt.label)}</span>
+                ${meta}
+              </button>`;
+    })
+    .join("");
+
+  return `
+    <div class="lg-choice" role="group" aria-label="다음 행동">
+      <div class="lg-choice-head">
+        <span class="lg-choice-glyph" aria-hidden="true">&#x2756;</span>
+        <span class="lg-choice-title">다음 행동</span>
+        <span class="lg-choice-hint">버튼을 누르면 입력창에 채워집니다. 자유 입력도 가능합니다.</span>
+      </div>
+      <div class="lg-choice-list">${rows}</div>
+    </div>`;
+}
+
+// ── Pending Card (스트리밍 중 시각 피드백) ──────────────
+//
+// ctx.stream.isStreaming 이 true 일 때만 노출. 스트리밍 텍스트와 진행 중 도구 호출의
+// 라벨을 보여준다. id 고정 → Idiomorph가 부드럽게 morph.
+
+function pendingToolLabel(name: string): string {
+  const map: Record<string, string> = {
+    read: "고서를 펼친다",
+    grep: "단서를 더듬는다",
+    write: "기록을 남긴다",
+    edit: "기록을 손본다",
+    script: "주사위를 굴린다",
+    activate_skill: "비법서를 펼친다",
+    tree: "지도를 살핀다",
+  };
+  return map[name] ?? "비의를 엮는다";
+}
+
+function renderPendingCard(stream: RenderStreamView, mode: "peace" | "combat"): string {
+  const inFlight = stream.toolCalls.find((tc) => !tc.result);
+  const latest = inFlight ?? stream.toolCalls[stream.toolCalls.length - 1];
+  const label = mode === "combat" ? "촛불 아래 손이 움직인다" : "잉크가 마르는 중";
+  const raw = stream.text || "";
+  const clipped = raw.length > 160 ? raw.slice(0, 160) + "\u2026" : raw;
+  const toolLabel = latest ? pendingToolLabel(latest.name) : "";
+  const hidden = stream.isStreaming ? "" : ' hidden aria-hidden="true"';
+
+  return `
+    <aside id="lg-pending" class="lg-pending" data-mode="${mode}"${hidden}>
+      <div class="lg-pending-head">
+        <span class="lg-pending-glyph" aria-hidden="true"></span>
+        <span class="lg-pending-label">${escapeText(label)}</span>
+        ${toolLabel ? `<span class="lg-pending-tool">${escapeText(toolLabel)}</span>` : ""}
+      </div>
+      ${clipped ? `<p class="lg-pending-preview">${escapeText(clipped)}</p>` : ""}
+    </aside>`;
 }
 
 // ── Empty state ─────────────────────────────
@@ -874,7 +1144,7 @@ function renderBeats(
         case "divider":
           return renderDivider(id);
         case "system":
-          return renderSystem(g.lines[0], id);
+          return renderSystem(g.lines[0] ?? "", id);
       }
     })
     .join("\n");
@@ -885,14 +1155,22 @@ function renderBeats(
 const STYLES = `<style>
   /* ── Root: Logbook stage ─────────────────────────────────────── */
   .lg-stage {
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     min-height: 100%;
     font-family: var(--font-family-body);
     color: var(--color-fg);
   }
-  .lg-reel {
+  .lg-body {
     flex: 1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    box-sizing: border-box;
+  }
+  .lg-reel {
     width: 100%;
     max-width: 760px;
     margin: 0 auto;
@@ -902,6 +1180,37 @@ const STYLES = `<style>
     justify-content: flex-end;
     gap: 28px;
     box-sizing: border-box;
+    min-width: 0;
+  }
+  .lg-side {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 28px 24px;
+    box-sizing: border-box;
+  }
+  @container (min-width: 1080px) {
+    .lg-body {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(0, 1fr);
+    }
+    .lg-reel { grid-column: 2; }
+    .lg-side {
+      grid-column: 3;
+      justify-self: start;
+      position: sticky;
+      top: 88px;
+      align-self: start;
+      max-width: 300px;
+      margin: 0;
+      padding: 28px 24px 32px 24px;
+      max-height: calc(100vh - 96px);
+      overflow-y: auto;
+    }
+    .lg-side::-webkit-scrollbar { width: 6px; }
+    .lg-side::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--color-edge) 30%, transparent);
+      border-radius: 3px;
+    }
   }
 
   /* ── Log Header: sticky 상단 스트립 ──────────────────────────── */
@@ -1378,19 +1687,18 @@ const STYLES = `<style>
 
   /* ── Appendix: Pack Manifest / Standing Charts ────────────────── */
   .lg-appendix {
-    position: sticky;
-    bottom: 0;
-    z-index: 4;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px;
-    background: color-mix(in srgb, var(--color-edge) 10%, transparent);
-    border-top: 1px solid color-mix(in srgb, var(--color-edge) 12%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
   .lg-appendix-section {
-    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+    background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-edge) 22%, transparent);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px -18px color-mix(in srgb, #000 38%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
   }
   .lg-appendix-head {
     display: flex;
@@ -1444,14 +1752,19 @@ const STYLES = `<style>
   }
   .lg-item, .lg-quest {
     display: grid;
-    grid-template-columns: 16px auto 1fr auto;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "glyph header trailing"
+      ".     desc   desc";
     align-items: baseline;
-    gap: 8px;
+    column-gap: 8px;
+    row-gap: 2px;
     font-size: 13px;
     line-height: 1.7;
     color: var(--color-fg);
   }
   .lg-item-glyph, .lg-quest-glyph {
+    grid-area: glyph;
     font-family: var(--font-family-mono);
     font-size: 12px;
     font-weight: 700;
@@ -1459,11 +1772,23 @@ const STYLES = `<style>
     color: var(--color-fg-3);
   }
   .lg-item-name, .lg-quest-name {
+    grid-area: header;
     font-weight: 500;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .lg-item-qty, .lg-quest-flag, .lg-item-flag {
+    grid-area: trailing;
+    align-self: baseline;
   }
   .lg-item-desc, .lg-quest-desc {
+    grid-area: desc;
     color: var(--color-fg-3);
     font-size: 12px;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
   }
   .lg-item-flag, .lg-quest-flag {
     font-family: var(--font-family-mono);
@@ -1494,6 +1819,61 @@ const STYLES = `<style>
   .lg-quest--closed .lg-quest-name,
   .lg-quest--closed .lg-quest-desc {
     opacity: 0.5;
+  }
+
+  /* ── Ability Scores ────────────────────────────────────────────── */
+  .lg-ability-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 20px 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+  }
+  .lg-ability {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: baseline;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-fg);
+    padding: 4px 8px;
+    border-left: 2px solid color-mix(in srgb, ${VERDIGRIS} 24%, transparent);
+    background: color-mix(in srgb, ${VERDIGRIS} 4%, transparent);
+  }
+  .lg-ability-abbr {
+    font-family: var(--font-family-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    color: var(--color-fg-3);
+    padding-top: 2px;
+  }
+  .lg-ability-ko {
+    font-weight: 500;
+    color: var(--color-fg);
+  }
+  .lg-ability-mod {
+    font-family: var(--font-family-mono);
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: ${VERDIGRIS};
+  }
+  .lg-ability--strong {
+    border-left-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 55%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 6%, transparent);
+  }
+  .lg-ability--strong .lg-ability-mod {
+    color: ${ILLUMINATED_COPPER};
+  }
+  .lg-ability--weak {
+    border-left-color: color-mix(in srgb, var(--color-fg-4) 30%, transparent);
+    background: transparent;
+    opacity: 0.75;
+  }
+  .lg-ability--weak .lg-ability-mod {
+    color: var(--color-fg-4);
   }
 
   /* ── Empty state: Uncharted Shores ────────────────────────────── */
@@ -1623,7 +2003,308 @@ const STYLES = `<style>
     .lg-plate-dialogue { grid-template-columns: 56px minmax(0, 1fr); gap: 14px; }
     .lg-portrait { width: 56px; height: 56px; }
     .lg-whisper { max-width: 82%; font-size: 14.5px; }
-    .lg-appendix { grid-template-columns: 1fr; }
+  }
+
+  /* ── Next Choices (선택지 버튼) ───────────────────────────────── */
+  .lg-choice {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    margin-top: 4px;
+    background: color-mix(in srgb, #b36b2a 3%, var(--color-surface, #f6ecd2));
+    border: 1px solid color-mix(in srgb, #b36b2a 22%, transparent);
+    border-radius: 4px;
+    box-shadow: 0 1px 0 color-mix(in srgb, #3d2a15 6%, transparent);
+  }
+  .lg-choice-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .lg-choice-glyph {
+    color: #b36b2a;
+    font-size: 14px;
+  }
+  .lg-choice-title {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-fg-2, #5a4530);
+  }
+  .lg-choice-hint {
+    font-size: 11px;
+    color: var(--color-fg-3, #8a6e4d);
+    font-style: italic;
+  }
+  .lg-choice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lg-choice-option {
+    appearance: none;
+    -webkit-appearance: none;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    padding: 12px 16px;
+    background: color-mix(in srgb, #b36b2a 2%, var(--color-elevated, #fff8e4));
+    border: 1px solid color-mix(in srgb, #b36b2a 18%, transparent);
+    border-radius: 3px;
+    color: var(--color-fg, #2d2015);
+    font-family: inherit;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    animation: lg-choice-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 0.06s);
+  }
+  .lg-choice-option:hover {
+    background: color-mix(in srgb, #b36b2a 8%, var(--color-elevated, #fff8e4));
+    border-color: color-mix(in srgb, #b36b2a 38%, transparent);
+  }
+  .lg-choice-option:active {
+    transform: translateY(1px);
+  }
+  .lg-choice-label {
+    font-size: 14.5px;
+    line-height: 1.4;
+    flex: 1 1 auto;
+  }
+  .lg-choice-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .lg-choice-stat,
+  .lg-choice-dc {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-fg-3, #8a6e4d);
+    padding: 2px 8px;
+    border: 1px solid color-mix(in srgb, #3d2a15 18%, transparent);
+    border-radius: 2px;
+    background: color-mix(in srgb, #fff 35%, transparent);
+  }
+  .lg-choice-dc {
+    color: #b36b2a;
+    border-color: color-mix(in srgb, #b36b2a 28%, transparent);
+  }
+  @keyframes lg-choice-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Pending Card (스트리밍 중 시각 피드백) ────────────────── */
+  .lg-pending {
+    position: sticky;
+    bottom: 12px;
+    margin: 12px 16px 0;
+    padding: 10px 14px;
+    background: color-mix(in srgb, #b36b2a 4%, var(--color-elevated, #fff8e4));
+    border: 1px solid color-mix(in srgb, #b36b2a 24%, transparent);
+    border-radius: 3px;
+    box-shadow: 0 6px 16px -8px color-mix(in srgb, #3d2a15 30%, transparent);
+    z-index: 5;
+    animation: lg-pending-fade 0.4s ease-out;
+  }
+  .lg-pending[hidden] { display: none; }
+  .lg-pending-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .lg-pending-glyph {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #b36b2a;
+    flex-shrink: 0;
+    align-self: center;
+    animation: lg-pending-breathe 1.6s ease-in-out infinite;
+  }
+  .lg-pending-label {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-fg-2, #5a4530);
+  }
+  .lg-pending-tool {
+    font-size: 11px;
+    color: var(--color-fg-3, #8a6e4d);
+    font-style: italic;
+  }
+  .lg-pending-preview {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--color-fg-3, #8a6e4d);
+    font-style: italic;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  @keyframes lg-pending-fade {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes lg-pending-breathe {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.2); }
+  }
+
+  /* ── Combat Mode (어두운 가죽 · 촛불 황금) ──────────────────── */
+  .lg-stage[data-mode="combat"] {
+    background: #1a110a;
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-header,
+  .lg-stage[data-mode="combat"] .lg-header--empty {
+    background: color-mix(in srgb, #251810 92%, transparent);
+    border-bottom-color: color-mix(in srgb, #d48a1f 24%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-header-title {
+    color: #d48a1f;
+    text-shadow: 0 1px 0 color-mix(in srgb, #000 60%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-header-stamp,
+  .lg-stage[data-mode="combat"] .lg-bearing-label,
+  .lg-stage[data-mode="combat"] .lg-bearing-text {
+    color: #b8a38a;
+  }
+  .lg-stage[data-mode="combat"] .lg-vital-track {
+    stroke: color-mix(in srgb, #d8c9a8 14%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-effect {
+    color: #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 35%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-reel {
+    background:
+      radial-gradient(ellipse at 50% 0%, color-mix(in srgb, #d48a1f 8%, transparent), transparent 50%),
+      #1a110a;
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-narration-text {
+    color: #b8a38a;
+  }
+  .lg-stage[data-mode="combat"] .lg-narration-rule {
+    background: color-mix(in srgb, #d8c9a8 18%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-stamp {
+    background: color-mix(in srgb, #d48a1f 10%, #2e1c14);
+    border-color: color-mix(in srgb, #d48a1f 30%, transparent);
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-stamp-glyph {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-whisper {
+    background: color-mix(in srgb, #d48a1f 6%, #251810);
+    color: #d8c9a8;
+    border-color: color-mix(in srgb, #d48a1f 18%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-plate-text {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-name {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-appendix {
+    background: color-mix(in srgb, #251810 90%, transparent);
+    border-top-color: color-mix(in srgb, #d48a1f 24%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-appendix-title,
+  .lg-stage[data-mode="combat"] .lg-appendix-count {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-item-name,
+  .lg-stage[data-mode="combat"] .lg-quest-name {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-item-desc,
+  .lg-stage[data-mode="combat"] .lg-quest-desc {
+    color: #8a7658;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability {
+    background: color-mix(in srgb, #d48a1f 4%, #1a110a);
+    border-left-color: color-mix(in srgb, #d48a1f 28%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ability-ko {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability-abbr {
+    color: #8a7658;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability-mod {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--strong {
+    border-left-color: color-mix(in srgb, #d48a1f 60%, transparent);
+    background: color-mix(in srgb, #d48a1f 10%, #1a110a);
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--strong .lg-ability-mod {
+    color: #f3b042;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--weak {
+    background: transparent;
+    border-left-color: color-mix(in srgb, #8a7658 25%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--weak .lg-ability-mod {
+    color: #8a7658;
+  }
+  .lg-stage[data-mode="combat"] .lg-choice {
+    background: color-mix(in srgb, #d48a1f 6%, #1a110a);
+    border-color: color-mix(in srgb, #d48a1f 32%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-option {
+    background: color-mix(in srgb, #d48a1f 4%, #251810);
+    border-color: color-mix(in srgb, #d48a1f 24%, transparent);
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-option:hover {
+    background: color-mix(in srgb, #d48a1f 14%, #251810);
+    border-color: color-mix(in srgb, #d48a1f 50%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-title,
+  .lg-stage[data-mode="combat"] .lg-choice-hint {
+    color: #b8a38a;
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-stat {
+    color: #b8a38a;
+    border-color: color-mix(in srgb, #d48a1f 24%, transparent);
+    background: color-mix(in srgb, #000 30%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-dc {
+    color: #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 45%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-pending {
+    background: color-mix(in srgb, #d48a1f 8%, #251810);
+    border-color: color-mix(in srgb, #d48a1f 35%, transparent);
+    box-shadow: 0 6px 18px -8px color-mix(in srgb, #d48a1f 35%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-pending-glyph {
+    background: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-pending-label {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-pending-tool,
+  .lg-stage[data-mode="combat"] .lg-pending-preview {
+    color: #b8a38a;
   }
 </style>`;
 
@@ -1631,29 +2312,23 @@ const STYLES = `<style>
 
 export function render(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
+  const mode = readWorldMode(ctx);
+  const status = readStatusYaml(ctx);
+  const stats = readStatsYaml(ctx);
+  const inventory = readInventoryYaml(ctx);
+  const quests = readQuestYaml(ctx);
 
   const sceneFiles = ctx.files.filter(
     (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
   );
-
-  if (sceneFiles.length === 0) {
-    return `${STYLES}
-      <div class="lg-stage">
-        ${renderLogHeader(null, stampCode("empty"))}
-        <div class="lg-reel">${renderEmpty()}</div>
-      </div>`;
-  }
 
   const allContent = sceneFiles
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((f) => f.content)
     .join("\n\n---\n\n");
 
-  const status = parseStatusBlock(allContent);
-  const inventory = parseInventoryBlock(allContent);
-  const quests = parseQuestBlock(allContent);
-  const entryCode = stampCode(allContent);
-
+  const entryCode = stampCode(allContent || "empty");
+  const choices = parseChoicesMarker(allContent);
   const chatContent = stripRpgBlocks(allContent);
 
   const fallbackColorMap = new Map<string, string>();
@@ -1666,24 +2341,32 @@ export function render(ctx: RenderContext): string {
     .map((l) => resolveAvatar(l, nameMap));
   const groups = groupLines(parsed);
 
-  if (groups.length === 0 && !status) {
+  const pendingCard = renderPendingCard(ctx.stream, mode);
+
+  if (sceneFiles.length === 0 || (groups.length === 0 && !status)) {
     return `${STYLES}
-      <div class="lg-stage">
-        ${renderLogHeader(null, entryCode)}
+      <div class="lg-stage" data-mode="${mode}">
+        ${renderLogHeader(status, entryCode)}
         <div class="lg-reel">${renderEmpty()}</div>
+        ${pendingCard}
       </div>`;
   }
 
   const beats = renderBeats(groups, ctx, nameMap, fallbackColorMap, persona);
-  const appendix = renderAppendix(inventory, quests);
+  const appendix = renderAppendix(inventory, quests, stats);
+  const choicesHtml = renderNextChoices(choices, stats);
 
   return `${STYLES}
-    <div class="lg-stage">
+    <div class="lg-stage" data-mode="${mode}">
       ${renderLogHeader(status, entryCode)}
-      <div class="lg-reel">
-        ${beats}
-        <div data-chat-anchor></div>
+      <div class="lg-body">
+        <div class="lg-reel">
+          ${beats}
+          ${choicesHtml}
+          <div data-chat-anchor></div>
+        </div>
+        ${appendix ? `<aside class="lg-side">${appendix}</aside>` : ""}
       </div>
-      ${appendix}
+      ${pendingCard}
     </div>`;
 }
