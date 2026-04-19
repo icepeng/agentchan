@@ -16,7 +16,7 @@ export type LanguagePreference = "system" | "en" | "ko";
 export type ResolvedLanguage = "en" | "ko";
 export type { TranslationKey };
 
-type TFunction = (key: TranslationKey, params?: Record<string, string | number>) => string;
+export type TFunction = (key: TranslationKey, params?: Record<string, string | number>) => string;
 
 interface I18nContextValue {
   preference: LanguagePreference;

@@ -67,6 +67,12 @@ export const translations: Record<TranslationKey, string> = {
   "slash.listboxLabel": "슬래시 명령",
   "slash.noMatches": "일치하는 명령이 없습니다",
   "slash.skillTag": "skill",
+  "slash.new": "새 세션 시작",
+  "slash.compact": "요약 후 새 세션에서 이어가기",
+  "slash.edit": "편집 모드 전환",
+  "slash.readme": "프로젝트 README 보기",
+  "slash.model": "모델 변경",
+  "slash.provider": "프로바이더 변경",
 
   // Project tabs
   "project.new": "새 프로젝트",
@@ -120,7 +126,6 @@ export const translations: Record<TranslationKey, string> = {
   // README modal (in-project)
   "readme.modalTitle": "README",
   "readme.close": "닫기",
-  "readme.commandDescription": "프로젝트 README 보기",
 
   // Save as template
   "project.saveAsTemplate": "템플릿으로 저장",
