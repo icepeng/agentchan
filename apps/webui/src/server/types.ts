@@ -68,5 +68,5 @@ export interface ServerConfig {
   temperature?: number;
   maxTokens?: number;
   contextWindow?: number;
-  thinkingLevel?: ThinkingLevel;
+  thinkingLevel: ThinkingLevel;
 }

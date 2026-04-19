@@ -7,7 +7,7 @@ export interface ConfigResponse {
   temperature?: number;
   maxTokens?: number;
   contextWindow?: number;
-  thinkingLevel?: ThinkingLevel;
+  thinkingLevel: ThinkingLevel;
 }
 
 export function fetchConfig(): Promise<ConfigResponse> {
