@@ -6,16 +6,18 @@
 //
 //   · 평상: Cartographer's Logbook 계승 — 크림 양피지 · 세피아 잉크 · 구리 채식
 //   · 전투: 촛불(일렁임) · 가죽(어두운 갈색) · 피(진홍) — data-mode="combat"
-//   · theme 은 함수 export. scene 의 마지막 <status> mode 를 읽어 평시/전투 팔레트를
+//   · theme 은 함수 export. world-state.yaml 의 mode 필드를 읽어 평시/전투 팔레트를
 //     선택, 전역 --color-* 를 교체한다 → Sidebar/AgentPanel 까지 톤 일관.
 //
 //   · 렌더러는 순수 함수: files → HTML. scripts가 쓰는 마커를 파싱해 UI 생성.
-//     scene.md multiline: <status> <roll> <beat type="combat" round="N">
+//     scene.md multiline: <roll> <beat type="combat" round="N">
 //     scene.md inline:    [STAT] [CHAR:] [item:] [quest:] + [slug:assets/key]
+//     HUD/HP/MP/time/location 은 world-state.yaml + party.yaml 만 읽음 (씬 본문에 status 블록 없음)
 //     next-choices.yaml (데이터 파일): 현 턴의 플레이어 선택지. 렌더러가 씬 아래에 버튼으로 표시.
 //
-//   · 숨김 파일 가드: campaign.yaml / companion-secrets.yaml / npc-intents.yaml
-//     는 스캔에서 제외. 렌더러가 이 파일들의 내용을 절대 UI에 노출하지 않음.
+//   · 숨김 파일 가드: campaign.yaml / companion-secrets.yaml 및
+//     characters/<slug>/intent.yaml 은 스캔에서 제외. 렌더러가 이 파일들의
+//     내용을 절대 UI에 노출하지 않음.
 //
 //   · Idiomorph가 DOM 을 morph 하므로 index 기반 stable id + radio name 을 유지
 //     해 탭 선택 · details open · 애니메이션이 재렌더 간 보존된다.
@@ -120,7 +122,7 @@ const CHARACTER_COLORS = [
 // ── Theme export ──────────────────────────────
 //
 // 평시: 크림 양피지 + 세피아 잉크. 전투: 가죽 + 촛불.
-// 함수로 내보내 매 refresh 마다 scene 의 마지막 <status> mode 를 보고 팔레트를 교체한다.
+// 함수로 내보내 매 refresh 마다 world-state.yaml 의 mode 필드를 보고 팔레트를 교체한다.
 // 덕분에 렌더러 내부뿐 아니라 Sidebar / AgentPanel / BottomInput 까지 같은 톤으로 전환된다.
 
 const PEACE_THEME: RendererTheme = {
@@ -157,39 +159,34 @@ export function theme(ctx: RenderContext): RendererTheme {
   return detectCurrentMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
 }
 
-// theme 은 매 refresh 호출되므로, mode 한 줄을 얻으려 scene 전체를 풀파싱하지 않는다.
-// path 내림차순으로 scene 을 훑다가 처음 만나는 <status> 블록의 mode 만 해석.
+// world-state.yaml 이 단일 source of truth. combat.ts --start/--end 가 mode 필드 갱신.
 function detectCurrentMode(ctx: RenderContext): "peace" | "combat" {
-  const sceneFiles = ctx.files.filter(
-    (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
+  const file = ctx.files.find(
+    (f): f is DataFile => f.type === "data" && f.path === "world-state.yaml",
   );
-  if (sceneFiles.length === 0) return "peace";
-  const ordered = sceneFiles.sort((a, b) => a.path.localeCompare(b.path));
-  for (let i = ordered.length - 1; i >= 0; i--) {
-    const content = ordered[i].content;
-    const close = content.toLowerCase().lastIndexOf("</status>");
-    if (close < 0) continue;
-    const open = content.toLowerCase().lastIndexOf("<status>", close);
-    if (open < 0) continue;
-    const body = content.slice(open + "<status>".length, close);
-    return parseStatusContent(body).mode;
-  }
-  return "peace";
+  if (!file) return "peace";
+  const root = file.data && typeof file.data === "object" ? (file.data as Record<string, unknown>) : null;
+  const mode = root && typeof root.mode === "string" ? root.mode : "peace";
+  return mode === "combat" ? "combat" : "peace";
 }
 
 // ── Hidden file guard ─────────────────────────
 //
 // 이 파일들은 LLM 전용. 렌더러는 절대 노출하지 않는다.
 // (SYSTEM.md §12 를 CSS/HTML 레벨에서도 2중 방어.)
+//
+// NPC 의도 파일은 characters/<slug>/intent.yaml 패턴으로 캐릭터마다 존재 —
+// 개별 allowlist 대신 경로 접미사로 일괄 숨김.
 
 const HIDDEN_PATHS = new Set<string>([
   "campaign.yaml",
   "companion-secrets.yaml",
-  "npc-intents.yaml",
 ]);
 
 function isVisible(file: ProjectFile): boolean {
-  return !HIDDEN_PATHS.has(file.path);
+  if (HIDDEN_PATHS.has(file.path)) return false;
+  if (file.path.endsWith("/intent.yaml")) return false;
+  return true;
 }
 
 // ── Helpers ───────────────────────────────────
@@ -385,6 +382,7 @@ interface WorldStateData {
   time: string;
   day: number;
   weather: string;
+  mode: "peace" | "combat";
   location: string;
   party_status: string;
   last_summary?: string;
@@ -589,6 +587,7 @@ function extractWorldState(ctx: RenderContext): WorldStateData | null {
     time: asString(root.time, "10:00"),
     day: asNumber(root.day, 1),
     weather: asString(root.weather, ""),
+    mode: asString(root.mode, "peace") === "combat" ? "combat" : "peace",
     location: asString(root.location, ""),
     party_status: asString(root.party_status, "ready"),
     last_summary: root.last_summary
@@ -690,19 +689,8 @@ interface ChoiceOption {
   dc: number; // 0 이면 DC 배지 표시 안 함
 }
 
-interface ParsedStatus {
-  hp?: HpMp;
-  mp?: HpMp;
-  location?: string;
-  time?: string;
-  day?: number;
-  mode: "peace" | "combat";
-  conditions: string[];
-}
-
 interface ParseResult {
   events: SceneEvent[];
-  lastStatus: ParsedStatus | null;
 }
 
 const CHAR_LINE_RE = /^\[CHAR:([a-z0-9][a-z0-9_-]*)\]\s*(.*)$/i;
@@ -719,61 +707,6 @@ const QUEST_STEP_RE = /^\[quest:([a-z0-9][a-z0-9_-]*)\s+step="([^"]+)"\]/i;
 const QUEST_COMPLETE_RE = /^\[quest:([a-z0-9][a-z0-9_-]*)\s+(complete|fail)\]/i;
 const BEAT_COMBAT_OPEN_RE = /^<beat\s+type="combat"(?:\s+round="(\d+)")?>$/i;
 const USER_LINE_RE = /^>\s+(.+)$/;
-
-function parseStatusContent(body: string): ParsedStatus {
-  const status: ParsedStatus = { mode: "peace", conditions: [] };
-  for (const rawLine of body.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const m = line.match(/^([a-zA-Z_]+):\s*(.*)$/);
-    if (!m) continue;
-    const [, key, valRaw] = m;
-    const val = valRaw.trim();
-    switch (key) {
-      case "hp": {
-        const mm = val.match(/(\d+)\s*\/\s*(\d+)/);
-        if (mm)
-          status.hp = {
-            current: parseInt(mm[1], 10),
-            max: parseInt(mm[2], 10),
-          };
-        break;
-      }
-      case "mp": {
-        const mm = val.match(/(\d+)\s*\/\s*(\d+)/);
-        if (mm)
-          status.mp = {
-            current: parseInt(mm[1], 10),
-            max: parseInt(mm[2], 10),
-          };
-        break;
-      }
-      case "location":
-        status.location = val;
-        break;
-      case "time":
-        status.time = val;
-        break;
-      case "day":
-        status.day = parseInt(val, 10);
-        break;
-      case "mode":
-        status.mode = val === "combat" ? "combat" : "peace";
-        break;
-      case "conditions": {
-        // YAML flow: [] 또는 ["독", "공포"]
-        const inside = val.replace(/^\[|\]$/g, "").trim();
-        if (!inside) break;
-        status.conditions = inside
-          .split(",")
-          .map((s) => s.trim().replace(/^["']|["']$/g, ""))
-          .filter(Boolean);
-        break;
-      }
-    }
-  }
-  return status;
-}
 
 // next-choices.yaml 추출 — per-turn 플레이어 선택지.
 // LLM 이 매 턴 overwrite. 없으면 빈 배열.
@@ -878,7 +811,6 @@ function parseInlineLine(
 
 type BlockState =
   | { kind: "none" }
-  | { kind: "status"; lines: string[] }
   | { kind: "system"; lines: string[] }
   | { kind: "combat"; round: number; lines: string[] };
 
@@ -894,7 +826,6 @@ function parseSceneLines(
   charIndex?: Map<string, NameMapEntry>,
 ): ParseResult {
   const events: SceneEvent[] = [];
-  let lastStatus: ParsedStatus | null = null;
   let state: BlockState = { kind: "none" };
 
   const flushCombat = (round: number, lines: string[]) => {
@@ -908,15 +839,6 @@ function parseSceneLines(
     const trimmed = line.trim();
 
     // 블록 종료 감지 우선.
-    if (state.kind === "status") {
-      if (/^<\/status>$/i.test(trimmed)) {
-        lastStatus = parseStatusContent(state.lines.join("\n"));
-        state = { kind: "none" };
-        continue;
-      }
-      state.lines.push(line);
-      continue;
-    }
     if (state.kind === "system") {
       if (/^<\/roll>$/i.test(trimmed)) {
         events.push({ kind: "system", text: state.lines.join("\n").trim() });
@@ -937,10 +859,6 @@ function parseSceneLines(
     }
 
     // 블록 시작 감지.
-    if (/^<status>$/i.test(trimmed)) {
-      state = { kind: "status", lines: [] };
-      continue;
-    }
     if (/^<roll>$/i.test(trimmed)) {
       state = { kind: "system", lines: [] };
       continue;
@@ -964,7 +882,7 @@ function parseSceneLines(
   }
 
   // 미닫힌 블록은 폐기 (불완전한 입력 보호).
-  return { events, lastStatus };
+  return { events };
 }
 
 // ── Inline text formatting ────────────────────
@@ -1444,17 +1362,16 @@ function actRoman(act: number): string {
 }
 
 function renderHud(
-  status: ParsedStatus | null,
   world: WorldStateData | null,
   locTitles: Map<string, string>,
 ): string {
   const act = world?.act ?? 1;
-  const time = status?.time ?? world?.time ?? "--:--";
-  const day = status?.day ?? world?.day ?? 1;
-  const locSlug = status?.location ?? world?.location ?? "";
+  const time = world?.time ?? "--:--";
+  const day = world?.day ?? 1;
+  const locSlug = world?.location ?? "";
   const locTitle = locSlug ? (locTitles.get(locSlug) ?? locSlug) : "---";
   const weather = world?.weather ?? "";
-  const mode = status?.mode ?? "peace";
+  const mode = world?.mode ?? "peace";
 
   // 모드를 단일 글리프로 — wax seal 인장이라 글자는 압축/판독 어려움. ☮ 평화 / ⚔ 전투.
   const modeGlyph = mode === "combat" ? "⚔" : "☮";
@@ -4493,9 +4410,9 @@ export function render(ctx: RenderContext): string {
     .join("\n\n");
 
   const parsed = parseSceneContent(sceneRaw, charIndex);
-  const mode = parsed.lastStatus?.mode ?? "peace";
+  const mode = world?.mode ?? "peace";
 
-  const hud = renderHud(parsed.lastStatus, world, locTitles);
+  const hud = renderHud(world, locTitles);
   const partyPanel = renderPartyPanel(
     party,
     pcData,

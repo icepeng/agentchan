@@ -1,8 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 
 const EditParams = Type.Object({
   file_path: Type.String({
@@ -178,7 +178,7 @@ export function createEditTool(cwd?: string): AgentTool<typeof EditParams, void>
       _toolCallId: string,
       params: EditInput,
     ): Promise<AgentToolResult<void>> {
-      const filePath = resolve(workDir, params.file_path);
+      const filePath = resolveInProject(workDir, params.file_path);
       const content = await readFile(filePath, "utf-8");
 
       const { match, count, fuzzy } = findMatch(content, params.old_string);

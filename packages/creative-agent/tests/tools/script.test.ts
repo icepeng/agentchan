@@ -213,6 +213,25 @@ describe("ctx.random", () => {
   });
 });
 
+describe("path containment", () => {
+  test("ctx.project.readFile refuses ../ escape", async () => {
+    await writeScript("escape.ts", `
+      export default function (_args, ctx) {
+        ctx.project.readFile("../outside.txt");
+      }
+    `);
+    const out = await run("escape.ts");
+    expect(out).toContain("path outside project");
+    expect(out).toContain("[exit code: 1]");
+  });
+
+  test("tool refuses to run a script outside the project dir", async () => {
+    await expect(
+      tool.execute("test-call", { file: "../escape.ts", args: [] }),
+    ).rejects.toThrow(/path outside project/);
+  });
+});
+
 describe("integration — combat-style script", () => {
   test("write a stat block, mutate it, read it back", async () => {
     await mkdir(join(tempDir, "files"));

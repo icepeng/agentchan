@@ -61,14 +61,26 @@ export function switchBranch(
 
 // --- SSE Message Stream ---
 
+/**
+ * Tool result content blocks mirror pi-ai's `(TextContent | ImageContent)[]`
+ * shape verbatim so the renderer view contract stays aligned with the
+ * canonical tool result envelope (no flattening, no information loss).
+ */
+export interface ToolContentBlock {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
 export interface SSECallbacks {
   onUserNode: (node: TreeNode) => void;
   onTextDelta: (text: string) => void;
   onToolUseStart: (id: string, name: string) => void;
   onToolUseDelta: (id: string, inputJson: string) => void;
   onToolUseEnd: (id: string) => void;
-  onToolExecStart: (id: string, name: string) => void;
-  onToolExecEnd: (id: string, isError: boolean) => void;
+  onToolExecStart: (id: string, name: string, args: unknown) => void;
+  onToolExecEnd: (id: string, isError: boolean, content: ToolContentBlock[]) => void;
   onUsageSummary: (usage: TokenUsage) => void;
   onAssistantNodes: (nodes: TreeNode[]) => void;
   onDone: () => void;
@@ -103,12 +115,12 @@ function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): v
       }
       case "tool_exec_start": {
         const parsed = JSON.parse(data);
-        callbacks.onToolExecStart(parsed.id, parsed.name);
+        callbacks.onToolExecStart(parsed.id, parsed.name, parsed.args);
         break;
       }
       case "tool_exec_end": {
         const parsed = JSON.parse(data);
-        callbacks.onToolExecEnd(parsed.id, parsed.is_error);
+        callbacks.onToolExecEnd(parsed.id, parsed.is_error, parsed.content ?? []);
         break;
       }
       case "usage_summary": {

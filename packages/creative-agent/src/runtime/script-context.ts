@@ -1,16 +1,15 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { randomInt } from "node:crypto";
 import { parseArgs } from "node:util";
+import { resolveInProject } from "../tools/_paths.js";
 
 /**
  * Capability surface exposed to user scripts. All access to the host
  * environment goes through this object — `fs`, `process`, `Bun`, `fetch`,
  * `require` are not available inside the script function body.
  *
- * Path containment for `project.*` will be applied by Phase 1 Layer A
- * (`resolveInProject`) once that lands; until then the host fs APIs are
- * used directly.
+ * `project.*` paths are lexically contained to `projectDir` via
+ * `resolveInProject` (same helper the other tools use).
  */
 export interface ScriptContext {
   readonly project: {
@@ -38,7 +37,7 @@ export interface ScriptContext {
 export type ScriptResult = string | object | void;
 
 export function createScriptContext(projectDir: string): ScriptContext {
-  const join = (p: string) => resolve(projectDir, p);
+  const join = (p: string) => resolveInProject(projectDir, p);
   return {
     project: {
       readFile: (p) => readFileSync(join(p), "utf-8"),

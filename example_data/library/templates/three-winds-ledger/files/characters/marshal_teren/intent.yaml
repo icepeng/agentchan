@@ -1,0 +1,23 @@
+# === NPC Intent — 숨김 파일 (LLM 전용) ===
+# 테렌 마샬의 표면·진심·거짓말·해금 조건. 씬·대사에 직접 노출 금지.
+# SYSTEM.md의 "금칙"에 따라 이 파일의 스키마 어휘(surface/true_intent/lies 등)도 OOC에 노출 금지.
+
+display_name: "테렌"
+role: "시 보안관 (마샬)"
+age_estimate: 55
+visual_cue: "회색 수염, 왼쪽 귀 위 흉터, 걸을 때 오른 다리 약간 끎"
+surface: "무뚝뚝하고 정직. 원칙주의자"
+true_intent: "세 세력 모두를 의심하지만 증거가 없어 무력함. 외부인인 플레이어를 임시 수사관으로 활용"
+public_persona: "법과 질서"
+private_truth: "20년 전 다스렌 경의 아버지에게 진 개인적 빚(가족 빈민 구제)이 있어 가문 조사에 망설임"
+lies:
+  - statement: "다스렌 가문은 청렴하다"
+    truth: "의심하지만 직접 조사를 피해옴"
+reveal_conditions:
+  - "trust:marshal_teren>=+3 → 플레이어에게 '대신 밀어달라' 부탁"
+  - "evidence:dasren_debt 제시 → 망설임의 이유 고백"
+dialogue_tells:
+  calm: "짧은 질문. 대답을 기다리는 시간이 길다."
+  wary: "팔짱. 한쪽 입꼬리가 내려감. 제복 단추를 만짐."
+  shaken: "목소리가 낮아지고 느려진다. 의외로 부드러움. 시선 아래."
+  resolute: "팔짱을 풀고 배지에 손. 짧은 명령조로 전환."

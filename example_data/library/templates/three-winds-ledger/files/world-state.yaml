@@ -1,6 +1,6 @@
 # === World State — 공개 상태 ===
-# 현재 시각·장소·막·날씨. 렌더러가 HUD에 표시.
-# travel 스크립트가 time/location 갱신, act-transition이 act 갱신.
+# 현재 시각·장소·막·날씨·모드. 렌더러가 HUD에 표시.
+# travel.ts가 time/location, combat.ts가 mode, act-transition이 act 갱신.
 
 act: 1                          # 1 | 2 | 3
 current_scene: act1_arrival     # campaign.yaml의 beat slug
@@ -9,6 +9,7 @@ scene_count: 0                  # 누적 씬 수 (compact 후에도 유지)
 time: "10:24"                   # HH:MM (24시간). 분 단위 누적
 day: 1                          # 도착한 날 = 1일째
 weather: "잿빛 구름. 옅은 안개."
+mode: peace                     # peace | combat (combat.ts --start/--end로 전환)
 
 location: pier                  # 현재 장소 slug (locations/*.md 참조)
 party_status: ready             # ready | resting | in_combat | traveling

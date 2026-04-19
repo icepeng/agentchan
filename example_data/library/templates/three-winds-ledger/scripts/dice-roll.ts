@@ -96,7 +96,7 @@ export default function (args: readonly string[], ctx: ScriptContext) {
   const modStr = parsed.modifier > 0 ? `+${parsed.modifier}` : parsed.modifier < 0 ? `${parsed.modifier}` : "";
   const advStr = netAdv === "adv" ? " (adv)" : netAdv === "dis" ? " (dis)" : "";
   const rollsStr = parsed.count > 1 ? `[${kept.join(",")}]` : `${kept[0]}`;
-  let rollBody = `roll ${diceExpr}${advStr}: ${rollsStr}${modStr} = ${total}`;
+  let rollBody = `${diceExpr}${advStr}: ${rollsStr}${modStr} = ${total}`;
   let passed: boolean | undefined;
   let margin: number | undefined;
   if (dc !== undefined) {

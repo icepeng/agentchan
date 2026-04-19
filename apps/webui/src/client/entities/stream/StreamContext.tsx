@@ -11,6 +11,7 @@ import {
   type SessionUsage,
   type StreamSlot,
   type ToolCallState,
+  type ToolContentBlock,
 } from "./stream.types.js";
 
 interface StreamState {
@@ -23,8 +24,14 @@ type StreamAction =
   | { type: "TOOL_START"; projectSlug: string; id: string; name: string }
   | { type: "TOOL_DELTA"; projectSlug: string; id: string; inputJson: string }
   | { type: "TOOL_END"; projectSlug: string; id: string }
-  | { type: "TOOL_EXEC_START"; projectSlug: string; id: string }
-  | { type: "TOOL_EXEC_END"; projectSlug: string; id: string; isError: boolean }
+  | { type: "TOOL_EXEC_START"; projectSlug: string; id: string; args: unknown }
+  | {
+      type: "TOOL_EXEC_END";
+      projectSlug: string;
+      id: string;
+      isError: boolean;
+      content: ToolContentBlock[];
+    }
   | { type: "USAGE_SUMMARY"; projectSlug: string; usage: TokenUsage }
   | { type: "RESET"; projectSlug: string }
   | { type: "ERROR"; projectSlug: string; error: string }
@@ -110,12 +117,17 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
 
     case "TOOL_EXEC_START":
       return updateSlot(state, action.projectSlug, (slot) =>
-        patchToolCall(slot, action.id, { executionStarted: true }),
+        patchToolCall(slot, action.id, {
+          executionStarted: true,
+          args: action.args,
+        }),
       );
 
     case "TOOL_EXEC_END":
       return updateSlot(state, action.projectSlug, (slot) =>
-        patchToolCall(slot, action.id, { result: { isError: action.isError } }),
+        patchToolCall(slot, action.id, {
+          result: { content: action.content, isError: action.isError },
+        }),
       );
 
     case "USAGE_SUMMARY":

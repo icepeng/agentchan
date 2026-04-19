@@ -4,6 +4,10 @@ export interface ModelInfo {
   id: string;
   name: string;
   reasoning: boolean;
+  /** Model's max input context (tokens). Absent for custom providers. */
+  contextWindow?: number;
+  /** Model's max single-turn output (tokens). Absent for custom providers. */
+  maxTokens?: number;
 }
 
 export type CustomApiFormat =

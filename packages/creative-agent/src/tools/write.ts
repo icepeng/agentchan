@@ -1,8 +1,9 @@
 import { writeFile, mkdir } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { dirname } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 
 const WriteParams = Type.Object({
   file_path: Type.String({
@@ -28,7 +29,7 @@ export function createWriteTool(cwd?: string): AgentTool<typeof WriteParams, voi
       _toolCallId: string,
       params: WriteInput,
     ): Promise<AgentToolResult<void>> {
-      const filePath = resolve(workDir, params.file_path);
+      const filePath = resolveInProject(workDir, params.file_path);
       await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, params.content, "utf-8");
       return textResult("File written successfully.");

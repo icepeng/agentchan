@@ -8,17 +8,29 @@ export interface SessionUsage {
 }
 
 /**
+ * Tool result content blocks mirror pi-ai's `(TextContent | ImageContent)[]`
+ * shape. The renderer view contract surfaces this verbatim — no flattening.
+ */
+export interface ToolContentBlock {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
+/**
  * argsComplete → input JSON stream done. executionStarted → tool running.
- * result set → finished (success/error per `isError`). All three are needed
- * as distinct signals because the renderer shows "running" vs "done" states.
+ * result set → finished. `args` arrives at execution start (validated/parsed
+ * by the agent loop). `result.content` carries the canonical tool output.
  */
 export interface ToolCallState {
   id: string;
   name: string;
   inputJson: string;
+  args?: unknown;
   argsComplete: boolean;
   executionStarted: boolean;
-  result?: { isError: boolean };
+  result?: { content: ToolContentBlock[]; isError: boolean };
 }
 
 /**

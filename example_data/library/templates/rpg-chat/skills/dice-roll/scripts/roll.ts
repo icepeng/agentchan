@@ -69,29 +69,32 @@ export default function (args: readonly string[], ctx: ScriptContext) {
   const total = subtotal + parsed.modifier;
 
   const parts: string[] = [];
+
+  parts.push(`Notation: ${diceExpr}`);
+
   if (parsed.keepHighest !== undefined) {
     const rollStr = rolls
       .map((r, i) => (keptIndices.has(i) ? `${r}` : `~${r}~`))
       .join(", ");
-    parts.push(`${diceExpr}: [${rollStr}]`);
+    parts.push(`Rolls: [${rollStr}]`);
     parts.push(`Kept: [${kept.join(", ")}] = ${subtotal}`);
   } else if (parsed.count > 1) {
-    parts.push(`${diceExpr}: [${rolls.join(", ")}] = ${subtotal}`);
+    parts.push(`Rolls: [${rolls.join(", ")}] = ${subtotal}`);
   } else {
-    parts.push(`${diceExpr}: ${subtotal}`);
+    parts.push(`Roll: ${subtotal}`);
   }
 
   if (parsed.modifier !== 0) {
     const sign = parsed.modifier > 0 ? "+" : "";
     parts.push(`Modifier: ${sign}${parsed.modifier}`);
-    parts.push(`Total: ${total}`);
+    parts.push(`Total: ${subtotal} ${sign}${parsed.modifier} = ${total}`);
   }
 
   if (dc !== undefined) {
     const passed = total >= dc;
     const margin = total - dc;
     const marginStr = margin >= 0 ? `+${margin}` : `${margin}`;
-    parts.push(`DC ${dc}: ${passed ? "PASS" : "FAIL"} (${marginStr})`);
+    parts.push(`DC ${dc}: ${passed ? "PASS" : "FAIL"} (margin ${marginStr})`);
   }
 
   return parts.join("\n");

@@ -1,9 +1,10 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 import { truncateTail } from "./util.js";
 
 const ScriptParams = Type.Object({
@@ -47,13 +48,25 @@ The function's return value becomes the tool's output: \`string\` is passed thro
  * inside its own process.
  */
 const SCRIPT_RUNNER_SOURCE = `import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, relative, sep, isAbsolute } from "node:path";
 import { randomInt } from "node:crypto";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 
+function resolveInProject(projectDir, userPath) {
+  const abs = resolve(projectDir, userPath);
+  const rel = relative(projectDir, abs);
+  if (
+    rel === "" ||
+    (rel !== ".." && !rel.startsWith(".." + sep) && !isAbsolute(rel))
+  ) {
+    return abs;
+  }
+  throw new Error(\`path outside project: \${userPath}\`);
+}
+
 function createScriptContext(projectDir) {
-  const join = (p) => resolve(projectDir, p);
+  const join = (p) => resolveInProject(projectDir, p);
   return {
     project: {
       readFile: (p) => readFileSync(join(p), "utf-8"),
@@ -146,7 +159,7 @@ export function createScriptTool(cwd?: string): AgentTool<typeof ScriptParams, v
       params: ScriptInput,
     ): Promise<AgentToolResult<void>> {
       const { file, args = [], timeout: timeoutMs = 120_000 } = params;
-      const scriptPath = resolve(workDir, file);
+      const scriptPath = resolveInProject(workDir, file);
       const runnerPath = await getRunnerPath();
 
       let proc: ReturnType<typeof Bun.spawn>;

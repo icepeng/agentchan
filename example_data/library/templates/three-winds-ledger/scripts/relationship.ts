@@ -2,7 +2,7 @@
  * scripts/relationship.ts
  *
  * Applies a trust cue event to an NPC (or riwu). Checks cooldown against
- * recent scene history, clamps value to [-5, +5], outputs [STAT] marker and
+ * recent turn history, clamps value to [-5, +5], outputs [STAT] marker and
  * YAML patch.
  *
  * Usage: --npc <slug> --event <trigger_slug> --delta <+N|-N>
@@ -56,13 +56,14 @@ function parseRelArgs(argv: readonly string[], ctx: ScriptContext): Args {
 function checkCooldown(ctx: ScriptContext, npc: string, event: string, windowScenes: number): { blocked: boolean; reason?: string } {
   if (!ctx.project.exists("files/scenes/scene.md")) return { blocked: false };
   const raw = ctx.project.readFile("files/scenes/scene.md");
-  const statusMatches = Array.from(raw.matchAll(/<\/status>/gi));
-  if (statusMatches.length === 0) return { blocked: false };
+  // 턴 구분자 = 유저 메시지 에코 줄 `> ...` (SYSTEM.md output_contract 보장).
+  const turnMatches = Array.from(raw.matchAll(/^>\s+.+$/gm));
+  if (turnMatches.length === 0) return { blocked: false };
 
   let windowStart = 0;
-  if (statusMatches.length > windowScenes) {
-    const anchor = statusMatches[statusMatches.length - windowScenes - 1]!;
-    windowStart = anchor.index! + anchor[0].length;
+  if (turnMatches.length > windowScenes) {
+    const anchor = turnMatches[turnMatches.length - windowScenes] as RegExpMatchArray;
+    windowStart = anchor.index ?? 0;
   }
   const window = raw.slice(windowStart);
 
@@ -72,7 +73,7 @@ function checkCooldown(ctx: ScriptContext, npc: string, event: string, windowSce
   );
   const hit = rx.test(window);
   return hit
-    ? { blocked: true, reason: `최근 ${windowScenes}씬 내 동일 이벤트(${event}) 이미 발생 — 쿨다운` }
+    ? { blocked: true, reason: `최근 ${windowScenes}턴 내 동일 이벤트(${event}) 이미 발생 — 쿨다운` }
     : { blocked: false };
 }
 

@@ -38,12 +38,6 @@ SYSTEM.md `<references>` 섹션이 이 문서를 가리킨다. 관계 변화를 
 - (1)(5) 큰 이벤트: 기본 ±2, 씬 뒤집는 순간만 ±3
 - **±4 이상 금지** — 스크립트가 거부함 (`Math.abs(delta) > 3` 에러)
 
-<why>
-trust가 한 씬에서 크게 널뛰면 NPC의 개성이 무너진다. 작은 진전을 쌓아 Act 2·3에서
-결정적 증거 한 번으로 +2가 나올 때 극적 무게가 생긴다. 쿨다운은 플레이어가
-"공감 반응"을 스팸하는 최적화 루프를 막는다.
-</why>
-
 ## 3. 스크립트 호출
 
 ```bash
@@ -65,71 +59,25 @@ scripts/relationship.ts --npc <slug> --event <trigger_slug> --delta <+N|-N> --sk
 [STAT] kaelen -2 (defends_kaelen_refused) falling
 ```
 
-- 한 줄 1개. 씬 block의 **끝 직전** (`<status>` 앞).
+- 한 줄 1개. 씬 block 의 끝에 배치.
 - **`relationship.ts`가 반환한 `scene_block` 그대로 복사** — 형식 편집 금지.
 
 ## 5. 예시
 
 <example name="리우에게 공감 반응 — 작은 진전">
-플레이어: "그래서, 너도 거리에 있었다고 했지. 몇 살 때였어?"
-
-의도 파악: 리우의 시그니처 주제(과거 동료) 접근 → **작은 진전 (6)**.
-
+상황: "너도 거리에 있었다고 했지. 몇 살 때였어?" — 리우의 시그니처 주제(과거) 접근 → **작은 진전 (6)**.
 입력: `scripts/relationship.ts --npc riwu --event asked_about_past --delta +1`
-
-scene.md append:
-```
-**리우:** *옷깃을 만지작거린다.* "…일곱. 아니, 여덟이었나. 상관없지."
-
-*대답이 너무 빠르다. 리우는 당신의 시선을 피한다 — 무엇을 숨기려는 건지도 모르면서.*
-
-[STAT] riwu +1 (asked_about_past) rising
-
-<status>
-hp: 20/20
-mp: 0/0
-location: inn
-time: 21:30
-day: 2
-mode: peace
-conditions: []
-</status>
-```
+scene.md: 리우의 회피성 응답 대사 + 시선 피하는 내레이션 → 말미 `[STAT] riwu +1 (asked_about_past) rising`.
 </example>
 
-<example name="카엘렌의 거짓말 깨기 — 거짓말 드러남">
-플레이어: "장부 단편엔 자네 이름이 있었어. 부두에 없었다면서."
-
-의도 파악: 이전 씬에서 얻은 `ledger_fragment` 증거로 카엘렌의 알리바이 붕괴 → **거짓말 드러남 (5)**.
-
+<example name="카엘렌 거짓말 깨기 — 거짓말 드러남">
+상황: 이전 씬의 `ledger_fragment` 증거로 알리바이 붕괴 → **거짓말 드러남 (5)**.
 입력: `scripts/relationship.ts --npc kaelen --event ledger_confrontation --delta -2`
-
-scene.md append:
-```
-*카엘렌의 손가락이 탁자 위에서 멈춘다. 아주 잠깐.*
-
-**카엘렌:** "…그건 설명할 수 있어."
-
-[STAT] kaelen -2 (ledger_confrontation) falling
-
-<status>
-hp: 18/20
-mp: 2/4
-location: brass_guild_hall
-time: 15:40
-day: 4
-mode: peace
-conditions: []
-</status>
-```
+scene.md: 카엘렌 손가락 멈칫 + 해명 시도 대사 → `[STAT] kaelen -2 (ledger_confrontation) falling`.
 </example>
 
 <example name="쿨다운 적중 — 아무 변화 없음">
-플레이어: (리우에게 또 한 번 과거 질문)
-
+상황: 리우에게 같은 과거 질문 반복.
 입력: `scripts/relationship.ts --npc riwu --event asked_about_past --delta +1`
-
-스크립트 반환: `{"changed":[],"deltas":{},"summary":"쿨다운 적용..."}`
-
-→ 에이전트는 **`[STAT]` 마커를 찍지 않는다**. 대신 리우가 조용히 대화 주제를 튼다거나, 플레이어가 "이 NPC는 같은 질문에 더 열리지 않는다"는 신호를 서술로 받도록 한다.
+반환: `{"changed":[],"deltas":{},"summary":"쿨다운 적용..."}` → **`[STAT]` 마커 찍지 말 것**. 대신 리우가 조용히 주제 돌리거나, "이 NPC는 더 열리지 않는다"는 신호를 서술로 처리.
 </example>

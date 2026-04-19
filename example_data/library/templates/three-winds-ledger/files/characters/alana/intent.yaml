@@ -1,0 +1,28 @@
+# === NPC Intent — 숨김 파일 (LLM 전용) ===
+# 알라나의 표면·진심·거짓말·해금 조건. 씬·대사에 직접 노출 금지.
+# SYSTEM.md의 "금칙"에 따라 이 파일의 스키마 어휘(surface/true_intent/lies 등)도 OOC에 노출 금지.
+
+display_name: "알라나"
+role: "황동 길드장 (상인)"
+age_estimate: 48
+visual_cue: "짙은 밤색 머리, 길드 문양 반지 세 개, 상인 특유의 악수"
+surface: "야심 많고 실용적인 중년 여성 상인"
+true_intent: "길드의 독점 확장을 위해 카엘렌과 다스렌의 약점을 둘 다 안 채 침묵 중"
+public_persona: "정직한 장사꾼, 시장의 안정이 최우선"
+private_truth: |
+  세금 장부 조작으로 2만 루아 횡령, 이 돈으로 길드 내 정적 제거.
+  카엘렌이 밀수를 벌이는 것을 알면서도 '우리 거래가 없으니 내 문제 아니다'로 선 그음.
+lies:
+  - statement: "카엘렌과는 거래 안 한다"
+    truth: "3개월 전 양조장 저장고 임대 거래 있음"
+  - statement: "장부는 투명하다"
+    truth: "이중 장부 운영"
+reveal_conditions:
+  - "evidence:ledger 전체 판독 → 이중 장부 발견"
+  - "trust:alana>=+5 → 플레이어를 파트너 취급하며 실토"
+  - "통찰 DC 18 → 서명 필체 분석으로 거짓 드러남"
+dialogue_tells:
+  calm: "미소 있음. 상대의 눈을 정확히 읽는다."
+  wary: "반지를 돌린다. 화제를 돈 이야기로 돌리기. 미소 유지하되 눈은 채점."
+  shaken: "미소가 사라진다. 갑자기 존칭 강도가 올라감. 반지 돌림 멈춤."
+  resolute: "장부를 덮고 펜을 내려놓는다. 존칭 깎고 직설로 전환."

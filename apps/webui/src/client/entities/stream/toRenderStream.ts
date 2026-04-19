@@ -21,6 +21,7 @@ function toRenderToolCall(tc: ToolCallState): RenderToolCallView {
   return {
     id: tc.id,
     name: tc.name,
+    args: tc.args,
     argsComplete: tc.argsComplete,
     executionStarted: tc.executionStarted,
     result: tc.result,

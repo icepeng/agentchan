@@ -1,16 +1,22 @@
 /**
  * scripts/combat.ts
  *
- * Resolves a single combat action. Two modes:
+ * Resolves a single combat action. Three modes:
  *   1. Active — actor attempts an attack/spell against a DC
  *   2. Passive — apply damage taken by PC or companion (updates party.yaml)
+ *   3. Mode-only — --start / --end without action: flip world-state.yaml mode field
  *
  * Usage (mode 1 — active):
  *   --actor <pc|riwu> --category <attack|spell> --target-dc <N>
  *   [--weapon <slug>] [--damage <formula>] [--spell <slug>] [--round <N>]
+ *   [--start]               (전투 진입: world-state.yaml mode: combat)
+ *   [--end]                 (전투 종료: mode: peace)
  *
  * Usage (mode 2 — passive):
- *   --actor <pc|riwu> --take-damage <N> [--round <N>]
+ *   --actor <pc|riwu> --take-damage <N> [--round <N>] [--end]
+ *
+ * Usage (mode 3 — mode-only):
+ *   --start | --end       (액션 없이 mode 만 전환)
  *
  * 반환 JSON: {changed, deltas, summary, scene_block?}.
  * scene_block 은 active 모드(attack/spell)에서만 반환 — 그대로 scene.md 에 append.
@@ -20,7 +26,8 @@ import type { ScriptContext } from "@agentchan/creative-agent";
 
 // ─── Args ────────────────────────────────────────────────────────────────────
 
-interface Args {
+interface ActionArgs {
+  kind: "action";
   actor: "pc" | "riwu";
   category?: "attack" | "spell";
   targetDc?: number;
@@ -29,7 +36,15 @@ interface Args {
   spell?: string;
   takeDamage?: number;
   round?: number;
+  start: boolean;
+  end: boolean;
 }
+interface ModeOnlyArgs {
+  kind: "mode-only";
+  start: boolean;
+  end: boolean;
+}
+type Args = ActionArgs | ModeOnlyArgs;
 
 function parseCombatArgs(argv: readonly string[], ctx: ScriptContext): Args {
   const { values } = ctx.util.parseArgs({
@@ -43,13 +58,22 @@ function parseCombatArgs(argv: readonly string[], ctx: ScriptContext): Args {
       spell: { type: "string" },
       "take-damage": { type: "string" },
       round: { type: "string" },
+      start: { type: "boolean" },
+      end: { type: "boolean" },
     },
     strict: true,
   });
+  const start = values.start === true;
+  const end = values.end === true;
   const { actor, category } = values;
+
+  if (!actor && (start || end)) {
+    return { kind: "mode-only", start, end };
+  }
+
   if (!actor) throw new Error("--actor required (pc | riwu)");
   if (!["pc", "riwu"].includes(actor)) throw new Error(`--actor must be pc | riwu. got: ${actor}`);
-  const out: Args = { actor: actor as "pc" | "riwu" };
+  const out: ActionArgs = { kind: "action", actor: actor as "pc" | "riwu", start, end };
   if (category) {
     if (!["attack", "spell"].includes(category)) throw new Error("--category must be attack|spell");
     out.category = category as "attack" | "spell";
@@ -142,7 +166,7 @@ function rollDamage(ctx: ScriptContext, formula: string, attrs: PcStats): { desc
   };
   let expr = formula;
   for (const [name, val] of Object.entries(attrMap)) {
-    expr = expr.replaceAll(name, String(val));
+    expr = expr.split(name).join(String(val));
   }
   expr = expr.replace(/\+-/g, "-").replace(/--/g, "+").replace(/\+0$/, "").replace(/-0$/, "");
 
@@ -192,6 +216,22 @@ function updatePartyField(ctx: ScriptContext, actor: "pc" | "riwu", field: "hp" 
   ctx.project.writeFile("files/party.yaml", newContent);
 }
 
+function setWorldMode(ctx: ScriptContext, mode: "peace" | "combat"): boolean {
+  const raw = ctx.project.readFile("files/world-state.yaml");
+  const rx = /^mode:\s*\w+/m;
+  let newRaw: string;
+  if (rx.test(raw)) {
+    newRaw = raw.replace(rx, `mode: ${mode}`);
+  } else if (/^weather:.*$/m.test(raw)) {
+    newRaw = raw.replace(/^(weather:.*\n)/m, `$1mode: ${mode}\n`);
+  } else {
+    newRaw = raw.trimEnd() + `\nmode: ${mode}\n`;
+  }
+  if (newRaw === raw) return false;
+  ctx.project.writeFile("files/world-state.yaml", newRaw);
+  return true;
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 function buildSceneBlock(systemLine: string, round?: number): string {
@@ -201,20 +241,61 @@ function buildSceneBlock(systemLine: string, round?: number): string {
 
 export default function (rawArgs: readonly string[], ctx: ScriptContext) {
   const args = parseCombatArgs(rawArgs, ctx);
+
+  // ── Mode 3: mode-only (--start / --end without action) ────
+  if (args.kind === "mode-only") {
+    const changed: string[] = [];
+    const deltas: Record<string, unknown> = {};
+    if (args.start) {
+      if (setWorldMode(ctx, "combat")) changed.push("files/world-state.yaml");
+      deltas.mode = "combat";
+    }
+    if (args.end) {
+      if (setWorldMode(ctx, "peace")) changed.push("files/world-state.yaml");
+      deltas.mode = "peace";
+    }
+    return {
+      changed: [...new Set(changed)],
+      deltas,
+      summary: args.end ? "전투 종료 · mode: peace" : "전투 진입 · mode: combat",
+    };
+  }
+
   const state = readActorState(ctx, args.actor);
+
+  // --start / --end: 액션 전후 mode 갱신을 누적
+  const modeChanges: { changed: string[]; deltas: Record<string, unknown>; summaryTail: string } = {
+    changed: [],
+    deltas: {},
+    summaryTail: "",
+  };
+  if (args.start) {
+    if (setWorldMode(ctx, "combat")) modeChanges.changed.push("files/world-state.yaml");
+    modeChanges.deltas.mode_enter = "combat";
+    modeChanges.summaryTail += " · mode: combat";
+  }
+  const applyEndMode = () => {
+    if (!args.end) return;
+    if (setWorldMode(ctx, "peace")) modeChanges.changed.push("files/world-state.yaml");
+    modeChanges.deltas.mode_exit = "peace";
+    modeChanges.summaryTail += " · mode: peace";
+  };
 
   // ── Mode 2: take damage ────────────────
   if (args.takeDamage !== undefined) {
     const newHp = Math.max(0, state.hp.current - args.takeDamage);
     updatePartyField(ctx, args.actor, "hp", newHp);
+    applyEndMode();
     const summary =
       `${args.actor} 피해 ${args.takeDamage}. HP ${state.hp.current} → ${newHp}/${state.hp.max}` +
-      (newHp === 0 ? " · 의식불명 (3라운드 유예)" : "");
+      (newHp === 0 ? " · 의식불명 (3라운드 유예)" : "") +
+      modeChanges.summaryTail;
     return {
-      changed: ["files/party.yaml"],
+      changed: [...new Set(["files/party.yaml", ...modeChanges.changed])],
       deltas: {
         [`${args.actor}.hp`]: { from: state.hp.current, to: newHp, max: state.hp.max },
         ...(newHp === 0 ? { [`${args.actor}.condition`]: "unconscious" } : {}),
+        ...modeChanges.deltas,
       },
       summary,
     };
@@ -256,15 +337,17 @@ export default function (rawArgs: readonly string[], ctx: ScriptContext) {
     } else {
       systemLine = `${args.actor} attacks: d20${modStr}=${hitTotal} vs ${args.targetDc} → MISS.`;
     }
+    applyEndMode();
     return {
-      changed: [],
+      changed: [...new Set(modeChanges.changed)],
       deltas: {
         hit: { total: hitTotal, dc: args.targetDc, success: hit },
         ...(damageTotal !== null ? { damage: damageTotal } : {}),
+        ...modeChanges.deltas,
       },
-      summary: hit
+      summary: (hit
         ? `${args.actor} 명중 (${hitTotal} vs DC ${args.targetDc}), 피해 ${damageTotal}`
-        : `${args.actor} 빗나감 (${hitTotal} vs DC ${args.targetDc})`,
+        : `${args.actor} 빗나감 (${hitTotal} vs DC ${args.targetDc})`) + modeChanges.summaryTail,
       scene_block: buildSceneBlock(systemLine, args.round),
     };
   }
@@ -302,17 +385,20 @@ export default function (rawArgs: readonly string[], ctx: ScriptContext) {
     }
 
     updatePartyField(ctx, "pc", "mp", newMp);
+    applyEndMode();
     return {
-      changed: ["files/party.yaml"],
+      changed: [...new Set(["files/party.yaml", ...modeChanges.changed])],
       deltas: {
         cast: { total: castTotal, dc: spell.dc, success: castOk, school: spell.school },
         "pc.mp": { from: state.mp.current, to: newMp, max: state.mp.max },
         ...(damageTotal !== null ? { damage: damageTotal } : {}),
+        ...modeChanges.deltas,
       },
-      summary: castOk
+      summary: (castOk
         ? `pc 시전 ${args.spell} 성공 (${castTotal} vs DC ${spell.dc}), MP ${state.mp.current}→${newMp}` +
           (damageTotal !== null ? `, 피해 ${damageTotal}` : "")
-        : `pc 시전 ${args.spell} 실패 (fizzle), MP ${state.mp.current}→${newMp}`,
+        : `pc 시전 ${args.spell} 실패 (fizzle), MP ${state.mp.current}→${newMp}`) +
+        modeChanges.summaryTail,
       scene_block: buildSceneBlock(systemLine, args.round),
     };
   }

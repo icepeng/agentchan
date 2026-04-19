@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 import { MAX_LINES, MAX_OUTPUT_BYTES } from "./util.js";
 
 const ReadParams = Type.Object({
@@ -37,7 +37,7 @@ export function createReadTool(cwd?: string): AgentTool<typeof ReadParams, void>
       _toolCallId: string,
       params: ReadInput,
     ): Promise<AgentToolResult<void>> {
-      const filePath = resolve(workDir, params.file_path);
+      const filePath = resolveInProject(workDir, params.file_path);
       const offset = (params.offset ?? 1) - 1;
       const limit = Math.min(params.limit ?? MAX_LINES, MAX_LINES);
 

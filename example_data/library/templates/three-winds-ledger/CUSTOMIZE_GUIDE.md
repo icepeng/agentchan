@@ -13,8 +13,8 @@ files/
 ├── spells.yaml                  # 9 주문 카탈로그
 ├── campaign.yaml                # [숨김] 3막 게이트·9엔딩 조건·진상
 ├── companion-secrets.yaml       # [숨김] 리우 개인 퀘스트·배신 트리거
-├── npc-intents.yaml             # [숨김] NPC 8명의 내심·거짓말·해금 조건
 ├── characters/                  # NPC + 동료 카드 (감정별 에셋 포함)
+│   └── <slug>/intent.yaml       # [숨김] 개별 NPC 의 내심·거짓말·해금 조건
 ├── locations/                   # 7 장소 메쉬 (door_to 연결)
 ├── pregens/                     # 전사·도적·학자 프리셋 카드
 ├── personas/                    # 기본 페르소나
@@ -25,7 +25,7 @@ files/
     └── lore/*.md                # 집단·장소·문화·역사 (10종, 필요시 read)
 ```
 
-**숨김 파일 3개**는 `[숨김]` 표시된 것으로, 에이전트만 read로 참조하고 씬·대사·OOC에 직접 노출되지 않습니다. 렌더러도 이 파일들은 UI에 표시하지 않습니다.
+**[숨김] 표시된 파일들**은 에이전트만 read로 참조하고 씬·대사·OOC에 직접 노출되지 않습니다. 렌더러도 이 파일들은 UI에 표시하지 않습니다. `characters/<slug>/intent.yaml`은 캐릭터마다 하나씩 존재 — 에이전트는 해당 씬에 등장하는 NPC의 intent만 read.
 
 ## `SYSTEM.md`
 프로젝트 행동의 단일 원천. 14 섹션으로 구성되어 있습니다:
@@ -35,11 +35,11 @@ files/
 
 톤·규칙·세계관 근본을 바꾸고 싶으면 여기를 편집.
 
-## `files/campaign.yaml` · `companion-secrets.yaml` · `npc-intents.yaml`
+## `files/campaign.yaml` · `companion-secrets.yaml` · `characters/<slug>/intent.yaml`
 서사의 뼈대. 다른 사건으로 리스킨하려면:
 - `campaign.yaml`: 진상(culprit/motivation) · 9 엔딩의 `act3_gate` 조건식
 - `companion-secrets.yaml`: 리우의 자리에 다른 동료 프로필 + 개인 퀘스트
-- `npc-intents.yaml`: 8 NPC의 표면·진심·거짓말·해금 조건
+- `characters/<slug>/intent.yaml`: 개별 NPC의 표면·진심·거짓말·해금 조건 (NPC마다 한 파일)
 
 ## 난이도 조절
 - **쉽게**: `campaign.yaml` 의 `act_gates` 에서 `clues_found>=3` 을 `>=2` 로. `spells.yaml` 의 `dc` 낮추기
