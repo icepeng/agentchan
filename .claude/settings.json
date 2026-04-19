@@ -10,6 +10,17 @@
             "statusMessage": "Letting TS language server catch up to prevent stale diagnostics"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/copy-example-data.sh --force",
+            "if": "Bash(git pull*)",
+            "statusMessage": "Syncing example_data → apps/webui/data"
+          }
+        ]
       }
     ],
     "SessionStart": [
