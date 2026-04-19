@@ -7,8 +7,8 @@ import {
   useEditorState,
   useEditorDispatch,
   useProjectTree,
-  useFileContent,
   useEditorMutations,
+  readProjectFile,
 } from "@/client/entities/editor/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 import { useLatestRef } from "@/client/shared/useLatestRef.js";
@@ -29,10 +29,6 @@ export function useEditMode() {
   const { data: treeData } = useProjectTree(isEdit ? slug : null);
   const treeEntries = treeData?.entries ?? [];
 
-  // File content for the active selection. SWR keys by [slug, path] so
-  // switching files is a free cache hit when one's been opened before.
-  const { data: fileData } = useFileContent(slug, editor.selectedPath);
-
   const {
     write,
     removeFile: deleteFile,
@@ -42,29 +38,24 @@ export function useEditMode() {
     reveal,
   } = useEditorMutations(slug);
 
-  // Derived: SWR cache is ground truth. A buffer only exists while editing.
-  // dirty is parity against the server baseline — never stored, so it can't
-  // drift against the SWR cache.
-  const serverContent = fileData?.content;
   const dirty =
-    editor.buffer !== null && serverContent !== undefined && editor.buffer !== serverContent;
-  const fileContent = editor.buffer ?? serverContent ?? null;
+    editor.buffer !== null && editor.buffer !== editor.originalContent;
+  const fileContent = editor.buffer;
 
-  // Refs so the streaming-finished effect and async delete/rename handlers see
-  // latest selectedPath/dirty without re-subscribing or stale-closure risk.
   const wasStreaming = useRef(false);
   const selectedPathRef = useLatestRef(editor.selectedPath);
   const dirtyRef = useLatestRef(dirty);
 
-  // Pending navigation while unsaved dialog is shown
-  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  // Last-write-wins: if a newer selection supersedes an in-flight fetch,
+  // drop the stale payload rather than flashing old content into the new slot.
+  const pendingSelectionRef = useRef<string | null>(null);
 
-  // Pending delete confirmation
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null);
   const [deleteConfirmDir, setDeleteConfirmDir] = useState<string | null>(null);
 
-  // Refetch tree + active file when an agent stream finishes (it may have
-  // edited files behind our back).
+  // Refetch tree + active file when an agent stream finishes — it may have
+  // edited files behind our back.
   useEffect(() => {
     if (stream.isStreaming) {
       wasStreaming.current = true;
@@ -74,15 +65,29 @@ export function useEditMode() {
     wasStreaming.current = false;
     if (!isEdit || !slug) return;
     void mutate(qk.projectTree(slug));
-    if (selectedPathRef.current && !dirtyRef.current) {
-      void mutate(qk.projectFile(slug, selectedPathRef.current));
-    }
-  }, [stream.isStreaming, isEdit, slug, mutate, selectedPathRef, dirtyRef]);
+    const path = selectedPathRef.current;
+    if (!path || dirtyRef.current) return;
+    void (async () => {
+      const { content } = await readProjectFile(slug, path);
+      editorDispatch({ type: "EXTERNAL_REFRESH", path, content });
+    })();
+  }, [stream.isStreaming, isEdit, slug, mutate, selectedPathRef, dirtyRef, editorDispatch]);
 
-  // Clear editor on project switch (don't carry stale selection across projects).
   useEffect(() => {
+    // Cross-project contamination guard: an in-flight fetch from the
+    // previous project would otherwise dispatch SELECT_FILE into the new
+    // project's state if its path happens to match the guard lane.
+    pendingSelectionRef.current = null;
     editorDispatch({ type: "CLEAR" });
   }, [slug, editorDispatch]);
+
+  const fetchAndSelect = async (path: string) => {
+    if (!slug) return;
+    pendingSelectionRef.current = path;
+    const { content } = await readProjectFile(slug, path);
+    if (pendingSelectionRef.current !== path) return;
+    editorDispatch({ type: "SELECT_FILE", path, content });
+  };
 
   const selectFile = (path: string) => {
     if (path === editor.selectedPath) return;
@@ -90,43 +95,40 @@ export function useEditMode() {
       setPendingPath(path);
       return;
     }
-    editorDispatch({ type: "SELECT_FILE", path });
+    void fetchAndSelect(path);
   };
 
   const saveCurrentFile = async () => {
     if (!slug || !editor.selectedPath || editor.buffer === null) return;
     const saved = editor.buffer;
     await write(editor.selectedPath, saved);
-    // Conditional drop: if the user typed more during the await, keep their
-    // buffer — dirty will re-derive against the new serverContent.
-    editorDispatch({ type: "DISCARD_BUFFER", ifEquals: saved });
+    editorDispatch({ type: "FILE_SAVED", savedContent: saved });
   };
 
   const handleDocChange = (content: string) => {
     editorDispatch({ type: "UPDATE_BUFFER", content });
   };
 
-  // Unsaved dialog handlers
-  const handleUnsavedSave = async () => {
-    await saveCurrentFile();
-    if (pendingPath) {
-      editorDispatch({ type: "SELECT_FILE", path: pendingPath });
-      setPendingPath(null);
-    }
+  const navigatePending = async () => {
+    if (!pendingPath) return;
+    const target = pendingPath;
+    setPendingPath(null);
+    await fetchAndSelect(target);
   };
 
-  const handleUnsavedDiscard = () => {
-    if (pendingPath) {
-      editorDispatch({ type: "SELECT_FILE", path: pendingPath });
-      setPendingPath(null);
-    }
+  const handleUnsavedSave = async () => {
+    await saveCurrentFile();
+    await navigatePending();
+  };
+
+  const handleUnsavedDiscard = async () => {
+    await navigatePending();
   };
 
   const handleUnsavedCancel = () => {
     setPendingPath(null);
   };
 
-  // Delete flow
   const requestDeleteFile = (path: string) => {
     setDeleteConfirmPath(path);
   };
@@ -136,6 +138,11 @@ export function useEditMode() {
     try {
       await deleteFile(deleteConfirmPath);
       if (selectedPathRef.current === deleteConfirmPath) {
+        // Prevent a late fetchAndSelect response from resurrecting the
+        // just-deleted path via SELECT_FILE.
+        if (pendingSelectionRef.current === deleteConfirmPath) {
+          pendingSelectionRef.current = null;
+        }
         editorDispatch({ type: "DESELECT_FILE" });
       }
     } finally {
@@ -147,7 +154,6 @@ export function useEditMode() {
     setDeleteConfirmPath(null);
   };
 
-  // Folder delete flow
   const requestDeleteDir = (path: string) => {
     setDeleteConfirmDir(path);
   };
@@ -156,10 +162,16 @@ export function useEditMode() {
     if (!slug || !deleteConfirmDir) return;
     try {
       await deleteDir(deleteConfirmDir);
-      if (selectedPathRef.current && (
-        selectedPathRef.current === deleteConfirmDir ||
-        selectedPathRef.current.startsWith(deleteConfirmDir + "/")
-      )) {
+      const selected = selectedPathRef.current;
+      const affected = !!selected && (
+        selected === deleteConfirmDir ||
+        selected.startsWith(deleteConfirmDir + "/")
+      );
+      if (affected) {
+        const pending = pendingSelectionRef.current;
+        if (pending && (pending === deleteConfirmDir || pending.startsWith(deleteConfirmDir + "/"))) {
+          pendingSelectionRef.current = null;
+        }
         editorDispatch({ type: "DESELECT_FILE" });
       }
     } finally {
@@ -171,14 +183,21 @@ export function useEditMode() {
     setDeleteConfirmDir(null);
   };
 
-  // Rename
   const renameEntry = async (oldPath: string, newName: string) => {
     if (!slug) return;
     const parentPath = oldPath.includes("/") ? oldPath.substring(0, oldPath.lastIndexOf("/")) : null;
     const newPath = parentPath ? `${parentPath}/${newName}` : newName;
     await rename(oldPath, newPath);
 
-    // Update selectedPath if the renamed item is the open file or a parent folder.
+    // Translate any in-flight selection fetch to the renamed path so its
+    // response isn't dropped-or-worse, dispatched under the stale path.
+    const pending = pendingSelectionRef.current;
+    if (pending === oldPath) {
+      pendingSelectionRef.current = newPath;
+    } else if (pending && pending.startsWith(oldPath + "/")) {
+      pendingSelectionRef.current = newPath + pending.slice(oldPath.length);
+    }
+
     const selected = selectedPathRef.current;
     if (selected) {
       if (selected === oldPath) {
@@ -189,12 +208,14 @@ export function useEditMode() {
     }
   };
 
-  // Create file / dir
   const createFileInDir = async (dirPath: string | null, fileName: string) => {
     if (!slug) return;
     const filePath = dirPath ? `${dirPath}/${fileName}` : fileName;
     await write(filePath, "");
-    editorDispatch({ type: "SELECT_FILE", path: filePath });
+    // Known-empty; skip the read round-trip. Claim the guard lane so any
+    // in-flight fetchAndSelect that resolves after this point is dropped.
+    pendingSelectionRef.current = filePath;
+    editorDispatch({ type: "SELECT_FILE", path: filePath, content: "" });
   };
 
   const createDirInDir = async (parentPath: string | null, dirName: string) => {
@@ -216,26 +237,20 @@ export function useEditMode() {
     selectFile,
     saveCurrentFile,
     handleDocChange,
-    // Unsaved dialog
     unsavedDialogOpen: pendingPath !== null,
     handleUnsavedSave,
     handleUnsavedDiscard,
     handleUnsavedCancel,
-    // Delete dialog
     deleteConfirmPath,
     requestDeleteFile,
     confirmDeleteFile,
     cancelDeleteFile,
-    // Reveal in explorer
     revealFile,
-    // Folder delete dialog
     deleteConfirmDir,
     requestDeleteDir,
     confirmDeleteDir,
     cancelDeleteDir,
-    // Rename
     renameEntry,
-    // Create
     createFileInDir,
     createDirInDir,
   };

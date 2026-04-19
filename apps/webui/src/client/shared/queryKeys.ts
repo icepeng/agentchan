@@ -31,7 +31,6 @@ export const qk = {
 
   // --- Editor (file system) ---
   projectTree:     (slug: string)              => ["projectTree", slug] as const,
-  projectFile:     (slug: string, path: string) => ["projectFile", slug, path] as const,
 
   // --- Templates ---
   templates:       ()                          => ["templates"] as const,
@@ -46,8 +45,8 @@ export type QueryKey = readonly [string, ...unknown[]];
 /**
  * Predicate for `mutate()` that matches every cache entry tagged with a
  * given project slug. Entity convention: slug lives at `key[1]` for
- * per-project keys (`sessions`, `session`, `skills`, `projectTree`,
- * `projectFile`, etc.), so wiping a project is a single predicate eviction.
+ * per-project keys (`sessions`, `session`, `skills`, `projectTree`, etc.),
+ * so wiping a project is a single predicate eviction.
  */
 export const matchesSlug =
   (slug: string) =>

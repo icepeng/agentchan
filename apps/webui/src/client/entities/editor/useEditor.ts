@@ -14,63 +14,46 @@ export function useProjectTree(slug: string | null) {
   return useSWR<{ entries: TreeEntry[] }>(slug ? qk.projectTree(slug) : null);
 }
 
-export function useFileContent(slug: string | null, path: string | null) {
-  return useSWR<{ content: string }>(slug && path ? qk.projectFile(slug, path) : null);
-}
-
 /**
- * Editor mutations. `write` seeds the file cache so the editor doesn't
- * round-trip after save. Tree-shape changes (delete/rename/createDir)
- * invalidate the tree key and selectively migrate file content cache.
+ * File content is owned by the editor reducer, not SWR. Mutations here
+ * kick off a tree revalidation (fire-and-forget) so the caller isn't
+ * blocked on the GET round-trip before its own follow-up dispatch.
  */
 export function useEditorMutations(slug: string | null) {
   const { mutate } = useSWRConfig();
 
+  const refreshTree = () => {
+    if (slug) void mutate(qk.projectTree(slug));
+  };
+
   const write = async (path: string, content: string) => {
     if (!slug) throw new Error("write: slug required");
     await apiWrite(slug, path, content);
-    await mutate(qk.projectFile(slug, path), { content }, { revalidate: false });
-    // Tree's modifiedAt for this entry shifts — keep the list in sync.
-    await mutate(qk.projectTree(slug));
+    refreshTree();
   };
 
   const removeFile = async (path: string) => {
     if (!slug) throw new Error("removeFile: slug required");
     await apiDeleteFile(slug, path);
-    await mutate(qk.projectTree(slug));
-    await mutate(qk.projectFile(slug, path), undefined, { revalidate: false });
+    refreshTree();
   };
 
   const removeDir = async (path: string) => {
     if (!slug) throw new Error("removeDir: slug required");
     await apiDeleteDir(slug, path);
-    await mutate(qk.projectTree(slug));
-    // Evict any cached files under this directory prefix.
-    await mutate(
-      (k) =>
-        Array.isArray(k) &&
-        k[0] === "projectFile" &&
-        k[1] === slug &&
-        typeof k[2] === "string" &&
-        k[2].startsWith(path + "/"),
-      undefined,
-      { revalidate: false },
-    );
+    refreshTree();
   };
 
   const rename = async (from: string, to: string) => {
     if (!slug) throw new Error("rename: slug required");
     await apiRename(slug, from, to);
-    await mutate(qk.projectTree(slug));
-    // Move the file content cache to the new key (if loaded).
-    await mutate(qk.projectFile(slug, from), undefined, { revalidate: false });
-    await mutate(qk.projectFile(slug, to));
+    refreshTree();
   };
 
   const createDir = async (path: string) => {
     if (!slug) throw new Error("createDir: slug required");
     await apiCreateDir(slug, path);
-    await mutate(qk.projectTree(slug));
+    refreshTree();
   };
 
   const reveal = async (path: string) => {
