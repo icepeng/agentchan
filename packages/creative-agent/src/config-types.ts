@@ -34,3 +34,5 @@ export interface CustomProviderDef {
 }
 
 export type ThinkingLevel = "off" | "low" | "medium" | "high";
+
+export const DEFAULT_THINKING_LEVEL: ThinkingLevel = "medium";

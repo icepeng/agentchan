@@ -1,4 +1,4 @@
-import { getProviders, getModels, type ModelInfo } from "@agentchan/creative-agent";
+import { getProviders, getModels, DEFAULT_THINKING_LEVEL, type ModelInfo } from "@agentchan/creative-agent";
 import {
   getOAuthApiKey,
   getOAuthProvider,
@@ -188,7 +188,7 @@ export function createConfigService(settingsRepo: SettingsRepo) {
 
   function loadThinkingLevel() {
     const raw = settingsRepo.getAppSetting("config.thinkingLevel");
-    if (raw === "low" || raw === "medium" || raw === "high") return raw;
+    if (raw === "off" || raw === "low" || raw === "medium" || raw === "high") return raw;
     return undefined;
   }
 
@@ -216,7 +216,7 @@ export function createConfigService(settingsRepo: SettingsRepo) {
       temperature: loadNumber("config.temperature", parseFloat, 0, 2),
       maxTokens: loadNumber("config.maxTokens", (s) => parseInt(s, 10), 1),
       contextWindow: loadNumber("config.contextWindow", (s) => parseInt(s, 10), 1024),
-      thinkingLevel: loadThinkingLevel(),
+      thinkingLevel: loadThinkingLevel() ?? DEFAULT_THINKING_LEVEL,
     };
   }
 
@@ -258,9 +258,8 @@ export function createConfigService(settingsRepo: SettingsRepo) {
 
       if ("thinkingLevel" in body) {
         const level = body.thinkingLevel;
-        // "off" and null both map to "unset" — reasoning stays disabled by default.
-        if (level == null || level === "off") {
-          currentConfig.thinkingLevel = undefined;
+        if (level == null) {
+          currentConfig.thinkingLevel = DEFAULT_THINKING_LEVEL;
           settingsRepo.deleteAppSetting("config.thinkingLevel");
         } else {
           currentConfig.thinkingLevel = level;

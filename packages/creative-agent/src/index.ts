@@ -11,6 +11,7 @@ export { slugify } from "./slug.js";
 // Types
 export type { AgentMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Session } from "./types.js";
 export type { ModelInfo, CustomApiFormat, ProviderInfo, CustomProviderDef, ThinkingLevel } from "./config-types.js";
+export { DEFAULT_THINKING_LEVEL } from "./config-types.js";
 
 // Agent — orchestrator
 export {
