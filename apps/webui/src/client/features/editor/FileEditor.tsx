@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { EditorView, keymap, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
@@ -24,9 +24,11 @@ import {
 } from "@codemirror/autocomplete";
 import { useI18n } from "@/client/i18n/index.js";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { isImagePath } from "@/client/entities/editor/index.js";
+import { isImagePath, type EditorAPI } from "@/client/entities/editor/index.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
 import { useLatestRef } from "@/client/shared/useLatestRef.js";
+
+const TOKEN_DEBOUNCE_MS = 300;
 
 // --- Obsidian Teal theme (from former TextEditor) ---
 
@@ -231,30 +233,36 @@ function rendererCompletions(context: CompletionContext): CompletionResult | nul
 
 interface FileEditorProps {
   path: string | null;
-  content: string | null;
+  baseline: string | null;
   dirty: boolean;
-  onDocChange: (content: string) => void;
+  onMarkDirty: () => void;
   onSave: () => Promise<void>;
+  editorRef: RefObject<EditorAPI | null>;
 }
 
-export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEditorProps) {
+export function FileEditor({ path, baseline, dirty, onMarkDirty, onSave, editorRef }: FileEditorProps) {
   const { t } = useI18n();
   const project = useProjectSelectionState();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const onDocChangeRef = useLatestRef(onDocChange);
+  const onMarkDirtyRef = useLatestRef(onMarkDirty);
   const onSaveRef = useLatestRef(onSave);
   const dirtyRef = useLatestRef(dirty);
+  // True while the sync effect applies a programmatic doc swap — keeps the
+  // updateListener from mis-attributing it as a user edit.
+  const suppressDirtyRef = useRef(false);
+  const tokenTimerRef = useRef<number | null>(null);
   const [tokenCount, setTokenCount] = useState<number | null>(null);
 
   const language = path ? detectLanguage(path) : undefined;
-  const hasContent = content !== null;
+  const hasBaseline = baseline !== null;
 
-  // Create / destroy EditorView when path changes or content first loads.
-  // hasContent toggles the effect on null→value transition so the view is built
-  // once content arrives; subsequent value→value edits don't re-run (would destroy focus/history).
+  // Create / destroy EditorView when path changes or baseline first loads.
+  // hasBaseline toggles the effect on null→value transition so the view is built
+  // once content arrives; subsequent baseline changes (external refresh, save)
+  // flow through the sync effect below and don't tear down the view.
   useEffect(() => {
-    if (!containerRef.current || !path || content === null || isImagePath(path)) return;
+    if (!containerRef.current || !path || baseline === null || isImagePath(path)) return;
 
     const saveKeymap = keymap.of([{
       key: "Mod-s",
@@ -265,18 +273,28 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
     }]);
 
     const updateListener = EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
-        const text = update.state.doc.toString();
-        onDocChangeRef.current(text);
-        setTokenCount(estimateTokens(text));
+      if (!update.docChanged) return;
+
+      if (!suppressDirtyRef.current && !dirtyRef.current) {
+        onMarkDirtyRef.current();
       }
+
+      // Debounce the token estimate — estimateTokens is O(n) per char and
+      // was dominating keystroke cost. Only recompute once typing settles.
+      if (tokenTimerRef.current !== null) {
+        clearTimeout(tokenTimerRef.current);
+      }
+      tokenTimerRef.current = window.setTimeout(() => {
+        const v = viewRef.current;
+        if (v) setTokenCount(estimateTokens(v.state.doc.toString()));
+        tokenTimerRef.current = null;
+      }, TOKEN_DEBOUNCE_MS);
     });
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 에디터 생성 시 초기 토큰 수 설정
-    setTokenCount(estimateTokens(content));
+    setTokenCount(estimateTokens(baseline));
 
     const state = EditorState.create({
-      doc: content,
+      doc: baseline,
       extensions: [
         saveKeymap,
         keymap.of([
@@ -310,27 +328,44 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
 
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
+    editorRef.current = {
+      getContent: () => viewRef.current?.state.doc.toString() ?? null,
+    };
 
     return () => {
+      if (tokenTimerRef.current !== null) {
+        clearTimeout(tokenTimerRef.current);
+        tokenTimerRef.current = null;
+      }
       view.destroy();
       viewRef.current = null;
+      editorRef.current = null;
     };
-  }, [path, language, hasContent]); // eslint-disable-line react-hooks/exhaustive-deps -- content used only for initial doc; save/docChange via refs
+  }, [path, language, hasBaseline]); // eslint-disable-line react-hooks/exhaustive-deps -- baseline used only for initial doc; save/markDirty via refs
 
-  // Sync external content changes (e.g. agent wrote to this file).
-  // dirtyRef guard goes before `doc.toString()` because this effect fires on
-  // every keystroke (content prop is a fresh string); skipping the O(n)
-  // serialize when we know the update originated from the user's own typing.
+  // Sync baseline → CodeMirror doc. With buffer lifted out of React, baseline
+  // only changes on SELECT_FILE / FILE_SAVED / EXTERNAL_REFRESH, so this effect
+  // stays off the keystroke path entirely.
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || content === null || dirtyRef.current) return;
+    if (!view || baseline === null) return;
     const currentDoc = view.state.doc.toString();
-    if (currentDoc !== content) {
+    if (currentDoc === baseline) return;
+
+    suppressDirtyRef.current = true;
+    try {
       view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: content },
+        changes: { from: 0, to: view.state.doc.length, insert: baseline },
       });
+      if (tokenTimerRef.current !== null) {
+        clearTimeout(tokenTimerRef.current);
+        tokenTimerRef.current = null;
+      }
+      setTokenCount(estimateTokens(baseline));
+    } finally {
+      suppressDirtyRef.current = false;
     }
-  }, [content, dirtyRef]);
+  }, [baseline]);
 
   // No file selected
   if (!path) {

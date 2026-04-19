@@ -10,7 +10,7 @@ import type { EditorState, EditorAction } from "./editor.types.js";
 const initialState: EditorState = {
   selectedPath: null,
   originalContent: null,
-  buffer: null,
+  dirty: false,
 };
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -19,21 +19,20 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       return {
         selectedPath: action.path,
         originalContent: action.content,
-        buffer: action.content,
+        dirty: false,
       };
-    case "UPDATE_BUFFER":
-      return { ...state, buffer: action.content };
+    case "MARK_DIRTY":
+      // Idempotent — returning the same reference makes useReducer bail out,
+      // so repeat fires from CodeMirror's updateListener don't propagate.
+      return state.dirty ? state : { ...state, dirty: true };
     case "FILE_SAVED":
-      // Buffer is intentionally preserved so edits made during the write
-      // round-trip survive; dirty re-derives against the new baseline.
-      if (state.originalContent === action.savedContent) return state;
-      return { ...state, originalContent: action.savedContent };
+      return { ...state, originalContent: action.savedContent, dirty: false };
     case "EXTERNAL_REFRESH":
       // Drop if selection moved during the refresh fetch.
       if (state.selectedPath !== action.path) return state;
-      return { ...state, originalContent: action.content, buffer: action.content };
+      return { ...state, originalContent: action.content, dirty: false };
     case "DESELECT_FILE":
-      return { selectedPath: null, originalContent: null, buffer: null };
+      return initialState;
     case "RENAME_SELECTED":
       return { ...state, selectedPath: action.newPath };
     case "CLEAR":

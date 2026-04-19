@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useSWRConfig } from "swr";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useActiveStream } from "@/client/entities/stream/index.js";
@@ -9,11 +9,12 @@ import {
   useProjectTree,
   useEditorMutations,
   readProjectFile,
+  type EditorAPI,
 } from "@/client/entities/editor/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 import { useLatestRef } from "@/client/shared/useLatestRef.js";
 
-export function useEditMode() {
+export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
   const ui = useUIState();
   const project = useProjectSelectionState();
   const stream = useActiveStream();
@@ -38,9 +39,8 @@ export function useEditMode() {
     reveal,
   } = useEditorMutations(slug);
 
-  const dirty =
-    editor.buffer !== null && editor.buffer !== editor.originalContent;
-  const fileContent = editor.buffer;
+  const dirty = editor.dirty;
+  const baseline = editor.originalContent;
 
   const wasStreaming = useRef(false);
   const selectedPathRef = useLatestRef(editor.selectedPath);
@@ -99,14 +99,22 @@ export function useEditMode() {
   };
 
   const saveCurrentFile = async () => {
-    if (!slug || !editor.selectedPath || editor.buffer === null) return;
-    const saved = editor.buffer;
+    if (!slug || !editor.selectedPath) return;
+    const saved = editorApiRef.current?.getContent();
+    if (saved == null) return;
     await write(editor.selectedPath, saved);
     editorDispatch({ type: "FILE_SAVED", savedContent: saved });
+    // If the user kept typing during the write round-trip, FILE_SAVED's
+    // dirty-clear would falsely signal "clean"; re-mark so the indicator
+    // reflects the un-persisted edits.
+    const current = editorApiRef.current?.getContent();
+    if (current != null && current !== saved) {
+      editorDispatch({ type: "MARK_DIRTY" });
+    }
   };
 
-  const handleDocChange = (content: string) => {
-    editorDispatch({ type: "UPDATE_BUFFER", content });
+  const markDirty = () => {
+    editorDispatch({ type: "MARK_DIRTY" });
   };
 
   const navigatePending = async () => {
@@ -232,11 +240,11 @@ export function useEditMode() {
   return {
     treeEntries,
     selectedPath: editor.selectedPath,
-    fileContent,
+    baseline,
     dirty,
     selectFile,
     saveCurrentFile,
-    handleDocChange,
+    markDirty,
     unsavedDialogOpen: pendingPath !== null,
     handleUnsavedSave,
     handleUnsavedDiscard,
