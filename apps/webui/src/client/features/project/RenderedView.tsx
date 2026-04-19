@@ -95,6 +95,17 @@ export function RenderedView() {
       morphStyle: "innerHTML",
       ignoreActiveValue: true,
     });
+    // innerHTML로 들어간 <script>는 브라우저가 실행하지 않으므로 새 노드로 교체해
+    // 강제 실행. 인라인 script는 dataset 가드로 중복 등록을 막아야 한다.
+    if (rendererView.html.indexOf("<script") === -1) return;
+    el.querySelectorAll("script").forEach((oldScript) => {
+      const newScript = document.createElement("script");
+      for (const attr of Array.from(oldScript.attributes)) {
+        newScript.setAttribute(attr.name, attr.value);
+      }
+      newScript.textContent = oldScript.textContent;
+      oldScript.replaceWith(newScript);
+    });
   }, [rendererView.html]);
 
   // Two rAFs: the first lets the `capture` className paint, the second lets
