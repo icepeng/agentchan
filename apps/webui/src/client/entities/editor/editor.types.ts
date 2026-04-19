@@ -12,22 +12,31 @@ export interface TreeEntry {
 }
 
 /**
- * Invariant: `selectedPath` set ⇔ `originalContent` and `buffer` set.
- * SELECT_FILE carries the content payload, so there is no transient
- * "selected but empty" state that sync effects would otherwise need to
- * paper over. `dirty` is derived (`buffer !== originalContent`).
+ * CodeMirror owns the live buffer; React tracks only the baseline
+ * (`originalContent`) and a sticky `dirty` flag. `dirty` flips to true on the
+ * first user edit of a session and stays true until SELECT_FILE / FILE_SAVED
+ * / EXTERNAL_REFRESH / DESELECT_FILE clears it — round-trips back to baseline
+ * don't clear it, keeping keystroke comparisons out of the hot path.
  */
 export interface EditorState {
   selectedPath: string | null;
   originalContent: string | null;
-  buffer: string | null;
+  dirty: boolean;
 }
 
 export type EditorAction =
   | { type: "SELECT_FILE"; path: string; content: string }
-  | { type: "UPDATE_BUFFER"; content: string }
+  | { type: "MARK_DIRTY" }
   | { type: "FILE_SAVED"; savedContent: string }
   | { type: "EXTERNAL_REFRESH"; path: string; content: string }
   | { type: "DESELECT_FILE" }
   | { type: "RENAME_SELECTED"; newPath: string }
   | { type: "CLEAR" };
+
+/**
+ * Imperative handle exposed by FileEditor. `getContent` returns the live
+ * CodeMirror doc; returns null before mount or after unmount.
+ */
+export interface EditorAPI {
+  getContent: () => string | null;
+}

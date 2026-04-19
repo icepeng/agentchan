@@ -4,6 +4,7 @@ import { FileEditor } from "./FileEditor.js";
 import { UnsavedDialog } from "./UnsavedDialog.js";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog.js";
 import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
+import type { EditorAPI } from "@/client/entities/editor/index.js";
 import { useEditMode } from "./useEditMode.js";
 
 const DEFAULT_TREE_WIDTH = 200;
@@ -11,14 +12,15 @@ const MIN_TREE_WIDTH = 140;
 const MAX_TREE_WIDTH = 400;
 
 export function EditModePanel() {
+  const editorApiRef = useRef<EditorAPI | null>(null);
   const {
     treeEntries,
     selectedPath,
-    fileContent,
+    baseline,
     dirty,
     selectFile,
     saveCurrentFile,
-    handleDocChange,
+    markDirty,
     unsavedDialogOpen,
     handleUnsavedSave,
     handleUnsavedDiscard,
@@ -35,7 +37,7 @@ export function EditModePanel() {
     renameEntry,
     createFileInDir,
     createDirInDir,
-  } = useEditMode();
+  } = useEditMode(editorApiRef);
 
   const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
   const dragStartRef = useRef(0);
@@ -74,10 +76,11 @@ export function EditModePanel() {
       {/* Editor panel */}
       <div className="flex-1 flex flex-col min-w-0 bg-surface/30 transition-colors duration-300">
         <FileEditor
+          editorRef={editorApiRef}
           path={selectedPath}
-          content={fileContent}
+          baseline={baseline}
           dirty={dirty}
-          onDocChange={handleDocChange}
+          onMarkDirty={markDirty}
           onSave={saveCurrentFile}
         />
       </div>
