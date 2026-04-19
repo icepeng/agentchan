@@ -1,8 +1,9 @@
 import { appendFile, mkdir } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { dirname } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 
 const AppendParams = Type.Object({
   file_path: Type.String({
@@ -30,7 +31,7 @@ export function createAppendTool(cwd?: string): AgentTool<typeof AppendParams, v
       _toolCallId: string,
       params: AppendInput,
     ): Promise<AgentToolResult<void>> {
-      const filePath = resolve(workDir, params.file_path);
+      const filePath = resolveInProject(workDir, params.file_path);
       await mkdir(dirname(filePath), { recursive: true });
       await appendFile(filePath, params.content, "utf-8");
       return textResult("Content appended successfully.");

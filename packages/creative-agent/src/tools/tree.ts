@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 import { MAX_OUTPUT_BYTES } from "./util.js";
 
 const MAX_ENTRIES = 1000;
@@ -45,7 +46,9 @@ export function createTreeTool(
         Math.max(params.depth ?? DEFAULT_DEPTH, 1),
         MAX_DEPTH,
       );
-      const dirPath = params.path ? resolve(workDir, params.path) : workDir;
+      const dirPath = params.path
+        ? resolveInProject(workDir, params.path)
+        : workDir;
 
       // Verify root directory is readable before walking
       let rootDirents;

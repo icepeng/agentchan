@@ -1,8 +1,8 @@
-import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { grep } from "@agentchan/grep";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 
 const GrepParams = Type.Object({
   pattern: Type.String({
@@ -57,7 +57,7 @@ export function createGrepTool(
       params: GrepInput,
     ): Promise<AgentToolResult<void>> {
       const searchPath = params.path
-        ? resolve(projectDir, params.path)
+        ? resolveInProject(projectDir, params.path)
         : projectDir;
 
       const result = await grep({

@@ -1,7 +1,7 @@
-import { resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
+import { resolveInProject } from "./_paths.js";
 import { truncateTail } from "./util.js";
 
 const ScriptParams = Type.Object({
@@ -48,7 +48,7 @@ export function createScriptTool(cwd?: string): AgentTool<typeof ScriptParams, v
       params: ScriptInput,
     ): Promise<AgentToolResult<void>> {
       const { file, args = [], timeout: timeoutMs = 120_000 } = params;
-      const scriptPath = resolve(workDir, file);
+      const scriptPath = resolveInProject(workDir, file);
 
       let proc: ReturnType<typeof Bun.spawn>;
       try {
