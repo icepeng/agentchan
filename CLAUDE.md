@@ -63,6 +63,7 @@ i18n/             ← 다국어 사전 + Context (en.ts/ko.ts + LanguagePreferen
 ```
 - **의존 규칙**: 하향만 (app→pages→features→entities→shared). 모듈 경계는 `index.ts`, 외부에서 내부 파일 직접 import 금지
 - **import**: 모듈 간 `@/client/...` 절대 경로, 모듈 내 `./` 상대 경로. Entity별 독립 Context (ProjectSelection, SessionSelection, Stream, RendererView, RendererAction, Config, Skill, Editor, UI)
+- **`@agentchan/creative-agent`는 client에서 `import type`만**. runtime value 섞이면 Vite dev가 barrel 체인의 node API stub으로 앱 전체 붕괴(dev는 tree-shake 안 함). 공유 상수는 서버 DTO로 내려보낸다
 - **Cross-domain 오케스트레이션**: features/ 훅에서 담당 (예: `useProject.activateProject`가 SET_ACTIVE_PROJECT + RendererView CLEAR_HTML을 동기 dispatch해 off-screen 전환 후 stale 렌더러 출력 회귀 방지; `useProject.deleteProject`가 stream CLOSE + session CLEAR + rendererView CLEAR까지 묶어 수행)
 - **i18n**: 모든 사용자 노출 텍스트는 `t("key")` 사용. 키 추가 시 `i18n/en.ts`와 `i18n/ko.ts` 동시 갱신
 - **Browser storage**: `localStorage`는 **반드시** `shared/storage.ts`의 `localStore` 레지스트리만 사용. 새 키 추가 = `localStore`에 등록 (prefix `agentchan-`, enum 검증, try/catch 자동화). ESLint `no-restricted-syntax`로 `localStorage.*` 직접 호출 금지 (shared/storage.ts만 예외). 서버 SQLite(`settings.db`)는 에이전트가 읽는 값·시크릿용, localStorage는 UI 상태·디바이스 preference용

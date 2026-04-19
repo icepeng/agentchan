@@ -7,7 +7,6 @@ import {
   useConfigMutations,
   DEFAULT_CONTEXT_WINDOW,
   DEFAULT_MAX_TOKENS,
-  DEFAULT_THINKING_LEVEL,
 } from "@/client/entities/config/index.js";
 import type { ThinkingLevel } from "@/client/entities/config/index.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -208,11 +207,11 @@ export function ModelBar() {
             />
           </FormField>
 
-          {showThinking && (
+          {showThinking && config && (
             <FormField label={t("params.thinking")}>
               <SegmentedControl
                 options={THINKING_LEVELS}
-                value={config?.thinkingLevel ?? DEFAULT_THINKING_LEVEL}
+                value={config.thinkingLevel}
                 onChange={handleThinkingChange}
               />
             </FormField>

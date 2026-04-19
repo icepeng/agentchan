@@ -29,7 +29,7 @@
 세션 첫 턴에서:
 
 1. `files/personas/` 에 `.md` 파일이 없으면 캐릭터 생성을 먼저 요청
-2. `files/scenes/scene.md` 및 `files/characters/*` 읽기 시도
+2. `files/scenes/scene.md`와 `files/characters/*/*.md`를 모두 read
 3. `status.yaml`/`stats.yaml`/`inventory.yaml`/`quest.yaml`/`world-state.yaml`을 그대로 신뢰하고, 마지막 장면의 상황에서 이어서 시작. 초기 상태를 다시 설정하지 않는다
 
 ## 출력 형식

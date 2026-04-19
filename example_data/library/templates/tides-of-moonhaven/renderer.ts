@@ -1210,6 +1210,7 @@ const RITUAL_NARRATION: Record<"peace" | "combat", Record<string, string>> = {
     read: "낡은 책장이 펼쳐진다",
     grep: "돋보기가 양피지를 훑는다",
     write: "서기관이 인장을 찍는다",
+    append: "필사가가 다음 행을 잇는다",
     edit: "잉크를 지워 다시 새긴다",
     tree: "나침반이 방위를 돌린다",
     activate_skill: "비의서의 인장이 빛을 낸다",
@@ -1220,6 +1221,7 @@ const RITUAL_NARRATION: Record<"peace" | "combat", Record<string, string>> = {
     read: "오래된 서약서가 풀린다",
     grep: "횃불로 어둠을 훑는다",
     write: "검은 잉크가 새겨진다",
+    append: "맹세에 새 행이 더해진다",
     edit: "맹세가 고쳐 쓰인다",
     tree: "어둠 속 지도가 펼쳐진다",
     activate_skill: "인장이 핏빛으로 달아오른다",
@@ -1250,7 +1252,8 @@ function ritualArgLabel(toolName: string, args: unknown): string {
       return p.length > 28 ? p.slice(0, 28) + "\u2026" : p;
     }
     case "write":
-    case "edit": {
+    case "edit":
+    case "append": {
       const fp = a.file_path ?? a.path;
       return typeof fp === "string" ? lastSegment(fp) : "";
     }
@@ -1509,6 +1512,18 @@ function renderGenericScenes(): string {
         <circle class="rs-quill-tip" cx="202" cy="96" r="2.6"/>
         <circle class="rs-quill-drop" cx="202" cy="106" r="2.2"/>
       </g>
+    </g>
+    <g class="rscene rscene-append" aria-hidden="true">
+      <path class="rs-parchment rs-append-paper" d="M 36 30 L 248 30 L 264 46 L 264 118 L 36 118 Z"/>
+      <path class="rs-append-fold" d="M 248 30 L 264 46 L 248 46 Z"/>
+      <line class="rs-append-old rs-append-old-1" x1="50" y1="46" x2="210" y2="46"/>
+      <line class="rs-append-old rs-append-old-2" x1="50" y1="58" x2="222" y2="58"/>
+      <line class="rs-append-old rs-append-old-3" x1="50" y1="70" x2="196" y2="70"/>
+      <line class="rs-append-old rs-append-old-4" x1="50" y1="82" x2="218" y2="82"/>
+      <line class="rs-append-old rs-append-old-5" x1="50" y1="94" x2="184" y2="94"/>
+      <path class="rs-append-caret" d="M 44 104 L 48 108 L 44 112"/>
+      <circle class="rs-append-drop" cx="56" cy="100" r="2"/>
+      <line class="rs-append-new" x1="50" y1="108" x2="208" y2="108"/>
     </g>
     <g class="rscene rscene-edit" aria-hidden="true">
       <rect class="rs-parchment" x="36" y="30" width="228" height="90" rx="4"/>
@@ -3520,6 +3535,7 @@ const STYLES = `<style>
   .lg-ritual[data-tool="read"] .rscene-read,
   .lg-ritual[data-tool="grep"] .rscene-grep,
   .lg-ritual[data-tool="write"] .rscene-write,
+  .lg-ritual[data-tool="append"] .rscene-append,
   .lg-ritual[data-tool="edit"] .rscene-edit,
   .lg-ritual[data-tool="tree"] .rscene-tree,
   .lg-ritual[data-tool="activate_skill"] .rscene-activate_skill {
@@ -3711,6 +3727,60 @@ const STYLES = `<style>
     70%      { opacity: 1; transform: translateY(0) scale(1); }
     95%      { opacity: 0.4; transform: translateY(8px) scale(1.4); }
     100%     { opacity: 0; transform: translateY(10px) scale(1.6); }
+  }
+
+  /* Append (continue scroll · dog-eared page + caret) */
+  .rs-append-fold {
+    fill: color-mix(in srgb, var(--rink) 14%, var(--rink-bg));
+    stroke: var(--rink-faint);
+    stroke-width: 0.6;
+    stroke-linejoin: round;
+  }
+  .rs-append-old {
+    stroke: var(--rink);
+    stroke-width: 1;
+    stroke-linecap: round;
+    opacity: 0.42;
+  }
+  .rs-append-old-2 { opacity: 0.5; }
+  .rs-append-old-4 { opacity: 0.46; }
+  .rs-append-caret {
+    fill: none;
+    stroke: var(--rink-accent);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    animation: rs-append-blink 1.05s steps(2, end) infinite;
+  }
+  .rs-append-drop {
+    fill: var(--rink-accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-append-drop 3.6s ease-in infinite;
+  }
+  .rs-append-new {
+    stroke: var(--rink-strong);
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-dasharray: 160;
+    stroke-dashoffset: 160;
+    animation: rs-append-grow 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  @keyframes rs-append-blink {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: 0.18; }
+  }
+  @keyframes rs-append-drop {
+    0%, 14%  { opacity: 0; transform: translateY(-22px) scale(0.55); }
+    24%      { opacity: 1; transform: translateY(0) scale(1); }
+    34%      { opacity: 0.85; transform: translateY(4px) scale(1.4); }
+    42%      { opacity: 0; transform: translateY(6px) scale(1.7); }
+    100%     { opacity: 0; transform: translateY(6px) scale(1.7); }
+  }
+  @keyframes rs-append-grow {
+    0%, 30%  { stroke-dashoffset: 160; opacity: 0.85; }
+    85%      { stroke-dashoffset: 0; opacity: 1; }
+    100%     { stroke-dashoffset: 0; opacity: 0.7; }
   }
 
   /* Edit (erase + rewrite) */
@@ -4181,6 +4251,7 @@ const STYLES = `<style>
     .lg-ritual *,
     .rs-ripple, .rs-vapor, .rs-line, .rs-grep-hit, .rs-lens,
     .rs-write-line, .rs-quill, .rs-quill-drop, .rs-edit-line, .rs-edit-strike, .rs-edit-new,
+    .rs-append-caret, .rs-append-drop, .rs-append-new,
     .rs-compass, .rs-needle,
     .rs-sigil-outer, .rs-sigil-inner, .rs-sigil-star, .rs-sigil-core,
     .rdie-spin, .rdie-text, .lg-seal--live, .lg-ritual-mote,
@@ -4189,7 +4260,7 @@ const STYLES = `<style>
       transition: none !important;
     }
     .rdie-text { opacity: 1; }
-    .rs-line, .rs-write-line, .rs-edit-new, .rs-edit-strike,
+    .rs-line, .rs-write-line, .rs-edit-new, .rs-edit-strike, .rs-append-new,
     .rs-sigil-outer, .rs-sigil-inner {
       stroke-dashoffset: 0;
       opacity: 1;
