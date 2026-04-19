@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { useConfig, useProviders, useConfigMutations } from "@/client/entities/config/index.js";
+import {
+  useConfig,
+  useProviders,
+  useCurrentModel,
+  useConfigMutations,
+  DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_MAX_TOKENS,
+} from "@/client/entities/config/index.js";
 import type { ThinkingLevel } from "@/client/entities/config/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { Badge, CollapsiblePanel, Select, FormField, SegmentedControl, TextInput } from "@/client/shared/ui/index.js";
@@ -15,6 +22,7 @@ const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
 export function ModelBar() {
   const { data: config } = useConfig();
   const { data: providers = [] } = useProviders();
+  const { provider: currentProvider, model: currentModel } = useCurrentModel();
   const { update } = useConfigMutations();
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
@@ -42,7 +50,6 @@ export function ModelBar() {
   // placeholder rather than a spurious "google/" line.
   const provider = config?.provider ?? "";
   const model = config?.model ?? "";
-  const currentProvider = providers.find((p) => p.name === provider);
 
   const handleProviderChange = (next: string) => void update({ provider: next });
   const handleModelChange = (next: string) => {
@@ -79,7 +86,6 @@ export function ModelBar() {
     void update({ thinkingLevel: level === "off" ? null : level });
   };
 
-  const currentModel = currentProvider?.models.find((m) => m.id === model);
   const showThinking = !!currentProvider?.custom || (currentModel?.reasoning ?? false);
 
   // Build compact param tags for collapsed view
@@ -185,7 +191,7 @@ export function ModelBar() {
               onChange={(e) => setMaxTokensInput(e.target.value)}
               onBlur={handleMaxTokensSubmit}
               onKeyDown={(e) => e.key === "Enter" && handleMaxTokensSubmit()}
-              placeholder="16000"
+              placeholder={String(currentModel?.maxTokens ?? DEFAULT_MAX_TOKENS)}
             />
           </FormField>
 
@@ -197,7 +203,7 @@ export function ModelBar() {
               onChange={(e) => setContextWindowInput(e.target.value)}
               onBlur={handleContextWindowSubmit}
               onKeyDown={(e) => e.key === "Enter" && handleContextWindowSubmit()}
-              placeholder="128000"
+              placeholder={String(currentModel?.contextWindow ?? DEFAULT_CONTEXT_WINDOW)}
             />
           </FormField>
 

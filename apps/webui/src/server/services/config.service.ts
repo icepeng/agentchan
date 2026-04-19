@@ -1,4 +1,4 @@
-import { getProviders, getModels } from "@agentchan/creative-agent";
+import { getProviders, getModels, type ModelInfo } from "@agentchan/creative-agent";
 import {
   getOAuthApiKey,
   getOAuthProvider,
@@ -7,6 +7,18 @@ import {
 } from "@mariozechner/pi-ai/oauth";
 import type { ServerConfig, ProviderInfo, CustomProviderDef } from "../types.js";
 import type { SettingsRepo } from "../repositories/settings.repo.js";
+
+type PiModel = ReturnType<typeof getModels>[number];
+
+function toModelInfo(m: PiModel): ModelInfo {
+  return {
+    id: m.id,
+    name: m.name,
+    reasoning: m.reasoning,
+    contextWindow: m.contextWindow,
+    maxTokens: m.maxTokens,
+  };
+}
 
 const BUILTIN_PROVIDERS = new Set([
   "google",
@@ -118,18 +130,12 @@ export function createConfigService(settingsRepo: SettingsRepo) {
         // OAuth provider (e.g. github-copilot): model list comes from pi-ai as-is,
         // but hidden until user signs in so selecting it can't silently fail.
         if (OAUTH_PROVIDERS.has(name)) {
-          const models = hasOAuthCredentials(name)
-            ? getModels(name).map((m) => ({ id: m.id, name: m.name, reasoning: m.reasoning }))
-            : [];
+          const models = hasOAuthCredentials(name) ? getModels(name).map(toModelInfo) : [];
           return { name, defaultModel: models[0]?.id ?? "", models, oauth: true };
         }
         const models = getModels(name)
           .filter((m) => ALLOWED_MODELS.has(m.id))
-          .map((m) => ({
-            id: m.id,
-            name: m.name,
-            reasoning: m.reasoning,
-          }));
+          .map(toModelInfo);
         return {
           name,
           defaultModel: models[0]?.id ?? "",

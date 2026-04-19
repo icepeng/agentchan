@@ -7,7 +7,7 @@ import {
   requestNotificationPermission,
 } from "@/client/shared/notifications.js";
 import { localStore } from "@/client/shared/storage.js";
-import { useConfig } from "@/client/entities/config/index.js";
+import { useConfig, useCurrentModel, DEFAULT_CONTEXT_WINDOW } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import {
@@ -28,6 +28,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const selection = useActiveSessionSelection();
   const usage = useActiveUsage();
   const { data: config } = useConfig();
+  const { model: currentModel } = useCurrentModel();
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
@@ -40,7 +41,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const slash = useSlashCommands(text, setText);
 
   const contextTokens = usage.contextTokens;
-  const contextWindow = config?.contextWindow ?? 128_000;
+  const contextWindow = config?.contextWindow ?? currentModel?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
   const contextPercent = contextTokens > 0
     ? Math.round((contextTokens / contextWindow) * 100)
     : null;
