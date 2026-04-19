@@ -6,9 +6,10 @@ import {
 } from "@/client/entities/session/index.js";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import { useI18n } from "@/client/i18n/index.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
-import { buildSlashEntries, LOCAL_COMMANDS, type SlashEntry, type SkillSlashCommand } from "./commands.js";
+import { buildSlashEntries, LOCAL_COMMAND_DEFS, type SlashEntry, type SkillSlashCommand } from "./commands.js";
 import { useCommandPalette } from "./useCommandPalette.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
@@ -21,8 +22,9 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
   const uiDispatch = useUIDispatch();
   const { create, compact } = useSession();
   const { send } = useStreaming();
+  const { t } = useI18n();
 
-  const entries = buildSlashEntries(skills);
+  const entries = buildSlashEntries(skills, t);
 
   const executeLocalCommand = async (name: string, arg: string) => {
     switch (name) {
@@ -68,7 +70,7 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
     const cmdName = spaceIdx >= 0 ? withoutSlash.slice(0, spaceIdx) : withoutSlash;
     const arg = spaceIdx >= 0 ? withoutSlash.slice(spaceIdx + 1).trim() : "";
 
-    const local = LOCAL_COMMANDS.find((c) => c.name === cmdName);
+    const local = LOCAL_COMMAND_DEFS.find((c) => c.name === cmdName);
     if (local) {
       if (local.needsArg && !arg) return false;
       void executeLocalCommand(cmdName, arg);

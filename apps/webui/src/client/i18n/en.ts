@@ -65,6 +65,12 @@ export const translations = {
   "slash.listboxLabel": "Slash commands",
   "slash.noMatches": "No commands match",
   "slash.skillTag": "skill",
+  "slash.new": "Create new session",
+  "slash.compact": "Summarize and continue in new session",
+  "slash.edit": "Toggle edit mode",
+  "slash.readme": "Show project README",
+  "slash.model": "Change model",
+  "slash.provider": "Change provider",
 
   // Project tabs
   "project.new": "New project",
@@ -118,7 +124,6 @@ export const translations = {
   // README modal (in-project)
   "readme.modalTitle": "README",
   "readme.close": "Close",
-  "readme.commandDescription": "Show project README",
 
   // Save as template
   "project.saveAsTemplate": "Save as template",
