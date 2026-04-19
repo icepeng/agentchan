@@ -41,12 +41,20 @@ interface DataFile {
 
 type ProjectFile = TextFile | BinaryFile | DataFile;
 
+interface RenderToolContentBlock {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
 interface RenderToolCall {
   id: string;
   name: string;
+  args?: unknown;
   argsComplete: boolean;
   executionStarted: boolean;
-  result?: { isError: boolean };
+  result?: { content: RenderToolContentBlock[]; isError: boolean };
 }
 
 interface RenderStreamView {
@@ -1167,45 +1175,436 @@ function renderNextChoices(
     </div>`;
 }
 
-// ── Pending Card (스트리밍 중 시각 피드백) ──────────────
+// ── Scriptorium Ritual (스트리밍 중 시각 피드백) ─────────
 //
-// ctx.stream.isStreaming 이 true 일 때만 노출. 스트리밍 텍스트와 진행 중 도구 호출의
-// 라벨을 보여준다. id 고정 → Idiomorph가 부드럽게 morph.
+// 도구 호출 단계마다 작은 의식이 돌아간다. dice-roll(script) 호출은
+// args/result.content를 통해 실제 굴러나온 숫자에 정확히 멈춘다.
+// id 고정 → Idiomorph가 DOM을 보존하므로 CSS 애니메이션이 끊기지 않는다.
 
-function pendingToolLabel(name: string): string {
-  const map: Record<string, string> = {
-    read: "고서를 펼친다",
-    grep: "단서를 더듬는다",
-    write: "기록을 남긴다",
-    edit: "기록을 손본다",
-    script: "주사위를 굴린다",
-    activate_skill: "비법서를 펼친다",
-    tree: "지도를 살핀다",
-  };
-  return map[name] ?? "비의를 엮는다";
+const RITUAL_NARRATION: Record<"peace" | "combat", Record<string, string>> = {
+  peace: {
+    thinking: "필경사의 깃펜이 떠오른다",
+    script: "오라클이 주사위를 흔든다",
+    read: "낡은 책장이 펼쳐진다",
+    grep: "돋보기가 양피지를 훑는다",
+    write: "서기관이 인장을 찍는다",
+    edit: "잉크를 지워 다시 새긴다",
+    tree: "나침반이 방위를 돌린다",
+    activate_skill: "비의서의 인장이 빛을 낸다",
+  },
+  combat: {
+    thinking: "촛불 아래 호흡이 가라앉는다",
+    script: "피 묻은 주사위가 던져진다",
+    read: "오래된 서약서가 풀린다",
+    grep: "횃불로 어둠을 훑는다",
+    write: "검은 잉크가 새겨진다",
+    edit: "맹세가 고쳐 쓰인다",
+    tree: "어둠 속 지도가 펼쳐진다",
+    activate_skill: "인장이 핏빛으로 달아오른다",
+  },
+};
+
+function ritualNarration(mode: "peace" | "combat", tool: string): string {
+  const map = RITUAL_NARRATION[mode];
+  return map[tool] ?? map.thinking ?? "";
+}
+
+function lastSegment(p: string): string {
+  const parts = p.split(/[\\/]/);
+  return parts[parts.length - 1] ?? p;
+}
+
+function ritualArgLabel(toolName: string, args: unknown): string {
+  if (!args || typeof args !== "object") return "";
+  const a = args as Record<string, unknown>;
+  switch (toolName) {
+    case "read": {
+      const path = a.path;
+      return typeof path === "string" ? lastSegment(path) : "";
+    }
+    case "grep": {
+      const p = a.pattern;
+      if (typeof p !== "string") return "";
+      return p.length > 28 ? p.slice(0, 28) + "\u2026" : p;
+    }
+    case "write":
+    case "edit": {
+      const fp = a.file_path ?? a.path;
+      return typeof fp === "string" ? lastSegment(fp) : "";
+    }
+    case "tree": {
+      const path = a.path;
+      return typeof path === "string" ? path : "";
+    }
+    case "activate_skill": {
+      const sn = a.skill_name ?? a.name;
+      return typeof sn === "string" ? sn : "";
+    }
+    case "script": {
+      // dice-roll skill: { file: "skills/dice-roll/scripts/roll.ts", args: ["1d20+3", "12"] }
+      const inner = a.args;
+      if (Array.isArray(inner) && typeof inner[0] === "string") return inner[0];
+      const file = a.file;
+      if (typeof file === "string") return lastSegment(file);
+      return "";
+    }
+    default:
+      return "";
+  }
+}
+
+interface DiceParse {
+  expr: string;
+  count: number;
+  sides: number;
+  mod: number;
+  keep: number | null;
+  dc: number | null;
+}
+
+function parseDiceArgs(args: unknown): DiceParse | null {
+  if (!args || typeof args !== "object") return null;
+  const a = (args as Record<string, unknown>).args;
+  if (!Array.isArray(a) || typeof a[0] !== "string") return null;
+  const expr = a[0];
+  const m = expr
+    .toLowerCase()
+    .trim()
+    .match(/^(\d*)d(\d+)(?:kh(\d+))?(?:([+-])(\d+))?$/);
+  if (!m) return null;
+  const count = m[1] ? parseInt(m[1], 10) : 1;
+  const sides = parseInt(m[2] ?? "0", 10);
+  const keep = m[3] ? parseInt(m[3], 10) : null;
+  const sign = m[4] === "-" ? -1 : 1;
+  const mod = m[5] ? sign * parseInt(m[5], 10) : 0;
+
+  const dcRaw = a[1];
+  const dc =
+    typeof dcRaw === "string" && /^\d+$/.test(dcRaw)
+      ? parseInt(dcRaw, 10)
+      : typeof dcRaw === "number"
+        ? dcRaw
+        : null;
+  return { expr, count, sides, mod, keep, dc };
+}
+
+interface DiceResult {
+  rolls: number[];
+  total: number;
+  dc: number | null;
+  passed: boolean | null;
+  margin: number | null;
+}
+
+function parseDiceResult(
+  content: RenderToolContentBlock[] | undefined,
+): DiceResult | null {
+  if (!content) return null;
+  const text = content
+    .filter((c) => c.type === "text")
+    .map((c) => c.text ?? "")
+    .join("\n");
+  if (!text) return null;
+
+  let rolls: number[] = [];
+  const kept = text.match(/^Kept: \[([^\]]+)\]/m);
+  const multi = text.match(/^Rolls: \[([^\]]+)\]/m);
+  const single = text.match(/^Roll: (-?\d+)/m);
+  if (kept) {
+    rolls = (kept[1] ?? "")
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n));
+  } else if (multi) {
+    // Strip ~N~ markers for "discarded" dice, take just numbers
+    rolls = (multi[1] ?? "")
+      .split(",")
+      .map((s) => parseInt(s.trim().replace(/^~|~$/g, ""), 10))
+      .filter((n) => !Number.isNaN(n));
+  } else if (single && single[1]) {
+    rolls = [parseInt(single[1], 10)];
+  } else {
+    return null;
+  }
+
+  const totalMatch = text.match(/^Total: -?\d+ [+-]\d+ = (-?\d+)/m);
+  const total = totalMatch
+    ? parseInt(totalMatch[1] ?? "0", 10)
+    : rolls.reduce((a, b) => a + b, 0);
+
+  const dcMatch = text.match(/^DC (\d+): (PASS|FAIL) \(margin ([+-]?\d+)\)/m);
+  if (dcMatch) {
+    return {
+      rolls,
+      total,
+      dc: parseInt(dcMatch[1] ?? "0", 10),
+      passed: dcMatch[2] === "PASS",
+      margin: parseInt(dcMatch[3] ?? "0", 10),
+    };
+  }
+  return { rolls, total, dc: null, passed: null, margin: null };
+}
+
+// SVG die: 44×44 rounded square, face number at center. Centered around
+// viewBox center (150, 70). `transform-box: fill-box` keeps tumble centered.
+function renderDieSvg(
+  index: number,
+  total: number,
+  face: string,
+  settled: boolean,
+): string {
+  // Spacing shrinks as count grows so 5 dice still fit in 300px wide
+  const spacing = total <= 2 ? 64 : total === 3 ? 60 : total === 4 ? 52 : 46;
+  const centerX = 150;
+  const x = centerX + (index - (total - 1) / 2) * spacing;
+  const stagger = (index % 3) * 0.08;
+  return `
+    <g class="rdie" transform="translate(${x.toFixed(1)} 68)" data-settled="${settled ? "1" : "0"}" style="--ddur: ${(0.85 + stagger).toFixed(2)}s; --ddly: -${stagger.toFixed(2)}s">
+      <g class="rdie-spin">
+        <rect class="rdie-face" x="-22" y="-22" width="44" height="44" rx="7" />
+        <text class="rdie-text" x="0" y="1" text-anchor="middle" dominant-baseline="middle">${escapeText(face)}</text>
+      </g>
+    </g>`;
+}
+
+function renderDiceCanvas(
+  parse: DiceParse | null,
+  result: DiceResult | null,
+): string {
+  // Cap visible dice at 5; show "+N" badge if more
+  const totalDice = parse?.count ?? 1;
+  const visibleDice = Math.min(totalDice, 5);
+  const overflow = totalDice - visibleDice;
+
+  const settled = result !== null;
+  const dies: string[] = [];
+  for (let i = 0; i < visibleDice; i++) {
+    const face = settled
+      ? String(result.rolls[i] ?? "?")
+      : "?";
+    dies.push(renderDieSvg(i, visibleDice, face, settled));
+  }
+
+  const overflowBadge = overflow > 0
+    ? `<text class="rdie-overflow" x="288" y="30" text-anchor="end">+${overflow}</text>`
+    : "";
+
+  // DC inscription on the left (when DC present), modifier on the right
+  const dcPart = parse?.dc != null
+    ? `<g class="rdc-target" transform="translate(36 68)">
+        <circle class="rdc-ring" cx="0" cy="0" r="22"/>
+        <circle class="rdc-ring rdc-ring-inner" cx="0" cy="0" r="14"/>
+        <text class="rdc-label" x="0" y="-28" text-anchor="middle">DC</text>
+        <text class="rdc-value" x="0" y="5" text-anchor="middle">${parse.dc}</text>
+      </g>`
+    : "";
+
+  const modPart = parse && parse.mod !== 0
+    ? `<g class="rdc-mod" transform="translate(264 68)">
+        <text class="rdc-mod-sign" x="0" y="-4" text-anchor="middle">${parse.mod > 0 ? "+" : "\u2212"}</text>
+        <text class="rdc-mod-value" x="0" y="22" text-anchor="middle">${Math.abs(parse.mod)}</text>
+        <text class="rdc-mod-label" x="0" y="38" text-anchor="middle">MOD</text>
+      </g>`
+    : "";
+
+  return dcPart + modPart + dies.join("") + overflowBadge;
+}
+
+function renderDiceVerdict(
+  parse: DiceParse | null,
+  result: DiceResult | null,
+): string {
+  if (!parse || !result) return "";
+  const { total, dc, passed, margin } = result;
+  const marginStr = margin != null ? (margin >= 0 ? `+${margin}` : `${margin}`) : "";
+  const stamp = passed === true
+    ? `<span class="lg-dice-stamp lg-dice-stamp--pass">
+        <span class="lg-dice-stamp-word">PASS</span>
+        <span class="lg-dice-stamp-dc">${dc != null ? `DC ${dc} · 차이 ${marginStr}` : ""}</span>
+      </span>`
+    : passed === false
+      ? `<span class="lg-dice-stamp lg-dice-stamp--fail">
+          <span class="lg-dice-stamp-word">FAIL</span>
+          <span class="lg-dice-stamp-dc">${dc != null ? `DC ${dc} · 차이 ${marginStr}` : ""}</span>
+        </span>`
+      : "";
+  return `
+    <div class="lg-dice-verdict" aria-hidden="true">
+      <span class="lg-dice-total">${total}</span>
+      ${stamp}
+    </div>`;
+}
+
+// Generic ritual scenes — abstract glyphs for non-dice tools.
+// Scenes share viewBox 0 0 300 140; center is (150, 70).
+function renderGenericScenes(): string {
+  return `
+    <g class="rscene rscene-thinking" aria-hidden="true">
+      <ellipse cx="150" cy="120" rx="46" ry="8" class="rs-shadow"/>
+      <path class="rs-pot" d="M 112 80 L 112 116 Q 112 128 150 128 Q 188 128 188 116 L 188 80 Z"/>
+      <ellipse cx="150" cy="80" rx="38" ry="9" class="rs-pot-rim"/>
+      <ellipse cx="150" cy="82" rx="30" ry="6" class="rs-ink"/>
+      <circle cx="150" cy="82" r="10" class="rs-ripple rs-ripple-1"/>
+      <circle cx="150" cy="82" r="10" class="rs-ripple rs-ripple-2"/>
+      <circle cx="150" cy="82" r="10" class="rs-ripple rs-ripple-3"/>
+      <path class="rs-vapor rs-vapor-1" d="M 138 62 Q 132 46 150 36 Q 168 26 150 10"/>
+      <path class="rs-vapor rs-vapor-2" d="M 162 62 Q 168 48 155 40 Q 140 30 158 18"/>
+    </g>
+    <g class="rscene rscene-read" aria-hidden="true">
+      <path class="rs-page rs-page-l" d="M 154 30 L 50 34 L 54 118 L 150 114 Z"/>
+      <path class="rs-page rs-page-r" d="M 146 30 L 250 34 L 246 118 L 150 114 Z"/>
+      <path class="rs-spine" d="M 150 30 L 150 114"/>
+      <line class="rs-line rs-line-1" x1="62" y1="52" x2="136" y2="50"/>
+      <line class="rs-line rs-line-2" x1="62" y1="68" x2="134" y2="66"/>
+      <line class="rs-line rs-line-3" x1="62" y1="84" x2="132" y2="82"/>
+      <line class="rs-line rs-line-4" x1="62" y1="100" x2="130" y2="98"/>
+      <line class="rs-line rs-line-5" x1="164" y1="52" x2="238" y2="54"/>
+      <line class="rs-line rs-line-6" x1="164" y1="68" x2="236" y2="70"/>
+      <line class="rs-line rs-line-7" x1="164" y1="84" x2="234" y2="86"/>
+      <line class="rs-line rs-line-8" x1="164" y1="100" x2="232" y2="102"/>
+    </g>
+    <g class="rscene rscene-grep" aria-hidden="true">
+      <line class="rs-grep-line rs-grep-line-1" x1="32" y1="44" x2="268" y2="44"/>
+      <line class="rs-grep-line rs-grep-line-2" x1="32" y1="70" x2="268" y2="70"/>
+      <line class="rs-grep-line rs-grep-line-3" x1="32" y1="96" x2="268" y2="96"/>
+      <circle class="rs-grep-hit rs-grep-hit-1" cx="68" cy="44" r="3"/>
+      <circle class="rs-grep-hit rs-grep-hit-2" cx="168" cy="70" r="3"/>
+      <circle class="rs-grep-hit rs-grep-hit-3" cx="228" cy="96" r="3"/>
+      <g class="rs-lens">
+        <circle class="rs-lens-ring" cx="0" cy="0" r="22"/>
+        <circle class="rs-lens-glass" cx="0" cy="0" r="18"/>
+        <line class="rs-lens-handle" x1="16" y1="16" x2="30" y2="30"/>
+      </g>
+    </g>
+    <g class="rscene rscene-write" aria-hidden="true">
+      <rect class="rs-parchment" x="36" y="40" width="228" height="82" rx="4"/>
+      <line class="rs-write-line rs-write-line-1" x1="52" y1="60" x2="220" y2="60"/>
+      <line class="rs-write-line rs-write-line-2" x1="52" y1="80" x2="200" y2="80"/>
+      <line class="rs-write-line rs-write-line-3" x1="52" y1="100" x2="170" y2="100"/>
+      <g class="rs-quill">
+        <path class="rs-quill-feather" d="M 232 6 Q 262 30 252 78 Q 244 86 236 78 Q 228 50 220 20 Z"/>
+        <line class="rs-quill-shaft" x1="240" y1="60" x2="202" y2="96"/>
+        <circle class="rs-quill-tip" cx="202" cy="96" r="2.6"/>
+        <circle class="rs-quill-drop" cx="202" cy="106" r="2.2"/>
+      </g>
+    </g>
+    <g class="rscene rscene-edit" aria-hidden="true">
+      <rect class="rs-parchment" x="36" y="30" width="228" height="90" rx="4"/>
+      <line class="rs-edit-line rs-edit-old-1" x1="52" y1="52" x2="216" y2="52"/>
+      <line class="rs-edit-line rs-edit-old-2" x1="52" y1="76" x2="190" y2="76"/>
+      <line class="rs-edit-line rs-edit-new" x1="52" y1="102" x2="244" y2="102"/>
+      <line class="rs-edit-strike rs-edit-strike-1" x1="52" y1="52" x2="216" y2="52"/>
+    </g>
+    <g class="rscene rscene-tree" aria-hidden="true">
+      <g class="rs-compass">
+        <circle class="rs-compass-ring" cx="150" cy="70" r="54"/>
+        <circle class="rs-compass-inner" cx="150" cy="70" r="40"/>
+        <circle class="rs-compass-inner rs-compass-inner-2" cx="150" cy="70" r="26"/>
+        <path class="rs-compass-rose" d="M 150 20 L 156 70 L 150 120 L 144 70 Z M 100 70 L 150 76 L 200 70 L 150 64 Z"/>
+        <text class="rs-compass-mark" x="150" y="18" text-anchor="middle">N</text>
+        <text class="rs-compass-mark" x="210" y="73" text-anchor="middle">E</text>
+        <text class="rs-compass-mark" x="150" y="132" text-anchor="middle">S</text>
+        <text class="rs-compass-mark" x="90" y="73" text-anchor="middle">W</text>
+      </g>
+      <g class="rs-needle">
+        <path d="M 150 28 L 154 70 L 150 112 L 146 70 Z" class="rs-needle-shape"/>
+      </g>
+      <circle cx="150" cy="70" r="4" class="rs-compass-pivot"/>
+    </g>
+    <g class="rscene rscene-activate_skill" aria-hidden="true">
+      <circle class="rs-sigil-outer" cx="150" cy="70" r="56"/>
+      <circle class="rs-sigil-inner" cx="150" cy="70" r="40"/>
+      <circle class="rs-sigil-inner rs-sigil-inner-2" cx="150" cy="70" r="26"/>
+      <path class="rs-sigil-star" d="M 150 22 L 178 110 L 106 58 L 194 58 L 122 110 Z"/>
+      <circle class="rs-sigil-core" cx="150" cy="70" r="5"/>
+    </g>`;
+}
+
+function renderRitualCanvas(
+  toolKey: string,
+  argLabel: string,
+  parse: DiceParse | null,
+  result: DiceResult | null,
+): string {
+  const diceGroup = toolKey === "script"
+    ? `<g class="rscene rscene-script" aria-hidden="true">${renderDiceCanvas(parse, result)}</g>`
+    : "";
+  const verdict = toolKey === "script" ? renderDiceVerdict(parse, result) : "";
+  const argBadge = argLabel
+    ? `<span class="lg-ritual-arg">${escapeText(argLabel)}</span>`
+    : "";
+  return `
+    <div class="lg-ritual-stage">
+      <svg class="lg-ritual-svg" viewBox="0 0 300 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${renderGenericScenes()}
+        ${diceGroup}
+      </svg>
+      ${argBadge}
+      ${verdict}
+    </div>`;
+}
+
+function renderSealChain(
+  toolCalls: ReadonlyArray<RenderToolCall>,
+): string {
+  if (toolCalls.length === 0) return "";
+  const max = 8;
+  const visible = toolCalls.slice(-max);
+  const overflow = toolCalls.length - visible.length;
+  const seals = visible.map((tc) => {
+    if (!tc.result) {
+      return `<span class="lg-seal lg-seal--live" title="${escapeHtml(tc.name)}" aria-hidden="true"></span>`;
+    }
+    const cls = tc.result.isError ? "lg-seal--err" : "lg-seal--done";
+    return `<span class="lg-seal ${cls}" title="${escapeHtml(tc.name)}" aria-hidden="true"></span>`;
+  });
+  const more = overflow > 0
+    ? `<span class="lg-seal-more">+${overflow}</span>`
+    : "";
+  return `<div class="lg-ritual-chain" aria-hidden="true">${seals.join("")}${more}</div>`;
 }
 
 function renderPendingCard(
   stream: RenderStreamView,
   mode: "peace" | "combat",
 ): string {
-  const inFlight = stream.toolCalls.find((tc) => !tc.result);
-  const latest = inFlight ?? stream.toolCalls[stream.toolCalls.length - 1];
-  const label =
-    mode === "combat" ? "촛불 아래 손이 움직인다" : "잉크가 마르는 중";
-  const raw = stream.text || "";
-  const clipped = raw.length > 160 ? raw.slice(0, 160) + "\u2026" : raw;
-  const toolLabel = latest ? pendingToolLabel(latest.name) : "";
   const hidden = stream.isStreaming ? "" : ' hidden aria-hidden="true"';
+  const latest = stream.toolCalls.length > 0
+    ? stream.toolCalls[stream.toolCalls.length - 1]
+    : undefined;
+  const inFlight = stream.toolCalls.find((tc) => !tc.result);
+  // Active focus: prefer in-flight tool, else show settled state of last tool.
+  const focus = inFlight ?? latest;
+  const toolKey = focus?.name ?? "thinking";
+  const stateAttr = focus
+    ? focus.result
+      ? "settled"
+      : "busy"
+    : "thinking";
+
+  // Dice-specific data — only when focus tool is script
+  const diceParse = toolKey === "script" ? parseDiceArgs(focus?.args) : null;
+  const diceResult = toolKey === "script"
+    ? parseDiceResult(focus?.result?.content)
+    : null;
+
+  const narration = ritualNarration(mode, toolKey);
+  const argLabel = focus ? ritualArgLabel(focus.name, focus.args) : "";
+  const sealChain = renderSealChain(stream.toolCalls);
 
   return `
-    <aside id="lg-pending" class="lg-pending" data-mode="${mode}"${hidden}>
-      <div class="lg-pending-head">
-        <span class="lg-pending-glyph" aria-hidden="true"></span>
-        <span class="lg-pending-label">${escapeText(label)}</span>
-        ${toolLabel ? `<span class="lg-pending-tool">${escapeText(toolLabel)}</span>` : ""}
-      </div>
-      ${clipped ? `<p class="lg-pending-preview">${escapeText(clipped)}</p>` : ""}
+    <aside id="lg-pending" class="lg-ritual" data-mode="${mode}" data-tool="${escapeHtml(toolKey)}" data-state="${stateAttr}" role="status" aria-live="polite"${hidden}>
+      <header class="lg-ritual-head">
+        <span class="lg-ritual-name">${escapeText(narration)}</span>
+      </header>
+      ${renderRitualCanvas(toolKey, argLabel, diceParse, diceResult)}
+      ${sealChain}
+      <span class="lg-ritual-mote lg-ritual-mote-1" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-2" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-3" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-4" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-5" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-6" aria-hidden="true"></span>
     </aside>`;
 }
 
@@ -2935,65 +3334,759 @@ const STYLES = `<style>
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* ── Pending Card (스트리밍 중 시각 피드백) ────────────────── */
-  .lg-pending {
+  /* ── Scriptorium Ritual (스트리밍 중 시각 피드백) ─────────── */
+  .lg-ritual {
     position: sticky;
-    bottom: 12px;
-    margin: 12px 16px 0;
-    padding: 10px 14px;
-    background: color-mix(in srgb, #b36b2a 4%, var(--color-elevated, #fff8e4));
-    border: 1px solid color-mix(in srgb, #b36b2a 24%, transparent);
-    border-radius: 3px;
-    box-shadow: 0 6px 16px -8px color-mix(in srgb, #3d2a15 30%, transparent);
-    z-index: 5;
-    animation: lg-pending-fade 0.4s ease-out;
-  }
-  .lg-pending[hidden] { display: none; }
-  .lg-pending-head {
+    bottom: 14px;
+    margin: 14px auto 0;
+    max-width: 520px;
+    padding: 14px 18px 12px;
     display: flex;
-    align-items: baseline;
+    flex-direction: column;
     gap: 10px;
-    flex-wrap: wrap;
+    background:
+      radial-gradient(ellipse at 50% -20%, color-mix(in srgb, #b36b2a 7%, transparent), transparent 55%),
+      color-mix(in srgb, #b36b2a 5%, var(--color-elevated, #fff8e4));
+    border: 1px solid color-mix(in srgb, #b36b2a 28%, transparent);
+    border-radius: 4px;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent),
+      0 10px 28px -12px color-mix(in srgb, #3d2a15 35%, transparent);
+    z-index: 5;
+    overflow: hidden;
+    animation: lg-ritual-fade 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
-  .lg-pending-glyph {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #b36b2a;
-    flex-shrink: 0;
-    align-self: center;
-    animation: lg-pending-breathe 1.6s ease-in-out infinite;
+  .lg-ritual[hidden] { display: none; }
+
+  /* decorative corner flourishes */
+  .lg-ritual::before,
+  .lg-ritual::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    width: 22px;
+    height: 22px;
+    pointer-events: none;
+    opacity: 0.5;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-image: linear-gradient(
+      45deg,
+      transparent calc(50% - 0.6px),
+      color-mix(in srgb, #b36b2a 45%, transparent) calc(50% - 0.6px),
+      color-mix(in srgb, #b36b2a 45%, transparent) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px)
+    );
   }
-  .lg-pending-label {
+  .lg-ritual::before { left: 6px; transform: scaleX(-1); }
+  .lg-ritual::after  { right: 6px; }
+
+  .lg-ritual-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 300 / 140;
+    border-radius: 3px;
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, #fff 80%, transparent), transparent 65%),
+      color-mix(in srgb, #fff 22%, var(--color-elevated, #fff8e4));
+    border: 1px solid color-mix(in srgb, #b36b2a 20%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent),
+      inset 0 -20px 40px -30px color-mix(in srgb, #b36b2a 40%, transparent);
+    overflow: hidden;
+  }
+  .lg-ritual-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Default: hide all scenes; tool-specific selectors below reveal one. */
+  .lg-ritual .rscene {
+    opacity: 0;
+    transition: opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+  .lg-ritual[data-tool="thinking"] .rscene-thinking,
+  .lg-ritual[data-tool="script"] .rscene-script,
+  .lg-ritual[data-tool="read"] .rscene-read,
+  .lg-ritual[data-tool="grep"] .rscene-grep,
+  .lg-ritual[data-tool="write"] .rscene-write,
+  .lg-ritual[data-tool="edit"] .rscene-edit,
+  .lg-ritual[data-tool="tree"] .rscene-tree,
+  .lg-ritual[data-tool="activate_skill"] .rscene-activate_skill {
+    opacity: 1;
+  }
+
+  /* ── Scene styles ────────────────────────────────────────── */
+  /* All strokes/fills source from the ritual ink color. Combat mode below
+     overrides --rink to the candlelight gold. */
+  .lg-ritual {
+    --rink: #6a4f2d;
+    --rink-strong: #3d2a15;
+    --rink-soft: color-mix(in srgb, #6a4f2d 60%, transparent);
+    --rink-faint: color-mix(in srgb, #6a4f2d 24%, transparent);
+    --rink-bg: #fff8e4;
+    --rink-accent: #b36b2a;
+  }
+
+  /* Inkwell (thinking) */
+  .rs-pot {
+    fill: color-mix(in srgb, var(--rink-strong) 80%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 1.2;
+  }
+  .rs-pot-rim {
+    fill: color-mix(in srgb, var(--rink-strong) 50%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.8;
+  }
+  .rs-ink {
+    fill: var(--rink-strong);
+  }
+  .rs-shadow {
+    fill: color-mix(in srgb, var(--rink-strong) 18%, transparent);
+  }
+  .rs-ripple {
+    fill: none;
+    stroke: var(--rink-accent);
+    stroke-width: 1;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-ripple 2.6s ease-out infinite;
+  }
+  .rs-ripple-2 { animation-delay: -0.85s; }
+  .rs-ripple-3 { animation-delay: -1.7s; }
+  @keyframes rs-ripple {
+    0%   { transform: scale(0.4); opacity: 0.55; }
+    100% { transform: scale(2.6); opacity: 0; }
+  }
+  .rs-vapor {
+    fill: none;
+    stroke: var(--rink-soft);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-dasharray: 70;
+    stroke-dashoffset: 70;
+    animation: rs-vapor 3.4s ease-in-out infinite;
+  }
+  @keyframes rs-vapor {
+    0%   { stroke-dashoffset: 70; opacity: 0; }
+    35%  { opacity: 0.7; }
+    80%  { opacity: 0.2; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+
+  /* Read (page) */
+  .rs-page {
+    fill: color-mix(in srgb, #fff 18%, var(--rink-bg));
+    stroke: var(--rink);
+    stroke-width: 1.1;
+  }
+  .rs-spine {
+    stroke: var(--rink-strong);
+    stroke-width: 1.2;
+    fill: none;
+  }
+  .rs-line {
+    stroke: var(--rink);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: rs-line-draw 2.4s ease-out infinite;
+  }
+  .rs-line-1, .rs-line-4 { animation-delay: 0s; }
+  .rs-line-2, .rs-line-5 { animation-delay: 0.4s; }
+  .rs-line-3, .rs-line-6 { animation-delay: 0.8s; }
+  @keyframes rs-line-draw {
+    0%   { stroke-dashoffset: 24; opacity: 0; }
+    20%  { opacity: 1; }
+    60%  { stroke-dashoffset: 0; opacity: 1; }
+    90%  { opacity: 0.7; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+
+  /* Grep (magnifier) */
+  .rs-grep-line {
+    stroke: var(--rink-faint);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+  }
+  .rs-grep-hit {
+    fill: var(--rink-accent);
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-grep-flash 2.4s ease-in-out infinite;
+  }
+  .rs-grep-hit-1 { animation-delay: 0.4s; }
+  .rs-grep-hit-2 { animation-delay: 1.05s; }
+  .rs-grep-hit-3 { animation-delay: 1.6s; }
+  @keyframes rs-grep-flash {
+    0%, 100% { opacity: 0; transform: scale(0.6); }
+    20%      { opacity: 1; transform: scale(1.5); }
+    50%      { opacity: 0.6; transform: scale(1); }
+  }
+  .rs-lens {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-lens-pan 2.4s ease-in-out infinite;
+  }
+  .rs-lens-ring {
+    fill: none;
+    stroke: var(--rink-strong);
+    stroke-width: 1.6;
+  }
+  .rs-lens-glass {
+    fill: color-mix(in srgb, #fff 35%, transparent);
+    stroke: var(--rink);
+    stroke-width: 0.6;
+  }
+  .rs-lens-handle {
+    stroke: var(--rink-strong);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+  @keyframes rs-lens-pan {
+    0%   { transform: translate(28px, 30px); }
+    50%  { transform: translate(78px, 60px); }
+    100% { transform: translate(28px, 30px); }
+  }
+
+  /* Write (quill + parchment) */
+  .rs-parchment {
+    fill: color-mix(in srgb, #fff 22%, var(--rink-bg));
+    stroke: var(--rink-faint);
+    stroke-width: 0.8;
+  }
+  .rs-write-line {
+    stroke: var(--rink);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: rs-line-draw 2.6s ease-out infinite;
+  }
+  .rs-write-line-2 { animation-delay: 0.55s; }
+  .rs-write-line-3 { animation-delay: 1.1s; }
+  .rs-quill {
+    transform-box: fill-box;
+    transform-origin: 80px 60px;
+    animation: rs-quill-bob 2.6s ease-in-out infinite;
+  }
+  .rs-quill-feather {
+    fill: color-mix(in srgb, var(--rink) 30%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.8;
+  }
+  .rs-quill-shaft {
+    stroke: var(--rink-strong);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+  }
+  .rs-quill-tip {
+    fill: var(--rink-strong);
+  }
+  .rs-quill-drop {
+    fill: var(--rink-accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-drop 2.6s ease-in infinite;
+  }
+  @keyframes rs-quill-bob {
+    0%, 100% { transform: translate(0, 0) rotate(-2deg); }
+    50%      { transform: translate(-6px, 4px) rotate(3deg); }
+  }
+  @keyframes rs-drop {
+    0%, 60%  { opacity: 0; transform: translateY(-2px) scale(0.8); }
+    70%      { opacity: 1; transform: translateY(0) scale(1); }
+    95%      { opacity: 0.4; transform: translateY(8px) scale(1.4); }
+    100%     { opacity: 0; transform: translateY(10px) scale(1.6); }
+  }
+
+  /* Edit (erase + rewrite) */
+  .rs-edit-line {
+    stroke: var(--rink);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+  }
+  .rs-edit-old-1 { opacity: 0.6; animation: rs-edit-fade 3.2s ease-in-out infinite; }
+  .rs-edit-old-2 { opacity: 0.6; animation: rs-edit-fade 3.2s ease-in-out infinite 0.5s; }
+  .rs-edit-strike {
+    stroke: var(--rink-accent);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: rs-edit-strike 3.2s ease-in-out infinite;
+  }
+  .rs-edit-new {
+    stroke: var(--rink-strong);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: rs-edit-new 3.2s ease-out infinite;
+  }
+  @keyframes rs-edit-fade {
+    0%, 30% { opacity: 0.6; }
+    50%     { opacity: 0.15; }
+    100%    { opacity: 0.6; }
+  }
+  @keyframes rs-edit-strike {
+    0%, 30% { stroke-dashoffset: 60; }
+    50%     { stroke-dashoffset: 0; opacity: 1; }
+    80%     { opacity: 0.4; }
+    100%    { stroke-dashoffset: 0; opacity: 0; }
+  }
+  @keyframes rs-edit-new {
+    0%, 60%  { stroke-dashoffset: 60; opacity: 0; }
+    70%      { opacity: 1; }
+    100%     { stroke-dashoffset: 0; opacity: 1; }
+  }
+
+  /* Tree (compass) */
+  .rs-compass-ring, .rs-compass-inner {
+    fill: none;
+    stroke: var(--rink);
+    stroke-width: 1.4;
+  }
+  .rs-compass-inner { stroke-width: 0.8; opacity: 0.5; }
+  .rs-compass-rose {
+    fill: color-mix(in srgb, var(--rink) 22%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.8;
+  }
+  .rs-compass-mark {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 7px;
+    fill: var(--rink-strong);
+    font-weight: 600;
+  }
+  .rs-compass {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-compass-rotate 22s linear infinite;
+  }
+  .rs-needle {
+    transform-box: fill-box;
+    transform-origin: 60px 60px;
+    animation: rs-needle-wobble 1.8s ease-in-out infinite;
+  }
+  .rs-needle-shape {
+    fill: var(--rink-accent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.6;
+  }
+  .rs-compass-pivot {
+    fill: var(--rink-strong);
+  }
+  @keyframes rs-compass-rotate {
+    from { transform: rotate(0); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes rs-needle-wobble {
+    0%, 100% { transform: rotate(-12deg); }
+    50%      { transform: rotate(8deg); }
+  }
+
+  /* Activate skill (sigil) */
+  .rs-sigil-outer, .rs-sigil-inner {
+    fill: none;
+    stroke: var(--rink-accent);
+    stroke-width: 1.6;
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-sigil-draw 3.2s ease-in-out infinite;
+  }
+  .rs-sigil-inner {
+    stroke-width: 1;
+    stroke-dasharray: 140;
+    stroke-dashoffset: 140;
+    animation-delay: 0.3s;
+    animation-duration: 3.2s;
+    animation-name: rs-sigil-draw-inner;
+  }
+  .rs-sigil-star {
+    fill: none;
+    stroke: var(--rink-strong);
+    stroke-width: 1.2;
+    stroke-linejoin: round;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-sigil-rotate 12s linear infinite;
+  }
+  .rs-sigil-core {
+    fill: var(--rink-accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-sigil-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes rs-sigil-draw {
+    0%   { stroke-dashoffset: 220; opacity: 0.3; }
+    50%  { stroke-dashoffset: 0; opacity: 1; }
+    80%  { stroke-dashoffset: 0; opacity: 0.7; }
+    100% { stroke-dashoffset: -220; opacity: 0; }
+  }
+  @keyframes rs-sigil-draw-inner {
+    0%   { stroke-dashoffset: 140; opacity: 0.2; }
+    50%  { stroke-dashoffset: 0; opacity: 0.9; }
+    100% { stroke-dashoffset: -140; opacity: 0; }
+  }
+  @keyframes rs-sigil-rotate {
+    from { transform: rotate(0); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes rs-sigil-pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.7; }
+    50%      { transform: scale(1.4); opacity: 1; }
+  }
+
+  /* Dice (script) */
+  .rdie-face {
+    fill: color-mix(in srgb, #fff 70%, var(--rink-bg));
+    stroke: var(--rink-strong);
+    stroke-width: 1.4;
+    filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--rink-strong) 30%, transparent));
+  }
+  .rdie-text {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 14px;
+    font-weight: 700;
+    fill: var(--rink-strong);
+  }
+  .rdie-spin {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .lg-ritual[data-state="busy"] .rdie-spin {
+    animation: rdie-tumble var(--ddur, 1s) cubic-bezier(0.4, 0.1, 0.6, 0.9) infinite;
+    animation-delay: var(--ddly, 0s);
+  }
+  .lg-ritual[data-state="busy"] .rdie-text {
+    animation: rdie-flicker calc(var(--ddur, 1s) * 0.4) ease-in-out infinite;
+  }
+  .lg-ritual[data-state="settled"] .rdie-spin {
+    animation: rdie-settle 0.55s cubic-bezier(0.5, 1.4, 0.3, 1) both;
+  }
+  .lg-ritual[data-state="settled"] .rdie-face {
+    fill: color-mix(in srgb, var(--rink-accent) 14%, var(--rink-bg));
+  }
+  @keyframes rdie-tumble {
+    0%   { transform: rotate(0deg) scale(1); }
+    25%  { transform: rotate(120deg) scale(0.92, 1.08); }
+    50%  { transform: rotate(240deg) scale(1.08, 0.92); }
+    75%  { transform: rotate(360deg) scale(0.95, 1.05); }
+    100% { transform: rotate(480deg) scale(1); }
+  }
+  @keyframes rdie-flicker {
+    0%, 100% { opacity: 0.35; }
+    50%      { opacity: 0.85; }
+  }
+  @keyframes rdie-settle {
+    0%   { transform: rotate(720deg) scale(0.7); }
+    60%  { transform: rotate(40deg) scale(1.18); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+  .rdie-overflow {
     font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
     font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--color-fg-2, #5a4530);
-  }
-  .lg-pending-tool {
-    font-size: 11px;
-    color: var(--color-fg-3, #8a6e4d);
+    fill: var(--rink);
     font-style: italic;
   }
-  .lg-pending-preview {
-    margin: 6px 0 0;
-    font-size: 12.5px;
-    line-height: 1.5;
-    color: var(--color-fg-3, #8a6e4d);
+
+  /* DC target ring (left of dice) */
+  .rdc-target {
+    opacity: 0.9;
+  }
+  .rdc-ring {
+    fill: none;
+    stroke: var(--rink);
+    stroke-width: 1.2;
+    stroke-dasharray: 4 3;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rdc-ring-turn 18s linear infinite;
+  }
+  .rdc-ring-inner {
+    stroke-width: 0.8;
+    opacity: 0.6;
+    animation-duration: 12s;
+    animation-direction: reverse;
+  }
+  @keyframes rdc-ring-turn {
+    from { transform: rotate(0); }
+    to   { transform: rotate(360deg); }
+  }
+  .rdc-label {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    fill: var(--rink);
+    font-weight: 600;
+  }
+  .rdc-value {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 18px;
+    font-weight: 700;
+    fill: var(--rink-strong);
+  }
+  .lg-ritual[data-state="settled"] .rdc-ring {
+    stroke: var(--rink-accent);
+  }
+
+  /* Modifier inscription (right of dice) */
+  .rdc-mod {
+    opacity: 0.85;
+  }
+  .rdc-mod-sign {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 22px;
+    font-weight: 700;
+    fill: var(--rink-accent);
+  }
+  .rdc-mod-value {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 18px;
+    font-weight: 700;
+    fill: var(--rink-strong);
+  }
+  .rdc-mod-label {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 7.5px;
+    letter-spacing: 0.18em;
+    fill: var(--rink);
+  }
+
+  /* Dice verdict overlay (settled) — dominant reveal */
+  .lg-dice-verdict {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .lg-ritual[data-state="settled"] .lg-dice-verdict {
+    animation: lg-dice-verdict-in 0.5s 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+  .lg-ritual[data-state="settled"] .rscene-script {
+    animation: rscene-dim 0.5s 0.55s ease-out both;
+  }
+  @keyframes rscene-dim {
+    to { opacity: 0.18; }
+  }
+  @keyframes lg-dice-verdict-in {
+    from { opacity: 0; backdrop-filter: blur(0); }
+    to   { opacity: 1; backdrop-filter: blur(1px); }
+  }
+  .lg-dice-total {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 68px;
+    font-weight: 700;
+    color: var(--rink-strong);
+    line-height: 1;
+    text-shadow:
+      0 1px 0 color-mix(in srgb, #fff 50%, transparent),
+      0 4px 14px color-mix(in srgb, var(--rink-accent) 35%, transparent);
+    animation: lg-dice-total-pop 0.5s 0.55s cubic-bezier(0.2, 1.3, 0.3, 1) both;
+  }
+  @keyframes lg-dice-total-pop {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .lg-dice-stamp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 14px;
+    border: 2px solid;
+    border-radius: 3px;
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    line-height: 1.1;
+    transform: rotate(-8deg);
+    background: color-mix(in srgb, #fff 80%, transparent);
+    box-shadow: 0 2px 8px -3px color-mix(in srgb, #000 30%, transparent);
+    animation: lg-dice-stamp-slam 0.5s 0.8s cubic-bezier(0.2, 1.6, 0.3, 1) both;
+  }
+  .lg-dice-stamp-word {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+  }
+  .lg-dice-stamp-dc {
+    font-size: 8.5px;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+    margin-top: 2px;
+    opacity: 0.85;
+  }
+  @keyframes lg-dice-stamp-slam {
+    0%   { transform: rotate(-20deg) scale(2.2); opacity: 0; }
+    60%  { transform: rotate(-8deg) scale(1.08); opacity: 1; }
+    100% { transform: rotate(-8deg) scale(1); opacity: 1; }
+  }
+  .lg-dice-stamp--pass {
+    color: #2a6b4d;
+    border-color: color-mix(in srgb, #2a6b4d 80%, transparent);
+  }
+  .lg-dice-stamp--fail {
+    color: #b8381f;
+    border-color: color-mix(in srgb, #b8381f 80%, transparent);
+  }
+
+  /* ── Header (narration only, single line, fixed height) ──── */
+  .lg-ritual-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 32px;
+    text-align: center;
+    height: 20px;
+  }
+  .lg-ritual-name {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    color: var(--rink-strong);
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Arg badge — lives on the stage, top-right. Fixed slot, ellipsis overflow.
+     Decoupled from header so card outer size never reflows on tool switch. */
+  .lg-ritual-arg {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    max-width: 180px;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    border: 1px solid var(--rink-faint);
+    border-radius: 2px;
+    background: color-mix(in srgb, #fff 55%, transparent);
+    backdrop-filter: blur(2px);
+    color: var(--rink);
     font-style: italic;
     overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 1;
+    animation: lg-ritual-arg-in 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) both;
   }
-  @keyframes lg-pending-fade {
-    from { opacity: 0; transform: translateY(4px); }
+  @keyframes lg-ritual-arg-in {
+    from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes lg-pending-breathe {
-    0%, 100% { opacity: 0.5; transform: scale(1); }
-    50%      { opacity: 1;   transform: scale(1.2); }
+
+  .lg-ritual-chain {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 18px;
+  }
+  .lg-seal {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--rink-strong) 40%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 20%, transparent);
+    flex-shrink: 0;
+  }
+  .lg-seal--live {
+    background:
+      radial-gradient(circle at 50% 60%, #f3b042, var(--rink-accent) 70%);
+    border-color: var(--rink-accent);
+    animation: lg-seal-flicker 1.1s ease-in-out infinite;
+  }
+  .lg-seal--done {
+    background:
+      radial-gradient(circle at 35% 30%, color-mix(in srgb, #fff 60%, transparent), transparent 50%),
+      #b8381f;
+    border-color: color-mix(in srgb, #b8381f 70%, transparent);
+    animation: lg-seal-press 0.45s cubic-bezier(0.2, 1.2, 0.3, 1) both;
+  }
+  .lg-seal--err {
+    background: #2d2015;
+    border-color: color-mix(in srgb, #2d2015 70%, transparent);
+    opacity: 0.55;
+  }
+  .lg-seal-more {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 10px;
+    color: var(--rink);
+    font-style: italic;
+    letter-spacing: 0.05em;
+  }
+  @keyframes lg-seal-flicker {
+    0%, 100% { box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 20%, transparent), 0 0 0 0 color-mix(in srgb, var(--rink-accent) 50%, transparent); }
+    50%      { box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 35%, transparent), 0 0 6px 0 color-mix(in srgb, var(--rink-accent) 60%, transparent); }
+  }
+  @keyframes lg-seal-press {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  /* Floating dust motes (peace) / embers (combat) */
+  .lg-ritual-mote {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--rink-accent) 55%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    animation: lg-mote-drift 12s ease-in-out infinite;
+  }
+  .lg-ritual-mote-1 { left: 12%; bottom: -6px; animation-delay: 0s;   animation-duration: 11s; }
+  .lg-ritual-mote-2 { left: 28%; bottom: -6px; animation-delay: 2s;   animation-duration: 13s; }
+  .lg-ritual-mote-3 { left: 44%; bottom: -6px; animation-delay: 4s;   animation-duration: 12s; }
+  .lg-ritual-mote-4 { left: 60%; bottom: -6px; animation-delay: 6s;   animation-duration: 14s; }
+  .lg-ritual-mote-5 { left: 76%; bottom: -6px; animation-delay: 8s;   animation-duration: 11.5s; }
+  .lg-ritual-mote-6 { left: 90%; bottom: -6px; animation-delay: 10s;  animation-duration: 13.5s; }
+  @keyframes lg-mote-drift {
+    0%   { transform: translate(0, 0); opacity: 0; }
+    15%  { opacity: 0.7; }
+    50%  { transform: translate(-12px, -120px); opacity: 0.5; }
+    100% { transform: translate(20px, -220px); opacity: 0; }
+  }
+
+  @keyframes lg-ritual-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lg-ritual,
+    .lg-ritual *,
+    .rs-ripple, .rs-vapor, .rs-line, .rs-grep-hit, .rs-lens,
+    .rs-write-line, .rs-quill, .rs-quill-drop, .rs-edit-line, .rs-edit-strike, .rs-edit-new,
+    .rs-compass, .rs-needle,
+    .rs-sigil-outer, .rs-sigil-inner, .rs-sigil-star, .rs-sigil-core,
+    .rdie-spin, .rdie-text, .lg-seal--live, .lg-ritual-mote,
+    .rdc-ring, .lg-dice-total, .lg-dice-stamp, .lg-dice-verdict, .rscene-script {
+      animation: none !important;
+      transition: none !important;
+    }
+    .rdie-text { opacity: 1; }
+    .rs-line, .rs-write-line, .rs-edit-new, .rs-edit-strike,
+    .rs-sigil-outer, .rs-sigil-inner {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    .lg-ritual[data-state="settled"] .lg-dice-verdict { opacity: 1; }
   }
 
   /* ── Combat Mode (어두운 가죽 · 촛불 황금) ──────────────────── */
@@ -3119,20 +4212,81 @@ const STYLES = `<style>
     color: #d48a1f;
     border-color: color-mix(in srgb, #d48a1f 45%, transparent);
   }
-  .lg-stage[data-mode="combat"] .lg-pending {
-    background: color-mix(in srgb, #d48a1f 8%, #251810);
-    border-color: color-mix(in srgb, #d48a1f 35%, transparent);
-    box-shadow: 0 6px 18px -8px color-mix(in srgb, #d48a1f 35%, transparent);
+  .lg-stage[data-mode="combat"] .lg-ritual {
+    --rink: #d8c9a8;
+    --rink-strong: #f3b042;
+    --rink-soft: color-mix(in srgb, #d48a1f 60%, transparent);
+    --rink-faint: color-mix(in srgb, #d48a1f 28%, transparent);
+    --rink-bg: #2e1c14;
+    --rink-accent: #d48a1f;
+    background:
+      radial-gradient(ellipse at 100% 0%, color-mix(in srgb, #d48a1f 10%, transparent), transparent 60%),
+      color-mix(in srgb, #d48a1f 8%, #251810);
+    border-color: color-mix(in srgb, #d48a1f 38%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #d48a1f 14%, transparent),
+      0 8px 22px -10px color-mix(in srgb, #000 60%, transparent);
   }
-  .lg-stage[data-mode="combat"] .lg-pending-glyph {
-    background: #d48a1f;
+  .lg-stage[data-mode="combat"] .lg-ritual-stage {
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, #d48a1f 14%, transparent), transparent 65%),
+      color-mix(in srgb, #d48a1f 4%, #1a110a);
+    border-color: color-mix(in srgb, #d48a1f 28%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, #d48a1f 16%, transparent),
+      inset 0 -20px 40px -30px color-mix(in srgb, #d48a1f 40%, transparent);
   }
-  .lg-stage[data-mode="combat"] .lg-pending-label {
+  .lg-stage[data-mode="combat"] .rs-page {
+    fill: color-mix(in srgb, #d48a1f 10%, #2e1c14);
+  }
+  .lg-stage[data-mode="combat"] .rs-parchment {
+    fill: color-mix(in srgb, #d48a1f 6%, #2e1c14);
+  }
+  .lg-stage[data-mode="combat"] .rdie-face {
+    fill: color-mix(in srgb, #d48a1f 12%, #2e1c14);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, #d48a1f 30%, transparent));
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual[data-state="settled"] .rdie-face {
+    fill: color-mix(in srgb, #d48a1f 22%, #2e1c14);
+  }
+  .lg-stage[data-mode="combat"] .rdie-text {
+    fill: #f3b042;
+  }
+  .lg-stage[data-mode="combat"] .rs-pot {
+    fill: color-mix(in srgb, #d48a1f 22%, #1a110a);
+    stroke: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-dice-stamp {
+    background: color-mix(in srgb, #d48a1f 8%, #1a110a);
+  }
+  .lg-stage[data-mode="combat"] .lg-dice-stamp--pass {
+    color: #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 80%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-dice-stamp--fail {
+    color: #ff6a4a;
+    border-color: color-mix(in srgb, #ff6a4a 70%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-seal--done {
+    background:
+      radial-gradient(circle at 35% 30%, color-mix(in srgb, #fff 30%, transparent), transparent 50%),
+      #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 70%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-seal--err {
+    background: #6b1a1a;
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual-arg {
+    color: #d8c9a8;
+    background: color-mix(in srgb, #000 30%, transparent);
+    border-color: color-mix(in srgb, #d48a1f 28%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual-name {
     color: #d48a1f;
   }
-  .lg-stage[data-mode="combat"] .lg-pending-tool,
-  .lg-stage[data-mode="combat"] .lg-pending-preview {
-    color: #b8a38a;
+  .lg-stage[data-mode="combat"] .lg-ritual-mote {
+    background: color-mix(in srgb, #d48a1f 70%, transparent);
+    box-shadow: 0 0 4px color-mix(in srgb, #d48a1f 70%, transparent);
   }
 </style>`;
 

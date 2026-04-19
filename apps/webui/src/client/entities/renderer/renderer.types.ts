@@ -8,15 +8,28 @@ export interface RenderStreamView {
 }
 
 /**
+ * Tool result content blocks mirror pi-ai's `(TextContent | ImageContent)[]`
+ * so renderers can read the canonical tool output without flattening loss.
+ */
+export interface RenderToolContentBlock {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
+/**
  * Tool-call lifecycle for renderers. Check `!tc.result` for "still running"
- * (covers both streaming-args and executing phases).
+ * (covers both streaming-args and executing phases). `args` arrives at
+ * execution start; `result.content` carries the canonical tool output.
  */
 export interface RenderToolCallView {
   id: string;
   name: string;
+  args?: unknown;
   argsComplete: boolean;
   executionStarted: boolean;
-  result?: { isError: boolean };
+  result?: { content: RenderToolContentBlock[]; isError: boolean };
 }
 
 export const EMPTY_RENDER_STREAM: RenderStreamView = {

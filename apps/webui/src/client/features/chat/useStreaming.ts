@@ -178,10 +178,10 @@ export function useStreaming() {
           streamDispatch({ type: "TOOL_DELTA", projectSlug, id, inputJson }),
         onToolUseEnd: (id) =>
           streamDispatch({ type: "TOOL_END", projectSlug, id }),
-        onToolExecStart: (id) =>
-          streamDispatch({ type: "TOOL_EXEC_START", projectSlug, id }),
-        onToolExecEnd: (id, isError) =>
-          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id, isError }),
+        onToolExecStart: (id, _name, args) =>
+          streamDispatch({ type: "TOOL_EXEC_START", projectSlug, id, args }),
+        onToolExecEnd: (id, isError, content) =>
+          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id, isError, content }),
         onUsageSummary: (usage) =>
           streamDispatch({ type: "USAGE_SUMMARY", projectSlug, usage }),
         onAssistantNodes: (nodes) => {
