@@ -122,6 +122,20 @@ apps/webui/data/
 
 나머지는 전부 **파일** (`files/` 안): 사용자 콘텐츠. 디렉토리 구조 자유, 시스템이 강제하는 이름/구조 없음. 시스템은 `ProjectFile[]`로 스캔하여 `.md`의 YAML frontmatter를 파싱하지만 해석하지 않음 — 의미 부여는 렌더러 몫
 
+### LLM 지침 파일 작성 규칙
+`SYSTEM.md` · `SKILL.md` · `SYSTEM.meta.md` 는 시스템 프롬프트/툴 결과에 주입되어 LLM이 매 턴 읽는 **살아있는 지침**이다. 문서나 해설이 아니라 실행 프롬프트. 작성·수정 시 아래 네 가지 패턴은 **쓰지도 말고, 발견 즉시 제거**한다.
+
+- **변천사·deprecation**: "더 이상 ~하지 않습니다", "과거엔 ~였지만 이제 ~", "~는 제거됨". 과거 이력은 git log · PR 설명의 몫
+- **자기참조·재강조**: 앞줄에 이미 규칙을 명시했는데 "~을 그대로 사용한다", "이 값을 이대로 쓴다" 식으로 한 번 더 강조하는 꼬리 문장. 규칙은 한 번만 쓴다
+- **설계 합리화**: "이 키는 영문이 아닌 한글이다", "왜 이렇게 했느냐면…", "통일성을 위해" 같이 결정 배경·의도를 설명하는 문장. 결정 배경은 CLAUDE.md · PR 설명의 몫
+- **guard 중복**: 예제로 이미 드러난 규칙을 별도 "주의/금지" 섹션에 다시 서술 — 좋은 예제 하나가 더 강력하다
+
+**판단 기준**: 해당 문장을 지워도 LLM 행동이 동일한가? 동일하면 덜어낸다. 제약·엣지케이스(총합 6, 음수 허용, 변동 없으면 write 생략)는 행동을 바꾸므로 남긴다.
+
+### renderer.ts 작성 규칙
+
+- 한국어가 들어갈 가능성이 있는 영역에는 절대 monospace 폰트를 사용하지 않는다.
+
 ### Skill 시스템
 - Skill body는 `activate_skill` tool의 **tool result에 직접 포함** — tool_call→tool_result 교환이 전부, 별도 노드/콜백 없음
 - Slash command (`/skill-name`)는 user message로 body 주입 — `build.ts`의 `buildUserNodeForPrompt`가 `meta: "skill-load"` TreeNode 생성
