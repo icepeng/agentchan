@@ -19,36 +19,31 @@ metadata:
 
 **활성화하지 않음**:
 - 세션 시작의 최근 사건 확인 — 단순 `read files/memory/journal.md`
-- 단일 고유명사 1개의 위치 확인 — `grep -n "마렉" files/memory/journal.md`가 더 빠르다
+- 단일 고유명사 1개의 위치 확인 — `grep` 도구로 `pattern: "마렉", path: "files/memory/journal.md"`
 - 저장이 목적인 경우 — 규칙은 SYSTEM.md에 있고 이 스킬과 무관하다
 
 ## 경로 1: BM25 검색
 
-```
-script: bun skills/journal-search/assets/search.ts "엘라라 인정 마렉"
-```
+`script` 도구로 실행 (`file: "skills/journal-search/scripts/search.ts"`, `args: ["엘라라 인정 마렉"]`).
 
 **동작**:
-- 프로젝트 루트를 cwd로 하여 실행한다 (즉 `files/memory/journal.md`가 스크립트에서 보이는 경로다)
-- 첫 실행 시 `files/memory/.journal-index.db` (hidden sidecar)에 FTS5+BM25 인덱스 생성
+- 첫 실행 시 `files/memory/.journal-index.db` 에 FTS5+BM25 인덱스 생성
 - 이후 실행은 mtime 비교로 증분 재인덱싱
-- 결과: `[BM25점수] 파일:줄범위` + snippet. top-8
+- 결과: `[BM25점수] 파일:줄범위` + snippet. top-8 + 인덱스 요약
 
 **옵션**:
-- `--rebuild`: 인덱스 강제 재빌드 (스키마 변경 또는 오염 복구)
+- `args: ["--rebuild"]` — 인덱스 강제 재빌드 후 종료 (스키마 변경 또는 오염 복구)
+- `args: ["--rebuild", "<쿼리>"]` — 재빌드 후 검색
 
 **한국어 키워드 팁**:
-- 어간·명사만 3~5개 조합 (문장 ❌)
-- 1~2글자 CJK 토큰은 trigram이 못 잡으므로 자동 LIKE 폴백
+- 어간·명사만 3~5개 조합 (문장 X)
+- 1~2글자 CJK 토큰은 자동 LIKE 폴백
 - 인명·지명·사건명 선호
 
 ## 경로 2: Grep 폴백
 
-인덱스 빌드 전이거나 고유명사 1개의 모든 등장 위치만 필요할 때:
-
-```
-grep -n "마렉" files/memory/journal.md
-```
+인덱스 빌드 전이거나 고유명사 1개의 모든 등장 위치만 필요할 때 `grep` 도구 사용
+(`pattern: "마렉"`, `path: "files/memory/journal.md"`).
 
 ## 결과의 사용
 

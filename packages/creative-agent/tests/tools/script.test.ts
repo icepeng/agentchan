@@ -141,6 +141,143 @@ describe("ctx.project", () => {
   });
 });
 
+describe("ctx.project.stat", () => {
+  test("returns mtime + size for an existing file", async () => {
+    await writeFile(join(tempDir, "meta.txt"), "hello", "utf-8");
+    await writeScript("s.ts", `
+      export default (_args, ctx) => {
+        const s = ctx.project.stat("meta.txt");
+        return s === null ? "null" : { size: s.size, hasMtime: typeof s.mtime === "number" && s.mtime > 0 };
+      };
+    `);
+    const out = await run("s.ts");
+    expect(JSON.parse(out)).toEqual({ size: 5, hasMtime: true });
+  });
+
+  test("returns null for a missing file", async () => {
+    await writeScript("s.ts", `
+      export default (_args, ctx) => {
+        const s = ctx.project.stat("nope.txt");
+        return { isNull: s === null };
+      };
+    `);
+    expect(JSON.parse(await run("s.ts"))).toEqual({ isNull: true });
+  });
+
+  test("detects mtime change after rewrite", async () => {
+    const p = join(tempDir, "meta.txt");
+    await writeFile(p, "v1", "utf-8");
+    await writeScript("s.ts", `
+      export default (_args, ctx) => {
+        const a = ctx.project.stat("meta.txt");
+        ctx.project.writeFile("meta.txt", "version-two");
+        const b = ctx.project.stat("meta.txt");
+        return { sizeA: a.size, sizeB: b.size, grew: b.size > a.size };
+      };
+    `);
+    const parsed = JSON.parse(await run("s.ts"));
+    expect(parsed.sizeA).toBe(2);
+    expect(parsed.sizeB).toBe(11);
+    expect(parsed.grew).toBe(true);
+  });
+});
+
+describe("ctx.sqlite", () => {
+  test("open + exec + run + all (basic CRUD)", async () => {
+    await writeScript("db.ts", `
+      export default (_args, ctx) => {
+        const db = ctx.sqlite.open("store.db");
+        try {
+          db.exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)");
+          db.run("INSERT INTO items (name) VALUES (?)", ["alpha"]);
+          db.run("INSERT INTO items (name) VALUES (?)", ["beta"]);
+          const rows = db.all("SELECT name FROM items ORDER BY id");
+          return rows.map((r) => r.name);
+        } finally {
+          db.close();
+        }
+      };
+    `);
+    expect(JSON.parse(await run("db.ts"))).toEqual(["alpha", "beta"]);
+  });
+
+  test("batch commits on success", async () => {
+    await writeScript("db.ts", `
+      export default (_args, ctx) => {
+        const db = ctx.sqlite.open("store.db");
+        try {
+          db.exec("CREATE TABLE t (x INT)");
+          db.batch(() => {
+            db.run("INSERT INTO t VALUES (?)", [1]);
+            db.run("INSERT INTO t VALUES (?)", [2]);
+          });
+          return db.all("SELECT x FROM t ORDER BY x").map((r) => r.x);
+        } finally {
+          db.close();
+        }
+      };
+    `);
+    expect(JSON.parse(await run("db.ts"))).toEqual([1, 2]);
+  });
+
+  test("batch rolls back on throw", async () => {
+    await writeScript("db.ts", `
+      export default (_args, ctx) => {
+        const db = ctx.sqlite.open("store.db");
+        try {
+          db.exec("CREATE TABLE t (x INT)");
+          db.run("INSERT INTO t VALUES (?)", [100]);
+          try {
+            db.batch(() => {
+              db.run("INSERT INTO t VALUES (?)", [200]);
+              throw new Error("rollback me");
+            });
+          } catch (_e) { /* swallow */ }
+          return db.all("SELECT x FROM t ORDER BY x").map((r) => r.x);
+        } finally {
+          db.close();
+        }
+      };
+    `);
+    expect(JSON.parse(await run("db.ts"))).toEqual([100]);
+  });
+
+  test("open refuses a path outside the project", async () => {
+    await writeScript("db.ts", `
+      export default (_args, ctx) => {
+        ctx.sqlite.open("../escape.db");
+      };
+    `);
+    const out = await run("db.ts");
+    expect(out).toContain("path outside project");
+    expect(out).toContain("[exit code: 1]");
+  });
+
+  test("leaked handle is force-closed by the host (next run reopens cleanly)", async () => {
+    await writeScript("leak.ts", `
+      export default (_args, ctx) => {
+        const db = ctx.sqlite.open("leak.db");
+        db.exec("CREATE TABLE IF NOT EXISTS t (x INT)");
+        db.run("INSERT INTO t VALUES (?)", [42]);
+        // intentionally forget to close
+      };
+    `);
+    expect(await run("leak.ts")).toBe("(no output)");
+
+    await writeScript("read.ts", `
+      export default (_args, ctx) => {
+        const db = ctx.sqlite.open("leak.db");
+        try {
+          return db.all("SELECT x FROM t").map((r) => r.x);
+        } finally {
+          db.close();
+        }
+      };
+    `);
+    expect(JSON.parse(await run("read.ts"))).toEqual([42]);
+  });
+});
+
 describe("ctx.yaml", () => {
   test("parse and stringify round trip", async () => {
     await writeScript("y.ts", `

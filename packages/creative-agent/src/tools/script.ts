@@ -29,8 +29,15 @@ const DESCRIPTION = `Run a TypeScript or JavaScript file from the project direct
 
 The script must \`export default function (args, ctx)\` (sync or async). It receives:
 - \`args\` — the args[] passed to this tool, as a readonly string[]
-- \`ctx\` — { project: { readFile, writeFile, exists, listDir }, yaml: { parse, stringify }, random: { int(minIncl, maxExcl) }, util: { parseArgs(config) } }
+- \`ctx\` — {
+    project: { readFile, writeFile, exists, listDir, stat(path) → {mtime,size}|null },
+    sqlite: { open(relPath) → handle },
+    yaml: { parse, stringify },
+    random: { int(minIncl, maxExcl) },
+    util: { parseArgs(config) }
+  }
 - \`ctx.util.parseArgs\` mirrors \`node:util.parseArgs\` — pass {args, options, strict, allowPositionals} as usual.
+- \`ctx.sqlite.open(path)\` returns { exec(sql), all(sql, params?), run(sql, params?), batch(fn), close() }. batch runs fn() inside a single transaction — only exec/all/run on the same handle are allowed inside, throwing rolls back.
 
 The function's return value becomes the tool's output: \`string\` is passed through, \`object\` is JSON.stringify'd, \`undefined\` yields "(no output)". Throw an Error to fail; the message is surfaced to the caller and the script exits non-zero. Output is truncated to roughly the last 50KB / 2000 lines.
 
@@ -47,11 +54,12 @@ The function's return value becomes the tool's output: \`string\` is passed thro
  * implementation, the spawned child re-creates an equivalent context
  * inside its own process.
  */
-const SCRIPT_RUNNER_SOURCE = `import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve, relative, sep, isAbsolute } from "node:path";
+const SCRIPT_RUNNER_SOURCE = `import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, resolve, relative, sep, isAbsolute } from "node:path";
 import { randomInt } from "node:crypto";
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
+import { Database } from "bun:sqlite";
 
 function resolveInProject(projectDir, userPath) {
   const abs = resolve(projectDir, userPath);
@@ -67,12 +75,55 @@ function resolveInProject(projectDir, userPath) {
 
 function createScriptContext(projectDir) {
   const join = (p) => resolveInProject(projectDir, p);
-  return {
+  const handles = new Set();
+  const ctx = {
     project: {
       readFile: (p) => readFileSync(join(p), "utf-8"),
       writeFile: (p, content) => writeFileSync(join(p), content, "utf-8"),
       exists: (p) => existsSync(join(p)),
       listDir: (p) => readdirSync(join(p)),
+      stat: (p) => {
+        try {
+          const st = statSync(join(p));
+          return { mtime: st.mtimeMs, size: st.size };
+        } catch (err) {
+          if (err && err.code === "ENOENT") return null;
+          throw err;
+        }
+      },
+    },
+    sqlite: {
+      open: (p) => {
+        const dbPath = join(p);
+        mkdirSync(dirname(dbPath), { recursive: true });
+        const db = new Database(dbPath);
+        const cache = new Map();
+        const prep = (sql) => {
+          let s = cache.get(sql);
+          if (!s) {
+            s = db.prepare(sql);
+            cache.set(sql, s);
+          }
+          return s;
+        };
+        const handle = {
+          exec: (sql) => { db.exec(sql); },
+          all: (sql, params) => prep(sql).all(...(params ?? [])),
+          run: (sql, params) => {
+            const res = prep(sql).run(...(params ?? []));
+            return { changes: res.changes, lastInsertRowid: res.lastInsertRowid };
+          },
+          batch: (fn) => { db.transaction(fn)(); },
+          close: () => {
+            if (!handles.has(handle)) return;
+            handles.delete(handle);
+            cache.clear();
+            db.close();
+          },
+        };
+        handles.add(handle);
+        return handle;
+      },
     },
     yaml: {
       parse: (text) => Bun.YAML.parse(text),
@@ -85,6 +136,13 @@ function createScriptContext(projectDir) {
       parseArgs: (config) => parseArgs(config),
     },
   };
+  const dispose = () => {
+    for (const h of [...handles]) {
+      try { h.close(); } catch {}
+    }
+    handles.clear();
+  };
+  return { ctx, dispose };
 }
 
 const userScriptPath = process.argv[2];
@@ -95,7 +153,7 @@ if (!userScriptPath) {
   process.exit(2);
 }
 
-const ctx = createScriptContext(process.cwd());
+const { ctx, dispose } = createScriptContext(process.cwd());
 
 try {
   const mod = await import(pathToFileURL(userScriptPath).href);
@@ -116,6 +174,8 @@ try {
   const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
   process.stderr.write(\`Error: \${message}\\n\`);
   process.exit(1);
+} finally {
+  dispose();
 }
 `;
 
