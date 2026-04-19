@@ -15,7 +15,8 @@
     "build:exe:win": "bun run --cwd apps/webui build:exe:win",
     "test": "turbo run test",
     "dev": "bun run --cwd apps/webui dev",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -23,6 +24,7 @@
     "@types/node": "^25.6.0",
     "eslint": "^10.2.0",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "husky": "^9.1.7",
     "portless": "^0.10.1",
     "turbo": "^2.9.6",
     "typescript": "^6.0.2",

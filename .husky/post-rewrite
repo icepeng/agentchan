@@ -1,0 +1,3 @@
+# Skip amends — only git rebase (incl. `git pull --rebase`) should trigger sync.
+[ "$1" = "rebase" ] || exit 0
+bash scripts/sync-example-data-if-changed.sh
