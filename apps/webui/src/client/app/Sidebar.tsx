@@ -5,7 +5,6 @@ import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 import { ProjectTabs } from "@/client/features/project/index.js";
 import { ModelBar } from "@/client/features/settings/index.js";
 import { UpdateBanner } from "@/client/features/update/index.js";
-import { SkillList } from "./SkillList.js";
 
 export function Sidebar() {
   const ui = useUIState();
@@ -70,7 +69,6 @@ export function Sidebar() {
       <div>
         <UpdateBanner />
         <ModelBar />
-        <SkillList />
       </div>
     </div>
   );
