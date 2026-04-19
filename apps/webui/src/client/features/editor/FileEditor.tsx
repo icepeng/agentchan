@@ -26,6 +26,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { isImagePath } from "@/client/entities/editor/index.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
+import { useLatestRef } from "@/client/shared/useLatestRef.js";
 
 // --- Obsidian Teal theme (from former TextEditor) ---
 
@@ -241,14 +242,10 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
   const project = useProjectSelectionState();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const onDocChangeRef = useRef(onDocChange);
-  const onSaveRef = useRef(onSave);
-  const dirtyRef = useRef(dirty);
+  const onDocChangeRef = useLatestRef(onDocChange);
+  const onSaveRef = useLatestRef(onSave);
+  const dirtyRef = useLatestRef(dirty);
   const [tokenCount, setTokenCount] = useState<number | null>(null);
-
-  useEffect(() => { onDocChangeRef.current = onDocChange; }, [onDocChange]);
-  useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
-  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
   const language = path ? detectLanguage(path) : undefined;
   const hasContent = content !== null;
@@ -320,17 +317,20 @@ export function FileEditor({ path, content, dirty, onDocChange, onSave }: FileEd
     };
   }, [path, language, hasContent]); // eslint-disable-line react-hooks/exhaustive-deps -- content used only for initial doc; save/docChange via refs
 
-  // Sync external content changes (e.g. agent wrote to this file)
+  // Sync external content changes (e.g. agent wrote to this file).
+  // dirtyRef guard goes before `doc.toString()` because this effect fires on
+  // every keystroke (content prop is a fresh string); skipping the O(n)
+  // serialize when we know the update originated from the user's own typing.
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || content === null) return;
+    if (!view || content === null || dirtyRef.current) return;
     const currentDoc = view.state.doc.toString();
-    if (currentDoc !== content && !dirtyRef.current) {
+    if (currentDoc !== content) {
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: content },
       });
     }
-  }, [content]);
+  }, [content, dirtyRef]);
 
   // No file selected
   if (!path) {

@@ -12,23 +12,20 @@ export interface TreeEntry {
 }
 
 /**
- * Slim editor state — only the truly client-side bits. Tree entries and
- * canonical file content come from SWR (`useProjectTree`, `useFileContent`);
- * `dirty` is recomputed each UPDATE_LOCAL_CONTENT against the server baseline
- * passed in the action (not stored here), so spurious listener events that
- * re-emit the same text don't flip dirty=true.
+ * Single source of truth for file content is the SWR cache (`useFileContent`).
+ * `buffer` is a client-only shadow that only exists while the user is editing;
+ * `dirty` is derived (`buffer !== null && buffer !== serverContent`) rather
+ * than stored — that way there is no sync effect to go out of step with.
  */
 export interface EditorState {
   selectedPath: string | null;
-  localContent: string | null;
-  dirty: boolean;
+  buffer: string | null;
 }
 
 export type EditorAction =
   | { type: "SELECT_FILE"; path: string }
-  | { type: "SYNC_EXTERNAL_CONTENT"; content: string }
-  | { type: "UPDATE_LOCAL_CONTENT"; content: string; serverContent: string }
-  | { type: "MARK_CLEAN" }
+  | { type: "UPDATE_BUFFER"; content: string }
+  | { type: "DISCARD_BUFFER"; ifEquals: string }
   | { type: "DESELECT_FILE" }
   | { type: "RENAME_SELECTED"; newPath: string }
   | { type: "CLEAR" };

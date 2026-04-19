@@ -9,28 +9,21 @@ import type { EditorState, EditorAction } from "./editor.types.js";
 
 const initialState: EditorState = {
   selectedPath: null,
-  localContent: null,
-  dirty: false,
+  buffer: null,
 };
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case "SELECT_FILE":
-      // Reset the buffer; SYNC_EXTERNAL_CONTENT will land once the SWR cache
-      // resolves the new file's content.
-      return { selectedPath: action.path, localContent: null, dirty: false };
-    case "SYNC_EXTERNAL_CONTENT":
-      return { ...state, localContent: action.content, dirty: false };
-    case "UPDATE_LOCAL_CONTENT":
-      return {
-        ...state,
-        localContent: action.content,
-        dirty: action.content !== action.serverContent,
-      };
-    case "MARK_CLEAN":
-      return { ...state, dirty: false };
+      return { selectedPath: action.path, buffer: null };
+    case "UPDATE_BUFFER":
+      return { ...state, buffer: action.content };
+    case "DISCARD_BUFFER":
+      // Only drop the shadow if it still matches what was saved — preserves
+      // keystrokes the user made during the save round-trip.
+      return state.buffer === action.ifEquals ? { ...state, buffer: null } : state;
     case "DESELECT_FILE":
-      return { selectedPath: null, localContent: null, dirty: false };
+      return { selectedPath: null, buffer: null };
     case "RENAME_SELECTED":
       return { ...state, selectedPath: action.newPath };
     case "CLEAR":

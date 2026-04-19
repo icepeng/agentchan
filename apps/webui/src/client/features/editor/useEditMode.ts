@@ -11,6 +11,7 @@ import {
   useEditorMutations,
 } from "@/client/entities/editor/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
+import { useLatestRef } from "@/client/shared/useLatestRef.js";
 
 export function useEditMode() {
   const ui = useUIState();
@@ -41,13 +42,19 @@ export function useEditMode() {
     reveal,
   } = useEditorMutations(slug);
 
-  // Refs so the streaming-finished effect doesn't have to re-subscribe to
-  // selectedPath/dirty churn.
+  // Derived: SWR cache is ground truth. A buffer only exists while editing.
+  // dirty is parity against the server baseline — never stored, so it can't
+  // drift against the SWR cache.
+  const serverContent = fileData?.content;
+  const dirty =
+    editor.buffer !== null && serverContent !== undefined && editor.buffer !== serverContent;
+  const fileContent = editor.buffer ?? serverContent ?? null;
+
+  // Refs so the streaming-finished effect and async delete/rename handlers see
+  // latest selectedPath/dirty without re-subscribing or stale-closure risk.
   const wasStreaming = useRef(false);
-  const selectedPathRef = useRef(editor.selectedPath);
-  const dirtyRef = useRef(editor.dirty);
-  useEffect(() => { selectedPathRef.current = editor.selectedPath; }, [editor.selectedPath]);
-  useEffect(() => { dirtyRef.current = editor.dirty; }, [editor.dirty]);
+  const selectedPathRef = useLatestRef(editor.selectedPath);
+  const dirtyRef = useLatestRef(dirty);
 
   // Pending navigation while unsaved dialog is shown
   const [pendingPath, setPendingPath] = useState<string | null>(null);
@@ -55,17 +62,6 @@ export function useEditMode() {
   // Pending delete confirmation
   const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null);
   const [deleteConfirmDir, setDeleteConfirmDir] = useState<string | null>(null);
-
-  // Sync localContent ← server content. Skip when:
-  //  - no data yet
-  //  - user has unsaved edits (preserve buffer)
-  //  - already in sync (avoids the SYNC→dirty=false→re-render→re-SYNC loop)
-  useEffect(() => {
-    if (!fileData) return;
-    if (editor.dirty) return;
-    if (editor.localContent === fileData.content) return;
-    editorDispatch({ type: "SYNC_EXTERNAL_CONTENT", content: fileData.content });
-  }, [fileData, editor.dirty, editor.localContent, editorDispatch]);
 
   // Refetch tree + active file when an agent stream finishes (it may have
   // edited files behind our back).
@@ -81,7 +77,7 @@ export function useEditMode() {
     if (selectedPathRef.current && !dirtyRef.current) {
       void mutate(qk.projectFile(slug, selectedPathRef.current));
     }
-  }, [stream.isStreaming, isEdit, slug, mutate]);
+  }, [stream.isStreaming, isEdit, slug, mutate, selectedPathRef, dirtyRef]);
 
   // Clear editor on project switch (don't carry stale selection across projects).
   useEffect(() => {
@@ -90,7 +86,7 @@ export function useEditMode() {
 
   const selectFile = (path: string) => {
     if (path === editor.selectedPath) return;
-    if (editor.dirty) {
+    if (dirty) {
       setPendingPath(path);
       return;
     }
@@ -98,17 +94,16 @@ export function useEditMode() {
   };
 
   const saveCurrentFile = async () => {
-    if (!slug || !editor.selectedPath || editor.localContent === null) return;
-    await write(editor.selectedPath, editor.localContent);
-    editorDispatch({ type: "MARK_CLEAN" });
+    if (!slug || !editor.selectedPath || editor.buffer === null) return;
+    const saved = editor.buffer;
+    await write(editor.selectedPath, saved);
+    // Conditional drop: if the user typed more during the await, keep their
+    // buffer — dirty will re-derive against the new serverContent.
+    editorDispatch({ type: "DISCARD_BUFFER", ifEquals: saved });
   };
 
   const handleDocChange = (content: string) => {
-    // Without a server baseline we can't compute dirty; drop the edit rather
-    // than mark the buffer dirty against an unknown reference (would surface
-    // "save changes?" dialogs for files the user never touched).
-    if (!fileData) return;
-    editorDispatch({ type: "UPDATE_LOCAL_CONTENT", content, serverContent: fileData.content });
+    editorDispatch({ type: "UPDATE_BUFFER", content });
   };
 
   // Unsaved dialog handlers
@@ -216,8 +211,8 @@ export function useEditMode() {
   return {
     treeEntries,
     selectedPath: editor.selectedPath,
-    fileContent: editor.localContent,
-    dirty: editor.dirty,
+    fileContent,
+    dirty,
     selectFile,
     saveCurrentFile,
     handleDocChange,
