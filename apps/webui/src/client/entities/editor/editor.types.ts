@@ -12,20 +12,22 @@ export interface TreeEntry {
 }
 
 /**
- * Single source of truth for file content is the SWR cache (`useFileContent`).
- * `buffer` is a client-only shadow that only exists while the user is editing;
- * `dirty` is derived (`buffer !== null && buffer !== serverContent`) rather
- * than stored — that way there is no sync effect to go out of step with.
+ * Invariant: `selectedPath` set ⇔ `originalContent` and `buffer` set.
+ * SELECT_FILE carries the content payload, so there is no transient
+ * "selected but empty" state that sync effects would otherwise need to
+ * paper over. `dirty` is derived (`buffer !== originalContent`).
  */
 export interface EditorState {
   selectedPath: string | null;
+  originalContent: string | null;
   buffer: string | null;
 }
 
 export type EditorAction =
-  | { type: "SELECT_FILE"; path: string }
+  | { type: "SELECT_FILE"; path: string; content: string }
   | { type: "UPDATE_BUFFER"; content: string }
-  | { type: "DISCARD_BUFFER"; ifEquals: string }
+  | { type: "FILE_SAVED"; savedContent: string }
+  | { type: "EXTERNAL_REFRESH"; path: string; content: string }
   | { type: "DESELECT_FILE" }
   | { type: "RENAME_SELECTED"; newPath: string }
   | { type: "CLEAR" };

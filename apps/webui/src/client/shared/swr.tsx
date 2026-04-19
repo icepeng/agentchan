@@ -33,7 +33,6 @@ function buildRoute(entity: string, args: unknown[]): string {
     case "onboarding":      return "/config/onboarding";
     // editor
     case "projectTree":     return `/projects/${enc(args[0])}/tree`;
-    case "projectFile":     return `/projects/${enc(args[0])}/file?path=${enc(args[1])}`;
     // templates
     case "templates":       return "/templates";
     case "templateReadme":  return `/templates/${enc(args[0])}/readme`;
