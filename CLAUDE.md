@@ -99,18 +99,22 @@ apps/webui/data/
 ```
 
 ## Renderer System
-- Contract: `export function render(ctx: RenderContext): string` — `RenderContext { files: ProjectFile[], baseUrl: string, stream: RenderStreamView }`, HTML 반환. `ProjectFile = TextFile | BinaryFile` (TextFile: `path`, `content`, `frontmatter`, `modifiedAt`)
+- Contract: `export function render(ctx: RenderContext): string` — `RenderContext { files: ProjectFile[], baseUrl: string, state: AgentState }`, HTML 반환. `ProjectFile = TextFile | BinaryFile` (TextFile: `path`, `content`, `frontmatter`, `modifiedAt`)
 - 렌더러는 독립 transpile되므로 `RenderContext` 등 타입을 파일 내에 inline 선언 (import 불가)
-- **Server**: TS→JS transpile only (`Bun.Transpiler`). 실행하지 않음 · **Client**: Blob URL로 dynamic import하여 `render(ctx)` 실행 (`entities/renderer/useOutput.ts`). 프로젝트 전환/스트리밍 완료 시 full refresh + 스트리밍 중 rAF 주기로 stream-only refresh(`useOutput.refreshStream` — 네트워크 fetch 없이 스냅샷 재사용)
+- **Server**: TS→JS transpile only (`Bun.Transpiler`). 실행하지 않음 · **Client**: Blob URL로 dynamic import하여 `render(ctx)` 실행 (`entities/renderer/useOutput.ts`). 프로젝트 전환/스트리밍 완료 시 full refresh + 스트리밍 중 rAF 주기로 state-only refresh(`useOutput.refreshState` — 네트워크 fetch 없이 스냅샷 재사용)
 - `ctx.baseUrl`로 프로젝트 에셋 URL 구성 (예: `ctx.baseUrl + "/files/characters/elara-brightwell/assets/avatar"`). `/files/:path` 라우트는 확장자 없는 경로에 대해 이미지 확장자 탐색 폴백 지원
 - Image tokens: `[name:path]` — 렌더러가 frontmatter의 `name` 필드로 캐릭터를 매칭하여 resolve
 - `renderer.ts` 부재 또는 render 실패 시 error HTML 표시
-- **렌더러는 순수 함수** — `files → HTML`. sessions, skills, SYSTEM.md, 에이전트 상태에 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터, `role: persona`면 사용자 페르소나)
+- **렌더러는 순수 함수** — `(files, state) → HTML`. skills, SYSTEM.md에는 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터, `role: persona`면 사용자 페르소나)
 - **Renderer owns viewport** — `RenderedView`에 외부 padding 없음. 렌더러가 viewport edge-to-edge 소유. 필요한 간격/정렬은 렌더러 내부 `<style>`에서 (예: `.root { max-width: 680px; margin: 0 auto; padding: 24px }`). 풀블리드 배경·그라디언트·헤로 레이아웃 가능
 - **Renderer theme export** — 렌더러가 `export function theme(ctx: RenderContext): { base, dark?, prefersScheme? }`를 선언하면 프로젝트 페이지 한정으로 전역 `--color-*` 오버라이드 (Sidebar/AgentPanel/BottomInput까지 동조). `render`와 동일하게 매 refresh마다 호출되므로 `ctx.files` 기반 동적 테마 가능 (예: three-winds-ledger가 peace/combat 씬에 맞춰 팔레트 전환). 토큰 이름은 CSS 변수와 1:1 (`void/base/surface/elevated/accent/fg/fg2/fg3/edge`). `prefersScheme` 명시 시 사용자 토글 강제 오버라이드 (Settings 이동 시 자동 해제). 색상만, 폰트는 렌더러 내부 `<style>`에서. 검증·병합은 `entities/renderer/projectTheme.ts`의 `validateTheme` / `resolveThemeVars` (하위 호환: 객체 export도 허용되지만 공식 시그니처는 함수)
 - **Renderer Actions** — 렌더러 HTML에 `data-action` + `data-text` 속성으로 인터랙티브 액션 선언. `data-action="send"` (즉시 전송), `data-action="fill"` (입력창에 채우기). `data-text` 생략 시 `textContent` 사용. 빈 텍스트 무시, 스트리밍 중 send 무시. `entities/renderer/RendererActionContext.tsx`가 cross-feature 브릿지
-- **Renderer Stream** — `ctx.stream: RenderStreamView`는 **항상 주입**된다 (idle 시 `EMPTY_RENDER_STREAM` = `{ isStreaming:false, text:"", toolCalls:[] }`). 스트리밍 중에는 `isStreaming:true` + assistant 턴의 누적 `text` + 도구 상태(`{ id, name, argsComplete, executionStarted, result? }[]`). 수명주기는 선형 phase markers 2개(`argsComplete`/`executionStarted`) + 완료 sentinel(`result?: { isError }`)로 표현 — pi-coding-agent `ToolExecutionComponent`의 `argsComplete`/`executionStarted`/`result` 네이밍을 차용(agentchan 도구는 partial streaming이 없어 pi의 `isPartial` 축은 생략). 렌더러는 `!tc.result`로 진행 중 도구를 골라낸다. 내부 `StreamSlot`에서 `inputJson`/`streamError`/`usage`는 의도적으로 감춰져 있고, 경계는 `entities/stream/toRenderStream.ts` 매퍼가 단독으로 결정
-- **Stream refresh 시 files는 snapshot** — rAF 주기 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷(네트워크 fetch 스킵). 파일 실제 변경은 `STREAM_COMPLETE`에서 도는 full refresh로 1회 동기화
+- **Renderer State** — `ctx.state: AgentState`는 pi `agent.state`(agent/types.ts:221)의 UI subset이고 AgentPanel과 동일한 인터페이스다. idle 시 `EMPTY_AGENT_STATE = { messages:[], isStreaming:false, pendingToolCalls: new Set() }`. 필드:
+  - `messages: AgentMessage[]` — persisted activePath(meta 노드 제외) + 아직 persist되지 않은 in-flight `ToolResultMessage` 합성. `role: "user" | "assistant" | "toolResult"` 기준으로 분기
+  - `streamingMessage?: AssistantMessage` — 현재 in-flight assistant message. pi `AssistantMessageEvent.partial`이 매 이벤트마다 그대로 들어와 단순 replace됨. content는 시간순으로 [text, toolCall, text, ...] 인터리빙 가능
+  - `pendingToolCalls: ReadonlySet<string>` — 실행 시작은 했지만 결과가 도착하지 않은 toolCall id 집합. 결과가 도착하면 `messages`에 toolResult로 합쳐지고 이 set에서 제거됨
+  - tool 결과를 보려면 `state.messages`에서 `role === "toolResult" && toolCallId === id`로 찾는다 — 별도 result 필드 없음. 진행 중 여부는 `state.pendingToolCalls.has(id)`
+- **State refresh 시 files는 snapshot** — rAF 주기 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷(네트워크 fetch 스킵). 파일 실제 변경은 스트리밍 종료 후 도는 full refresh로 1회 동기화
 
 ## Session Compact
 - `compactSession()`이 `meta: "compact-summary"` 노드 생성 (microCompact: 토큰 예산 retention). 새 세션 이어가기 지시는 SYSTEM.md 책임. agentchan은 pi와 달리 compact 시 새 session 파일을 만들어 `compactedFrom`으로 이전 session 참조 — 세션 간 계승 모델

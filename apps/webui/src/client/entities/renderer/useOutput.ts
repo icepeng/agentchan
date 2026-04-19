@@ -1,4 +1,8 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import {
+  EMPTY_AGENT_STATE,
+  useActiveAgentState,
+} from "@/client/entities/agent-state/index.js";
 import {
   useProjectSelectionState,
   fetchWorkspaceFiles,
@@ -7,10 +11,8 @@ import {
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import { validateTheme, resolveRawTheme } from "./projectTheme.js";
 import {
-  EMPTY_RENDER_STREAM,
   type ProjectFile,
   type RenderContext,
-  type RenderStreamView,
 } from "./renderer.types.js";
 
 function escapeHtml(text: string): string {
@@ -64,7 +66,16 @@ export function useOutput() {
   const { activeProjectSlug } = useProjectSelectionState();
   const rendererViewDispatch = useRendererViewDispatch();
 
-  // Snapshot reused during streaming so refreshStream avoids refetch/recompile.
+  // useActiveAgentState reads from project/session/stream contexts. Capturing
+  // it via ref lets `refreshState` read the latest snapshot without rebinding
+  // the rAF loop in RenderedView on every event.
+  const agentState = useActiveAgentState();
+  const stateRef = useRef(agentState);
+  useEffect(() => {
+    stateRef.current = agentState;
+  });
+
+  // Snapshot reused during streaming so refreshState avoids refetch/recompile.
   // files may drift during a stream; full refresh on completion resyncs it.
   const lastSnapshotRef = useRef<RendererSnapshot | null>(null);
 
@@ -85,7 +96,7 @@ export function useOutput() {
       const context: RenderContext = {
         files: filesResult.files,
         baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
-        stream: EMPTY_RENDER_STREAM,
+        state: EMPTY_AGENT_STATE,
       };
       const html = renderFn(context);
       const theme = validateTheme(resolveRawTheme(rawTheme, context));
@@ -104,31 +115,28 @@ export function useOutput() {
     }
   }, [activeProjectSlug, rendererViewDispatch]);
 
-  const refreshStream = useCallback(
-    (stream: RenderStreamView) => {
-      const slug = activeProjectSlug;
-      if (!slug) return;
-      const snap = lastSnapshotRef.current;
-      if (!snap || snap.slug !== slug) return;
+  const refreshState = useCallback(() => {
+    const slug = activeProjectSlug;
+    if (!slug) return;
+    const snap = lastSnapshotRef.current;
+    if (!snap || snap.slug !== slug) return;
 
-      try {
-        const context: RenderContext = {
-          files: snap.files,
-          baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
-          stream,
-        };
-        const html = snap.renderFn(context);
-        const theme = validateTheme(resolveRawTheme(snap.rawTheme, context));
-        if (html === lastHtmlRef.current) return;
-        lastHtmlRef.current = html;
-        rendererViewDispatch({ type: "SET_OUTPUT", html, theme });
-      } catch {
-        // Keep the last good HTML — otherwise a per-frame renderer throw
-        // would flash an error screen during streaming.
-      }
-    },
-    [activeProjectSlug, rendererViewDispatch],
-  );
+    try {
+      const context: RenderContext = {
+        files: snap.files,
+        baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
+        state: stateRef.current,
+      };
+      const html = snap.renderFn(context);
+      const theme = validateTheme(resolveRawTheme(snap.rawTheme, context));
+      if (html === lastHtmlRef.current) return;
+      lastHtmlRef.current = html;
+      rendererViewDispatch({ type: "SET_OUTPUT", html, theme });
+    } catch {
+      // Keep the last good HTML — otherwise a per-frame renderer throw
+      // would flash an error screen during streaming.
+    }
+  }, [activeProjectSlug, rendererViewDispatch]);
 
-  return { refresh, refreshStream };
+  return { refresh, refreshState };
 }

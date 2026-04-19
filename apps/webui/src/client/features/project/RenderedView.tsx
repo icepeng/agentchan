@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Idiomorph } from "idiomorph";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { useActiveStream, toRenderStream } from "@/client/entities/stream/index.js";
+import { useActiveStream } from "@/client/entities/stream/index.js";
 import {
   useOutput,
   useRendererViewState,
@@ -18,7 +18,7 @@ export function RenderedView() {
   const project = useProjectSelectionState();
   const rendererView = useRendererViewState();
   const stream = useActiveStream();
-  const { refresh, refreshStream } = useOutput();
+  const { refresh, refreshState } = useOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
@@ -68,24 +68,24 @@ export function RenderedView() {
     }
   }, [stream.isStreaming, project.activeProjectSlug, refresh]);
 
-  // rAF-coalesced stream re-render. The reducer keeps slot references stable
-  // on no-op updates, so comparing refs lets the tick skip renderFn entirely
-  // when nothing changed — avoiding 60fps CPU burn while idle-streaming.
+  // rAF-coalesced stream re-render. `useOutput` reads the latest AgentState
+  // via ref each call, so the tick just compares stream slot identity to
+  // skip refreshState when nothing has changed — avoiding 60fps CPU burn.
   useEffect(() => {
     if (!stream.isStreaming) return;
     let raf = 0;
     let lastSlot = streamRef.current;
-    refreshStream(toRenderStream(lastSlot));
+    refreshState();
     const tick = () => {
       if (streamRef.current !== lastSlot) {
         lastSlot = streamRef.current;
-        refreshStream(toRenderStream(lastSlot));
+        refreshState();
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [stream.isStreaming, refreshStream]);
+  }, [stream.isStreaming, refreshState]);
 
   useEffect(() => {
     const el = frontRef.current;

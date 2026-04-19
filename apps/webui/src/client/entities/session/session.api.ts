@@ -1,6 +1,13 @@
+import type {
+  AssistantMessageEvent,
+  ImageContent,
+  TextContent,
+} from "@mariozechner/pi-ai";
 import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
 import type { TokenUsage } from "@/client/shared/pricing.utils.js";
 import type { Session, TreeNode } from "./session.types.js";
+
+export type { AssistantMessageEvent };
 
 // --- Sessions ---
 
@@ -62,25 +69,16 @@ export function switchBranch(
 // --- SSE Message Stream ---
 
 /**
- * Tool result content blocks mirror pi-ai's `(TextContent | ImageContent)[]`
- * shape verbatim so the renderer view contract stays aligned with the
- * canonical tool result envelope (no flattening, no information loss).
+ * Mirror pi `ToolResultMessage.content` shape so the synthesized in-flight
+ * `ToolResultMessage` matches the canonical pi envelope.
  */
-export interface ToolContentBlock {
-  type: string;
-  text?: string;
-  data?: string;
-  mimeType?: string;
-}
+export type ToolResultContent = (TextContent | ImageContent)[];
 
 export interface SSECallbacks {
   onUserNode: (node: TreeNode) => void;
-  onTextDelta: (text: string) => void;
-  onToolUseStart: (id: string, name: string) => void;
-  onToolUseDelta: (id: string, inputJson: string) => void;
-  onToolUseEnd: (id: string) => void;
+  onAssistantEvent: (event: AssistantMessageEvent) => void;
   onToolExecStart: (id: string, name: string, args: unknown) => void;
-  onToolExecEnd: (id: string, isError: boolean, content: ToolContentBlock[]) => void;
+  onToolExecEnd: (id: string, name: string, isError: boolean, content: ToolResultContent) => void;
   onUsageSummary: (usage: TokenUsage) => void;
   onAssistantNodes: (nodes: TreeNode[]) => void;
   onDone: () => void;
@@ -93,26 +91,9 @@ function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): v
       case "user_node":
         callbacks.onUserNode(JSON.parse(data));
         break;
-      case "text_delta": {
-        const parsed = JSON.parse(data);
-        callbacks.onTextDelta(parsed.text);
+      case "assistant_event":
+        callbacks.onAssistantEvent(JSON.parse(data));
         break;
-      }
-      case "tool_use_start": {
-        const parsed = JSON.parse(data);
-        callbacks.onToolUseStart(parsed.id, parsed.name);
-        break;
-      }
-      case "tool_use_delta": {
-        const parsed = JSON.parse(data);
-        callbacks.onToolUseDelta(parsed.id, parsed.input_json);
-        break;
-      }
-      case "tool_use_end": {
-        const parsed = JSON.parse(data);
-        callbacks.onToolUseEnd(parsed.id);
-        break;
-      }
       case "tool_exec_start": {
         const parsed = JSON.parse(data);
         callbacks.onToolExecStart(parsed.id, parsed.name, parsed.args);
@@ -120,7 +101,7 @@ function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): v
       }
       case "tool_exec_end": {
         const parsed = JSON.parse(data);
-        callbacks.onToolExecEnd(parsed.id, parsed.is_error, parsed.content ?? []);
+        callbacks.onToolExecEnd(parsed.id, parsed.name, parsed.is_error, parsed.content ?? []);
         break;
       }
       case "usage_summary": {

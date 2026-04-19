@@ -5,13 +5,16 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
+import type {
+  AssistantMessageEvent,
+  ImageContent,
+  TextContent,
+} from "@mariozechner/pi-ai";
 import type { TokenUsage } from "@/client/entities/session/index.js";
 import {
   EMPTY_STREAM,
   type SessionUsage,
   type StreamSlot,
-  type ToolCallState,
-  type ToolContentBlock,
 } from "./stream.types.js";
 
 interface StreamState {
@@ -20,17 +23,15 @@ interface StreamState {
 
 type StreamAction =
   | { type: "START"; projectSlug: string }
-  | { type: "TEXT_DELTA"; projectSlug: string; text: string }
-  | { type: "TOOL_START"; projectSlug: string; id: string; name: string }
-  | { type: "TOOL_DELTA"; projectSlug: string; id: string; inputJson: string }
-  | { type: "TOOL_END"; projectSlug: string; id: string }
+  | { type: "ASSISTANT_EVENT"; projectSlug: string; event: AssistantMessageEvent }
   | { type: "TOOL_EXEC_START"; projectSlug: string; id: string; args: unknown }
   | {
       type: "TOOL_EXEC_END";
       projectSlug: string;
       id: string;
+      name: string;
       isError: boolean;
-      content: ToolContentBlock[];
+      content: (TextContent | ImageContent)[];
     }
   | { type: "USAGE_SUMMARY"; projectSlug: string; usage: TokenUsage }
   | { type: "RESET"; projectSlug: string }
@@ -50,15 +51,11 @@ function updateSlot(
   return { slots: next };
 }
 
-function patchToolCall(
-  slot: StreamSlot,
-  id: string,
-  patch: Partial<ToolCallState>,
-): StreamSlot {
-  return {
-    ...slot,
-    toolCalls: slot.toolCalls.map((tc) => (tc.id === id ? { ...tc, ...patch } : tc)),
-  };
+function withPendingAdded(slot: StreamSlot, id: string): StreamSlot {
+  if (slot.pendingToolCalls.has(id)) return slot;
+  const next = new Set(slot.pendingToolCalls);
+  next.add(id);
+  return { ...slot, pendingToolCalls: next };
 }
 
 function addUsage(base: SessionUsage, delta: TokenUsage): SessionUsage {
@@ -73,6 +70,35 @@ function addUsage(base: SessionUsage, delta: TokenUsage): SessionUsage {
   };
 }
 
+function applyAssistantEvent(
+  slot: StreamSlot,
+  event: AssistantMessageEvent,
+): StreamSlot {
+  switch (event.type) {
+    case "start":
+    case "text_start":
+    case "text_delta":
+    case "text_end":
+    case "thinking_start":
+    case "thinking_delta":
+    case "thinking_end":
+    case "toolcall_start":
+    case "toolcall_delta":
+    case "toolcall_end":
+      return { ...slot, streamingMessage: event.partial };
+    case "done":
+      return { ...slot, streamingMessage: event.message };
+    case "error":
+      return {
+        ...slot,
+        streamingMessage: event.error,
+        streamError: event.error.errorMessage ?? "Stream error",
+      };
+    default:
+      return slot;
+  }
+}
+
 function streamReducer(state: StreamState, action: StreamAction): StreamState {
   switch (action.type) {
     case "START":
@@ -81,54 +107,36 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
         isStreaming: true,
       }));
 
-    case "TEXT_DELTA":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        text: slot.text + action.text,
-      }));
-
-    case "TOOL_START":
-      return updateSlot(state, action.projectSlug, (slot) => ({
-        ...slot,
-        toolCalls: [
-          ...slot.toolCalls,
-          {
-            id: action.id,
-            name: action.name,
-            inputJson: "",
-            argsComplete: false,
-            executionStarted: false,
-          },
-        ],
-      }));
-
-    case "TOOL_DELTA":
-      return updateSlot(state, action.projectSlug, (slot) => {
-        const tc = slot.toolCalls.find((t) => t.id === action.id);
-        return tc
-          ? patchToolCall(slot, action.id, { inputJson: tc.inputJson + action.inputJson })
-          : slot;
-      });
-
-    case "TOOL_END":
+    case "ASSISTANT_EVENT":
       return updateSlot(state, action.projectSlug, (slot) =>
-        patchToolCall(slot, action.id, { argsComplete: true }),
+        applyAssistantEvent(slot, action.event),
       );
 
     case "TOOL_EXEC_START":
       return updateSlot(state, action.projectSlug, (slot) =>
-        patchToolCall(slot, action.id, {
-          executionStarted: true,
-          args: action.args,
-        }),
+        withPendingAdded(slot, action.id),
       );
 
     case "TOOL_EXEC_END":
-      return updateSlot(state, action.projectSlug, (slot) =>
-        patchToolCall(slot, action.id, {
-          result: { content: action.content, isError: action.isError },
-        }),
-      );
+      return updateSlot(state, action.projectSlug, (slot) => {
+        const nextPending = new Set(slot.pendingToolCalls);
+        nextPending.delete(action.id);
+        return {
+          ...slot,
+          pendingToolCalls: nextPending,
+          inFlightToolResults: [
+            ...slot.inFlightToolResults,
+            {
+              role: "toolResult",
+              toolCallId: action.id,
+              toolName: action.name,
+              content: action.content,
+              isError: action.isError,
+              timestamp: Date.now(),
+            },
+          ],
+        };
+      });
 
     case "USAGE_SUMMARY":
       return updateSlot(state, action.projectSlug, (slot) => ({

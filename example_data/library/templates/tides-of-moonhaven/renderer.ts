@@ -41,32 +41,54 @@ interface DataFile {
 
 type ProjectFile = TextFile | BinaryFile | DataFile;
 
-interface RenderToolContentBlock {
-  type: string;
-  text?: string;
-  data?: string;
-  mimeType?: string;
-}
-
-interface RenderToolCall {
+// pi-ai content blocks (inline — 렌더러는 별도 transpile되어 import 불가)
+interface TextContent { type: "text"; text: string }
+interface ThinkingContent { type: "thinking"; thinking: string }
+interface ImageContent { type: "image"; data: string; mimeType: string }
+interface ToolCall {
+  type: "toolCall";
   id: string;
   name: string;
-  args?: unknown;
-  argsComplete: boolean;
-  executionStarted: boolean;
-  result?: { content: RenderToolContentBlock[]; isError: boolean };
+  arguments: Record<string, any>;
 }
 
-interface RenderStreamView {
-  isStreaming: boolean;
-  text: string;
-  toolCalls: RenderToolCall[];
+type ToolResultContent = (TextContent | ImageContent)[];
+
+interface UserMessage {
+  role: "user";
+  content: string | (TextContent | ImageContent)[];
+  timestamp: number;
+}
+interface AssistantMessage {
+  role: "assistant";
+  content: (TextContent | ThinkingContent | ToolCall)[];
+  provider?: string;
+  model?: string;
+}
+interface ToolResultMessage {
+  role: "toolResult";
+  toolCallId: string;
+  toolName: string;
+  content: ToolResultContent;
+  isError: boolean;
+}
+type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
+
+// pi `AgentState`(agent/types.ts:221) UI subset — AgentPanel과 공유.
+// 렌더러는 `state.messages`로 전체 흐름, `state.streamingMessage`로 in-flight,
+// `state.pendingToolCalls.has(id)`로 진행 중 여부를 본다.
+interface AgentState {
+  readonly messages: ReadonlyArray<AgentMessage>;
+  readonly isStreaming: boolean;
+  readonly streamingMessage?: AssistantMessage;
+  readonly pendingToolCalls: ReadonlySet<string>;
+  readonly errorMessage?: string;
 }
 
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
-  stream: RenderStreamView;
+  state: AgentState;
 }
 
 // ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
@@ -1297,7 +1319,7 @@ interface DiceResult {
 }
 
 function parseDiceResult(
-  content: RenderToolContentBlock[] | undefined,
+  content: ToolResultContent | undefined,
 ): DiceResult | null {
   if (!content) return null;
   const text = content
@@ -1544,18 +1566,40 @@ function renderRitualCanvas(
     </div>`;
 }
 
+// 현재 in-flight assistant message에서 toolCall 블록만 시간순으로 추출.
+// agentchan은 turn 끝까지 persist를 미루므로 streamingMessage가 진행 중 toolCall의
+// 단일 source.
+function activeToolCalls(state: AgentState): ToolCall[] {
+  const content = state.streamingMessage?.content ?? [];
+  return content.filter((b): b is ToolCall => b.type === "toolCall");
+}
+
+// 가장 최근에 도착한 ToolResultMessage를 messages에서 찾는다.
+function findToolResult(
+  state: AgentState,
+  toolCallId: string,
+): ToolResultMessage | null {
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    const m = state.messages[i];
+    if (m && m.role === "toolResult" && m.toolCallId === toolCallId) return m;
+  }
+  return null;
+}
+
 function renderSealChain(
-  toolCalls: ReadonlyArray<RenderToolCall>,
+  state: AgentState,
+  toolCalls: ReadonlyArray<ToolCall>,
 ): string {
   if (toolCalls.length === 0) return "";
   const max = 8;
   const visible = toolCalls.slice(-max);
   const overflow = toolCalls.length - visible.length;
   const seals = visible.map((tc) => {
-    if (!tc.result) {
+    const result = findToolResult(state, tc.id);
+    if (!result) {
       return `<span class="lg-seal lg-seal--live" title="${escapeHtml(tc.name)}" aria-hidden="true"></span>`;
     }
-    const cls = tc.result.isError ? "lg-seal--err" : "lg-seal--done";
+    const cls = result.isError ? "lg-seal--err" : "lg-seal--done";
     return `<span class="lg-seal ${cls}" title="${escapeHtml(tc.name)}" aria-hidden="true"></span>`;
   });
   const more = overflow > 0
@@ -1565,32 +1609,32 @@ function renderSealChain(
 }
 
 function renderPendingCard(
-  stream: RenderStreamView,
+  state: AgentState,
   mode: "peace" | "combat",
 ): string {
-  const hidden = stream.isStreaming ? "" : ' hidden aria-hidden="true"';
-  const latest = stream.toolCalls.length > 0
-    ? stream.toolCalls[stream.toolCalls.length - 1]
-    : undefined;
-  const inFlight = stream.toolCalls.find((tc) => !tc.result);
+  const hidden = state.isStreaming ? "" : ' hidden aria-hidden="true"';
+  const tools = activeToolCalls(state);
+  const latest = tools.length > 0 ? tools[tools.length - 1] : undefined;
+  const inFlight = tools.find((tc) => !findToolResult(state, tc.id));
   // Active focus: prefer in-flight tool, else show settled state of last tool.
   const focus = inFlight ?? latest;
   const toolKey = focus?.name ?? "thinking";
+  const focusResult = focus ? findToolResult(state, focus.id) : null;
   const stateAttr = focus
-    ? focus.result
+    ? focusResult
       ? "settled"
       : "busy"
     : "thinking";
 
   // Dice-specific data — only when focus tool is script
-  const diceParse = toolKey === "script" ? parseDiceArgs(focus?.args) : null;
+  const diceParse = toolKey === "script" ? parseDiceArgs(focus?.arguments) : null;
   const diceResult = toolKey === "script"
-    ? parseDiceResult(focus?.result?.content)
+    ? parseDiceResult(focusResult?.content)
     : null;
 
   const narration = ritualNarration(mode, toolKey);
-  const argLabel = focus ? ritualArgLabel(focus.name, focus.args) : "";
-  const sealChain = renderSealChain(stream.toolCalls);
+  const argLabel = focus ? ritualArgLabel(focus.name, focus.arguments) : "";
+  const sealChain = renderSealChain(state, tools);
 
   return `
     <aside id="lg-pending" class="lg-ritual" data-mode="${mode}" data-tool="${escapeHtml(toolKey)}" data-state="${stateAttr}" role="status" aria-live="polite"${hidden}>
@@ -4387,7 +4431,7 @@ export function render(ctx: RenderContext): string {
     .map((l) => resolveAvatar(l, nameMap));
   const groups = groupLines(parsed);
 
-  const pendingCard = renderPendingCard(ctx.stream, mode);
+  const pendingCard = renderPendingCard(ctx.state, mode);
 
   if (sceneFiles.length === 0 || (groups.length === 0 && !status)) {
     return `${STYLES}

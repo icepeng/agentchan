@@ -3,7 +3,6 @@ import {
   type AgentEvent,
   type AgentContext,
   type SessionEvent,
-  type ToolCall,
   runPrompt,
   runRegenerate,
 } from "@agentchan/creative-agent";
@@ -126,35 +125,22 @@ async function writeSessionEvent(
   }
 }
 
+/**
+ * Forward pi `AssistantMessageEvent` raw — `partial: AssistantMessage` and
+ * `contentIndex` are preserved end-to-end, so the client can rebuild the
+ * exact in-flight message without losing block ordering.
+ *
+ * `tool_execution_*` is folded back into a single SSE pair; `toolName` is
+ * carried through `tool_exec_end` so the client can synthesize the canonical
+ * pi `ToolResultMessage` without re-querying.
+ */
 function agentEventToSSE(event: AgentEvent): { event: string; data: string } | null {
   switch (event.type) {
-    case "message_update": {
-      const sub = event.assistantMessageEvent;
-      switch (sub.type) {
-        case "text_delta":
-          return { event: "text_delta", data: JSON.stringify({ text: sub.delta }) };
-        case "thinking_delta":
-          return { event: "thinking_delta", data: JSON.stringify({ text: sub.delta }) };
-        case "toolcall_start": {
-          const tc = sub.partial.content[sub.contentIndex] as ToolCall;
-          return {
-            event: "tool_use_start",
-            data: JSON.stringify({ id: tc?.id ?? "", name: tc?.name ?? "" }),
-          };
-        }
-        case "toolcall_delta": {
-          const tc = sub.partial.content[sub.contentIndex] as ToolCall;
-          return {
-            event: "tool_use_delta",
-            data: JSON.stringify({ id: tc?.id ?? "", input_json: sub.delta }),
-          };
-        }
-        case "toolcall_end":
-          return { event: "tool_use_end", data: JSON.stringify({ id: sub.toolCall.id }) };
-        default:
-          return null;
-      }
-    }
+    case "message_update":
+      return {
+        event: "assistant_event",
+        data: JSON.stringify(event.assistantMessageEvent),
+      };
     case "tool_execution_start":
       return {
         event: "tool_exec_start",
@@ -169,6 +155,7 @@ function agentEventToSSE(event: AgentEvent): { event: string; data: string } | n
         event: "tool_exec_end",
         data: JSON.stringify({
           id: event.toolCallId,
+          name: event.toolName,
           is_error: event.isError,
           content: event.result?.content ?? [],
         }),

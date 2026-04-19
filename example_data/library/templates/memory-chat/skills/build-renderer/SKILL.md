@@ -28,14 +28,39 @@ interface TextFile { type: "text"; path: string; content: string; frontmatter: R
 interface BinaryFile { type: "binary"; path: string; modifiedAt: number; }
 type ProjectFile = TextFile | BinaryFile;
 
-interface RenderToolCallView { id: string; name: string; argsComplete: boolean; executionStarted: boolean; result?: { isError: boolean }; }
-interface RenderStreamView { isStreaming: boolean; text: string; toolCalls: ReadonlyArray<RenderToolCallView>; }
-interface RenderContext { files: ProjectFile[]; baseUrl: string; stream: RenderStreamView; }
+// pi-ai 메시지 블록 (canonical shape)
+interface TextContent { type: "text"; text: string }
+interface ThinkingContent { type: "thinking"; thinking: string }
+interface ImageContent { type: "image"; data: string; mimeType: string }
+interface ToolCall { type: "toolCall"; id: string; name: string; arguments: Record<string, any> }
+type ToolResultContent = (TextContent | ImageContent)[];
+
+interface UserMessage { role: "user"; content: string | (TextContent | ImageContent)[]; timestamp: number }
+interface AssistantMessage { role: "assistant"; content: (TextContent | ThinkingContent | ToolCall)[]; provider?: string; model?: string }
+interface ToolResultMessage { role: "toolResult"; toolCallId: string; toolName: string; content: ToolResultContent; isError: boolean }
+type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
+
+// pi AgentState UI subset — AgentPanel과 동일한 인터페이스
+interface AgentState {
+  readonly messages: ReadonlyArray<AgentMessage>;
+  readonly isStreaming: boolean;
+  readonly streamingMessage?: AssistantMessage;
+  readonly pendingToolCalls: ReadonlySet<string>;
+  readonly errorMessage?: string;
+}
+
+interface RenderContext {
+  files: ProjectFile[];
+  baseUrl: string;
+  state: AgentState;
+}
 
 export function render(ctx: RenderContext): string {
   // ctx.files에서 콘텐츠를 읽고, ctx.baseUrl로 에셋 URL을 구성하여 HTML 문자열 반환
 }
 ```
+
+`state.messages`는 persisted 대화 기록 + in-flight toolResult까지 합쳐진 한 흐름이다. tool 결과는 `state.messages`에서 `role === "toolResult"`로 찾는다 — 별도 result 필드 없음. tool이 진행 중인지 판단할 때는 `state.pendingToolCalls.has(toolCall.id)`.
 
 ## 디자인 원칙
 
@@ -101,6 +126,35 @@ function renderBasicMarkdown(text: string): string {
 ```typescript
 function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
   return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
+}
+```
+
+### 스트리밍 상태 헬퍼
+
+`state`는 한 곳에서 모든 진행 정보를 노출한다. 자주 쓰이는 추출 패턴:
+
+```typescript
+// 현재 in-flight assistant message의 toolCall 블록 (시간순)
+function activeToolCalls(state: AgentState): ToolCall[] {
+  return (state.streamingMessage?.content ?? [])
+    .filter((b): b is ToolCall => b.type === "toolCall");
+}
+
+// 가장 최근에 도착한 ToolResultMessage를 messages에서 찾는다
+function findToolResult(state: AgentState, toolCallId: string): ToolResultMessage | null {
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    const m = state.messages[i];
+    if (m && m.role === "toolResult" && m.toolCallId === toolCallId) return m;
+  }
+  return null;
+}
+
+// in-flight assistant text 모음 — pending 카드 미리보기 등에 사용
+function streamingText(state: AgentState): string {
+  return (state.streamingMessage?.content ?? [])
+    .filter((b): b is TextContent => b.type === "text")
+    .map((b) => b.text)
+    .join("");
 }
 ```
 

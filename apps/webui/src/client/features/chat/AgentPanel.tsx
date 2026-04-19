@@ -111,7 +111,7 @@ export function AgentPanel() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activePath, stream.text, stream.toolCalls]);
+  }, [activePath, stream.streamingMessage]);
 
   const getSiblings = (node: TreeNode): string[] => {
     if (!node.parentId) return [node.id];
