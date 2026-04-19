@@ -1,0 +1,26 @@
+# === NPC Intent — 숨김 파일 (LLM 전용) ===
+# 일하의 표면·진심·거짓말·해금 조건. 씬·대사에 직접 노출 금지.
+# SYSTEM.md의 "금칙"에 따라 이 파일의 스키마 어휘(surface/true_intent/lies 등)도 OOC에 노출 금지.
+
+display_name: "일하"
+role: "부두 상인 (소매)"
+age_estimate: 38
+visual_cue: "붉은 스카프, 왼손 세 번째 손가락 긁힌 자국"
+surface: "친절하고 입 가벼운 잡화상"
+true_intent: "길드의 하위 정보원 — 누가 누구와 거래했는지 알라나에게 보고"
+public_persona: "동네 잡화상"
+private_truth: "알라나의 사촌. 길드 이익을 위해 카엘렌을 감시 중"
+lies:
+  - statement: "어제 밤에는 가게에 있었어"
+    truth: "부두 창고 근처, 카엘렌 배 입출항 관찰"
+  - statement: "알라나 길드장? 몇 번 뵌 적 있다"
+    truth: "주 1회 만남, 가족 행사 참석"
+reveal_conditions:
+  - "관찰 DC 15 성공 → 손 떨림 포착"
+  - "위협 DC 18 OR trust:ilha<=-3 → 거짓말 시인"
+  - "trust:alana<=-3 → 알라나 사촌 관계 시인하고 도움 제안"
+dialogue_tells:
+  calm: "빠른 말투, 웃음 많음."
+  wary: "웃음이 줄고 가격을 제안. 스카프를 조이는 방향으로 매만짐."
+  shaken: "스카프를 확 풀어헤침. 긁힌 손을 감추고 진지한 얼굴."
+  resolute: "스카프를 단단히 다시 묶고 가게 문을 닫음. 빠른 말투 버리고 느린 확답."

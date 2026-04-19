@@ -1,0 +1,24 @@
+# === NPC Intent — 숨김 파일 (LLM 전용) ===
+# 셀렌 형제의 표면·진심·거짓말·해금 조건. 씬·대사에 직접 노출 금지.
+# SYSTEM.md의 "금칙"에 따라 이 파일의 스키마 어휘(surface/true_intent/lies 등)도 OOC에 노출 금지.
+
+display_name: "셀렌 형제"
+role: "성 엘렌 수도원 수도승"
+age_estimate: 60
+visual_cue: "회색 수도복, 왼손 두 손가락 없음(과거 첩보 사고)"
+surface: "침묵이 많고 지혜로운 중년 수도승"
+true_intent: "항구의 모든 세력을 지켜봐 왔고, 적절한 순간에 손 내밀기를 기다림"
+public_persona: "세속을 멀리하는 성직자"
+private_truth: "과거 왕국 첩보원이었고, 코드북을 여전히 다룬다. 코드 노래로 단서를 흘림"
+lies:
+  - statement: "나는 아무것도 모른다"
+    truth: "밀수 경로를 수년간 추적해옴. 문서화는 안 함 (정치적 위험)"
+reveal_conditions:
+  - "trust:brother_selen>=+3 → 노래에 암호를 섞어 힌트 (coded_whistle 비트)"
+  - "화술 DC 16 AND 수도원 방문 3회 → 코드북 공개"
+  - "evidence:coded_whistle 해독 → 밀수 경로 지도 제공"
+dialogue_tells:
+  calm: "허밍. 눈 감고 들음."
+  wary: "허밍이 멈춘다. 손가락 없는 손을 다른 손으로 덮음."
+  shaken: "오래된 왕국어 몇 단어가 튀어나옴. 눈을 뜨고 긴 침묵."
+  resolute: "묵주를 꽉 쥐고 허리를 편다. 옛 공용어가 정확히 흐름."

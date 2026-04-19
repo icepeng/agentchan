@@ -220,8 +220,8 @@ evidence: []
 
 function renderWorldStateYaml(p: Preset): string {
   return `# === World State — 공개 상태 ===
-# 현재 시각·장소·막·날씨. 렌더러가 HUD에 표시.
-# travel 스크립트가 time/location 갱신, act-transition이 act 갱신.
+# 현재 시각·장소·막·날씨·모드. 렌더러가 HUD에 표시.
+# travel.ts가 time/location, combat.ts가 mode, act-transition이 act 갱신.
 
 act: 1
 current_scene: act1_arrival
@@ -230,6 +230,7 @@ scene_count: 0
 time: "10:24"
 day: 1
 weather: "잿빛 구름. 옅은 안개."
+mode: peace
 
 location: pier
 party_status: ready

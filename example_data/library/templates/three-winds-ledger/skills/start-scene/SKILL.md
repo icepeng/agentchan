@@ -52,7 +52,7 @@ script(file: "skills/start-scene/scripts/init.ts", args: ["--preset", "<warrior|
 
 ### 4. Act 1 오프닝 씬 append
 
-`files/scenes/scene.md` 에 오프닝 씬을 **append** — 부두 도착, 안개, 리우와의 첫 조우. 응답 구조는 SYSTEM.md `<output_contract>` 의 출력 구조 템플릿을 따름 (`<status>` 블록이 씬 블록 최하단).
+`files/scenes/scene.md` 에 오프닝 씬을 **append** — 부두 도착, 안개, 리우와의 첫 조우. 응답 구조는 SYSTEM.md `<output_contract>` 의 출력 구조 템플릿을 따름. 씬 본문은 내레이션·대사·마커만 — 수치 블록 없음. HUD/HP/MP/시간/장소는 `init.ts` 가 이미 세팅한 `party.yaml` · `world-state.yaml` 에서 렌더러가 자동으로 읽는다.
 
 ## 예시
 
@@ -62,7 +62,7 @@ script(file: "skills/start-scene/scripts/init.ts", args: ["--preset", "<warrior|
 script(file: "skills/start-scene/scripts/init.ts", args: ["--preset", "rogue"])
 ```
 
-스크립트가 파일을 수정한 후 반환하는 JSON 의 `deltas.attributes` / `hp_max` / `mp_max` 를 오프닝 씬의 `<status>` 블록에 그대로 반영.
+스크립트가 `party.yaml` / `world-state.yaml` / `pc.md` 를 직접 수정하므로, 에이전트는 오프닝 씬 본문(내레이션·대사) 만 append 하면 된다. HUD 는 파일을 자동으로 읽는다.
 
 ## 금지
 

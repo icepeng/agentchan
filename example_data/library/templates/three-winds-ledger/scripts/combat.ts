@@ -2,9 +2,10 @@
 /**
  * scripts/combat.ts
  *
- * Resolves a single combat action. Two modes:
+ * Resolves a single combat action. Three modes:
  *   1. Active — actor attempts an attack/spell against a DC
  *   2. Passive — apply damage taken by PC or companion (updates party.yaml)
+ *   3. Mode-only — --start / --end without action: flip world-state.yaml mode field
  *
  * YAML 읽기는 Bun.YAML.parse, 쓰기는 line 치환 (주석·포맷 보존).
  *
@@ -14,11 +15,17 @@
  *                     [--damage <formula>]    (override damage formula, e.g. "1d4+3")
  *                     [--spell <slug>]        (for PC spell — reads spells.yaml)
  *                     [--round <N>]           (active combat round — emitted as attr)
+ *                     [--start]               (전투 진입: world-state.yaml mode: combat)
+ *                     [--end]                 (전투 종료: mode: peace)
  *
  * Usage (mode 2 — passive):
- *   scripts/combat.ts --actor <pc|riwu> --take-damage <N> [--round <N>]
+ *   scripts/combat.ts --actor <pc|riwu> --take-damage <N> [--round <N>] [--end]
  *
- * 동작: party.yaml 을 직접 수정한다. stdout 마지막 줄에 JSON 한 줄을 출력:
+ * Usage (mode 3 — mode-only):
+ *   scripts/combat.ts --start           (전투 진입만, 액션 없음)
+ *   scripts/combat.ts --end             (전투 종료만, 액션 없음)
+ *
+ * 동작: party.yaml + (옵션으로) world-state.yaml 을 직접 수정한다. stdout 마지막 줄:
  *   {"changed":[...],"deltas":{...},"summary":"...","scene_block":"<beat type=\"combat\" round=\"N\">...</beat>"?}
  * scene_block 은 active 모드(attack/spell)에서만 반환 — 그대로 scene.md 에 append.
  * round 는 에이전트가 추적 (전투 시작=1, 매 라운드 +1). 생략 시 `<beat type="combat">` 만 출력.
@@ -29,7 +36,8 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 // ─── Args ────────────────────────────────────────────────────────────────────
 
-interface Args {
+interface ActionArgs {
+  kind: "action";
   actor: "pc" | "riwu";
   category?: "attack" | "spell";
   targetDc?: number;
@@ -38,22 +46,45 @@ interface Args {
   spell?: string;
   takeDamage?: number;
   round?: number;
+  start: boolean;
+  end: boolean;
 }
+interface ModeOnlyArgs {
+  kind: "mode-only";
+  start: boolean;
+  end: boolean;
+}
+type Args = ActionArgs | ModeOnlyArgs;
+
+const BOOLEAN_FLAGS = new Set(["start", "end"]);
 
 function parseArgs(argv: string[]): Args {
   const args: Record<string, string> = {};
+  const bools: Record<string, boolean> = {};
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--")) {
       const key = argv[i].slice(2);
-      args[key] = argv[i + 1];
-      i++;
+      if (BOOLEAN_FLAGS.has(key)) {
+        bools[key] = true;
+      } else {
+        args[key] = argv[i + 1];
+        i++;
+      }
     }
   }
+  const start = !!bools.start;
+  const end = !!bools.end;
+
+  // mode-only 호출 (액션 없이 --start/--end만)
+  if (!args.actor && (start || end)) {
+    return { kind: "mode-only", start, end };
+  }
+
   if (!args.actor) { console.error("--actor required (pc | riwu)"); process.exit(1); }
   if (!["pc", "riwu"].includes(args.actor)) {
     console.error(`--actor must be pc | riwu. got: ${args.actor}`); process.exit(1);
   }
-  const out: Args = { actor: args.actor as "pc" | "riwu" };
+  const out: ActionArgs = { kind: "action", actor: args.actor as "pc" | "riwu", start, end };
   if (args.category) {
     if (!["attack", "spell"].includes(args.category)) {
       console.error(`--category must be attack|spell`); process.exit(1);
@@ -222,22 +253,84 @@ function emitResult(result: {
   console.log(JSON.stringify(result));
 }
 
+// world-state.yaml mode 필드만 갱신 — 없으면 weather 라인 다음에 삽입.
+function setWorldMode(mode: "peace" | "combat"): boolean {
+  const raw = readFileSync("files/world-state.yaml", "utf-8");
+  const rx = /^mode:\s*\w+/m;
+  let newRaw: string;
+  if (rx.test(raw)) {
+    newRaw = raw.replace(rx, `mode: ${mode}`);
+  } else {
+    // weather 라인 뒤에 삽입. weather 없으면 파일 끝에 추가.
+    if (/^weather:.*$/m.test(raw)) {
+      newRaw = raw.replace(/^(weather:.*\n)/m, `$1mode: ${mode}\n`);
+    } else {
+      newRaw = raw.trimEnd() + `\nmode: ${mode}\n`;
+    }
+  }
+  if (newRaw === raw) return false;
+  writeFileSync("files/world-state.yaml", newRaw, "utf-8");
+  return true;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
+
+  // ── Mode 3: mode-only (--start / --end without action) ────
+  if (args.kind === "mode-only") {
+    const changed: string[] = [];
+    const deltas: Record<string, unknown> = {};
+    if (args.start) {
+      if (setWorldMode("combat")) changed.push("files/world-state.yaml");
+      deltas.mode = "combat";
+    }
+    if (args.end) {
+      if (setWorldMode("peace")) changed.push("files/world-state.yaml");
+      deltas.mode = "peace";
+    }
+    emitResult({
+      changed: [...new Set(changed)],
+      deltas,
+      summary: args.end ? "전투 종료 · mode: peace" : "전투 진입 · mode: combat",
+    });
+    return;
+  }
+
   const state = readActorState(args.actor);
+
+  // --start / --end: 액션 전후 mode 갱신 결과를 모아 emitResult에 반영
+  const modeChanges: { changed: string[]; deltas: Record<string, unknown>; summaryTail: string } = {
+    changed: [],
+    deltas: {},
+    summaryTail: "",
+  };
+  if (args.start) {
+    if (setWorldMode("combat")) modeChanges.changed.push("files/world-state.yaml");
+    modeChanges.deltas.mode_enter = "combat";
+    modeChanges.summaryTail += " · mode: combat";
+  }
+  const applyEndMode = () => {
+    if (!args.end) return;
+    if (setWorldMode("peace")) modeChanges.changed.push("files/world-state.yaml");
+    modeChanges.deltas.mode_exit = "peace";
+    modeChanges.summaryTail += " · mode: peace";
+  };
 
   // ── Mode 2: take damage ────────────────
   if (args.takeDamage !== undefined) {
     const newHp = Math.max(0, state.hp.current - args.takeDamage);
     updatePartyField(args.actor, "hp", newHp);
+    applyEndMode();
     const summary =
       `${args.actor} 피해 ${args.takeDamage}. HP ${state.hp.current} → ${newHp}/${state.hp.max}` +
-      (newHp === 0 ? " · 의식불명 (3라운드 유예)" : "");
+      (newHp === 0 ? " · 의식불명 (3라운드 유예)" : "") +
+      modeChanges.summaryTail;
     emitResult({
-      changed: ["files/party.yaml"],
+      changed: [...new Set(["files/party.yaml", ...modeChanges.changed])],
       deltas: {
         [`${args.actor}.hp`]: { from: state.hp.current, to: newHp, max: state.hp.max },
         ...(newHp === 0 ? { [`${args.actor}.condition`]: "unconscious" } : {}),
+        ...modeChanges.deltas,
       },
       summary,
     });
@@ -281,15 +374,17 @@ function main() {
     } else {
       systemLine = `${args.actor} attacks: d20${modStr}=${hitTotal} vs ${args.targetDc} → MISS.`;
     }
+    applyEndMode();
     emitResult({
-      changed: [],
+      changed: [...new Set(modeChanges.changed)],
       deltas: {
         hit: { total: hitTotal, dc: args.targetDc, success: hit },
         ...(damageTotal !== null ? { damage: damageTotal } : {}),
+        ...modeChanges.deltas,
       },
-      summary: hit
+      summary: (hit
         ? `${args.actor} 명중 (${hitTotal} vs DC ${args.targetDc}), 피해 ${damageTotal}`
-        : `${args.actor} 빗나감 (${hitTotal} vs DC ${args.targetDc})`,
+        : `${args.actor} 빗나감 (${hitTotal} vs DC ${args.targetDc})`) + modeChanges.summaryTail,
       scene_block: buildSceneBlock(systemLine, args.round),
     });
     return;
@@ -329,17 +424,20 @@ function main() {
     }
 
     updatePartyField("pc", "mp", newMp);
+    applyEndMode();
     emitResult({
-      changed: ["files/party.yaml"],
+      changed: [...new Set(["files/party.yaml", ...modeChanges.changed])],
       deltas: {
         cast: { total: castTotal, dc: spell.dc, success: castOk, school: spell.school },
         "pc.mp": { from: state.mp.current, to: newMp, max: state.mp.max },
         ...(damageTotal !== null ? { damage: damageTotal } : {}),
+        ...modeChanges.deltas,
       },
-      summary: castOk
+      summary: (castOk
         ? `pc 시전 ${args.spell} 성공 (${castTotal} vs DC ${spell.dc}), MP ${state.mp.current}→${newMp}` +
           (damageTotal !== null ? `, 피해 ${damageTotal}` : "")
-        : `pc 시전 ${args.spell} 실패 (fizzle), MP ${state.mp.current}→${newMp}`,
+        : `pc 시전 ${args.spell} 실패 (fizzle), MP ${state.mp.current}→${newMp}`) +
+        modeChanges.summaryTail,
       scene_block: buildSceneBlock(systemLine, args.round),
     });
     return;

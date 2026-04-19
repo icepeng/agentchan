@@ -65,14 +65,15 @@ function parseArgs(argv: string[]): Args {
 function checkCooldown(npc: string, event: string, windowScenes: number): { blocked: boolean; reason?: string } {
   if (!existsSync("files/scenes/scene.md")) return { blocked: false };
   const raw = readFileSync("files/scenes/scene.md", "utf-8");
-  const statusMatches = Array.from(raw.matchAll(/<\/status>/gi));
-  if (statusMatches.length === 0) return { blocked: false };
+  // 턴 구분자 = 유저 메시지 에코 줄 `> ...` (SYSTEM.md output_contract 보장).
+  const turnMatches = Array.from(raw.matchAll(/^>\s+.+$/gm));
+  if (turnMatches.length === 0) return { blocked: false };
 
-  // Window = from (N+1)-th-from-last </status> to EOF
+  // Window = from (N+1)-th-from-last turn marker to EOF (= 최근 windowScenes 턴)
   let windowStart = 0;
-  if (statusMatches.length > windowScenes) {
-    const anchor = statusMatches[statusMatches.length - windowScenes - 1];
-    windowStart = anchor.index! + anchor[0].length;
+  if (turnMatches.length > windowScenes) {
+    const anchor = turnMatches[turnMatches.length - windowScenes];
+    windowStart = anchor.index!;
   }
   const window = raw.slice(windowStart);
 
@@ -83,7 +84,7 @@ function checkCooldown(npc: string, event: string, windowScenes: number): { bloc
   );
   const hit = rx.test(window);
   return hit
-    ? { blocked: true, reason: `최근 ${windowScenes}씬 내 동일 이벤트(${event}) 이미 발생 — 쿨다운` }
+    ? { blocked: true, reason: `최근 ${windowScenes}턴 내 동일 이벤트(${event}) 이미 발생 — 쿨다운` }
     : { blocked: false };
 }
 
