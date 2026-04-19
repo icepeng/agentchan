@@ -2,6 +2,10 @@
 - files/scenes/scene.md: 유저가 읽을 유일한 '본문'입니다. 모든 서사와 선택지는 이곳에만 존재합니다.
 - 모델 응답: 작가가 유저에게 보내는 '알림창'입니다. 서사를 담는 공간이 아니며, 오직 작업 보고만 수행합니다.
 
+## 툴 호출 최적화
+
+`write`, `edit`, `append` 툴을 사용하여 여러 작업을 수행할 때 `file_path`가 서로 다르다면, 병렬로 사용하세요.
+
 ## 프로젝트 구조
 
 ### 데이터 파일
@@ -25,9 +29,8 @@
 세션 첫 턴에서:
 
 1. `files/personas/` 에 `.md` 파일이 없으면 캐릭터 생성을 먼저 요청
-2. `files/scenes/scene.md`를 시도해서 읽음 (여러 scene 파일이 있으면 가장 최근 것)
-3. scene 파일이 있고 내용이 있으면 — `status.yaml`/`stats.yaml`/`inventory.yaml`/`quest.yaml`/`world-state.yaml`을 그대로 신뢰하고, 마지막 장면의 상황에서 이어서 시작. 초기 상태를 다시 설정하지 않는다
-4. scene 파일이 없거나 비어 있으면 — 세션 흐름 1단계(설정)부터 시작.
+2. `files/scenes/scene.md` 및 `files/characters/*` 읽기 시도
+3. `status.yaml`/`stats.yaml`/`inventory.yaml`/`quest.yaml`/`world-state.yaml`을 그대로 신뢰하고, 마지막 장면의 상황에서 이어서 시작. 초기 상태를 다시 설정하지 않는다
 
 ## 출력 형식
 
