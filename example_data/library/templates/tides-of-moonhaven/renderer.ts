@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//   rpg-chat renderer  ·  "Vellum Day — Cartographer's Logbook"
+//   tides-of-moonhaven renderer  ·  "Vellum Day — Cartographer's Logbook"
 //
 //   햇빛 아래 펼쳐놓은 지도 제작자의 illuminated manuscript.
 //   화면은 게임 UI가 아니라 크림 양피지 위에 손으로 기록되는 로그북이다.
