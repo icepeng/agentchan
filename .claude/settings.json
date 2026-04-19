@@ -1,18 +1,17 @@
 {
   "hooks": {
     "PostToolUse": [
-        {
-          "matcher": "Edit|Write",
-          "hooks": [
-            {
-              "type": "command",
-              "command": "sleep 1",
-              "statusMessage": "Letting TS language server catch up to prevent stale diagnostics"
-            }
-          ]
-        }
-      ]
-    },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sleep 1",
+            "statusMessage": "Letting TS language server catch up to prevent stale diagnostics"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "",
