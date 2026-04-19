@@ -587,6 +587,7 @@ interface PersonaInfo {
   displayName: string;
   color: string;
   portraitHtml: string;
+  body: string;
 }
 
 function fallbackColor(name: string, map: Map<string, string>): string {
@@ -606,7 +607,6 @@ function resolveCharacterInfo(
 ): CharacterInfo {
   const entry = nameMap.get(displayName);
   const color = entry?.color || fallbackColor(displayName, fallbackColorMap);
-  const initial = displayName.charAt(0).toUpperCase();
 
   const resolvedDir = charDir ?? entry?.dir;
   if (resolvedDir && imageKey) {
@@ -615,7 +615,7 @@ function resolveCharacterInfo(
       <div class="lg-portrait">
         <div class="lg-portrait-halo"></div>
         <img class="lg-portrait-img" src="${escapeHtml(src)}" alt="${escapeHtml(displayName)}" onerror="this.parentElement.dataset.fallback='1'" />
-        <div class="lg-portrait-fallback" aria-hidden="true">${escapeText(initial)}</div>
+        <div class="lg-portrait-fallback" aria-hidden="true">?</div>
       </div>`;
     return { color, portraitHtml };
   }
@@ -624,7 +624,7 @@ function resolveCharacterInfo(
     color,
     portraitHtml: `<div class="lg-portrait" data-fallback="1">
         <div class="lg-portrait-halo"></div>
-        <div class="lg-portrait-fallback" aria-hidden="true">${escapeText(initial)}</div>
+        <div class="lg-portrait-fallback" aria-hidden="true">?</div>
       </div>`,
   };
 }
@@ -649,7 +649,7 @@ function resolvePersona(
   const info = resolveCharacterInfo(dir, imageKey, displayName, ctx, nameMap, isolatedColorMap);
   const color = fm.color ? String(fm.color) : info.color;
 
-  return { displayName, color, portraitHtml: info.portraitHtml };
+  return { displayName, color, portraitHtml: info.portraitHtml, body: personaFile.content };
 }
 
 // ── Beat renderers ──────────────────────────
@@ -962,17 +962,100 @@ function renderAbilityScores(stats: RpgStats | null): string {
     </details>`;
 }
 
+// Persona body는 heading/문단/불릿만 지원하는 미니 markdown. chat 전용 formatInline은
+// *강조*·이미지 토큰 등 산문에 부적절한 변환이 섞여 있어 여기서는 재사용하지 않는다.
+function renderPersonaBody(body: string): string {
+  const lines = body.replace(/\r/g, "").split("\n");
+  const out: string[] = [];
+  let paragraph: string[] = [];
+  let bullets: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length > 0) {
+      out.push(`<p>${paragraph.map(escapeText).join(" ")}</p>`);
+      paragraph = [];
+    }
+  };
+  const flushBullets = () => {
+    if (bullets.length > 0) {
+      out.push(`<ul>${bullets.map((b) => `<li>${escapeText(b)}</li>`).join("")}</ul>`);
+      bullets = [];
+    }
+  };
+  const flushAll = () => {
+    flushParagraph();
+    flushBullets();
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.length === 0) {
+      flushAll();
+      continue;
+    }
+    const h3 = /^###\s+(.*)$/.exec(line);
+    if (h3) {
+      flushAll();
+      out.push(`<h6>${escapeText(h3[1] ?? "")}</h6>`);
+      continue;
+    }
+    const h2 = /^##\s+(.*)$/.exec(line);
+    if (h2) {
+      flushAll();
+      out.push(`<h5>${escapeText(h2[1] ?? "")}</h5>`);
+      continue;
+    }
+    const h1 = /^#\s+(.*)$/.exec(line);
+    if (h1) {
+      flushAll();
+      out.push(`<h4>${escapeText(h1[1] ?? "")}</h4>`);
+      continue;
+    }
+    const bullet = /^-\s+(.*)$/.exec(line);
+    if (bullet) {
+      flushParagraph();
+      bullets.push(bullet[1] ?? "");
+      continue;
+    }
+    flushBullets();
+    paragraph.push(line);
+  }
+  flushAll();
+
+  return out.join("");
+}
+
+function renderPersonaSheet(persona: PersonaInfo): string {
+  const body = renderPersonaBody(persona.body);
+  if (!body) return "";
+  return `
+    <details class="lg-appendix-section lg-persona" open style="--c: ${escapeHtml(persona.color)}">
+      <summary class="lg-appendix-head">
+        <span class="lg-appendix-title">Persona</span>
+        <span class="lg-appendix-count">${escapeText(persona.displayName)}</span>
+        <span class="lg-appendix-chevron" aria-hidden="true"></span>
+      </summary>
+      <div class="lg-persona-sheet">
+        <div class="lg-persona-portrait">${persona.portraitHtml}</div>
+        <div class="lg-persona-body">${body}</div>
+      </div>
+    </details>`;
+}
+
 function renderAppendix(
   items: InventoryItem[],
   quests: QuestEntry[],
   stats: RpgStats | null,
+  persona: PersonaInfo | null,
 ): string {
+  const personaSheet = persona ? renderPersonaSheet(persona) : "";
   const abilities = renderAbilityScores(stats);
   const manifest = renderPackManifest(items);
   const charts = renderStandingCharts(quests);
-  if (!abilities && !manifest && !charts) return "";
+  if (!personaSheet && !abilities && !manifest && !charts) return "";
   return `
     <footer class="lg-appendix">
+      ${personaSheet}
       ${abilities}
       ${manifest}
       ${charts}
@@ -1085,23 +1168,48 @@ function renderPendingCard(stream: RenderStreamView, mode: "peace" | "combat"): 
     </aside>`;
 }
 
-// ── Empty state ─────────────────────────────
+// ── Empty state: Character Builder ─────────────────────────────
+//
+// 첫 세션 부트스트랩. 스탯 스테퍼(총합 6, 각 -1~+5) + 이름 입력 + 확인 버튼으로
+// `/init` 슬래시 메시지를 조합해 send한다. 확인 버튼은 capture-phase 리스너에서
+// DOM 상태를 읽어 data-text 를 채운 뒤 bubbling의 RenderedView 핸들러가 기존
+// data-action="send" 파이프라인으로 전송하도록 한다. 총합 ≠ 6 또는 이름 공백이면
+// stopImmediatePropagation 으로 전송을 막는다.
 
-// README의 "시작하는 한 줄" 세 개 — empty state의 잉크 칩에 그대로 노출
-const OPENING_SEEDS: string[] = [
-  "초보 모험가 1레벨. 마을 광장에서 시작.",
-  "장비 없이 해적선 갑판에서 깨어나는 장면. HP 60/100으로 시작.",
-  "엘라라가 퀘스트를 주는 주점에서 시작",
+interface BuilderStat {
+  key: "strength" | "agility" | "insight" | "charisma";
+  label: string;
+  short: string;
+}
+
+const BUILDER_STATS: BuilderStat[] = [
+  { key: "strength", label: "힘", short: "STR" },
+  { key: "agility", label: "민첩", short: "AGI" },
+  { key: "insight", label: "통찰", short: "INS" },
+  { key: "charisma", label: "화술", short: "CHA" },
 ];
 
+const BUILDER_TOTAL = 6;
+const BUILDER_MIN = -1;
+const BUILDER_MAX = 5;
+
+function renderBuilderStepper(s: BuilderStat): string {
+  return `
+    <div class="lg-builder-row">
+      <span class="lg-builder-label">
+        <span class="lg-builder-short">${s.short}</span>
+        <span class="lg-builder-long">${escapeText(s.label)}</span>
+      </span>
+      <div class="lg-builder-stepper" data-stat="${s.key}">
+        <button type="button" class="lg-builder-step" data-inc="-1" aria-label="${escapeHtml(s.label)} 감소">&#x2212;</button>
+        <span class="lg-builder-value" data-stat-value="${s.key}" data-value="0">0</span>
+        <button type="button" class="lg-builder-step" data-inc="1" aria-label="${escapeHtml(s.label)} 증가">&#x002B;</button>
+      </div>
+    </div>`;
+}
+
 function renderEmpty(): string {
-  const chips = OPENING_SEEDS.map(
-    (seed) => `
-      <button type="button" class="lg-seed" data-action="fill" data-text="${escapeHtml(seed)}">
-        <span class="lg-seed-glyph" aria-hidden="true">&#x2605;</span>
-        <span class="lg-seed-text">${escapeText(seed)}</span>
-      </button>`,
-  ).join("");
+  const rows = BUILDER_STATS.map(renderBuilderStepper).join("");
 
   return `
     <div class="lg-empty">
@@ -1113,12 +1221,144 @@ function renderEmpty(): string {
         <line x1="6" y1="72" x2="34" y2="72" stroke="currentColor" stroke-width="0.5" opacity="0.4" />
       </svg>
       <div class="lg-empty-rule"></div>
-      <h2 class="lg-empty-title">Uncharted Shores</h2>
-      <p class="lg-empty-sub">첫 로그 엔트리가 기록되면 이 해안이 드러납니다.</p>
+      <h2 class="lg-empty-title">Character Ledger</h2>
+      <p class="lg-empty-sub">모험가 시트를 채워주세요. 총합 ${BUILDER_TOTAL}점을 ${BUILDER_MAX}과 ${BUILDER_MIN} 사이에서 나눕니다.</p>
       <div class="lg-empty-rule"></div>
-      <div class="lg-seed-label">try an opening</div>
-      <div class="lg-seeds">${chips}</div>
-    </div>`;
+      <form class="lg-builder" data-builder="1" onsubmit="return false">
+        <div class="lg-builder-stats">${rows}</div>
+        <div class="lg-builder-total" data-builder-total>
+          <span class="lg-builder-total-label">Total</span>
+          <span class="lg-builder-total-value" data-total-value>0</span>
+          <span class="lg-builder-total-target">/ ${BUILDER_TOTAL}</span>
+        </div>
+        <label class="lg-builder-name">
+          <span class="lg-builder-name-label">이름</span>
+          <input type="text" data-builder-name maxlength="20" placeholder="예: 시아" autocomplete="off" spellcheck="false" />
+        </label>
+        <p class="lg-builder-error" data-builder-error hidden></p>
+        <button type="button" class="lg-builder-submit" data-builder-submit data-action="send" data-text="" disabled>
+          <span class="lg-builder-submit-glyph" aria-hidden="true">&#x2756;</span>
+          <span>이 인물로 시작</span>
+        </button>
+      </form>
+    </div>
+    <script>
+    (function () {
+      var root = document.currentScript && document.currentScript.previousElementSibling;
+      // currentScript는 <div class="lg-empty">의 형제가 아닐 수 있으므로 가장 가까운 폼으로 fallback
+      var form = (root && root.querySelector) ? root.querySelector('.lg-builder') : null;
+      if (!form) form = document.querySelector('.lg-builder[data-builder="1"]');
+      if (!form || form.dataset.bound === '1') return;
+      form.dataset.bound = '1';
+
+      var MIN = ${BUILDER_MIN};
+      var MAX = ${BUILDER_MAX};
+      var TARGET = ${BUILDER_TOTAL};
+      var SHORT = { strength: 'STR', agility: 'AGI', insight: 'INS', charisma: 'CHA' };
+      var KEYS = ['strength', 'agility', 'insight', 'charisma'];
+
+      var nameInput = form.querySelector('[data-builder-name]');
+      var totalEl = form.querySelector('[data-total-value]');
+      var totalBox = form.querySelector('[data-builder-total]');
+      var errorEl = form.querySelector('[data-builder-error]');
+      var submit = form.querySelector('[data-builder-submit]');
+
+      function readStats() {
+        var out = {};
+        KEYS.forEach(function (k) {
+          var el = form.querySelector('[data-stat-value="' + k + '"]');
+          out[k] = el ? parseInt(el.dataset.value, 10) || 0 : 0;
+        });
+        return out;
+      }
+
+      function sum(stats) {
+        return KEYS.reduce(function (a, k) { return a + stats[k]; }, 0);
+      }
+
+      function refresh() {
+        var stats = readStats();
+        var total = sum(stats);
+        totalEl.textContent = String(total);
+        totalBox.dataset.state = total === TARGET ? 'ok' : (total > TARGET ? 'over' : 'under');
+
+        // 경계 도달한 +/- 버튼 비활성화 + 총합 초과 시 +1 억제
+        KEYS.forEach(function (k) {
+          var stepper = form.querySelector('.lg-builder-stepper[data-stat="' + k + '"]');
+          if (!stepper) return;
+          var value = stats[k];
+          var minusBtn = stepper.querySelector('[data-inc="-1"]');
+          var plusBtn = stepper.querySelector('[data-inc="1"]');
+          if (minusBtn) minusBtn.disabled = value <= MIN;
+          if (plusBtn) plusBtn.disabled = value >= MAX || total >= TARGET;
+        });
+
+        var name = (nameInput && nameInput.value || '').trim();
+        var valid = total === TARGET && name.length > 0;
+        submit.disabled = !valid;
+        if (errorEl) {
+          errorEl.hidden = true;
+          errorEl.textContent = '';
+        }
+      }
+
+      form.querySelectorAll('[data-inc]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var stepper = btn.closest('.lg-builder-stepper');
+          if (!stepper) return;
+          var key = stepper.dataset.stat;
+          var valueEl = stepper.querySelector('[data-stat-value="' + key + '"]');
+          if (!valueEl) return;
+          var cur = parseInt(valueEl.dataset.value, 10) || 0;
+          var delta = parseInt(btn.dataset.inc, 10) || 0;
+          var next = cur + delta;
+          if (next < MIN || next > MAX) return;
+          if (delta > 0) {
+            var total = sum(readStats());
+            if (total >= TARGET) return;
+          }
+          valueEl.dataset.value = String(next);
+          valueEl.textContent = next > 0 ? ('+' + next) : String(next);
+          refresh();
+        });
+      });
+
+      if (nameInput) {
+        nameInput.addEventListener('input', refresh);
+        nameInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !e.isComposing) {
+            e.preventDefault();
+            if (!submit.disabled) submit.click();
+          }
+        });
+      }
+
+      // capture-phase: bubbling에서 RenderedView가 data-text를 읽기 전에 세팅 or 차단
+      submit.addEventListener('click', function (e) {
+        var stats = readStats();
+        var total = sum(stats);
+        var name = (nameInput && nameInput.value || '').trim();
+        if (total !== TARGET || !name) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          if (errorEl) {
+            errorEl.hidden = false;
+            errorEl.textContent = total !== TARGET
+              ? '스탯 총합이 ' + TARGET + '이어야 합니다. (현재 ' + total + ')'
+              : '이름을 입력해주세요.';
+          }
+          return;
+        }
+        var statLine = KEYS.map(function (k) { return SHORT[k] + ' ' + stats[k]; }).join(' ');
+        var text = '/init\\n이름: ' + name + '\\n스탯: ' + statLine;
+        submit.dataset.text = text;
+      }, true);
+
+      refresh();
+    })();
+    </script>`;
 }
 
 // ── Beat assembly ────────────────────────────
@@ -1742,6 +1982,79 @@ const STYLES = `<style>
     transform: rotate(45deg);
   }
 
+  /* ── Persona sheet ─────────────────────────────────────────────── */
+  .lg-persona .lg-appendix-count {
+    font-family: var(--font-family-display);
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-size: 12px;
+    color: var(--c, ${ILLUMINATED_COPPER});
+    max-width: 55%;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lg-persona-sheet {
+    padding: 6px 20px 18px;
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: start;
+  }
+  .lg-persona-portrait .lg-portrait {
+    width: 56px;
+    height: 56px;
+  }
+  .lg-persona-body {
+    min-width: 0;
+    color: var(--color-fg);
+    font-size: 12.5px;
+    line-height: 1.65;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .lg-persona-body > :first-child { margin-top: 0; }
+  .lg-persona-body > :last-child { margin-bottom: 0; }
+  .lg-persona-body h4,
+  .lg-persona-body h5,
+  .lg-persona-body h6 {
+    font-family: var(--font-family-display);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--color-fg-2);
+    margin: 10px 0 4px;
+  }
+  .lg-persona-body h4 { font-size: 13px; color: var(--c, var(--color-fg)); }
+  .lg-persona-body h5 {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+  }
+  .lg-persona-body h6 { font-size: 11px; color: var(--color-fg-3); }
+  .lg-persona-body p {
+    margin: 0 0 8px;
+  }
+  .lg-persona-body ul {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .lg-persona-body li {
+    position: relative;
+    padding-left: 12px;
+  }
+  .lg-persona-body li::before {
+    content: "·";
+    position: absolute;
+    left: 2px;
+    color: var(--color-fg-3);
+  }
+
   .lg-item-list, .lg-quest-list {
     list-style: none;
     margin: 0;
@@ -1926,49 +2239,175 @@ const STYLES = `<style>
     line-height: 1.75;
     color: var(--color-fg-3);
   }
-  .lg-seed-label {
+  /* ── Character Builder ─────────────────────────────────────── */
+  .lg-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: 440px;
+    margin-top: 8px;
+  }
+  .lg-builder-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lg-builder-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 14px;
+    border: 1px solid color-mix(in srgb, var(--color-edge) 18%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 3%, transparent);
+  }
+  .lg-builder-label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    color: var(--color-fg);
+  }
+  .lg-builder-short {
+    font-family: var(--font-family-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.24em;
+    color: ${ILLUMINATED_COPPER};
+  }
+  .lg-builder-long {
+    font-family: var(--font-family-body);
+    font-size: 13px;
+    color: var(--color-fg-2);
+  }
+  .lg-builder-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .lg-builder-step {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 30%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 4%, transparent);
+    color: var(--color-fg);
+    font-family: var(--font-family-mono);
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+  }
+  .lg-builder-step:hover:not(:disabled) {
+    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 65%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 12%, transparent);
+  }
+  .lg-builder-step:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+  }
+  .lg-builder-value {
+    min-width: 32px;
+    text-align: center;
+    font-family: var(--font-family-mono);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-fg);
+  }
+  .lg-builder-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px dashed color-mix(in srgb, var(--color-edge) 22%, transparent);
+    border-bottom: 1px dashed color-mix(in srgb, var(--color-edge) 22%, transparent);
+    font-family: var(--font-family-mono);
+  }
+  .lg-builder-total-label {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-fg-4);
+  }
+  .lg-builder-total-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-fg-3);
+    transition: color 0.25s ease;
+  }
+  .lg-builder-total[data-state="ok"] .lg-builder-total-value {
+    color: ${ILLUMINATED_COPPER};
+  }
+  .lg-builder-total[data-state="over"] .lg-builder-total-value {
+    color: #c85a3a;
+  }
+  .lg-builder-total-target {
+    font-size: 13px;
+    color: var(--color-fg-4);
+  }
+  .lg-builder-name {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .lg-builder-name-label {
     font-family: var(--font-family-mono);
     font-size: 9.5px;
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: var(--color-fg-4);
-    margin-top: 12px;
   }
-  .lg-seeds {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 8px;
+  .lg-builder-name input {
     width: 100%;
-    max-width: 440px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-edge) 22%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 3%, transparent);
+    color: var(--color-fg);
+    font-family: var(--font-family-body);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
   }
-  .lg-seed {
+  .lg-builder-name input:focus {
+    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 60%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 6%, transparent);
+  }
+  .lg-builder-error {
+    margin: 0;
+    font-family: var(--font-family-body);
+    font-size: 12px;
+    color: #c85a3a;
+    text-align: center;
+  }
+  .lg-builder-submit {
     display: inline-flex;
     align-items: center;
-    gap: 14px;
+    justify-content: center;
+    gap: 10px;
     padding: 12px 18px;
-    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 28%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 4%, transparent);
+    margin-top: 4px;
+    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 45%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 10%, transparent);
     color: var(--color-fg);
     font-family: var(--font-family-body);
     font-size: 13.5px;
-    text-align: left;
+    letter-spacing: 0.04em;
     cursor: pointer;
-    transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease;
+    transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease, opacity 0.25s ease;
   }
-  .lg-seed:hover {
+  .lg-builder-submit:hover:not(:disabled) {
     transform: translateY(-1px);
-    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 60%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 10%, transparent);
+    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 70%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 18%, transparent);
   }
-  .lg-seed:focus-visible {
-    outline: 2px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 60%, transparent);
-    outline-offset: 2px;
+  .lg-builder-submit:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
-  .lg-seed-glyph {
+  .lg-builder-submit-glyph {
     color: ${ILLUMINATED_COPPER};
-    font-size: 12px;
-    flex-shrink: 0;
+    font-size: 11px;
   }
 
   /* ── Animations ──────────────────────────────────────────────── */
@@ -2353,7 +2792,7 @@ export function render(ctx: RenderContext): string {
   }
 
   const beats = renderBeats(groups, ctx, nameMap, fallbackColorMap, persona);
-  const appendix = renderAppendix(inventory, quests, stats);
+  const appendix = renderAppendix(inventory, quests, stats, persona);
   const choicesHtml = renderNextChoices(choices, stats);
 
   return `${STYLES}
