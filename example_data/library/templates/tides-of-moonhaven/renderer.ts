@@ -1668,73 +1668,139 @@ function renderPendingCard(
 }
 
 // ── Empty state: Character Builder ─────────────────────────────
-//
-// 첫 세션 부트스트랩. 스탯 스테퍼(총합 6, 각 -1~+5) + 이름 입력 + 확인 버튼으로
-// `/init` 슬래시 메시지를 조합해 send한다. 확인 버튼은 capture-phase 리스너에서
-// DOM 상태를 읽어 data-text 를 채운 뒤 bubbling의 RenderedView 핸들러가 기존
-// data-action="send" 파이프라인으로 전송하도록 한다. 총합 ≠ 6 또는 이름 공백이면
-// stopImmediatePropagation 으로 전송을 막는다.
+// 제출 버튼은 capture-phase에서 검증 후 data-text를 채운다 — bubbling의
+// RenderedView data-action="send" 핸들러가 그 값을 읽기 *전*에 끼어들어야
+// 하므로 capture로 등록한다. 검증 실패 시 stopImmediatePropagation으로 차단.
 
 const BUILDER_TOTAL = 6;
 const BUILDER_MIN = -1;
 const BUILDER_MAX = 5;
 
-function renderBuilderStepper(key: StatKey): string {
+function renderBuilderStepper(key: StatKey, index: number): string {
   return `
-    <div class="lg-builder-row">
-      <span class="lg-builder-label">
-        <span class="lg-builder-long">${escapeText(key)}</span>
-      </span>
-      <div class="lg-builder-stepper" data-stat="${key}">
-        <button type="button" class="lg-builder-step" data-inc="-1" aria-label="${escapeHtml(key)} 감소">&#x2212;</button>
-        <span class="lg-builder-value" data-stat-value="${key}" data-value="0">0</span>
-        <button type="button" class="lg-builder-step" data-inc="1" aria-label="${escapeHtml(key)} 증가">&#x002B;</button>
+    <div class="lg-customs-row" style="--row-i:${index}">
+      <span class="lg-customs-row-label">${escapeText(key)}</span>
+      <span class="lg-customs-row-leader" aria-hidden="true"></span>
+      <div class="lg-customs-stepper" data-stat="${key}">
+        <button type="button" class="lg-customs-step" data-inc="-1" aria-label="${escapeHtml(key)} 감소">&#x2212;</button>
+        <span class="lg-customs-value" data-stat-value="${key}" data-value="0">0</span>
+        <button type="button" class="lg-customs-step" data-inc="1" aria-label="${escapeHtml(key)} 증가">&#x002B;</button>
       </div>
     </div>`;
 }
 
 function renderEmpty(): string {
-  const rows = STAT_KEYS.map(renderBuilderStepper).join("");
+  const rows = STAT_KEYS.map((k, i) => renderBuilderStepper(k, i)).join("");
+  const regNo = stampCode("moonhaven-harbour-customs-" + STAT_KEYS.join(""));
 
   return `
-    <div class="lg-empty">
-      <svg class="lg-lighthouse" viewBox="0 0 40 80" aria-hidden="true">
-        <path d="M14 72 L26 72 L24 30 L16 30 Z" fill="none" stroke="currentColor" stroke-width="0.8" />
-        <rect x="13" y="22" width="14" height="8" fill="none" stroke="currentColor" stroke-width="0.8" />
-        <path d="M17 22 L20 12 L23 22 Z" fill="none" stroke="currentColor" stroke-width="0.8" />
-        <circle cx="20" cy="26" r="2.5" class="lg-lighthouse-beam" />
-        <line x1="6" y1="72" x2="34" y2="72" stroke="currentColor" stroke-width="0.5" opacity="0.4" />
-      </svg>
-      <div class="lg-empty-rule"></div>
-      <h2 class="lg-empty-title">Character Ledger</h2>
-      <p class="lg-empty-sub">모험가 시트를 채워주세요. 총합 ${BUILDER_TOTAL}점을 ${BUILDER_MAX}과 ${BUILDER_MIN} 사이에서 나눕니다.</p>
-      <div class="lg-empty-rule"></div>
-      <form class="lg-builder" data-builder="1" onsubmit="return false">
-        <div class="lg-builder-stats">${rows}</div>
-        <div class="lg-builder-total" data-builder-total>
-          <span class="lg-builder-total-label">Total</span>
-          <span class="lg-builder-total-value" data-total-value>0</span>
-          <span class="lg-builder-total-target">/ ${BUILDER_TOTAL}</span>
-        </div>
-        <label class="lg-builder-name">
-          <span class="lg-builder-name-label">이름</span>
-          <input type="text" data-builder-name maxlength="20" placeholder="예: 시아" autocomplete="off" spellcheck="false" />
-        </label>
-        <p class="lg-builder-error" data-builder-error hidden></p>
-        <button type="button" class="lg-builder-submit" data-builder-submit data-action="send" data-text="" disabled>
-          <span class="lg-builder-submit-glyph" aria-hidden="true">&#x2756;</span>
-          <span>이 인물로 시작</span>
-        </button>
-      </form>
+    <div class="lg-customs">
+      <article class="lg-customs-paper">
+        <div class="lg-customs-perforation" aria-hidden="true"></div>
+        <header class="lg-customs-head">
+          <svg class="lg-customs-seal" viewBox="0 0 64 64" aria-hidden="true">
+            <circle class="lg-customs-seal-outer" cx="32" cy="32" r="29"/>
+            <circle class="lg-customs-seal-inner" cx="32" cy="32" r="23"/>
+            <g class="lg-customs-seal-tower-group">
+              <path class="lg-customs-seal-tower" d="M26 48 L38 48 L36 30 L28 30 Z"/>
+              <rect class="lg-customs-seal-room" x="25" y="24" width="14" height="6"/>
+              <path class="lg-customs-seal-roof" d="M28 24 L32 17 L36 24 Z"/>
+              <circle class="lg-customs-seal-beam" cx="32" cy="27" r="1.6"/>
+              <line class="lg-customs-seal-base" x1="22" y1="48" x2="42" y2="48"/>
+            </g>
+            <g class="lg-customs-seal-ticks" aria-hidden="true">
+              <line x1="32" y1="5" x2="32" y2="9"/>
+              <line x1="59" y1="32" x2="55" y2="32"/>
+              <line x1="32" y1="59" x2="32" y2="55"/>
+              <line x1="5" y1="32" x2="9" y2="32"/>
+              <line x1="51.1" y1="12.9" x2="48.3" y2="15.7"/>
+              <line x1="51.1" y1="51.1" x2="48.3" y2="48.3"/>
+              <line x1="12.9" y1="51.1" x2="15.7" y2="48.3"/>
+              <line x1="12.9" y1="12.9" x2="15.7" y2="15.7"/>
+            </g>
+          </svg>
+          <div class="lg-customs-head-text">
+            <span class="lg-customs-authority">MOONHAVEN HARBOUR AUTHORITY</span>
+            <span class="lg-customs-title">Form A&middot;VI &mdash; 입항 신고서</span>
+            <span class="lg-customs-subtitle">Application for Entry Permit</span>
+          </div>
+          <div class="lg-customs-meta" aria-hidden="true">
+            <div class="lg-customs-meta-row">
+              <span class="lg-customs-meta-label">REG.</span>
+              <span class="lg-customs-regno">№ ${regNo}</span>
+            </div>
+            <div class="lg-customs-meta-row">
+              <span class="lg-customs-meta-label">FOLIO</span>
+              <span class="lg-customs-folio">A · VI</span>
+            </div>
+            <div class="lg-customs-meta-row">
+              <span class="lg-customs-meta-label">PIER</span>
+              <span class="lg-customs-folio">III</span>
+            </div>
+          </div>
+        </header>
+
+        <p class="lg-customs-instruction">
+          <span class="lg-customs-instruction-mark">&sect;</span>
+          아래 항목을 채우고 서명하면 입항 허가가 발급됩니다.
+        </p>
+
+        <form class="lg-builder lg-customs-form" data-builder="1" onsubmit="return false">
+          <section class="lg-customs-section">
+            <h3 class="lg-customs-section-title">
+              <span class="lg-customs-section-no">I</span>
+              <span class="lg-customs-section-text">자질 &middot; 총 ${BUILDER_TOTAL}점 (각 ${BUILDER_MIN} ~ +${BUILDER_MAX})</span>
+            </h3>
+            <div class="lg-customs-rows">${rows}</div>
+          </section>
+
+          <div class="lg-customs-totalbar">
+            <div class="lg-customs-total" data-builder-total>
+              <span class="lg-customs-total-label">기록 점수</span>
+              <span class="lg-customs-total-value" data-total-value>0</span>
+              <span class="lg-customs-total-target">/ ${BUILDER_TOTAL}</span>
+            </div>
+            <div class="lg-customs-stamp" aria-hidden="true">
+              <div class="lg-customs-stamp-inner">
+                <span class="lg-customs-stamp-line" data-stamp-pending>미완 · INCOMPLETE</span>
+                <span class="lg-customs-stamp-line" data-stamp-approved>등재 · APPROVED</span>
+              </div>
+            </div>
+          </div>
+
+          <section class="lg-customs-section">
+            <h3 class="lg-customs-section-title">
+              <span class="lg-customs-section-no">II</span>
+              <span class="lg-customs-section-text">서명 &middot; Signature</span>
+            </h3>
+            <div class="lg-customs-sig" data-sig data-focused="0">
+              <input type="text" class="lg-customs-sig-input" data-builder-name maxlength="20" placeholder="여기에 성함을 적어주세요" autocomplete="off" spellcheck="false" />
+              <span class="lg-customs-sig-line" aria-hidden="true"></span>
+              <span class="lg-customs-sig-caption" aria-hidden="true">성함 · Signed by hand</span>
+            </div>
+          </section>
+
+          <p class="lg-customs-error" data-builder-error hidden></p>
+
+          <button type="button" class="lg-customs-submit" data-builder-submit data-action="send" data-text="" disabled>
+            <span class="lg-customs-submit-text">입항 허가 &middot; GRANT ENTRY</span>
+            <svg class="lg-customs-submit-mark" viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="lg-customs-submit-mark-ring" cx="18" cy="18" r="14"/>
+              <path class="lg-customs-submit-mark-check" d="M11 18 L16 23 L25 13"/>
+            </svg>
+          </button>
+        </form>
+      </article>
     </div>
     <script>
     (function () {
-      var root = document.currentScript && document.currentScript.previousElementSibling;
-      // currentScript는 <div class="lg-empty">의 형제가 아닐 수 있으므로 가장 가까운 폼으로 fallback
-      var form = (root && root.querySelector) ? root.querySelector('.lg-builder') : null;
-      if (!form) form = document.querySelector('.lg-builder[data-builder="1"]');
-      if (!form || form.dataset.bound === '1') return;
-      form.dataset.bound = '1';
+      var form = document.querySelector('.lg-builder[data-builder="1"]');
+      if (!form) return;
+      // Idiomorph가 attribute sync로 dataset.bound를 휘발시키므로 JS heap의
+      // WeakSet으로 가드. form 노드가 GC되면 자동 제거.
+      var bound = (window.__lgBuilderBound = window.__lgBuilderBound || new WeakSet());
+      if (bound.has(form)) return;
+      bound.add(form);
 
       var MIN = ${BUILDER_MIN};
       var MAX = ${BUILDER_MAX};
@@ -1744,6 +1810,7 @@ function renderEmpty(): string {
       var nameInput = form.querySelector('[data-builder-name]');
       var totalEl = form.querySelector('[data-total-value]');
       var totalBox = form.querySelector('[data-builder-total]');
+      var sigEl = form.querySelector('[data-sig]');
       var errorEl = form.querySelector('[data-builder-error]');
       var submit = form.querySelector('[data-builder-submit]');
 
@@ -1768,7 +1835,7 @@ function renderEmpty(): string {
 
         // 경계 도달한 +/- 버튼 비활성화 + 총합 초과 시 +1 억제
         KEYS.forEach(function (k) {
-          var stepper = form.querySelector('.lg-builder-stepper[data-stat="' + k + '"]');
+          var stepper = form.querySelector('.lg-customs-stepper[data-stat="' + k + '"]');
           if (!stepper) return;
           var value = stats[k];
           var minusBtn = stepper.querySelector('[data-inc="-1"]');
@@ -1786,40 +1853,57 @@ function renderEmpty(): string {
         }
       }
 
-      form.querySelectorAll('[data-inc]').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          var stepper = btn.closest('.lg-builder-stepper');
-          if (!stepper) return;
-          var key = stepper.dataset.stat;
-          var valueEl = stepper.querySelector('[data-stat-value="' + key + '"]');
-          if (!valueEl) return;
-          var cur = parseInt(valueEl.dataset.value, 10) || 0;
-          var delta = parseInt(btn.dataset.inc, 10) || 0;
-          var next = cur + delta;
-          if (next < MIN || next > MAX) return;
-          if (delta > 0) {
-            var total = sum(readStats());
-            if (total >= TARGET) return;
-          }
-          valueEl.dataset.value = String(next);
-          valueEl.textContent = next > 0 ? ('+' + next) : String(next);
-          refresh();
-        });
+      form.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('[data-inc]') : null;
+        if (!btn || !form.contains(btn)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var stepper = btn.closest('.lg-customs-stepper');
+        if (!stepper) return;
+        var key = stepper.dataset.stat;
+        var valueEl = stepper.querySelector('[data-stat-value="' + key + '"]');
+        if (!valueEl) return;
+        var cur = parseInt(valueEl.dataset.value, 10) || 0;
+        var delta = parseInt(btn.dataset.inc, 10) || 0;
+        var next = cur + delta;
+        if (next < MIN || next > MAX) return;
+        if (delta > 0) {
+          var t = sum(readStats());
+          if (t >= TARGET) return;
+        }
+        valueEl.dataset.value = String(next);
+        valueEl.textContent = next > 0 ? ('+' + next) : String(next);
+        valueEl.classList.remove('lg-customs-value--bump');
+        void valueEl.offsetWidth;
+        valueEl.classList.add('lg-customs-value--bump');
+        refresh();
       });
 
-      if (nameInput) {
-        nameInput.addEventListener('input', refresh);
-        nameInput.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' && !e.isComposing) {
-            e.preventDefault();
-            if (!submit.disabled) submit.click();
-          }
-        });
-      }
+      form.addEventListener('input', function (e) {
+        if (e.target && e.target.matches && e.target.matches('[data-builder-name]')) {
+          refresh();
+        }
+      });
+      // focus/blur는 bubble 안 하므로 capture phase로 위임
+      form.addEventListener('focus', function (e) {
+        if (e.target && e.target.matches && e.target.matches('[data-builder-name]') && sigEl) {
+          sigEl.dataset.focused = '1';
+        }
+      }, true);
+      form.addEventListener('blur', function (e) {
+        if (e.target && e.target.matches && e.target.matches('[data-builder-name]') && sigEl) {
+          sigEl.dataset.focused = '0';
+        }
+      }, true);
+      form.addEventListener('keydown', function (e) {
+        if (!e.target || !e.target.matches || !e.target.matches('[data-builder-name]')) return;
+        if (e.key === 'Enter' && !e.isComposing) {
+          e.preventDefault();
+          var sBtn = form.querySelector('[data-builder-submit]');
+          if (sBtn && !sBtn.disabled) sBtn.click();
+        }
+      });
 
-      // capture-phase: bubbling에서 RenderedView가 data-text를 읽기 전에 세팅 or 차단
       submit.addEventListener('click', function (e) {
         var stats = readStats();
         var total = sum(stats);
@@ -3109,219 +3193,523 @@ const STYLES = `<style>
   }
 
   /* ── Empty state: Uncharted Shores ────────────────────────────── */
-  .lg-empty {
+  /* ── Empty State · Moonhaven Customs Form ────────────────── */
+  .lg-customs {
+    --form-ink: #4a3318;
+    --form-ink-soft: color-mix(in srgb, #4a3318 55%, transparent);
+    --form-ink-faint: color-mix(in srgb, #4a3318 22%, transparent);
+    --form-paper: #fcf3dd;
+    --form-paper-edge: #c8ad77;
+
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    gap: 18px;
-    padding: 64px 24px 48px;
-    min-height: 480px;
-    text-align: center;
+    padding: 40px 22px 64px;
+    min-height: 100%;
+    background:
+      radial-gradient(ellipse at 18% 0%, color-mix(in srgb, ${ILLUMINATED_COPPER} 9%, transparent) 0%, transparent 55%),
+      radial-gradient(ellipse at 82% 100%, color-mix(in srgb, ${VERDIGRIS} 7%, transparent) 0%, transparent 55%);
   }
-  .lg-lighthouse {
-    width: 44px;
-    height: 88px;
-    color: var(--color-fg-3);
-    margin-bottom: 4px;
-  }
-  .lg-lighthouse-beam {
-    fill: ${ILLUMINATED_COPPER};
-    animation: lg-beam 2.6s ease-in-out infinite;
-    transform-origin: 20px 26px;
-    filter: drop-shadow(0 0 6px ${ILLUMINATED_COPPER});
-  }
-  @keyframes lg-beam {
-    0%, 100% { opacity: 0.35; transform: scale(1); }
-    50%      { opacity: 1;    transform: scale(1.25); }
-  }
-  .lg-empty-rule {
-    width: 68px;
-    height: 1px;
-    background: color-mix(in srgb, var(--color-edge) 22%, transparent);
-  }
-  .lg-empty-title {
-    margin: 0;
-    font-family: var(--font-family-display);
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.34em;
-    text-transform: uppercase;
-    color: var(--color-fg);
-  }
-  .lg-empty-sub {
-    margin: 0;
-    max-width: 360px;
+  .lg-customs-paper {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    padding: 28px 36px 30px 64px;
+    background:
+      repeating-linear-gradient(to bottom, transparent 0, transparent 31px, color-mix(in srgb, var(--form-ink) 5%, transparent) 31px, color-mix(in srgb, var(--form-ink) 5%, transparent) 32px),
+      linear-gradient(168deg, #fff7e1 0%, #fbedc6 100%);
+    border: 1px solid var(--form-paper-edge);
+    box-shadow:
+      0 24px 40px -16px rgba(60, 36, 12, 0.28),
+      0 1px 0 #fff inset,
+      0 -1px 0 color-mix(in srgb, var(--form-ink) 8%, transparent) inset;
+    color: var(--form-ink);
     font-family: var(--font-family-body);
-    font-size: 13px;
-    font-style: italic;
-    line-height: 1.75;
-    color: var(--color-fg-3);
+    transform-origin: 60% 30%;
+    animation: lg-customs-arrive 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
-  /* ── Character Builder ─────────────────────────────────────── */
-  .lg-builder {
+  @keyframes lg-customs-arrive {
+    from { opacity: 0; transform: translateX(22px) translateY(6px) rotate(1.4deg); }
+    to   { opacity: 1; transform: translateX(0) translateY(0) rotate(0); }
+  }
+  .lg-customs-perforation {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 36px;
+    background:
+      radial-gradient(circle at 18px 36px,  color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 96px,  color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 156px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 216px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 276px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 336px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 396px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 456px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 516px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      radial-gradient(circle at 18px 576px, color-mix(in srgb, var(--form-ink) 88%, transparent) 4px, transparent 4.5px),
+      color-mix(in srgb, var(--form-paper-edge) 30%, transparent);
+    border-right: 1px dashed color-mix(in srgb, var(--form-ink) 38%, transparent);
+  }
+
+  /* Header */
+  .lg-customs-head {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    gap: 14px 18px;
+    align-items: center;
+    padding-bottom: 16px;
+    border-bottom: 2px double color-mix(in srgb, var(--form-ink) 45%, transparent);
+  }
+  .lg-customs-seal {
+    width: 64px;
+    height: 64px;
+    animation: lg-customs-fade-in 0.5s 0.15s ease-out both;
+  }
+  .lg-customs-seal-outer { fill: none; stroke: var(--form-ink); stroke-width: 1.4; }
+  .lg-customs-seal-inner { fill: none; stroke: var(--form-ink); stroke-width: 0.6; opacity: 0.55; }
+  .lg-customs-seal-tower { fill: none; stroke: var(--form-ink); stroke-width: 1.1; stroke-linejoin: round; }
+  .lg-customs-seal-room  { fill: none; stroke: var(--form-ink); stroke-width: 1.1; }
+  .lg-customs-seal-roof  { fill: var(--form-ink); }
+  .lg-customs-seal-base  { stroke: var(--form-ink); stroke-width: 0.8; opacity: 0.5; }
+  .lg-customs-seal-beam {
+    fill: ${ILLUMINATED_COPPER};
+    filter: drop-shadow(0 0 3px ${ILLUMINATED_COPPER});
+    animation: lg-customs-beam 2.4s ease-in-out infinite;
+  }
+  .lg-customs-seal-ticks {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: lg-customs-spin 32s linear infinite;
+  }
+  .lg-customs-seal-ticks line {
+    stroke: var(--form-ink);
+    stroke-width: 1;
+    stroke-linecap: round;
+    opacity: 0.65;
+  }
+  @keyframes lg-customs-beam {
+    0%, 100% { opacity: 0.45; }
+    50%      { opacity: 1; }
+  }
+  @keyframes lg-customs-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .lg-customs-head-text {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    width: 100%;
-    max-width: 440px;
-    margin-top: 8px;
+    gap: 3px;
+    animation: lg-customs-fade-in 0.5s 0.22s ease-out both;
   }
-  .lg-builder-stats {
+  .lg-customs-authority {
+    font-family: var(--font-family-display);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--form-ink);
+  }
+  .lg-customs-title {
+    font-family: var(--font-family-display);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--form-ink);
+  }
+  .lg-customs-subtitle {
+    font-family: var(--font-family-body);
+    font-size: 10.5px;
+    font-style: italic;
+    color: var(--form-ink-soft);
+    letter-spacing: 0.08em;
+  }
+  .lg-customs-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    padding: 6px 10px 6px 14px;
+    border-left: 1px solid color-mix(in srgb, var(--form-ink) 25%, transparent);
+    animation: lg-customs-stamp-in 0.5s 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  .lg-customs-meta-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: var(--font-family-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+  }
+  .lg-customs-meta-label {
+    color: var(--form-ink-soft);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .lg-customs-regno, .lg-customs-folio {
+    color: var(--form-ink);
+    font-weight: 600;
+  }
+  @keyframes lg-customs-stamp-in {
+    from { opacity: 0; transform: scale(1.4) rotate(-6deg); }
+    to   { opacity: 1; transform: scale(1) rotate(-2deg); }
+  }
+
+  /* Instruction line */
+  .lg-customs-instruction {
+    margin: 16px 0 18px;
+    font-size: 12.5px;
+    font-style: italic;
+    color: var(--form-ink-soft);
+    letter-spacing: 0.02em;
+    line-height: 1.55;
+  }
+  .lg-customs-instruction-mark {
+    display: inline-block;
+    margin-right: 6px;
+    font-weight: 700;
+    color: ${ILLUMINATED_COPPER};
+    font-style: normal;
+    font-size: 14px;
+    vertical-align: -1px;
+  }
+
+  /* Form */
+  .lg-customs-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .lg-customs-section {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-  .lg-builder-row {
+  .lg-customs-section-title {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 10px 14px;
-    border: 1px solid color-mix(in srgb, var(--color-edge) 18%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 3%, transparent);
-  }
-  .lg-builder-label {
-    display: inline-flex;
-    align-items: baseline;
     gap: 10px;
-    color: var(--color-fg);
+    margin: 0;
+    padding-bottom: 4px;
+    font-family: var(--font-family-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--form-ink);
+    border-bottom: 1px solid color-mix(in srgb, var(--form-ink) 24%, transparent);
   }
-  .lg-builder-long {
-    font-family: var(--font-family-body);
-    font-size: 13px;
-    color: var(--color-fg);
-    letter-spacing: 0.04em;
-  }
-  .lg-builder-stepper {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .lg-builder-step {
-    width: 28px;
-    height: 28px;
+  .lg-customs-section-no {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 30%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 4%, transparent);
-    color: var(--color-fg);
+    width: 22px; height: 22px;
+    border: 1px solid var(--form-ink);
+    font-family: var(--font-family-display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  /* Form rows (stats) */
+  .lg-customs-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .lg-customs-row {
+    display: grid;
+    grid-template-columns: minmax(80px, auto) 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px;
+    animation: lg-customs-row-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: calc(0.3s + var(--row-i, 0) * 0.06s);
+  }
+  @keyframes lg-customs-row-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .lg-customs-row-label {
+    font-family: var(--font-family-display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--form-ink);
+  }
+  .lg-customs-row-leader {
+    border-bottom: 1.5px dotted color-mix(in srgb, var(--form-ink) 40%, transparent);
+    margin-bottom: 4px;
+    align-self: end;
+    height: 0;
+  }
+  .lg-customs-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .lg-customs-step {
+    position: relative;
+    width: 28px; height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 38% 30%, #fff8e0 0%, color-mix(in srgb, ${ILLUMINATED_COPPER} 22%, var(--form-paper)) 85%);
+    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 55%, var(--form-ink));
+    border-radius: 50%;
+    color: var(--form-ink);
     font-family: var(--font-family-mono);
     font-size: 14px;
+    font-weight: 700;
     cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+    box-shadow:
+      0 2px 0 color-mix(in srgb, var(--form-ink) 22%, transparent),
+      0 1px 0 #fff inset;
+    transition: transform 0.14s ease, box-shadow 0.18s ease, opacity 0.2s ease;
   }
-  .lg-builder-step:hover:not(:disabled) {
-    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 65%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 12%, transparent);
+  .lg-customs-step:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+      0 3px 0 color-mix(in srgb, var(--form-ink) 24%, transparent),
+      0 1px 0 #fff inset;
   }
-  .lg-builder-step:disabled {
-    opacity: 0.28;
+  .lg-customs-step:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow:
+      0 0 0 color-mix(in srgb, var(--form-ink) 22%, transparent),
+      0 1px 0 #fff inset;
+  }
+  .lg-customs-step:disabled {
+    opacity: 0.3;
     cursor: not-allowed;
   }
-  .lg-builder-value {
+  .lg-customs-value {
+    display: inline-block;
     min-width: 32px;
     text-align: center;
     font-family: var(--font-family-mono);
     font-size: 16px;
-    font-weight: 600;
-    color: var(--color-fg);
-  }
-  .lg-builder-total {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-top: 1px dashed color-mix(in srgb, var(--color-edge) 22%, transparent);
-    border-bottom: 1px dashed color-mix(in srgb, var(--color-edge) 22%, transparent);
-    font-family: var(--font-family-mono);
-  }
-  .lg-builder-total-label {
-    font-size: 10px;
-    letter-spacing: 0.28em;
-    text-transform: uppercase;
-    color: var(--color-fg-4);
-  }
-  .lg-builder-total-value {
-    font-size: 20px;
     font-weight: 700;
-    color: var(--color-fg-3);
-    transition: color 0.25s ease;
+    color: var(--form-ink);
+    transform-origin: center;
   }
-  .lg-builder-total[data-state="ok"] .lg-builder-total-value {
-    color: ${ILLUMINATED_COPPER};
+  .lg-customs-value--bump {
+    animation: lg-customs-value-bump 0.32s cubic-bezier(0.4, 1.6, 0.6, 1);
   }
-  .lg-builder-total[data-state="over"] .lg-builder-total-value {
-    color: #c85a3a;
+  @keyframes lg-customs-value-bump {
+    0%   { transform: translateY(0) rotate(0); }
+    35%  { transform: translateY(-3px) rotate(-4deg); }
+    65%  { transform: translateY(0) rotate(3deg); }
+    100% { transform: translateY(0) rotate(0); }
   }
-  .lg-builder-total-target {
-    font-size: 13px;
-    color: var(--color-fg-4);
+
+  /* Total bar with stamp */
+  .lg-customs-totalbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 18px;
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 5%, transparent);
+    border: 1px solid color-mix(in srgb, var(--form-ink) 18%, transparent);
   }
-  .lg-builder-name {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  .lg-customs-total {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
   }
-  .lg-builder-name-label {
-    font-family: var(--font-family-mono);
-    font-size: 9.5px;
-    letter-spacing: 0.28em;
+  .lg-customs-total-label {
+    font-family: var(--font-family-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: var(--color-fg-4);
+    color: var(--form-ink-soft);
   }
-  .lg-builder-name input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid color-mix(in srgb, var(--color-edge) 22%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 3%, transparent);
-    color: var(--color-fg);
-    font-family: var(--font-family-body);
+  .lg-customs-total-value {
+    font-family: var(--font-family-mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--form-ink-soft);
+    transition: color 0.3s ease;
+  }
+  .lg-customs-total[data-state="ok"] .lg-customs-total-value {
+    color: ${VERDIGRIS};
+  }
+  .lg-customs-total[data-state="over"] .lg-customs-total-value {
+    color: ${VERMILION};
+  }
+  .lg-customs-total-target {
+    font-family: var(--font-family-mono);
     font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s ease, background 0.2s ease;
+    color: var(--form-ink-soft);
+    letter-spacing: 0.06em;
   }
-  .lg-builder-name input:focus {
-    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 60%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 6%, transparent);
-  }
-  .lg-builder-error {
-    margin: 0;
-    font-family: var(--font-family-body);
-    font-size: 12px;
-    color: #c85a3a;
-    text-align: center;
-  }
-  .lg-builder-submit {
+  .lg-customs-stamp {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 12px 18px;
-    margin-top: 4px;
-    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 45%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 10%, transparent);
-    color: var(--color-fg);
-    font-family: var(--font-family-body);
-    font-size: 13.5px;
+    width: 130px;
+    height: 56px;
+    border: 2.5px solid color-mix(in srgb, ${VERMILION} 55%, transparent);
+    border-radius: 4px;
+    color: color-mix(in srgb, ${VERMILION} 78%, transparent);
+    font-family: var(--font-family-display);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-align: center;
+    transform: rotate(-4deg);
+    transition: border-color 0.4s ease, color 0.4s ease, transform 0.4s cubic-bezier(0.4, 1.6, 0.4, 1);
+  }
+  .lg-customs-total[data-state="ok"] + .lg-customs-stamp {
+    border-color: ${VERDIGRIS};
+    color: ${VERDIGRIS};
+    transform: rotate(-2deg) scale(1.06);
+    animation: lg-customs-stamp-down 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.4);
+  }
+  @keyframes lg-customs-stamp-down {
+    0%   { transform: rotate(8deg) scale(1.6); opacity: 0; }
+    50%  { transform: rotate(-6deg) scale(0.94); opacity: 1; }
+    100% { transform: rotate(-2deg) scale(1.06); opacity: 1; }
+  }
+  .lg-customs-stamp-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.15;
+  }
+  .lg-customs-stamp-line { display: none; }
+  .lg-customs-stamp [data-stamp-pending] { display: block; }
+  .lg-customs-total[data-state="ok"] + .lg-customs-stamp [data-stamp-pending] { display: none; }
+  .lg-customs-total[data-state="ok"] + .lg-customs-stamp [data-stamp-approved] { display: block; }
+
+  /* Signature */
+  .lg-customs-sig {
+    position: relative;
+    padding: 4px 0 22px;
+  }
+  .lg-customs-sig-input {
+    width: 100%;
+    padding: 8px 4px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--form-ink);
+    font-family: var(--font-family-display);
+    font-size: 18px;
+    font-weight: 500;
     letter-spacing: 0.04em;
+  }
+  .lg-customs-sig-input::placeholder {
+    color: color-mix(in srgb, var(--form-ink) 32%, transparent);
+    font-style: italic;
+    font-weight: 400;
+  }
+  .lg-customs-sig-line {
+    display: block;
+    position: relative;
+    height: 1px;
+    background: color-mix(in srgb, var(--form-ink) 30%, transparent);
+  }
+  .lg-customs-sig-line::after {
+    content: "";
+    position: absolute;
+    inset: 0 100% 0 0;
+    background: var(--form-ink);
+    transition: inset 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .lg-customs-sig[data-focused="1"] .lg-customs-sig-line::after {
+    inset: 0 0 0 0;
+  }
+  .lg-customs-sig-caption {
+    display: block;
+    margin-top: 5px;
+    font-family: var(--font-family-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--form-ink-soft);
+  }
+
+  .lg-customs-error {
+    margin: 0;
+    padding: 8px 12px;
+    background: color-mix(in srgb, ${VERMILION} 8%, transparent);
+    border-left: 3px solid ${VERMILION};
+    font-family: var(--font-family-body);
+    font-size: 12px;
+    color: ${VERMILION};
+    letter-spacing: 0.02em;
+  }
+
+  /* Submit (entry stamp) */
+  .lg-customs-submit {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 20px;
+    margin-top: 4px;
+    background: linear-gradient(180deg, color-mix(in srgb, ${VERDIGRIS} 14%, transparent) 0%, color-mix(in srgb, ${VERDIGRIS} 24%, transparent) 100%);
+    border: 1.5px solid color-mix(in srgb, ${VERDIGRIS} 65%, transparent);
+    color: ${VERDIGRIS};
+    font-family: var(--font-family-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease, opacity 0.25s ease;
+    overflow: hidden;
+    transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease, border-color 0.25s ease, opacity 0.25s ease, color 0.25s ease;
   }
-  .lg-builder-submit:hover:not(:disabled) {
-    transform: translateY(-1px);
-    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 70%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 18%, transparent);
+  .lg-customs-submit:hover:not(:disabled) {
+    transform: translateY(-2px);
+    background: linear-gradient(180deg, color-mix(in srgb, ${VERDIGRIS} 20%, transparent) 0%, color-mix(in srgb, ${VERDIGRIS} 32%, transparent) 100%);
   }
-  .lg-builder-submit:disabled {
-    opacity: 0.4;
+  .lg-customs-submit:active:not(:disabled) {
+    transform: translateY(2px) scale(0.98);
+  }
+  .lg-customs-submit:disabled {
+    opacity: 0.45;
     cursor: not-allowed;
+    background: transparent;
+    color: color-mix(in srgb, var(--form-ink) 45%, transparent);
+    border-color: color-mix(in srgb, var(--form-ink) 24%, transparent);
   }
-  .lg-builder-submit-glyph {
-    color: ${ILLUMINATED_COPPER};
-    font-size: 11px;
+  .lg-customs-submit-text {
+    flex: 1;
+    text-align: left;
+  }
+  .lg-customs-submit-mark {
+    width: 28px; height: 28px;
+    flex-shrink: 0;
+  }
+  .lg-customs-submit-mark-ring {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+  }
+  .lg-customs-submit-mark-check {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 22;
+    stroke-dashoffset: 22;
+    transition: stroke-dashoffset 0.4s ease 0.05s;
+  }
+  .lg-customs-submit:not(:disabled) .lg-customs-submit-mark-check {
+    stroke-dashoffset: 0;
+  }
+
+  @keyframes lg-customs-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* ── Animations ──────────────────────────────────────────────── */
@@ -4252,6 +4640,9 @@ const STYLES = `<style>
     .rs-ripple, .rs-vapor, .rs-line, .rs-grep-hit, .rs-lens,
     .rs-write-line, .rs-quill, .rs-quill-drop, .rs-edit-line, .rs-edit-strike, .rs-edit-new,
     .rs-append-caret, .rs-append-drop, .rs-append-new,
+    .lg-customs-paper, .lg-customs-seal, .lg-customs-seal-beam, .lg-customs-seal-ticks,
+    .lg-customs-head-text, .lg-customs-meta, .lg-customs-row, .lg-customs-value--bump,
+    .lg-customs-stamp, .lg-customs-sig-line::after,
     .rs-compass, .rs-needle,
     .rs-sigil-outer, .rs-sigil-inner, .rs-sigil-star, .rs-sigil-core,
     .rdie-spin, .rdie-text, .lg-seal--live, .lg-ritual-mote,
@@ -4466,6 +4857,21 @@ const STYLES = `<style>
   .lg-stage[data-mode="combat"] .lg-ritual-mote {
     background: color-mix(in srgb, #d48a1f 70%, transparent);
     box-shadow: 0 0 4px color-mix(in srgb, #d48a1f 70%, transparent);
+  }
+
+  /* Customs form fallback (creative empty state usually peace; combat fallback only) */
+  .lg-stage[data-mode="combat"] .lg-customs {
+    --form-ink: #e6cf9b;
+    --form-ink-soft: color-mix(in srgb, #e6cf9b 55%, transparent);
+    --form-ink-faint: color-mix(in srgb, #e6cf9b 22%, transparent);
+    --form-paper: #1a110a;
+    --form-paper-edge: color-mix(in srgb, #d48a1f 50%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-customs-paper {
+    background:
+      repeating-linear-gradient(to bottom, transparent 0, transparent 31px, color-mix(in srgb, #d48a1f 6%, transparent) 31px, color-mix(in srgb, #d48a1f 6%, transparent) 32px),
+      linear-gradient(168deg, #2a1c12 0%, #1a110a 100%);
+    box-shadow: 0 24px 40px -16px rgba(0,0,0,0.45), 0 1px 0 color-mix(in srgb, #d48a1f 12%, transparent) inset;
   }
 </style>`;
 
