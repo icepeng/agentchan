@@ -24,6 +24,20 @@ export function useProviders() {
   return useSWR<ProviderInfo[]>(qk.providers());
 }
 
+/**
+ * Resolve the ProviderInfo + ModelInfo objects pointed to by the active config.
+ * Returns `undefined` for either piece while the SWR caches are still loading
+ * or when the saved id no longer exists in the catalog (deleted custom provider,
+ * model removed from ALLOWED_MODELS, etc.).
+ */
+export function useCurrentModel() {
+  const { data: config } = useConfig();
+  const { data: providers = [] } = useProviders();
+  const provider = providers.find((p) => p.name === config?.provider);
+  const model = provider?.models.find((m) => m.id === config?.model);
+  return { provider, model };
+}
+
 export function useApiKeys() {
   return useSWR<ApiKeyStatus>(qk.apiKeys());
 }
