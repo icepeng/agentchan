@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * scripts/combat.ts
  *
@@ -7,32 +6,23 @@
  *   2. Passive — apply damage taken by PC or companion (updates party.yaml)
  *   3. Mode-only — --start / --end without action: flip world-state.yaml mode field
  *
- * YAML 읽기는 Bun.YAML.parse, 쓰기는 line 치환 (주석·포맷 보존).
- *
  * Usage (mode 1 — active):
- *   scripts/combat.ts --actor <pc|riwu> --category <attack|spell> --target-dc <N>
- *                     [--weapon <slug>]       (for PC attack — reads inventory.yaml)
- *                     [--damage <formula>]    (override damage formula, e.g. "1d4+3")
- *                     [--spell <slug>]        (for PC spell — reads spells.yaml)
- *                     [--round <N>]           (active combat round — emitted as attr)
- *                     [--start]               (전투 진입: world-state.yaml mode: combat)
- *                     [--end]                 (전투 종료: mode: peace)
+ *   --actor <pc|riwu> --category <attack|spell> --target-dc <N>
+ *   [--weapon <slug>] [--damage <formula>] [--spell <slug>] [--round <N>]
+ *   [--start]               (전투 진입: world-state.yaml mode: combat)
+ *   [--end]                 (전투 종료: mode: peace)
  *
  * Usage (mode 2 — passive):
- *   scripts/combat.ts --actor <pc|riwu> --take-damage <N> [--round <N>] [--end]
+ *   --actor <pc|riwu> --take-damage <N> [--round <N>] [--end]
  *
  * Usage (mode 3 — mode-only):
- *   scripts/combat.ts --start           (전투 진입만, 액션 없음)
- *   scripts/combat.ts --end             (전투 종료만, 액션 없음)
+ *   --start | --end       (액션 없이 mode 만 전환)
  *
- * 동작: party.yaml + (옵션으로) world-state.yaml 을 직접 수정한다. stdout 마지막 줄:
- *   {"changed":[...],"deltas":{...},"summary":"...","scene_block":"<beat type=\"combat\" round=\"N\">...</beat>"?}
+ * 반환 JSON: {changed, deltas, summary, scene_block?}.
  * scene_block 은 active 모드(attack/spell)에서만 반환 — 그대로 scene.md 에 append.
- * round 는 에이전트가 추적 (전투 시작=1, 매 라운드 +1). 생략 시 `<beat type="combat">` 만 출력.
  */
 
-import { randomInt } from "node:crypto";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import type { ScriptContext } from "@agentchan/creative-agent";
 
 // ─── Args ────────────────────────────────────────────────────────────────────
 
@@ -56,57 +46,50 @@ interface ModeOnlyArgs {
 }
 type Args = ActionArgs | ModeOnlyArgs;
 
-const BOOLEAN_FLAGS = new Set(["start", "end"]);
+function parseCombatArgs(argv: readonly string[], ctx: ScriptContext): Args {
+  const { values } = ctx.util.parseArgs({
+    args: [...argv],
+    options: {
+      actor: { type: "string" },
+      category: { type: "string" },
+      "target-dc": { type: "string" },
+      weapon: { type: "string" },
+      damage: { type: "string" },
+      spell: { type: "string" },
+      "take-damage": { type: "string" },
+      round: { type: "string" },
+      start: { type: "boolean" },
+      end: { type: "boolean" },
+    },
+    strict: true,
+  });
+  const start = values.start === true;
+  const end = values.end === true;
+  const { actor, category } = values;
 
-function parseArgs(argv: string[]): Args {
-  const args: Record<string, string> = {};
-  const bools: Record<string, boolean> = {};
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i].startsWith("--")) {
-      const key = argv[i].slice(2);
-      if (BOOLEAN_FLAGS.has(key)) {
-        bools[key] = true;
-      } else {
-        args[key] = argv[i + 1];
-        i++;
-      }
-    }
-  }
-  const start = !!bools.start;
-  const end = !!bools.end;
-
-  // mode-only 호출 (액션 없이 --start/--end만)
-  if (!args.actor && (start || end)) {
+  if (!actor && (start || end)) {
     return { kind: "mode-only", start, end };
   }
 
-  if (!args.actor) { console.error("--actor required (pc | riwu)"); process.exit(1); }
-  if (!["pc", "riwu"].includes(args.actor)) {
-    console.error(`--actor must be pc | riwu. got: ${args.actor}`); process.exit(1);
+  if (!actor) throw new Error("--actor required (pc | riwu)");
+  if (!["pc", "riwu"].includes(actor)) throw new Error(`--actor must be pc | riwu. got: ${actor}`);
+  const out: ActionArgs = { kind: "action", actor: actor as "pc" | "riwu", start, end };
+  if (category) {
+    if (!["attack", "spell"].includes(category)) throw new Error("--category must be attack|spell");
+    out.category = category as "attack" | "spell";
   }
-  const out: ActionArgs = { kind: "action", actor: args.actor as "pc" | "riwu", start, end };
-  if (args.category) {
-    if (!["attack", "spell"].includes(args.category)) {
-      console.error(`--category must be attack|spell`); process.exit(1);
-    }
-    out.category = args.category as "attack" | "spell";
-  }
-  if (args["target-dc"]) out.targetDc = parseInt(args["target-dc"], 10);
-  if (args.weapon) out.weapon = args.weapon;
-  if (args.damage) out.damage = args.damage;
-  if (args.spell) out.spell = args.spell;
-  if (args["take-damage"]) out.takeDamage = parseInt(args["take-damage"], 10);
-  if (args.round) {
-    const r = parseInt(args.round, 10);
-    if (isNaN(r) || r < 1) { console.error(`--round must be a positive integer. got: ${args.round}`); process.exit(1); }
+  if (values["target-dc"]) out.targetDc = parseInt(values["target-dc"], 10);
+  if (values.weapon) out.weapon = values.weapon;
+  if (values.damage) out.damage = values.damage;
+  if (values.spell) out.spell = values.spell;
+  if (values["take-damage"]) out.takeDamage = parseInt(values["take-damage"], 10);
+  if (values.round) {
+    const r = parseInt(values.round, 10);
+    if (isNaN(r) || r < 1) throw new Error(`--round must be a positive integer. got: ${values.round}`);
     out.round = r;
   }
   return out;
 }
-
-// ─── Dice ────────────────────────────────────────────────────────────────────
-
-function roll(sides: number): number { return randomInt(1, sides + 1); }
 
 // ─── Read party.yaml sections ────────────────────────────────────────────────
 
@@ -115,14 +98,14 @@ interface ActorState {
   mp: { current: number; max: number };
 }
 
-function readActorState(actor: "pc" | "riwu"): ActorState {
-  const data = Bun.YAML.parse(readFileSync("files/party.yaml", "utf-8")) as {
+function readActorState(ctx: ScriptContext, actor: "pc" | "riwu"): ActorState {
+  const data = ctx.yaml.parse(ctx.project.readFile("files/party.yaml")) as {
     pc?: { hp?: { current?: number; max?: number }; mp?: { current?: number; max?: number } };
     companions?: Record<string, { hp?: { current?: number; max?: number }; mp?: { current?: number; max?: number } }>;
   };
   const block = actor === "pc" ? data?.pc : data?.companions?.[actor];
   if (!block?.hp || typeof block.hp.current !== "number" || typeof block.hp.max !== "number") {
-    console.error(`${actor} HP not found in party.yaml`); process.exit(1);
+    throw new Error(`${actor} HP not found in party.yaml`);
   }
   return {
     hp: { current: block.hp.current, max: block.hp.max },
@@ -134,11 +117,11 @@ function readActorState(actor: "pc" | "riwu"): ActorState {
 
 interface PcStats { strength: number; agility: number; insight: number; charisma: number; }
 
-function readPcAttrs(): PcStats {
-  const raw = readFileSync("files/pc.md", "utf-8");
+function readPcAttrs(ctx: ScriptContext): PcStats {
+  const raw = ctx.project.readFile("files/pc.md");
   const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (!fmMatch) { console.error("pc.md missing frontmatter"); process.exit(1); }
-  const fm = Bun.YAML.parse(fmMatch[1]) as { attributes?: Partial<PcStats> };
+  if (!fmMatch) throw new Error("pc.md missing frontmatter");
+  const fm = ctx.yaml.parse(fmMatch[1] ?? "") as { attributes?: Partial<PcStats> };
   const a = fm?.attributes ?? {};
   return {
     strength: typeof a.strength === "number" ? a.strength : 0,
@@ -148,12 +131,11 @@ function readPcAttrs(): PcStats {
   };
 }
 
-// Riwu: hardcoded stats (rogue-like, +3 agility)
 const RIWU_ATTRS: PcStats = { strength: 0, agility: 3, insight: 1, charisma: 0 };
 const RIWU_DEFAULT_DAMAGE = "1d4+민첩";
 
-function readWeaponDamage(slug: string): string | null {
-  const data = Bun.YAML.parse(readFileSync("files/inventory.yaml", "utf-8")) as {
+function readWeaponDamage(ctx: ScriptContext, slug: string): string | null {
+  const data = ctx.yaml.parse(ctx.project.readFile("files/inventory.yaml")) as {
     equipment?: { weapon?: { slug?: string; damage?: string } };
   };
   const w = data?.equipment?.weapon;
@@ -162,9 +144,9 @@ function readWeaponDamage(slug: string): string | null {
 
 interface SpellDef { school: string; mp: number; dc: number; effect: string; }
 
-function readSpell(slug: string): SpellDef | null {
-  if (!existsSync("files/spells.yaml")) return null;
-  const data = Bun.YAML.parse(readFileSync("files/spells.yaml", "utf-8")) as {
+function readSpell(ctx: ScriptContext, slug: string): SpellDef | null {
+  if (!ctx.project.exists("files/spells.yaml")) return null;
+  const data = ctx.yaml.parse(ctx.project.readFile("files/spells.yaml")) as {
     spells?: Record<string, { school?: string; mp?: number; dc?: number; effect?: string }>;
   };
   const s = data?.spells?.[slug];
@@ -175,7 +157,7 @@ function readSpell(slug: string): SpellDef | null {
 
 // ─── Damage formula ──────────────────────────────────────────────────────────
 
-function rollDamage(formula: string, attrs: PcStats): { description: string; total: number } {
+function rollDamage(ctx: ScriptContext, formula: string, attrs: PcStats): { description: string; total: number } {
   const attrMap: Record<string, number> = {
     "힘": attrs.strength,
     "민첩": attrs.agility,
@@ -184,20 +166,20 @@ function rollDamage(formula: string, attrs: PcStats): { description: string; tot
   };
   let expr = formula;
   for (const [name, val] of Object.entries(attrMap)) {
-    expr = expr.replaceAll(name, String(val));
+    expr = expr.split(name).join(String(val));
   }
   expr = expr.replace(/\+-/g, "-").replace(/--/g, "+").replace(/\+0$/, "").replace(/-0$/, "");
 
   const m = expr.match(/^(\d+)d(\d+)(?:([+-])(\d+))?$/);
-  if (!m) { console.error(`Bad damage formula: ${formula} → ${expr}`); process.exit(1); }
-  const count = parseInt(m[1], 10);
-  const sides = parseInt(m[2], 10);
+  if (!m) throw new Error(`Bad damage formula: ${formula} → ${expr}`);
+  const count = parseInt(m[1] ?? "0", 10);
+  const sides = parseInt(m[2] ?? "0", 10);
   const sign = m[3] === "-" ? -1 : 1;
   const modN = m[4] ? parseInt(m[4], 10) : 0;
   const mod = sign * modN;
 
   const rolls: number[] = [];
-  for (let i = 0; i < count; i++) rolls.push(roll(sides));
+  for (let i = 0; i < count; i++) rolls.push(ctx.random.int(1, sides + 1));
   const subtotal = rolls.reduce((a, b) => a + b, 0);
   const total = Math.max(1, subtotal + mod);
 
@@ -208,21 +190,19 @@ function rollDamage(formula: string, attrs: PcStats): { description: string; tot
 
 // ─── Update helpers ──────────────────────────────────────────────────────────
 
-// party.yaml 을 field-level 문자열 치환으로 직접 수정 (주석·포맷 보존).
-// actor 블록 범위를 line 기반으로 잡아 해당 범위 안의 `<field>: { current: N, ... }` 만 수정.
-function updatePartyField(actor: "pc" | "riwu", field: "hp" | "mp", newCurrent: number): void {
-  const raw = readFileSync("files/party.yaml", "utf-8");
+function updatePartyField(ctx: ScriptContext, actor: "pc" | "riwu", field: "hp" | "mp", newCurrent: number): void {
+  const raw = ctx.project.readFile("files/party.yaml");
 
   let blockStart: number, blockEnd: number;
   if (actor === "pc") {
     const pcMatch = raw.match(/^pc:\s*$/m);
     const compMatch = raw.match(/^companions:\s*$/m);
-    if (pcMatch?.index === undefined) { console.error("pc: block not found"); process.exit(1); }
+    if (pcMatch?.index === undefined) throw new Error("pc: block not found");
     blockStart = pcMatch.index;
     blockEnd = compMatch?.index ?? raw.length;
   } else {
     const actorMatch = raw.match(new RegExp(`^  ${actor}:\\s*$`, "m"));
-    if (actorMatch?.index === undefined) { console.error(`${actor}: block not found`); process.exit(1); }
+    if (actorMatch?.index === undefined) throw new Error(`${actor}: block not found`);
     blockStart = actorMatch.index;
     const after = blockStart + actorMatch[0].length;
     const nextKey = raw.slice(after).match(/^  \w+:\s*$/m);
@@ -233,85 +213,70 @@ function updatePartyField(actor: "pc" | "riwu", field: "hp" | "mp", newCurrent: 
   const rx = new RegExp(`(${field}:\\s*\\{\\s*current:\\s*)\\d+(,\\s*max:\\s*\\d+\\s*\\})`);
   const newBlock = block.replace(rx, `$1${newCurrent}$2`);
   const newContent = raw.slice(0, blockStart) + newBlock + raw.slice(blockEnd);
-  writeFileSync("files/party.yaml", newContent, "utf-8");
+  ctx.project.writeFile("files/party.yaml", newContent);
+}
+
+function setWorldMode(ctx: ScriptContext, mode: "peace" | "combat"): boolean {
+  const raw = ctx.project.readFile("files/world-state.yaml");
+  const rx = /^mode:\s*\w+/m;
+  let newRaw: string;
+  if (rx.test(raw)) {
+    newRaw = raw.replace(rx, `mode: ${mode}`);
+  } else if (/^weather:.*$/m.test(raw)) {
+    newRaw = raw.replace(/^(weather:.*\n)/m, `$1mode: ${mode}\n`);
+  } else {
+    newRaw = raw.trimEnd() + `\nmode: ${mode}\n`;
+  }
+  if (newRaw === raw) return false;
+  ctx.project.writeFile("files/world-state.yaml", newRaw);
+  return true;
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-// scene.md 에 append 할 <beat type="combat"> 블록. 에이전트가 그대로 복사.
 function buildSceneBlock(systemLine: string, round?: number): string {
   const open = round !== undefined ? `<beat type="combat" round="${round}">` : `<beat type="combat">`;
   return [open, `<roll>${systemLine}</roll>`, `</beat>`].join("\n");
 }
 
-function emitResult(result: {
-  changed: string[];
-  deltas: Record<string, unknown>;
-  summary: string;
-  scene_block?: string;
-}): void {
-  console.log(JSON.stringify(result));
-}
-
-// world-state.yaml mode 필드만 갱신 — 없으면 weather 라인 다음에 삽입.
-function setWorldMode(mode: "peace" | "combat"): boolean {
-  const raw = readFileSync("files/world-state.yaml", "utf-8");
-  const rx = /^mode:\s*\w+/m;
-  let newRaw: string;
-  if (rx.test(raw)) {
-    newRaw = raw.replace(rx, `mode: ${mode}`);
-  } else {
-    // weather 라인 뒤에 삽입. weather 없으면 파일 끝에 추가.
-    if (/^weather:.*$/m.test(raw)) {
-      newRaw = raw.replace(/^(weather:.*\n)/m, `$1mode: ${mode}\n`);
-    } else {
-      newRaw = raw.trimEnd() + `\nmode: ${mode}\n`;
-    }
-  }
-  if (newRaw === raw) return false;
-  writeFileSync("files/world-state.yaml", newRaw, "utf-8");
-  return true;
-}
-
-function main() {
-  const args = parseArgs(process.argv.slice(2));
+export default function (rawArgs: readonly string[], ctx: ScriptContext) {
+  const args = parseCombatArgs(rawArgs, ctx);
 
   // ── Mode 3: mode-only (--start / --end without action) ────
   if (args.kind === "mode-only") {
     const changed: string[] = [];
     const deltas: Record<string, unknown> = {};
     if (args.start) {
-      if (setWorldMode("combat")) changed.push("files/world-state.yaml");
+      if (setWorldMode(ctx, "combat")) changed.push("files/world-state.yaml");
       deltas.mode = "combat";
     }
     if (args.end) {
-      if (setWorldMode("peace")) changed.push("files/world-state.yaml");
+      if (setWorldMode(ctx, "peace")) changed.push("files/world-state.yaml");
       deltas.mode = "peace";
     }
-    emitResult({
+    return {
       changed: [...new Set(changed)],
       deltas,
       summary: args.end ? "전투 종료 · mode: peace" : "전투 진입 · mode: combat",
-    });
-    return;
+    };
   }
 
-  const state = readActorState(args.actor);
+  const state = readActorState(ctx, args.actor);
 
-  // --start / --end: 액션 전후 mode 갱신 결과를 모아 emitResult에 반영
+  // --start / --end: 액션 전후 mode 갱신을 누적
   const modeChanges: { changed: string[]; deltas: Record<string, unknown>; summaryTail: string } = {
     changed: [],
     deltas: {},
     summaryTail: "",
   };
   if (args.start) {
-    if (setWorldMode("combat")) modeChanges.changed.push("files/world-state.yaml");
+    if (setWorldMode(ctx, "combat")) modeChanges.changed.push("files/world-state.yaml");
     modeChanges.deltas.mode_enter = "combat";
     modeChanges.summaryTail += " · mode: combat";
   }
   const applyEndMode = () => {
     if (!args.end) return;
-    if (setWorldMode("peace")) modeChanges.changed.push("files/world-state.yaml");
+    if (setWorldMode(ctx, "peace")) modeChanges.changed.push("files/world-state.yaml");
     modeChanges.deltas.mode_exit = "peace";
     modeChanges.summaryTail += " · mode: peace";
   };
@@ -319,13 +284,13 @@ function main() {
   // ── Mode 2: take damage ────────────────
   if (args.takeDamage !== undefined) {
     const newHp = Math.max(0, state.hp.current - args.takeDamage);
-    updatePartyField(args.actor, "hp", newHp);
+    updatePartyField(ctx, args.actor, "hp", newHp);
     applyEndMode();
     const summary =
       `${args.actor} 피해 ${args.takeDamage}. HP ${state.hp.current} → ${newHp}/${state.hp.max}` +
       (newHp === 0 ? " · 의식불명 (3라운드 유예)" : "") +
       modeChanges.summaryTail;
-    emitResult({
+    return {
       changed: [...new Set(["files/party.yaml", ...modeChanges.changed])],
       deltas: {
         [`${args.actor}.hp`]: { from: state.hp.current, to: newHp, max: state.hp.max },
@@ -333,17 +298,15 @@ function main() {
         ...modeChanges.deltas,
       },
       summary,
-    });
-    return;
+    };
   }
 
   // ── Mode 1: active action ──────────────
   if (!args.category || args.targetDc === undefined) {
-    console.error("Active mode requires --category and --target-dc");
-    process.exit(1);
+    throw new Error("Active mode requires --category and --target-dc");
   }
 
-  const attrs = args.actor === "pc" ? readPcAttrs() : RIWU_ATTRS;
+  const attrs = args.actor === "pc" ? readPcAttrs(ctx) : RIWU_ATTRS;
 
   // — Attack
   if (args.category === "attack") {
@@ -352,15 +315,15 @@ function main() {
       if (args.actor === "riwu") {
         damageFormula = RIWU_DEFAULT_DAMAGE;
       } else {
-        if (!args.weapon) { console.error("PC attack requires --weapon or --damage"); process.exit(1); }
-        const lookup = readWeaponDamage(args.weapon);
-        if (!lookup) { console.error(`Weapon ${args.weapon} not found in inventory.yaml`); process.exit(1); }
+        if (!args.weapon) throw new Error("PC attack requires --weapon or --damage");
+        const lookup = readWeaponDamage(ctx, args.weapon);
+        if (!lookup) throw new Error(`Weapon ${args.weapon} not found in inventory.yaml`);
         damageFormula = lookup;
       }
     }
 
     const hitAttr = damageFormula.includes("민첩") ? attrs.agility : attrs.strength;
-    const hitRoll = roll(20);
+    const hitRoll = ctx.random.int(1, 21);
     const hitTotal = hitRoll + hitAttr;
     const hit = hitTotal >= args.targetDc;
     const modStr = hitAttr >= 0 ? `+${hitAttr}` : `${hitAttr}`;
@@ -368,14 +331,14 @@ function main() {
     let systemLine: string;
     let damageTotal: number | null = null;
     if (hit) {
-      const dmg = rollDamage(damageFormula, attrs);
+      const dmg = rollDamage(ctx, damageFormula, attrs);
       damageTotal = dmg.total;
       systemLine = `${args.actor} attacks: d20${modStr}=${hitTotal} vs ${args.targetDc} → HIT. dmg ${dmg.total}.`;
     } else {
       systemLine = `${args.actor} attacks: d20${modStr}=${hitTotal} vs ${args.targetDc} → MISS.`;
     }
     applyEndMode();
-    emitResult({
+    return {
       changed: [...new Set(modeChanges.changed)],
       deltas: {
         hit: { total: hitTotal, dc: args.targetDc, success: hit },
@@ -386,23 +349,21 @@ function main() {
         ? `${args.actor} 명중 (${hitTotal} vs DC ${args.targetDc}), 피해 ${damageTotal}`
         : `${args.actor} 빗나감 (${hitTotal} vs DC ${args.targetDc})`) + modeChanges.summaryTail,
       scene_block: buildSceneBlock(systemLine, args.round),
-    });
-    return;
+    };
   }
 
   // — Spell
   if (args.category === "spell") {
-    if (!args.spell) { console.error("--spell required"); process.exit(1); }
-    if (args.actor !== "pc") { console.error("Only PC (scholar) casts spells"); process.exit(1); }
-    const spell = readSpell(args.spell);
-    if (!spell) { console.error(`Spell ${args.spell} not found in spells.yaml`); process.exit(1); }
+    if (!args.spell) throw new Error("--spell required");
+    if (args.actor !== "pc") throw new Error("Only PC (scholar) casts spells");
+    const spell = readSpell(ctx, args.spell);
+    if (!spell) throw new Error(`Spell ${args.spell} not found in spells.yaml`);
     if (state.mp.current < spell.mp) {
-      console.error(`Insufficient MP: ${state.mp.current}/${state.mp.max} < ${spell.mp}`);
-      process.exit(1);
+      throw new Error(`Insufficient MP: ${state.mp.current}/${state.mp.max} < ${spell.mp}`);
     }
 
     const castMod = attrs.insight;
-    const castRoll = roll(20);
+    const castRoll = ctx.random.int(1, 21);
     const castTotal = castRoll + castMod;
     const castOk = castTotal >= spell.dc;
     const newMp = state.mp.current - spell.mp;
@@ -413,7 +374,7 @@ function main() {
     if (castOk) {
       const dmgMatch = spell.effect.match(/(\d+d\d+\+통찰)/);
       if (dmgMatch) {
-        const dmg = rollDamage(dmgMatch[1], attrs);
+        const dmg = rollDamage(ctx, dmgMatch[1] ?? "", attrs);
         damageTotal = dmg.total;
         systemLine = `pc casts ${args.spell}: d20${modStr}=${castTotal} vs ${spell.dc} → SUCCESS. dmg ${dmg.total}. MP ${state.mp.current}→${newMp}.`;
       } else {
@@ -423,9 +384,9 @@ function main() {
       systemLine = `pc casts ${args.spell}: d20${modStr}=${castTotal} vs ${spell.dc} → FAIL (fizzle). MP ${state.mp.current}→${newMp}.`;
     }
 
-    updatePartyField("pc", "mp", newMp);
+    updatePartyField(ctx, "pc", "mp", newMp);
     applyEndMode();
-    emitResult({
+    return {
       changed: [...new Set(["files/party.yaml", ...modeChanges.changed])],
       deltas: {
         cast: { total: castTotal, dc: spell.dc, success: castOk, school: spell.school },
@@ -439,9 +400,8 @@ function main() {
         : `pc 시전 ${args.spell} 실패 (fizzle), MP ${state.mp.current}→${newMp}`) +
         modeChanges.summaryTail,
       scene_block: buildSceneBlock(systemLine, args.round),
-    });
-    return;
+    };
   }
-}
 
-main();
+  throw new Error(`unhandled category: ${args.category}`);
+}

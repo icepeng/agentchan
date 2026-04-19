@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * ending-check/survey.ts
  *
@@ -6,21 +5,14 @@
  * Reports which endings are OPEN, which are closest (by satisfied atom ratio),
  * and remaining gap for top 3 candidates.
  *
- * Reads YAML via Bun.YAML.parse. DSL evaluator duplicated from act-transition
- * per SYSTEM convention (스킬 간 헬퍼 공통화 금지).
- *
- * Usage:
- *   survey.ts
- *
- * 동작: 파일 수정 없음 (순수 질의).
- * stdout 마지막 줄에 JSON: {"changed":[],"deltas":{open:[...],top3:[...]},"summary":"..."}
+ * 반환: {changed:[], deltas:{open:[...],top3:[...]}, summary}.
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import type { ScriptContext } from "@agentchan/creative-agent";
 
-function loadYaml<T = unknown>(path: string): T | null {
-  if (!existsSync(path)) return null;
-  return Bun.YAML.parse(readFileSync(path, "utf-8")) as T;
+function loadYaml<T = unknown>(ctx: ScriptContext, path: string): T | null {
+  if (!ctx.project.exists(path)) return null;
+  return ctx.yaml.parse(ctx.project.readFile(path)) as T;
 }
 
 // ─── State aggregation ───────────────────────────────────────────────────────
@@ -32,19 +24,19 @@ interface State {
   choices: Record<string, boolean>;
 }
 
-function readState(): State {
+function readState(ctx: ScriptContext): State {
   const trust: Record<string, number> = {};
 
-  const stats = loadYaml<{ npcs?: Record<string, number> }>("files/stats.yaml");
+  const stats = loadYaml<{ npcs?: Record<string, number> }>(ctx, "files/stats.yaml");
   if (stats?.npcs) for (const [k, v] of Object.entries(stats.npcs)) {
     if (typeof v === "number") trust[k] = v;
   }
 
-  const party = loadYaml<{ companions?: { riwu?: { trust?: number } } }>("files/party.yaml");
+  const party = loadYaml<{ companions?: { riwu?: { trust?: number } } }>(ctx, "files/party.yaml");
   const riwuTrust = party?.companions?.riwu?.trust;
   if (typeof riwuTrust === "number") trust.riwu = riwuTrust;
 
-  const campaign = loadYaml<{ flags?: string[]; choices?: Record<string, boolean> }>("files/campaign.yaml");
+  const campaign = loadYaml<{ flags?: string[]; choices?: Record<string, boolean> }>(ctx, "files/campaign.yaml");
   const flags = Array.isArray(campaign?.flags)
     ? campaign.flags.filter((s): s is string => typeof s === "string")
     : [];
@@ -53,7 +45,7 @@ function readState(): State {
     if (typeof v === "boolean") choices[k] = v;
   }
 
-  const inventory = loadYaml<{ evidence?: Array<{ slug?: string } | string> }>("files/inventory.yaml");
+  const inventory = loadYaml<{ evidence?: Array<{ slug?: string } | string> }>(ctx, "files/inventory.yaml");
   const evidence: string[] = [];
   if (Array.isArray(inventory?.evidence)) for (const e of inventory.evidence) {
     if (typeof e === "string") evidence.push(e);
@@ -114,7 +106,7 @@ function evalCondition(cond: string, state: State): EvalResult {
 
   let value = false;
   try { value = !!new Function(`return (${js})`)(); }
-  catch (e) { console.error(`DSL eval failed: ${cond}\n  → ${js}\n  → ${e}`); process.exit(1); }
+  catch (e) { throw new Error(`DSL eval failed: ${cond}\n  → ${js}\n  → ${e}`); }
 
   return { value, atoms };
 }
@@ -130,11 +122,11 @@ interface Ending {
   tone: string;
 }
 
-function readEndings(): Ending[] {
+function readEndings(ctx: ScriptContext): Ending[] {
   const data = loadYaml<{
     endings?: Record<string, { title?: string; primary_axis?: string; summary?: string; act3_gate?: string; tone?: string }>;
-  }>("files/campaign.yaml");
-  if (!data?.endings) { console.error("campaign.yaml missing endings: block"); process.exit(1); }
+  }>(ctx, "files/campaign.yaml");
+  if (!data?.endings) throw new Error("campaign.yaml missing endings: block");
 
   const endings: Ending[] = [];
   for (const [slug, e] of Object.entries(data.endings)) {
@@ -159,42 +151,41 @@ interface Evaluated extends Ending {
   satisfiedRatio: number;
 }
 
-function main() {
-  const state = readState();
-  const endings = readEndings();
+export default function (_args: readonly string[], ctx: ScriptContext) {
+  const state = readState(ctx);
+  const endings = readEndings(ctx);
 
   if (endings.length === 0) {
-    console.log(JSON.stringify({
+    return {
       changed: [],
       deltas: { total: 0, open: [], top3: [] },
       summary: "캠페인 파일에 엔딩이 정의되지 않음 — ending-check 건너뜀",
-    }));
-    return;
+    };
   }
 
-  const evaluated: Evaluated[] = endings.map(e => {
+  const evaluated: Evaluated[] = endings.map((e) => {
     const result = evalCondition(e.act3_gate, state);
     const total = result.atoms.length;
-    const passed = result.atoms.filter(a => a.value).length;
+    const passed = result.atoms.filter((a) => a.value).length;
     const satisfiedRatio = total === 0 ? 0 : passed / total;
     return { ...e, result, satisfiedRatio };
   });
 
-  const openList = evaluated.filter(e => e.result.value);
-  const closed = evaluated.filter(e => !e.result.value).sort((a, b) => b.satisfiedRatio - a.satisfiedRatio);
+  const openList = evaluated.filter((e) => e.result.value);
+  const closed = evaluated.filter((e) => !e.result.value).sort((a, b) => b.satisfiedRatio - a.satisfiedRatio);
   const top3 = closed.slice(0, 3);
 
-  const result = {
+  return {
     changed: [],
     deltas: {
       total: endings.length,
-      open: openList.map(e => ({
+      open: openList.map((e) => ({
         slug: e.slug, title: e.title, primary_axis: e.primary_axis, tone: e.tone,
       })),
-      top3: top3.map(e => {
-        const passed = e.result.atoms.filter(a => a.value).length;
+      top3: top3.map((e) => {
+        const passed = e.result.atoms.filter((a) => a.value).length;
         const total = e.result.atoms.length;
-        const missing = e.result.atoms.filter(a => !a.value).map(a => a.atom);
+        const missing = e.result.atoms.filter((a) => !a.value).map((a) => a.atom);
         return {
           slug: e.slug,
           title: e.title,
@@ -209,11 +200,7 @@ function main() {
     },
     summary:
       `엔딩 조사 (${endings.length}개) — OPEN ${openList.length}, 근접 top3: ` +
-      top3.map(e => `${e.slug}(${Math.round(e.satisfiedRatio * 100)}%)`).join(", ") +
-      (openList.length > 0 ? `. OPEN 후보: ${openList.map(e => e.slug).join(", ")}` : ""),
+      top3.map((e) => `${e.slug}(${Math.round(e.satisfiedRatio * 100)}%)`).join(", ") +
+      (openList.length > 0 ? `. OPEN 후보: ${openList.map((e) => e.slug).join(", ")}` : ""),
   };
-
-  console.log(JSON.stringify(result));
 }
-
-main();
