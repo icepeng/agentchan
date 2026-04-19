@@ -14,10 +14,6 @@
 //           잉크 스탬프 시스템 카드 / 세피아 폴라로이드 감정 삽화 /
 //           컴퍼스 rose 디바이더
 //   · 하단 APPENDIX: PACK MANIFEST(인벤토리) · STANDING CHARTS(퀘스트)
-//
-//   파싱 계층은 기존 마커 규격과 묶여 있어 보존한다. 시각 언어만 교체.
-//   Idiomorph가 DOM을 morph하므로 beat마다 index 기반 stable id를 부여하여
-//   재렌더 간 CSS 애니메이션이 끊기지 않게 한다.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface TextFile {
@@ -94,30 +90,30 @@ interface RendererTheme {
 
 const PEACE_THEME: RendererTheme = {
   base: {
-    void: "#e8dcc0",     // 낡은 양피지 가장자리 (body bg)
-    base: "#eee3c8",     // 페이지 외곽
-    surface: "#f6ecd2",  // 로그북 본문
+    void: "#e8dcc0", // 낡은 양피지 가장자리 (body bg)
+    base: "#eee3c8", // 페이지 외곽
+    surface: "#f6ecd2", // 로그북 본문
     elevated: "#fff8e4", // 폴라로이드·스탬프 캐리어
-    accent: "#3d7a6d",   // verdigris — 풍화된 청동, anima·신뢰·성공
-    fg: "#2d2015",       // 진한 세피아 잉크
-    fg2: "#5a4530",      // 중간 잉크
-    fg3: "#8a6e4d",      // 흐린 펜
-    edge: "#3d2a15",     // 잉크 hairline 기준색
+    accent: "#3d7a6d", // verdigris — 풍화된 청동, anima·신뢰·성공
+    fg: "#2d2015", // 진한 세피아 잉크
+    fg2: "#5a4530", // 중간 잉크
+    fg3: "#8a6e4d", // 흐린 펜
+    edge: "#3d2a15", // 잉크 hairline 기준색
   },
   prefersScheme: "light",
 };
 
 const COMBAT_THEME: RendererTheme = {
   base: {
-    void: "#1a110a",     // 검은 가죽 가장자리
-    base: "#1a110a",     // 어두운 가죽 본문
-    surface: "#251810",  // 패널
+    void: "#1a110a", // 검은 가죽 가장자리
+    base: "#1a110a", // 어두운 가죽 본문
+    surface: "#251810", // 패널
     elevated: "#2e1c14", // 카드·스탬프
-    accent: "#d48a1f",   // 촛불 황금 — 강조·성공·고리
-    fg: "#d8c9a8",       // 촛불 아래 양피지 색
-    fg2: "#b8a38a",      // 어두운 잉크
-    fg3: "#8a7658",      // 흐린 어두운 잉크
-    edge: "#3d2a1f",     // 어두운 가죽 hairline
+    accent: "#d48a1f", // 촛불 황금 — 강조·성공·고리
+    fg: "#d8c9a8", // 촛불 아래 양피지 색
+    fg2: "#b8a38a", // 어두운 잉크
+    fg3: "#8a7658", // 흐린 어두운 잉크
+    edge: "#3d2a1f", // 어두운 가죽 hairline
   },
   prefersScheme: "dark",
 };
@@ -146,8 +142,8 @@ export function theme(ctx: RenderContext): RendererTheme {
 // blood)와 의도적으로 다른 용어로 잡아 sentinel과의 정체성 혼동을 방지한다.
 
 const ILLUMINATED_COPPER = "#b36b2a"; // 경고·vigor mid·브랜딩 글리프
-const VERDIGRIS = "#3d7a6d";          // anima·신뢰·성공·컴퍼스 rose
-const VERMILION = "#a83225";          // danger·HP low·상태이상 스탬프
+const VERDIGRIS = "#3d7a6d"; // anima·신뢰·성공·컴퍼스 rose
+const VERMILION = "#a83225"; // danger·HP low·상태이상 스탬프
 
 // 라이트 크림 배경 위에서 시인성을 가진 중채도 안료 톤만 골라 구성.
 const CHARACTER_COLORS = [
@@ -174,10 +170,17 @@ function escapeHtml(text: string): string {
 // 본문은 escapeHtml에서 " 이스케이프 → 스마트 쿼트 치환이 불가능해진다.
 // 본문 텍스트용으로는 별도 처리: < > & 만 이스케이프하여 쿼트 변환을 살린다.
 function escapeText(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
+function resolveImageUrl(
+  ctx: RenderContext,
+  dir: string,
+  imageKey: string,
+): string {
   return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
 }
 
@@ -247,7 +250,10 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
   return map;
 }
 
-function resolveAvatar(line: ChatLine, nameMap: Map<string, NameMapEntry>): ChatLine {
+function resolveAvatar(
+  line: ChatLine,
+  nameMap: Map<string, NameMapEntry>,
+): ChatLine {
   if (line.type !== "character" || line.charDir) return line;
   const entry = nameMap.get(line.characterName!);
   if (!entry) return line;
@@ -323,11 +329,14 @@ interface QuestEntry {
 }
 
 interface RpgStats {
-  strength: number;
-  agility: number;
-  insight: number;
-  charisma: number;
+  "힘": number;
+  "민첩": number;
+  "통찰": number;
+  "화술": number;
 }
+
+type StatKey = keyof RpgStats;
+const STAT_KEYS: readonly StatKey[] = ["힘", "민첩", "통찰", "화술"];
 
 interface ChoiceOption {
   label: string;
@@ -412,10 +421,10 @@ function readStatsYaml(ctx: RenderContext): RpgStats | null {
   const root = asObject(file.data);
   if (!root) return null;
   return {
-    strength: asNumber(root.strength, 0),
-    agility: asNumber(root.agility, 0),
-    insight: asNumber(root.insight, 0),
-    charisma: asNumber(root.charisma, 0),
+    "힘": asNumber(root["힘"], 0),
+    "민첩": asNumber(root["민첩"], 0),
+    "통찰": asNumber(root["통찰"], 0),
+    "화술": asNumber(root["화술"], 0),
   };
 }
 
@@ -449,7 +458,9 @@ function readQuestYaml(ctx: RenderContext): QuestEntry[] {
 // 라인 형식:  - label: ... | action: ... | stat: ... | dc: ...
 
 function parseChoicesMarker(content: string): ChoiceOption[] {
-  const blocks = [...content.matchAll(/\[CHOICES\]\n([\s\S]*?)\n?\[\/CHOICES\]/g)];
+  const blocks = [
+    ...content.matchAll(/\[CHOICES\]\n([\s\S]*?)\n?\[\/CHOICES\]/g),
+  ];
   if (blocks.length === 0) return [];
   const last = blocks[blocks.length - 1];
   const body = last && last[1] ? last[1] : "";
@@ -560,7 +571,8 @@ function groupLines(lines: ChatLine[]): ChatGroup[] {
       prev &&
       prev.type === line.type &&
       (line.type !== "character" ||
-        (prev.characterName === line.characterName && prev.imageKey === line.imageKey))
+        (prev.characterName === line.characterName &&
+          prev.imageKey === line.imageKey))
     ) {
       prev.lines.push(line.text);
     } else {
@@ -646,10 +658,22 @@ function resolvePersona(
   const dir = personaFile.path.substring(0, personaFile.path.lastIndexOf("/"));
   const imageKey = fm["avatar-image"] ? String(fm["avatar-image"]) : undefined;
   const isolatedColorMap = new Map<string, string>();
-  const info = resolveCharacterInfo(dir, imageKey, displayName, ctx, nameMap, isolatedColorMap);
+  const info = resolveCharacterInfo(
+    dir,
+    imageKey,
+    displayName,
+    ctx,
+    nameMap,
+    isolatedColorMap,
+  );
   const color = fm.color ? String(fm.color) : info.color;
 
-  return { displayName, color, portraitHtml: info.portraitHtml, body: personaFile.content };
+  return {
+    displayName,
+    color,
+    portraitHtml: info.portraitHtml,
+    body: personaFile.content,
+  };
 }
 
 // ── Beat renderers ──────────────────────────
@@ -871,9 +895,10 @@ function renderPackManifest(items: InventoryItem[]): string {
   if (items.length === 0) return "";
   const rows = items
     .map((item) => {
-      const qty = typeof item.qty === "number" && item.qty > 1
-        ? ` <span class="lg-item-qty">&times;${item.qty}</span>`
-        : "";
+      const qty =
+        typeof item.qty === "number" && item.qty > 1
+          ? ` <span class="lg-item-qty">&times;${item.qty}</span>`
+          : "";
       const note = item.note
         ? ` <span class="lg-item-desc">— ${escapeText(item.note)}</span>`
         : "";
@@ -930,23 +955,15 @@ function renderStandingCharts(quests: QuestEntry[]): string {
 // Ability Scores — stats.yaml 의 4개 능력치를 보정치 형태(+/-)로 표시.
 // 0 이상은 +prefix, 음수는 그대로. 값 강도에 따라 highlight 클래스 토글.
 
-const STAT_META: Array<{ key: keyof RpgStats; ko: string; abbr: string }> = [
-  { key: "strength", ko: "힘", abbr: "STR" },
-  { key: "agility", ko: "민첩", abbr: "AGI" },
-  { key: "insight", ko: "통찰", abbr: "INS" },
-  { key: "charisma", ko: "화술", abbr: "CHA" },
-];
-
 function renderAbilityScores(stats: RpgStats | null): string {
   if (!stats) return "";
-  const rows = STAT_META.map(({ key, ko, abbr }) => {
+  const rows = STAT_KEYS.map((key) => {
     const value = stats[key];
     const mod = formatMod(value);
     const tone =
       value >= 3 ? "lg-ability--strong" : value <= -1 ? "lg-ability--weak" : "";
     return `<li class="lg-ability ${tone}">
-      <span class="lg-ability-abbr">${abbr}</span>
-      <span class="lg-ability-ko">${escapeText(ko)}</span>
+      <span class="lg-ability-ko">${escapeText(key)}</span>
       <span class="lg-ability-mod">${mod}</span>
     </li>`;
   }).join("");
@@ -978,7 +995,9 @@ function renderPersonaBody(body: string): string {
   };
   const flushBullets = () => {
     if (bullets.length > 0) {
-      out.push(`<ul>${bullets.map((b) => `<li>${escapeText(b)}</li>`).join("")}</ul>`);
+      out.push(
+        `<ul>${bullets.map((b) => `<li>${escapeText(b)}</li>`).join("")}</ul>`,
+      );
       bullets = [];
     }
   };
@@ -1025,19 +1044,49 @@ function renderPersonaBody(body: string): string {
   return out.join("");
 }
 
-function renderPersonaSheet(persona: PersonaInfo): string {
+function renderPersonaBar(persona: PersonaInfo | null): string {
+  if (!persona) return "";
   const body = renderPersonaBody(persona.body);
   if (!body) return "";
   return `
-    <details class="lg-appendix-section lg-persona" open style="--c: ${escapeHtml(persona.color)}">
-      <summary class="lg-appendix-head">
-        <span class="lg-appendix-title">Persona</span>
-        <span class="lg-appendix-count">${escapeText(persona.displayName)}</span>
-        <span class="lg-appendix-chevron" aria-hidden="true"></span>
+    <details class="lg-passage" style="--c: ${escapeHtml(persona.color)}">
+      <summary class="lg-passage-strip">
+        <span class="lg-passage-seal" aria-hidden="true">
+          <span class="lg-passage-seal-avatar">${persona.portraitHtml}</span>
+        </span>
+        <span class="lg-passage-label">PASSAGE&nbsp;PAPERS</span>
+        <span class="lg-passage-divider" aria-hidden="true"></span>
+        <span class="lg-passage-name">${escapeText(persona.displayName)}</span>
+        <span class="lg-passage-hint">
+          <span class="lg-passage-hint-text">DOSSIER</span>
+          <span class="lg-passage-hint-text lg-passage-hint-text--open">접기</span>
+          <span class="lg-passage-chevron" aria-hidden="true"></span>
+        </span>
       </summary>
-      <div class="lg-persona-sheet">
-        <div class="lg-persona-portrait">${persona.portraitHtml}</div>
-        <div class="lg-persona-body">${body}</div>
+      <div class="lg-passage-drawer" role="region" aria-label="Passage papers dossier">
+        <div class="lg-passage-card">
+          <div class="lg-passage-meridian" aria-hidden="true">
+            <span class="lg-passage-meridian-mark">&#x2726;</span>
+          </div>
+          <div class="lg-passage-corner lg-passage-corner--tl" aria-hidden="true"></div>
+          <div class="lg-passage-corner lg-passage-corner--tr" aria-hidden="true"></div>
+          <div class="lg-passage-corner lg-passage-corner--bl" aria-hidden="true"></div>
+          <div class="lg-passage-corner lg-passage-corner--br" aria-hidden="true"></div>
+          <header class="lg-passage-head">
+            <div class="lg-passage-portrait">${persona.portraitHtml}</div>
+            <div class="lg-passage-title">
+              <span class="lg-passage-eyebrow">Archivist&apos;s Dossier</span>
+              <h3 class="lg-passage-display">${escapeText(persona.displayName)}</h3>
+              <span class="lg-passage-rule"></span>
+            </div>
+            <span class="lg-passage-stamp" aria-hidden="true">
+              <span class="lg-passage-stamp-top">FILED</span>
+              <span class="lg-passage-stamp-mid">&#x26C6;</span>
+              <span class="lg-passage-stamp-bot">UNDER LOG</span>
+            </span>
+          </header>
+          <div class="lg-passage-body">${body}</div>
+        </div>
       </div>
     </details>`;
 }
@@ -1046,16 +1095,13 @@ function renderAppendix(
   items: InventoryItem[],
   quests: QuestEntry[],
   stats: RpgStats | null,
-  persona: PersonaInfo | null,
 ): string {
-  const personaSheet = persona ? renderPersonaSheet(persona) : "";
   const abilities = renderAbilityScores(stats);
   const manifest = renderPackManifest(items);
   const charts = renderStandingCharts(quests);
-  if (!personaSheet && !abilities && !manifest && !charts) return "";
+  if (!abilities && !manifest && !charts) return "";
   return `
     <footer class="lg-appendix">
-      ${personaSheet}
       ${abilities}
       ${manifest}
       ${charts}
@@ -1067,38 +1113,28 @@ function renderAppendix(
 // scene.md 의 마지막 [CHOICES] 블록만 렌더링. data-action="fill" 로 클릭 시 입력창에 채움.
 // 메타 칩(stat / dc) 은 옵션. 계단식 등장(--i 인덱스 기반).
 
-function statLabel(stat: string): string {
-  const map: Record<string, string> = {
-    strength: "힘",
-    agility: "민첩",
-    insight: "통찰",
-    charisma: "화술",
-  };
-  return map[stat.toLowerCase()] ?? stat;
-}
-
 function formatMod(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
 function lookupStatMod(stats: RpgStats | null, stat: string): number | null {
   if (!stats) return null;
-  const key = stat.toLowerCase();
-  if (key === "strength" || key === "agility" || key === "insight" || key === "charisma") {
-    return stats[key];
-  }
-  return null;
+  const match = STAT_KEYS.find((k) => k === stat);
+  return match ? stats[match] : null;
 }
 
-function renderNextChoices(options: ChoiceOption[], stats: RpgStats | null): string {
+function renderNextChoices(
+  options: ChoiceOption[],
+  stats: RpgStats | null,
+): string {
   if (options.length === 0) return "";
   const rows = options
     .map((opt, i) => {
       const mod = opt.stat ? lookupStatMod(stats, opt.stat) : null;
       const statText = opt.stat
         ? mod !== null
-          ? `${statLabel(opt.stat)} ${formatMod(mod)}`
-          : statLabel(opt.stat)
+          ? `${opt.stat} ${formatMod(mod)}`
+          : opt.stat
         : "";
       const stat = statText
         ? `<span class="lg-choice-stat">${escapeText(statText)}</span>`
@@ -1107,7 +1143,8 @@ function renderNextChoices(options: ChoiceOption[], stats: RpgStats | null): str
         typeof opt.dc === "number"
           ? `<span class="lg-choice-dc">DC ${opt.dc}</span>`
           : "";
-      const meta = stat || dc ? `<span class="lg-choice-meta">${stat}${dc}</span>` : "";
+      const meta =
+        stat || dc ? `<span class="lg-choice-meta">${stat}${dc}</span>` : "";
       return `<button type="button"
                 class="lg-choice-option"
                 style="--i:${i}"
@@ -1148,10 +1185,14 @@ function pendingToolLabel(name: string): string {
   return map[name] ?? "비의를 엮는다";
 }
 
-function renderPendingCard(stream: RenderStreamView, mode: "peace" | "combat"): string {
+function renderPendingCard(
+  stream: RenderStreamView,
+  mode: "peace" | "combat",
+): string {
   const inFlight = stream.toolCalls.find((tc) => !tc.result);
   const latest = inFlight ?? stream.toolCalls[stream.toolCalls.length - 1];
-  const label = mode === "combat" ? "촛불 아래 손이 움직인다" : "잉크가 마르는 중";
+  const label =
+    mode === "combat" ? "촛불 아래 손이 움직인다" : "잉크가 마르는 중";
   const raw = stream.text || "";
   const clipped = raw.length > 160 ? raw.slice(0, 160) + "\u2026" : raw;
   const toolLabel = latest ? pendingToolLabel(latest.name) : "";
@@ -1176,40 +1217,26 @@ function renderPendingCard(stream: RenderStreamView, mode: "peace" | "combat"): 
 // data-action="send" 파이프라인으로 전송하도록 한다. 총합 ≠ 6 또는 이름 공백이면
 // stopImmediatePropagation 으로 전송을 막는다.
 
-interface BuilderStat {
-  key: "strength" | "agility" | "insight" | "charisma";
-  label: string;
-  short: string;
-}
-
-const BUILDER_STATS: BuilderStat[] = [
-  { key: "strength", label: "힘", short: "STR" },
-  { key: "agility", label: "민첩", short: "AGI" },
-  { key: "insight", label: "통찰", short: "INS" },
-  { key: "charisma", label: "화술", short: "CHA" },
-];
-
 const BUILDER_TOTAL = 6;
 const BUILDER_MIN = -1;
 const BUILDER_MAX = 5;
 
-function renderBuilderStepper(s: BuilderStat): string {
+function renderBuilderStepper(key: StatKey): string {
   return `
     <div class="lg-builder-row">
       <span class="lg-builder-label">
-        <span class="lg-builder-short">${s.short}</span>
-        <span class="lg-builder-long">${escapeText(s.label)}</span>
+        <span class="lg-builder-long">${escapeText(key)}</span>
       </span>
-      <div class="lg-builder-stepper" data-stat="${s.key}">
-        <button type="button" class="lg-builder-step" data-inc="-1" aria-label="${escapeHtml(s.label)} 감소">&#x2212;</button>
-        <span class="lg-builder-value" data-stat-value="${s.key}" data-value="0">0</span>
-        <button type="button" class="lg-builder-step" data-inc="1" aria-label="${escapeHtml(s.label)} 증가">&#x002B;</button>
+      <div class="lg-builder-stepper" data-stat="${key}">
+        <button type="button" class="lg-builder-step" data-inc="-1" aria-label="${escapeHtml(key)} 감소">&#x2212;</button>
+        <span class="lg-builder-value" data-stat-value="${key}" data-value="0">0</span>
+        <button type="button" class="lg-builder-step" data-inc="1" aria-label="${escapeHtml(key)} 증가">&#x002B;</button>
       </div>
     </div>`;
 }
 
 function renderEmpty(): string {
-  const rows = BUILDER_STATS.map(renderBuilderStepper).join("");
+  const rows = STAT_KEYS.map(renderBuilderStepper).join("");
 
   return `
     <div class="lg-empty">
@@ -1254,8 +1281,7 @@ function renderEmpty(): string {
       var MIN = ${BUILDER_MIN};
       var MAX = ${BUILDER_MAX};
       var TARGET = ${BUILDER_TOTAL};
-      var SHORT = { strength: 'STR', agility: 'AGI', insight: 'INS', charisma: 'CHA' };
-      var KEYS = ['strength', 'agility', 'insight', 'charisma'];
+      var KEYS = ${JSON.stringify(STAT_KEYS)};
 
       var nameInput = form.querySelector('[data-builder-name]');
       var totalEl = form.querySelector('[data-total-value]');
@@ -1351,7 +1377,7 @@ function renderEmpty(): string {
           }
           return;
         }
-        var statLine = KEYS.map(function (k) { return SHORT[k] + ' ' + stats[k]; }).join(' ');
+        var statLine = KEYS.map(function (k) { return k + ' ' + stats[k]; }).join(' ');
         var text = '/init\\n이름: ' + name + '\\n스탯: ' + statLine;
         submit.dataset.text = text;
       }, true);
@@ -1982,77 +2008,455 @@ const STYLES = `<style>
     transform: rotate(45deg);
   }
 
-  /* ── Persona sheet ─────────────────────────────────────────────── */
-  .lg-persona .lg-appendix-count {
+  /* ── Passage Papers: header에 착 달라붙는 통행문서 ledger tab ──── */
+  /* Closed: sticky strip welded to header. Open: absolute dossier overlay. */
+  .lg-passage {
+    position: sticky;
+    top: 58px;
+    z-index: 4;
+    background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+    backdrop-filter: blur(12px) saturate(1.05);
+    -webkit-backdrop-filter: blur(12px) saturate(1.05);
+    border-bottom: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 26%, transparent);
+  }
+  .lg-passage[open] {
+    z-index: 6;
+  }
+
+  .lg-passage-strip {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 28px 9px 22px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background 0.2s ease;
+  }
+  .lg-passage-strip::-webkit-details-marker { display: none; }
+  .lg-passage-strip::before {
+    /* hairline tick — signals flush attachment to header */
+    content: "";
+    position: absolute;
+    left: 28px;
+    top: 0;
+    width: 1px;
+    height: 6px;
+    background: color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 40%, transparent);
+  }
+  .lg-passage-strip:hover {
+    background: color-mix(in srgb, var(--c, var(--color-fg)) 5%, transparent);
+  }
+  .lg-passage-seal {
+    flex-shrink: 0;
+    position: relative;
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    background: conic-gradient(from 120deg,
+      var(--c, ${ILLUMINATED_COPPER}) 0deg,
+      color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 20%, transparent) 140deg,
+      var(--c, ${ILLUMINATED_COPPER}) 220deg,
+      color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 20%, transparent) 360deg);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 35%, transparent);
+  }
+  .lg-passage-seal-avatar {
+    display: inline-flex;
+    background: var(--color-surface);
+    border-radius: 999px;
+    padding: 1px;
+  }
+  .lg-passage-seal-avatar .lg-portrait {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .lg-passage-seal-avatar .lg-portrait-img,
+  .lg-passage-seal-avatar .lg-portrait-halo {
+    border-radius: 999px;
+  }
+  .lg-passage-label {
     font-family: var(--font-family-display);
-    letter-spacing: 0.04em;
-    text-transform: none;
-    font-size: 12px;
-    color: var(--c, ${ILLUMINATED_COPPER});
-    max-width: 55%;
-    text-align: right;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+    flex-shrink: 0;
+  }
+  .lg-passage-divider {
+    width: 1px;
+    height: 14px;
+    background: color-mix(in srgb, var(--color-edge) 45%, transparent);
+    flex-shrink: 0;
+  }
+  .lg-passage-name {
+    font-family: var(--font-family-display);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--c, var(--color-fg));
+    min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .lg-persona-sheet {
-    padding: 6px 20px 18px;
+  .lg-passage-hint {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    font-family: var(--font-family-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.32em;
+    color: var(--color-fg-4);
+    transition: color 0.2s ease;
+  }
+  .lg-passage-strip:hover .lg-passage-hint {
+    color: var(--c, var(--color-fg-2));
+  }
+  .lg-passage-hint-text--open { display: none; }
+  .lg-passage[open] .lg-passage-hint-text:not(.lg-passage-hint-text--open) { display: none; }
+  .lg-passage[open] .lg-passage-hint-text--open { display: inline; }
+  .lg-passage-chevron {
+    width: 6px;
+    height: 6px;
+    border-right: 1px solid currentColor;
+    border-bottom: 1px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.32s cubic-bezier(0.2, 0.75, 0.25, 1);
+    flex-shrink: 0;
+  }
+  .lg-passage[open] .lg-passage-chevron {
+    transform: rotate(-135deg);
+  }
+
+  /* ── Dossier drawer (absolute overlay — covers content area) ───── */
+  .lg-passage-drawer {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 14px 20px 28px;
+    pointer-events: none;
+    /* subtle scrim over content behind */
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--color-void, #000) 38%, transparent) 0%,
+      color-mix(in srgb, var(--color-void, #000) 12%, transparent) 60%,
+      transparent 100%);
+    animation: lg-passage-unfurl 0.42s cubic-bezier(0.2, 0.75, 0.25, 1);
+  }
+  .lg-passage-drawer > * { pointer-events: auto; }
+
+  @keyframes lg-passage-unfurl {
+    0%   { opacity: 0; transform: translateY(-12px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .lg-passage-card {
+    position: relative;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 32px 36px 30px;
+    background:
+      repeating-linear-gradient(
+        transparent 0 34px,
+        color-mix(in srgb, var(--color-fg) 3.5%, transparent) 34px 35px
+      ),
+      color-mix(in srgb, var(--color-elevated, var(--color-surface)) 98%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-edge) 40%, transparent);
+    box-shadow:
+      0 36px 90px -40px color-mix(in srgb, var(--color-void, #000) 75%, transparent),
+      0 12px 30px -18px color-mix(in srgb, var(--color-void, #000) 55%, transparent);
+    isolation: isolate;
+    animation: lg-passage-card-in 0.5s cubic-bezier(0.16, 0.84, 0.3, 1) 0.05s backwards;
+  }
+  @keyframes lg-passage-card-in {
+    0%   { opacity: 0; transform: translateY(-8px) scale(0.992); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .lg-passage-card::before {
+    /* inner hairline frame */
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 26%, transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .lg-passage-card::after {
+    /* warm paper tint */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at 30% 0%,
+      color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 6%, transparent) 0%,
+      transparent 60%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Corner ticks — like cartographer frame marks */
+  .lg-passage-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 55%, transparent);
+    z-index: 2;
+  }
+  .lg-passage-corner--tl { top: 4px; left: 4px; border-top: 1px solid; border-left: 1px solid; }
+  .lg-passage-corner--tr { top: 4px; right: 4px; border-top: 1px solid; border-right: 1px solid; }
+  .lg-passage-corner--bl { bottom: 4px; left: 4px; border-bottom: 1px solid; border-left: 1px solid; }
+  .lg-passage-corner--br { bottom: 4px; right: 4px; border-bottom: 1px solid; border-right: 1px solid; }
+
+  /* Meridian decoration at top center */
+  .lg-passage-meridian {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    padding: 0 10px;
+    background: color-mix(in srgb, var(--color-elevated, var(--color-surface)) 98%, transparent);
+  }
+  .lg-passage-meridian::before,
+  .lg-passage-meridian::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 42px;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      var(--c, ${ILLUMINATED_COPPER}) 100%);
+    opacity: 0.6;
+  }
+  .lg-passage-meridian::before { right: 100%; background: linear-gradient(90deg, transparent, var(--c, ${ILLUMINATED_COPPER})); }
+  .lg-passage-meridian::after { left: 100%; background: linear-gradient(90deg, var(--c, ${ILLUMINATED_COPPER}), transparent); }
+  .lg-passage-meridian-mark {
+    font-size: 12px;
+    color: var(--c, ${ILLUMINATED_COPPER});
+    line-height: 1;
+  }
+
+  .lg-passage-head {
+    position: relative;
     display: grid;
-    grid-template-columns: 56px minmax(0, 1fr);
-    column-gap: 14px;
-    align-items: start;
+    grid-template-columns: 104px minmax(0, 1fr) auto;
+    column-gap: 26px;
+    align-items: end;
+    padding-bottom: 20px;
+    z-index: 2;
   }
-  .lg-persona-portrait .lg-portrait {
-    width: 56px;
-    height: 56px;
+  .lg-passage-portrait {
+    position: relative;
   }
-  .lg-persona-body {
+  .lg-passage-portrait::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 30%, transparent);
+    pointer-events: none;
+  }
+  .lg-passage-portrait .lg-portrait {
+    width: 104px;
+    height: 104px;
+    border-radius: 0;
+  }
+  .lg-passage-portrait .lg-portrait-img,
+  .lg-passage-portrait .lg-portrait-halo,
+  .lg-passage-portrait .lg-portrait-fallback {
+    border-radius: 0;
+  }
+  .lg-passage-portrait .lg-portrait-fallback {
+    font-size: 38px;
+  }
+  .lg-passage-title {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     min-width: 0;
-    color: var(--color-fg);
-    font-size: 12.5px;
-    line-height: 1.65;
+    padding-bottom: 4px;
+  }
+  .lg-passage-eyebrow {
+    font-family: var(--font-family-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    color: var(--color-fg-4);
+  }
+  .lg-passage-display {
+    font-family: var(--font-family-display);
+    font-size: 30px;
+    line-height: 1.05;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--c, var(--color-fg));
+    margin: 0;
     word-break: keep-all;
     overflow-wrap: anywhere;
   }
-  .lg-persona-body > :first-child { margin-top: 0; }
-  .lg-persona-body > :last-child { margin-bottom: 0; }
-  .lg-persona-body h4,
-  .lg-persona-body h5,
-  .lg-persona-body h6 {
-    font-family: var(--font-family-display);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--color-fg-2);
-    margin: 10px 0 4px;
+  .lg-passage-rule {
+    height: 1px;
+    width: 56px;
+    background: var(--c, var(--color-fg-3));
+    opacity: 0.55;
+    margin-top: 4px;
   }
-  .lg-persona-body h4 { font-size: 13px; color: var(--c, var(--color-fg)); }
-  .lg-persona-body h5 {
-    font-size: 10px;
+
+  /* Circular "FILED UNDER LOG" stamp */
+  .lg-passage-stamp {
+    position: relative;
+    align-self: start;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 55%, transparent);
+    border-radius: 999px;
+    color: var(--c, ${ILLUMINATED_COPPER});
+    font-family: var(--font-family-mono);
+    font-size: 7.5px;
     letter-spacing: 0.22em;
+    line-height: 1.1;
+    text-align: center;
+    opacity: 0.82;
+    transform: rotate(-6deg);
+    gap: 2px;
+    margin-top: 4px;
+  }
+  .lg-passage-stamp::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1px dashed color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 28%, transparent);
+    border-radius: 999px;
+    pointer-events: none;
+  }
+  .lg-passage-stamp-mid {
+    font-size: 14px;
+    letter-spacing: 0;
+  }
+  .lg-passage-stamp-top,
+  .lg-passage-stamp-bot {
+    font-weight: 600;
+  }
+
+  /* Dossier body */
+  .lg-passage-body {
+    position: relative;
+    z-index: 2;
+    padding-top: 14px;
+    border-top: 1px solid color-mix(in srgb, var(--color-edge) 30%, transparent);
+    font-size: 14px;
+    line-height: 1.85;
+    color: var(--color-fg);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    max-height: min(62vh, 640px);
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  .lg-passage-body::-webkit-scrollbar { width: 6px; }
+  .lg-passage-body::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 30%, transparent);
+    border-radius: 3px;
+  }
+  @container (min-width: 820px) {
+    .lg-passage-body {
+      column-count: 2;
+      column-gap: 36px;
+      column-rule: 1px solid color-mix(in srgb, var(--color-edge) 24%, transparent);
+    }
+    .lg-passage-body h4,
+    .lg-passage-body h5,
+    .lg-passage-body h6 {
+      column-span: all;
+    }
+  }
+  .lg-passage-body > :first-child { margin-top: 0; }
+  .lg-passage-body > :last-child { margin-bottom: 0; }
+  .lg-passage-body h4,
+  .lg-passage-body h5,
+  .lg-passage-body h6 {
+    font-family: var(--font-family-display);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--color-fg-2);
+    margin: 18px 0 6px;
+    break-after: avoid;
+  }
+  .lg-passage-body h4 {
+    font-size: 18px;
+    color: var(--c, var(--color-fg));
+  }
+  .lg-passage-body h5 {
+    font-size: 10.5px;
+    letter-spacing: 0.34em;
     text-transform: uppercase;
+    color: var(--c, var(--color-fg-3));
+    opacity: 0.88;
+    position: relative;
+    padding-left: 16px;
+    margin-top: 20px;
+  }
+  .lg-passage-body h5::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 10px;
+    height: 1px;
+    background: currentColor;
+    transform: translateY(-50%);
+  }
+  .lg-passage-body h6 {
+    font-size: 12px;
     color: var(--color-fg-3);
   }
-  .lg-persona-body h6 { font-size: 11px; color: var(--color-fg-3); }
-  .lg-persona-body p {
-    margin: 0 0 8px;
-  }
-  .lg-persona-body ul {
+  .lg-passage-body p { margin: 0 0 10px; }
+  .lg-passage-body ul {
     list-style: none;
-    margin: 0 0 8px;
+    margin: 0 0 12px;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 5px;
   }
-  .lg-persona-body li {
+  .lg-passage-body li {
     position: relative;
-    padding-left: 12px;
+    padding-left: 20px;
   }
-  .lg-persona-body li::before {
-    content: "·";
+  .lg-passage-body li::before {
+    content: "";
     position: absolute;
     left: 2px;
-    color: var(--color-fg-3);
+    top: 0.75em;
+    width: 10px;
+    height: 1px;
+    background: var(--c, var(--color-fg-4));
+    opacity: 0.55;
+  }
+
+  @media (max-width: 640px) {
+    .lg-passage-strip { padding: 8px 16px 8px 12px; gap: 10px; }
+    .lg-passage-label { font-size: 9px; letter-spacing: 0.26em; }
+    .lg-passage-hint { font-size: 9px; letter-spacing: 0.22em; }
+    .lg-passage-card { padding: 26px 20px 22px; }
+    .lg-passage-head { grid-template-columns: 76px minmax(0, 1fr); column-gap: 18px; }
+    .lg-passage-stamp { display: none; }
+    .lg-passage-portrait .lg-portrait { width: 76px; height: 76px; }
+    .lg-passage-display { font-size: 22px; }
   }
 
   .lg-item-list, .lg-quest-list {
@@ -2145,7 +2549,7 @@ const STYLES = `<style>
   }
   .lg-ability {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 8px;
     align-items: baseline;
     font-size: 13px;
@@ -2154,13 +2558,6 @@ const STYLES = `<style>
     padding: 4px 8px;
     border-left: 2px solid color-mix(in srgb, ${VERDIGRIS} 24%, transparent);
     background: color-mix(in srgb, ${VERDIGRIS} 4%, transparent);
-  }
-  .lg-ability-abbr {
-    font-family: var(--font-family-mono);
-    font-size: 9.5px;
-    letter-spacing: 0.18em;
-    color: var(--color-fg-3);
-    padding-top: 2px;
   }
   .lg-ability-ko {
     font-weight: 500;
@@ -2268,16 +2665,11 @@ const STYLES = `<style>
     gap: 10px;
     color: var(--color-fg);
   }
-  .lg-builder-short {
-    font-family: var(--font-family-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.24em;
-    color: ${ILLUMINATED_COPPER};
-  }
   .lg-builder-long {
     font-family: var(--font-family-body);
     font-size: 13px;
-    color: var(--color-fg-2);
+    color: var(--color-fg);
+    letter-spacing: 0.04em;
   }
   .lg-builder-stepper {
     display: inline-flex;
@@ -2684,9 +3076,6 @@ const STYLES = `<style>
   .lg-stage[data-mode="combat"] .lg-ability-ko {
     color: #d8c9a8;
   }
-  .lg-stage[data-mode="combat"] .lg-ability-abbr {
-    color: #8a7658;
-  }
   .lg-stage[data-mode="combat"] .lg-ability-mod {
     color: #d48a1f;
   }
@@ -2786,18 +3175,21 @@ export function render(ctx: RenderContext): string {
     return `${STYLES}
       <div class="lg-stage" data-mode="${mode}">
         ${renderLogHeader(status, entryCode)}
+        ${renderPersonaBar(persona)}
         <div class="lg-reel">${renderEmpty()}</div>
         ${pendingCard}
       </div>`;
   }
 
   const beats = renderBeats(groups, ctx, nameMap, fallbackColorMap, persona);
-  const appendix = renderAppendix(inventory, quests, stats, persona);
+  const appendix = renderAppendix(inventory, quests, stats);
+  const personaBar = renderPersonaBar(persona);
   const choicesHtml = renderNextChoices(choices, stats);
 
   return `${STYLES}
     <div class="lg-stage" data-mode="${mode}">
       ${renderLogHeader(status, entryCode)}
+      ${personaBar}
       <div class="lg-body">
         <div class="lg-reel">
           ${beats}

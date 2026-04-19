@@ -10,7 +10,7 @@ disable-model-invocation: true
 ```
 /init
 이름: <표시 이름>
-스탯: STR <n> AGI <n> INS <n> CHA <n>
+스탯: 힘 <n> 민첩 <n> 통찰 <n> 화술 <n>
 ```
 
 - 스탯 각 값: 정수, -1 ~ +5, 총합 6
@@ -82,10 +82,10 @@ names: "<표시 이름 원문>"
 #### `files/stats.yaml`
 
 ```yaml
-strength: <n>
-agility: <n>
-insight: <n>
-charisma: <n>
+힘: <n>
+민첩: <n>
+통찰: <n>
+화술: <n>
 ```
 
 추가로 `status.yaml`/`stats.yaml`/`inventory.yaml`/`quest.yaml`/`world-state.yaml`도 초기화한다.

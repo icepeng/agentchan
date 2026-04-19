@@ -2,7 +2,7 @@
 
 ### 데이터 파일
 - `files/status.yaml` — HP/MP/감정/위치/상태이상
-- `files/stats.yaml` — 능력치 보정치 (strength/agility/insight/charisma). 판정 주사위에 반영
+- `files/stats.yaml` — 능력치 보정치 (힘/민첩/통찰/화술). 판정 주사위에 반영
 - `files/inventory.yaml` — 인벤토리
 - `files/quest.yaml` — 퀘스트 트래커
 - `files/world-state.yaml` — 분위기 모드 (`peace` | `combat`) → 렌더러 테마 신호
@@ -49,13 +49,13 @@ conditions:
 
 #### `files/stats.yaml`
 ```yaml
-strength: 3
-agility: 1
-insight: 0
-charisma: 2
+힘: 3
+민첩: 1
+통찰: 0
+화술: 2
 ```
 - 능력치 보정치. 정수 (음수 허용). 표준 범위 -1 ~ +5, 부트스트랩 기본 총합 6
-- 키는 `strength` · `agility` · `insight` · `charisma` 넷.
+- 키는 `힘` · `민첩` · `통찰` · `화술` 넷. YAML 한글 키를 그대로 사용한다
 - 성장/훈련/축복 같은 서사적 사건이 있을 때만 overwrite — 판정 결과로 흔들지 마세요
 
 #### `files/inventory.yaml`
@@ -119,15 +119,15 @@ scene.md append시 **2-4개 선택지**를 마지막에 둡니다.
 
 ```
 [CHOICES]
-- label: 지하실 문을 부순다 | action: 지하실 문을 강제로 연다 | stat: strength | dc: 14
-- label: 자물쇠를 따본다 | action: 자물쇠를 조심스레 조작한다 | stat: agility | dc: 12
+- label: 지하실 문을 부순다 | action: 지하실 문을 강제로 연다 | stat: 힘 | dc: 14
+- label: 자물쇠를 따본다 | action: 자물쇠를 조심스레 조작한다 | stat: 민첩 | dc: 12
 - label: 주변을 살핀다 | action: 주변을 둘러본다
 [/CHOICES]
 ```
 
 - `label` (필수) — 버튼에 표시되는 짧은 문구
 - `action` (필수) — 클릭 시 입력창에 채워질 사용자 메시지
-- `stat` (선택) — `strength` | `agility` | `insight` | `charisma` 등 능력치
+- `stat` (선택) — `힘` | `민첩` | `통찰` | `화술` 네 능력치 중 하나
 - `dc` (선택) — 난이도 (8 쉬움 / 12 보통 / 15 어려움 / 18 매우 어려움 / 22 거의 불가능)
 - 필드는 ` | ` 로 구분
 
@@ -138,7 +138,7 @@ User: "지하실 문을 연다"
 1. 판정이 필요하면 `stats.yaml`에서 해당 능력치 보정을 읽어 dice-roll script로 굴린다:
 
 ```
-(stats.yaml: insight = 2)
+(stats.yaml: 통찰 = 2)
 script(file: "skills/dice-roll/scripts/roll.ts", args: ["1d20+2", "13"])
 → 결과:
    Notation: 1d20+2
@@ -164,7 +164,7 @@ script(file: "skills/dice-roll/scripts/roll.ts", args: ["1d20+2", "13"])
 [SYSTEM] 아이템 획득: 낡은 열쇠
 
 [CHOICES]
-- label: 벽을 살펴본다 | action: 벽 뒤의 바람을 추적한다 | stat: insight | dc: 13
+- label: 벽을 살펴본다 | action: 벽 뒤의 바람을 추적한다 | stat: 통찰 | dc: 13
 - label: 열쇠를 챙긴다 | action: 낡은 열쇠를 챙기고 위층으로 돌아간다
 - label: 엘라라에게 의견을 묻는다 | action: 엘라라에게 어떻게 생각하는지 묻는다
 [/CHOICES]

@@ -25,9 +25,9 @@ script(file: "skills/dice-roll/scripts/roll.ts", args: ["<dice>", "<DC>"])
 
 ## 판정 예시 흐름
 
-상황: 사용자가 "자물쇠를 따본다" (도적 페르소나, AGI +3, DC 12 민첩 판정)
+상황: 사용자가 "자물쇠를 따본다" (도적 페르소나, 민첩 +3, DC 12 민첩 판정)
 
-1. `stats.yaml` 조회 → `agility: 3`
+1. `stats.yaml` 조회 → `민첩: 3`
 2. script 호출: `args: ["1d20+3", "12"]`
 3. 결과:
    ```
