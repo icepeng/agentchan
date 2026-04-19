@@ -91,27 +91,30 @@ function main() {
   const subtotal = kept.reduce((a, b) => a + b, 0);
   const total = subtotal + parsed.modifier;
 
-  // Format output
+  // Format output — dice(raw) · modifier · total · DC를 각각 한 줄로 분리.
+  // SYSTEM.md [SYSTEM] 판정 기록이 raw와 modifier를 합산 없이 남기도록 유도.
   const parts: string[] = [];
 
-  // Roll line
+  parts.push(`Notation: ${diceExpr}`);
+
+  // Dice roll (modifier 미포함 raw 값)
   if (parsed.keepHighest !== undefined) {
     const rollStr = rolls
       .map((r, i) => (keptIndices.has(i) ? `${r}` : `~${r}~`))
       .join(", ");
-    parts.push(`${diceExpr}: [${rollStr}]`);
+    parts.push(`Rolls: [${rollStr}]`);
     parts.push(`Kept: [${kept.join(", ")}] = ${subtotal}`);
   } else if (parsed.count > 1) {
-    parts.push(`${diceExpr}: [${rolls.join(", ")}] = ${subtotal}`);
+    parts.push(`Rolls: [${rolls.join(", ")}] = ${subtotal}`);
   } else {
-    parts.push(`${diceExpr}: ${subtotal}`);
+    parts.push(`Roll: ${subtotal}`);
   }
 
-  // Modifier
+  // Modifier 와 Total 은 modifier 가 있을 때만 출력 (없으면 Roll 자체가 total)
   if (parsed.modifier !== 0) {
     const sign = parsed.modifier > 0 ? "+" : "";
     parts.push(`Modifier: ${sign}${parsed.modifier}`);
-    parts.push(`Total: ${total}`);
+    parts.push(`Total: ${subtotal} ${sign}${parsed.modifier} = ${total}`);
   }
 
   // DC check
@@ -119,7 +122,7 @@ function main() {
     const passed = total >= dc;
     const margin = total - dc;
     const marginStr = margin >= 0 ? `+${margin}` : `${margin}`;
-    parts.push(`DC ${dc}: ${passed ? "PASS" : "FAIL"} (${marginStr})`);
+    parts.push(`DC ${dc}: ${passed ? "PASS" : "FAIL"} (margin ${marginStr})`);
   }
 
   console.log(parts.join("\n"));

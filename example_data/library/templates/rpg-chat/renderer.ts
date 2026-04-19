@@ -14,10 +14,6 @@
 //           잉크 스탬프 시스템 카드 / 세피아 폴라로이드 감정 삽화 /
 //           컴퍼스 rose 디바이더
 //   · 하단 APPENDIX: PACK MANIFEST(인벤토리) · STANDING CHARTS(퀘스트)
-//
-//   파싱 계층은 기존 마커 규격과 묶여 있어 보존한다. 시각 언어만 교체.
-//   Idiomorph가 DOM을 morph하므로 beat마다 index 기반 stable id를 부여하여
-//   재렌더 간 CSS 애니메이션이 끊기지 않게 한다.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface TextFile {
@@ -34,11 +30,43 @@ interface BinaryFile {
   modifiedAt: number;
 }
 
-type ProjectFile = TextFile | BinaryFile;
+interface DataFile {
+  type: "data";
+  path: string;
+  content: string;
+  data: unknown;
+  format: "yaml" | "json";
+  modifiedAt: number;
+}
+
+type ProjectFile = TextFile | BinaryFile | DataFile;
+
+interface RenderToolContentBlock {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
+interface RenderToolCall {
+  id: string;
+  name: string;
+  args?: unknown;
+  argsComplete: boolean;
+  executionStarted: boolean;
+  result?: { content: RenderToolContentBlock[]; isError: boolean };
+}
+
+interface RenderStreamView {
+  isStreaming: boolean;
+  text: string;
+  toolCalls: RenderToolCall[];
+}
 
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
+  stream: RenderStreamView;
 }
 
 // ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
@@ -61,27 +89,58 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
-// ── Theme: Vellum Day — 크림 양피지 · 세피아 잉크 · 풍화 청동 · 채식 구리 ──
+// ── Theme: Vellum Day(평상) ↔ Iron Vigil(전투) ──
 //
-// sentinel과 동일한 override 패턴이지만 scheme이 light.
-// prefersScheme: "light" → Settings 이동 시 사용자의 원래 테마로 자동 복귀.
-// void는 페이지 외곽(조금 더 짙은 종이), surface는 로그북 본문의 가장 밝은 면.
+// world-state.yaml 의 mode 필드(peace|combat)에 따라 팔레트를 분기.
+// peace: 크림 양피지 · 세피아 잉크 · 풍화 청동 · 채식 구리 (light scheme)
+// combat: 어두운 가죽 · 촛불 황금 · 핏빛 잉크 (dark scheme)
+// 둘 다 prefersScheme 명시 → Settings 이동 시 사용자의 원래 테마로 자동 복귀.
 
-export function theme(_ctx: RenderContext): RendererTheme {
-  return {
-    base: {
-      void: "#e8dcc0",     // 낡은 양피지 가장자리 (body bg)
-      base: "#eee3c8",     // 페이지 외곽
-      surface: "#f6ecd2",  // 로그북 본문
-      elevated: "#fff8e4", // 폴라로이드·스탬프 캐리어
-      accent: "#3d7a6d",   // verdigris — 풍화된 청동, anima·신뢰·성공
-      fg: "#2d2015",       // 진한 세피아 잉크
-      fg2: "#5a4530",      // 중간 잉크
-      fg3: "#8a6e4d",      // 흐린 펜
-      edge: "#3d2a15",     // 잉크 hairline 기준색
-    },
-    prefersScheme: "light",
-  };
+const PEACE_THEME: RendererTheme = {
+  base: {
+    void: "#e8dcc0", // 낡은 양피지 가장자리 (body bg)
+    base: "#eee3c8", // 페이지 외곽
+    surface: "#f6ecd2", // 로그북 본문
+    elevated: "#fff8e4", // 폴라로이드·스탬프 캐리어
+    accent: "#3d7a6d", // verdigris — 풍화된 청동, anima·신뢰·성공
+    fg: "#2d2015", // 진한 세피아 잉크
+    fg2: "#5a4530", // 중간 잉크
+    fg3: "#8a6e4d", // 흐린 펜
+    edge: "#3d2a15", // 잉크 hairline 기준색
+  },
+  prefersScheme: "light",
+};
+
+const COMBAT_THEME: RendererTheme = {
+  base: {
+    void: "#1a110a", // 검은 가죽 가장자리
+    base: "#1a110a", // 어두운 가죽 본문
+    surface: "#251810", // 패널
+    elevated: "#2e1c14", // 카드·스탬프
+    accent: "#d48a1f", // 촛불 황금 — 강조·성공·고리
+    fg: "#d8c9a8", // 촛불 아래 양피지 색
+    fg2: "#b8a38a", // 어두운 잉크
+    fg3: "#8a7658", // 흐린 어두운 잉크
+    edge: "#3d2a1f", // 어두운 가죽 hairline
+  },
+  prefersScheme: "dark",
+};
+
+function readWorldMode(ctx: RenderContext): "peace" | "combat" {
+  const file = ctx.files.find(
+    (f): f is DataFile => f.type === "data" && f.path === "world-state.yaml",
+  );
+  if (!file) return "peace";
+  const root =
+    file.data && typeof file.data === "object"
+      ? (file.data as Record<string, unknown>)
+      : null;
+  if (!root) return "peace";
+  return root.mode === "combat" ? "combat" : "peace";
+}
+
+export function theme(ctx: RenderContext): RendererTheme {
+  return readWorldMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
 }
 
 // ── Palette (renderer internal) ──────────────
@@ -91,8 +150,8 @@ export function theme(_ctx: RenderContext): RendererTheme {
 // blood)와 의도적으로 다른 용어로 잡아 sentinel과의 정체성 혼동을 방지한다.
 
 const ILLUMINATED_COPPER = "#b36b2a"; // 경고·vigor mid·브랜딩 글리프
-const VERDIGRIS = "#3d7a6d";          // anima·신뢰·성공·컴퍼스 rose
-const VERMILION = "#a83225";          // danger·HP low·상태이상 스탬프
+const VERDIGRIS = "#3d7a6d"; // anima·신뢰·성공·컴퍼스 rose
+const VERMILION = "#a83225"; // danger·HP low·상태이상 스탬프
 
 // 라이트 크림 배경 위에서 시인성을 가진 중채도 안료 톤만 골라 구성.
 const CHARACTER_COLORS = [
@@ -119,10 +178,17 @@ function escapeHtml(text: string): string {
 // 본문은 escapeHtml에서 " 이스케이프 → 스마트 쿼트 치환이 불가능해진다.
 // 본문 텍스트용으로는 별도 처리: < > & 만 이스케이프하여 쿼트 변환을 살린다.
 function escapeText(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
-function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
+function resolveImageUrl(
+  ctx: RenderContext,
+  dir: string,
+  imageKey: string,
+): string {
   return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
 }
 
@@ -192,7 +258,10 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
   return map;
 }
 
-function resolveAvatar(line: ChatLine, nameMap: Map<string, NameMapEntry>): ChatLine {
+function resolveAvatar(
+  line: ChatLine,
+  nameMap: Map<string, NameMapEntry>,
+): ChatLine {
   if (line.type !== "character" || line.charDir) return line;
   const entry = nameMap.get(line.characterName!);
   if (!entry) return line;
@@ -246,100 +315,195 @@ function formatInline(
 // ── RPG Types ───────────────────────────────
 
 interface RpgStatus {
-  hp?: { current: number; max: number };
-  mp?: { current: number; max: number };
+  hp: { current: number; max: number };
+  mp: { current: number; max: number };
   emotion?: string;
   location?: string;
-  effects?: string;
+  conditions: string[];
 }
 
 interface InventoryItem {
-  type: "+" | "-" | "=";
+  slug: string;
   name: string;
-  description?: string;
+  qty?: number;
+  note?: string;
 }
 
 interface QuestEntry {
-  type: "~" | "+" | "\u2713";
-  name: string;
-  description?: string;
+  id: string;
+  status: "active" | "done";
+  title: string;
+  note?: string;
 }
 
-// ── RPG Parsing (기존 로직 보존) ────────────
+interface RpgStats {
+  "힘": number;
+  "민첩": number;
+  "통찰": number;
+  "화술": number;
+}
 
-function parseStatusBlock(content: string): RpgStatus | null {
-  const blocks = [...content.matchAll(/\[STATUS\]\n([\s\S]*?)\n?\[\/STATUS\]/g)];
-  if (blocks.length === 0) return null;
-  const lastBlock = blocks[blocks.length - 1][1];
+type StatKey = keyof RpgStats;
+const STAT_KEYS: readonly StatKey[] = ["힘", "민첩", "통찰", "화술"];
 
-  const status: RpgStatus = {};
-  for (const line of lastBlock.split("\n")) {
-    const match = line.match(/^(\S+):\s*(.+)$/);
-    if (!match) continue;
-    const [, key, value] = match;
-    switch (key) {
-      case "HP": {
-        const m = value.match(/(\d+)\/(\d+)/);
-        if (m) status.hp = { current: parseInt(m[1]), max: parseInt(m[2]) };
-        break;
-      }
-      case "MP": {
-        const m = value.match(/(\d+)\/(\d+)/);
-        if (m) status.mp = { current: parseInt(m[1]), max: parseInt(m[2]) };
-        break;
-      }
-      case "감정":
-        status.emotion = value.trim();
-        break;
-      case "위치":
-        status.location = value.trim();
-        break;
-      case "상태":
-        status.effects = value.trim();
-        break;
+interface ChoiceOption {
+  label: string;
+  action: string;
+  stat?: string;
+  dc?: number;
+}
+
+// ── YAML Readers (DataFile.data is pre-parsed by scanner) ────────────
+
+function findDataFile(ctx: RenderContext, path: string): DataFile | null {
+  const file = ctx.files.find(
+    (f): f is DataFile => f.type === "data" && f.path === path,
+  );
+  return file ?? null;
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function readStatusYaml(ctx: RenderContext): RpgStatus | null {
+  const file = findDataFile(ctx, "status.yaml");
+  if (!file) return null;
+  const root = asObject(file.data);
+  if (!root) return null;
+  const hpObj = asObject(root.hp) ?? {};
+  const mpObj = asObject(root.mp) ?? {};
+  const conditionsRaw = Array.isArray(root.conditions) ? root.conditions : [];
+  return {
+    hp: {
+      current: asNumber(hpObj.current, 0),
+      max: asNumber(hpObj.max, 0),
+    },
+    mp: {
+      current: asNumber(mpObj.current, 0),
+      max: asNumber(mpObj.max, 0),
+    },
+    emotion: asString(root.emotion),
+    location: asString(root.location),
+    conditions: conditionsRaw
+      .map((c) => (typeof c === "string" ? c : null))
+      .filter((c): c is string => c !== null && c.length > 0),
+  };
+}
+
+function readInventoryYaml(ctx: RenderContext): InventoryItem[] {
+  const file = findDataFile(ctx, "inventory.yaml");
+  if (!file) return [];
+  const root = asObject(file.data);
+  if (!root) return [];
+  const items = Array.isArray(root.items) ? root.items : [];
+  const out: InventoryItem[] = [];
+  for (const raw of items) {
+    const obj = asObject(raw);
+    if (!obj) continue;
+    const slug = asString(obj.slug) ?? "";
+    const name = asString(obj.name) ?? slug;
+    if (!name) continue;
+    const item: InventoryItem = { slug, name };
+    if (typeof obj.qty === "number") item.qty = obj.qty;
+    const note = asString(obj.note);
+    if (note) item.note = note;
+    out.push(item);
+  }
+  return out;
+}
+
+function readStatsYaml(ctx: RenderContext): RpgStats | null {
+  const file = findDataFile(ctx, "stats.yaml");
+  if (!file) return null;
+  const root = asObject(file.data);
+  if (!root) return null;
+  return {
+    "힘": asNumber(root["힘"], 0),
+    "민첩": asNumber(root["민첩"], 0),
+    "통찰": asNumber(root["통찰"], 0),
+    "화술": asNumber(root["화술"], 0),
+  };
+}
+
+function readQuestYaml(ctx: RenderContext): QuestEntry[] {
+  const file = findDataFile(ctx, "quest.yaml");
+  if (!file) return [];
+  const root = asObject(file.data);
+  if (!root) return [];
+  const quests = Array.isArray(root.quests) ? root.quests : [];
+  const out: QuestEntry[] = [];
+  for (const raw of quests) {
+    const obj = asObject(raw);
+    if (!obj) continue;
+    const id = asString(obj.id) ?? "";
+    const title = asString(obj.title) ?? id;
+    if (!title) continue;
+    const status = obj.status === "done" ? "done" : "active";
+    const entry: QuestEntry = { id, status, title };
+    const note = asString(obj.note);
+    if (note) entry.note = note;
+    out.push(entry);
+  }
+  return out;
+}
+
+// ── [CHOICES] marker parser ────────────
+//
+// scene.md 의 마지막 [CHOICES]…[/CHOICES] 블록만 활성으로 추출한다.
+// 매 응답 끝에 새 [CHOICES] 가 append 되므로 자연스럽게 stale 제거.
+//
+// 라인 형식:  - label: ... | action: ... | stat: ... | dc: ...
+
+function parseChoicesMarker(content: string): ChoiceOption[] {
+  const blocks = [
+    ...content.matchAll(/\[CHOICES\]\n([\s\S]*?)\n?\[\/CHOICES\]/g),
+  ];
+  if (blocks.length === 0) return [];
+  const last = blocks[blocks.length - 1];
+  const body = last && last[1] ? last[1] : "";
+
+  const options: ChoiceOption[] = [];
+  for (const rawLine of body.split("\n")) {
+    const line = rawLine.replace(/^\s*-\s*/, "").trim();
+    if (!line) continue;
+    const fields: Record<string, string> = {};
+    for (const part of line.split("|")) {
+      const idx = part.indexOf(":");
+      if (idx < 0) continue;
+      const key = part.slice(0, idx).trim();
+      const value = part.slice(idx + 1).trim();
+      if (key) fields[key] = value;
     }
+    const label = fields.label;
+    const action = fields.action;
+    if (!label || !action) continue;
+    const opt: ChoiceOption = { label, action };
+    if (fields.stat) opt.stat = fields.stat;
+    if (fields.dc) {
+      const dcNum = parseInt(fields.dc, 10);
+      if (Number.isFinite(dcNum)) opt.dc = dcNum;
+    }
+    options.push(opt);
   }
-  return status;
-}
-
-function parseInventoryBlock(content: string): InventoryItem[] {
-  const blocks = [...content.matchAll(/\[INVENTORY\]\n([\s\S]*?)\n?\[\/INVENTORY\]/g)];
-  if (blocks.length === 0) return [];
-  const lastBlock = blocks[blocks.length - 1][1];
-
-  const items: InventoryItem[] = [];
-  for (const line of lastBlock.split("\n")) {
-    const match = line.match(/^([+\-=])\s+(.+?)(?:\s+\u2014\s+(.+))?$/);
-    if (!match) continue;
-    items.push({
-      type: match[1] as "+" | "-" | "=",
-      name: match[2].trim(),
-      description: match[3]?.trim(),
-    });
-  }
-  return items;
-}
-
-function parseQuestBlock(content: string): QuestEntry[] {
-  const blocks = [...content.matchAll(/\[QUEST\]\n([\s\S]*?)\n?\[\/QUEST\]/g)];
-  if (blocks.length === 0) return [];
-  const lastBlock = blocks[blocks.length - 1][1];
-
-  const quests: QuestEntry[] = [];
-  for (const line of lastBlock.split("\n")) {
-    const match = line.match(/^([~+\u2713])\s+(.+?)(?:\s+\u2014\s+(.+))?$/);
-    if (!match) continue;
-    quests.push({
-      type: match[1] as "~" | "+" | "\u2713",
-      name: match[2].trim(),
-      description: match[3]?.trim(),
-    });
-  }
-  return quests;
+  return options;
 }
 
 function stripRpgBlocks(content: string): string {
+  // [CHOICES] 는 렌더러가 별도 처리. 본문에서 제거.
+  // 구버전 [STATUS]/[INVENTORY]/[QUEST] 가 남아있을 수 있어 호환 차원에서 함께 제거.
   return content
+    .replace(/\[CHOICES\]\n[\s\S]*?\n?\[\/CHOICES\]\n?/g, "")
     .replace(/\[STATUS\]\n[\s\S]*?\n?\[\/STATUS\]\n?/g, "")
     .replace(/\[INVENTORY\]\n[\s\S]*?\n?\[\/INVENTORY\]\n?/g, "")
     .replace(/\[QUEST\]\n[\s\S]*?\n?\[\/QUEST\]\n?/g, "");
@@ -415,7 +579,8 @@ function groupLines(lines: ChatLine[]): ChatGroup[] {
       prev &&
       prev.type === line.type &&
       (line.type !== "character" ||
-        (prev.characterName === line.characterName && prev.imageKey === line.imageKey))
+        (prev.characterName === line.characterName &&
+          prev.imageKey === line.imageKey))
     ) {
       prev.lines.push(line.text);
     } else {
@@ -442,6 +607,7 @@ interface PersonaInfo {
   displayName: string;
   color: string;
   portraitHtml: string;
+  body: string;
 }
 
 function fallbackColor(name: string, map: Map<string, string>): string {
@@ -461,7 +627,6 @@ function resolveCharacterInfo(
 ): CharacterInfo {
   const entry = nameMap.get(displayName);
   const color = entry?.color || fallbackColor(displayName, fallbackColorMap);
-  const initial = displayName.charAt(0).toUpperCase();
 
   const resolvedDir = charDir ?? entry?.dir;
   if (resolvedDir && imageKey) {
@@ -470,7 +635,7 @@ function resolveCharacterInfo(
       <div class="lg-portrait">
         <div class="lg-portrait-halo"></div>
         <img class="lg-portrait-img" src="${escapeHtml(src)}" alt="${escapeHtml(displayName)}" onerror="this.parentElement.dataset.fallback='1'" />
-        <div class="lg-portrait-fallback" aria-hidden="true">${escapeText(initial)}</div>
+        <div class="lg-portrait-fallback" aria-hidden="true">?</div>
       </div>`;
     return { color, portraitHtml };
   }
@@ -479,7 +644,7 @@ function resolveCharacterInfo(
     color,
     portraitHtml: `<div class="lg-portrait" data-fallback="1">
         <div class="lg-portrait-halo"></div>
-        <div class="lg-portrait-fallback" aria-hidden="true">${escapeText(initial)}</div>
+        <div class="lg-portrait-fallback" aria-hidden="true">?</div>
       </div>`,
   };
 }
@@ -501,10 +666,22 @@ function resolvePersona(
   const dir = personaFile.path.substring(0, personaFile.path.lastIndexOf("/"));
   const imageKey = fm["avatar-image"] ? String(fm["avatar-image"]) : undefined;
   const isolatedColorMap = new Map<string, string>();
-  const info = resolveCharacterInfo(dir, imageKey, displayName, ctx, nameMap, isolatedColorMap);
+  const info = resolveCharacterInfo(
+    dir,
+    imageKey,
+    displayName,
+    ctx,
+    nameMap,
+    isolatedColorMap,
+  );
   const color = fm.color ? String(fm.color) : info.color;
 
-  return { displayName, color, portraitHtml: info.portraitHtml };
+  return {
+    displayName,
+    color,
+    portraitHtml: info.portraitHtml,
+    body: personaFile.content,
+  };
 }
 
 // ── Beat renderers ──────────────────────────
@@ -689,8 +866,8 @@ function renderLogHeader(status: RpgStatus | null, entryCode: string): string {
     : "";
 
   const effects =
-    status.effects && status.effects !== "없음"
-      ? `<span class="lg-effect">${escapeText(status.effects)}</span>`
+    status.conditions.length > 0
+      ? `<span class="lg-effect">${escapeText(status.conditions.join(" · "))}</span>`
       : "";
 
   return `
@@ -724,31 +901,16 @@ function renderLogHeader(status: RpgStatus | null, entryCode: string): string {
 
 function renderPackManifest(items: InventoryItem[]): string {
   if (items.length === 0) return "";
-  const activeCount = items.filter((i) => i.type !== "-").length;
   const rows = items
     .map((item) => {
-      const cls =
-        item.type === "+"
-          ? "lg-item lg-item--acquired"
-          : item.type === "-"
-            ? "lg-item lg-item--expended"
-            : "lg-item lg-item--kept";
-      const glyph =
-        item.type === "+"
-          ? `<span class="lg-item-glyph" style="color:${VERDIGRIS}">&#x2295;</span>`
-          : item.type === "-"
-            ? `<span class="lg-item-glyph" style="color:${VERMILION}">&#x2296;</span>`
-            : '<span class="lg-item-glyph">&middot;</span>';
-      const note =
-        item.type === "+"
-          ? '<span class="lg-item-flag">acquired</span>'
-          : item.type === "-"
-            ? '<span class="lg-item-flag lg-item-flag--spent">expended</span>'
-            : "";
-      const desc = item.description
-        ? ` <span class="lg-item-desc">— ${escapeText(item.description)}</span>`
+      const qty =
+        typeof item.qty === "number" && item.qty > 1
+          ? ` <span class="lg-item-qty">&times;${item.qty}</span>`
+          : "";
+      const note = item.note
+        ? ` <span class="lg-item-desc">— ${escapeText(item.note)}</span>`
         : "";
-      return `<li class="${cls}">${glyph}<span class="lg-item-name">${escapeText(item.name)}</span>${desc}${note}</li>`;
+      return `<li class="lg-item lg-item--kept"><span class="lg-item-glyph">&middot;</span><span class="lg-item-name">${escapeText(item.name)}</span>${qty}${note}</li>`;
     })
     .join("");
 
@@ -756,7 +918,7 @@ function renderPackManifest(items: InventoryItem[]): string {
     <details class="lg-appendix-section">
       <summary class="lg-appendix-head">
         <span class="lg-appendix-title">Pack Manifest</span>
-        <span class="lg-appendix-count">${activeCount.toString().padStart(2, "0")}</span>
+        <span class="lg-appendix-count">${items.length.toString().padStart(2, "0")}</span>
         <span class="lg-appendix-chevron" aria-hidden="true"></span>
       </summary>
       <ul class="lg-item-list">${rows}</ul>
@@ -765,31 +927,25 @@ function renderPackManifest(items: InventoryItem[]): string {
 
 function renderStandingCharts(quests: QuestEntry[]): string {
   if (quests.length === 0) return "";
-  const openCount = quests.filter((q) => q.type !== "\u2713").length;
+  const openCount = quests.filter((q) => q.status !== "done").length;
   const rows = quests
     .map((q) => {
       const cls =
-        q.type === "~"
-          ? "lg-quest lg-quest--pursuing"
-          : q.type === "+"
-            ? "lg-quest lg-quest--sighted"
-            : "lg-quest lg-quest--closed";
+        q.status === "done"
+          ? "lg-quest lg-quest--closed"
+          : "lg-quest lg-quest--pursuing";
       const glyph =
-        q.type === "~"
-          ? `<span class="lg-quest-glyph" style="color:${ILLUMINATED_COPPER}">&#x223D;</span>`
-          : q.type === "+"
-            ? `<span class="lg-quest-glyph" style="color:${VERDIGRIS}">&#x2726;</span>`
-            : '<span class="lg-quest-glyph">&#x203B;</span>';
+        q.status === "done"
+          ? '<span class="lg-quest-glyph">&#x2713;</span>'
+          : `<span class="lg-quest-glyph" style="color:${ILLUMINATED_COPPER}">&#x223D;</span>`;
       const flag =
-        q.type === "~"
-          ? '<span class="lg-quest-flag">in pursuit</span>'
-          : q.type === "+"
-            ? '<span class="lg-quest-flag lg-quest-flag--new">new sighting</span>'
-            : '<span class="lg-quest-flag lg-quest-flag--closed">closed</span>';
-      const desc = q.description
-        ? ` <span class="lg-quest-desc">— ${escapeText(q.description)}</span>`
+        q.status === "done"
+          ? '<span class="lg-quest-flag lg-quest-flag--closed">closed</span>'
+          : '<span class="lg-quest-flag">in pursuit</span>';
+      const desc = q.note
+        ? ` <span class="lg-quest-desc">— ${escapeText(q.note)}</span>`
         : "";
-      return `<li class="${cls}">${glyph}<span class="lg-quest-name">${escapeText(q.name)}</span>${desc}${flag}</li>`;
+      return `<li class="${cls}">${glyph}<span class="lg-quest-name">${escapeText(q.title)}</span>${desc}${flag}</li>`;
     })
     .join("");
 
@@ -804,34 +960,682 @@ function renderStandingCharts(quests: QuestEntry[]): string {
     </details>`;
 }
 
-function renderAppendix(items: InventoryItem[], quests: QuestEntry[]): string {
+// Ability Scores — stats.yaml 의 4개 능력치를 보정치 형태(+/-)로 표시.
+// 0 이상은 +prefix, 음수는 그대로. 값 강도에 따라 highlight 클래스 토글.
+
+function renderAbilityScores(stats: RpgStats | null): string {
+  if (!stats) return "";
+  const rows = STAT_KEYS.map((key) => {
+    const value = stats[key];
+    const mod = formatMod(value);
+    const tone =
+      value >= 3 ? "lg-ability--strong" : value <= -1 ? "lg-ability--weak" : "";
+    return `<li class="lg-ability ${tone}">
+      <span class="lg-ability-ko">${escapeText(key)}</span>
+      <span class="lg-ability-mod">${mod}</span>
+    </li>`;
+  }).join("");
+
+  return `
+    <details class="lg-appendix-section" open>
+      <summary class="lg-appendix-head">
+        <span class="lg-appendix-title">Ability Scores</span>
+        <span class="lg-appendix-count">4</span>
+        <span class="lg-appendix-chevron" aria-hidden="true"></span>
+      </summary>
+      <ul class="lg-ability-list">${rows}</ul>
+    </details>`;
+}
+
+// Persona body는 heading/문단/불릿만 지원하는 미니 markdown. chat 전용 formatInline은
+// *강조*·이미지 토큰 등 산문에 부적절한 변환이 섞여 있어 여기서는 재사용하지 않는다.
+function renderPersonaBody(body: string): string {
+  const lines = body.replace(/\r/g, "").split("\n");
+  const out: string[] = [];
+  let paragraph: string[] = [];
+  let bullets: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length > 0) {
+      out.push(`<p>${paragraph.map(escapeText).join(" ")}</p>`);
+      paragraph = [];
+    }
+  };
+  const flushBullets = () => {
+    if (bullets.length > 0) {
+      out.push(
+        `<ul>${bullets.map((b) => `<li>${escapeText(b)}</li>`).join("")}</ul>`,
+      );
+      bullets = [];
+    }
+  };
+  const flushAll = () => {
+    flushParagraph();
+    flushBullets();
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.length === 0) {
+      flushAll();
+      continue;
+    }
+    const h3 = /^###\s+(.*)$/.exec(line);
+    if (h3) {
+      flushAll();
+      out.push(`<h6>${escapeText(h3[1] ?? "")}</h6>`);
+      continue;
+    }
+    const h2 = /^##\s+(.*)$/.exec(line);
+    if (h2) {
+      flushAll();
+      out.push(`<h5>${escapeText(h2[1] ?? "")}</h5>`);
+      continue;
+    }
+    const h1 = /^#\s+(.*)$/.exec(line);
+    if (h1) {
+      flushAll();
+      out.push(`<h4>${escapeText(h1[1] ?? "")}</h4>`);
+      continue;
+    }
+    const bullet = /^-\s+(.*)$/.exec(line);
+    if (bullet) {
+      flushParagraph();
+      bullets.push(bullet[1] ?? "");
+      continue;
+    }
+    flushBullets();
+    paragraph.push(line);
+  }
+  flushAll();
+
+  return out.join("");
+}
+
+function renderPersonaBar(persona: PersonaInfo | null): string {
+  if (!persona) return "";
+  const body = renderPersonaBody(persona.body);
+  if (!body) return "";
+  return `
+    <details class="lg-passage" style="--c: ${escapeHtml(persona.color)}">
+      <summary class="lg-passage-strip">
+        <span class="lg-passage-seal" aria-hidden="true">
+          <span class="lg-passage-seal-avatar">${persona.portraitHtml}</span>
+        </span>
+        <span class="lg-passage-label">PASSAGE&nbsp;PAPERS</span>
+        <span class="lg-passage-divider" aria-hidden="true"></span>
+        <span class="lg-passage-name">${escapeText(persona.displayName)}</span>
+        <span class="lg-passage-hint">
+          <span class="lg-passage-hint-text">DOSSIER</span>
+          <span class="lg-passage-hint-text lg-passage-hint-text--open">접기</span>
+          <span class="lg-passage-chevron" aria-hidden="true"></span>
+        </span>
+      </summary>
+      <div class="lg-passage-drawer" role="region" aria-label="Passage papers dossier">
+        <div class="lg-passage-card">
+          <div class="lg-passage-meridian" aria-hidden="true">
+            <span class="lg-passage-meridian-mark">&#x2726;</span>
+          </div>
+          <div class="lg-passage-corner lg-passage-corner--tl" aria-hidden="true"></div>
+          <div class="lg-passage-corner lg-passage-corner--tr" aria-hidden="true"></div>
+          <div class="lg-passage-corner lg-passage-corner--bl" aria-hidden="true"></div>
+          <div class="lg-passage-corner lg-passage-corner--br" aria-hidden="true"></div>
+          <header class="lg-passage-head">
+            <div class="lg-passage-portrait">${persona.portraitHtml}</div>
+            <div class="lg-passage-title">
+              <span class="lg-passage-eyebrow">Archivist&apos;s Dossier</span>
+              <h3 class="lg-passage-display">${escapeText(persona.displayName)}</h3>
+              <span class="lg-passage-rule"></span>
+            </div>
+            <span class="lg-passage-stamp" aria-hidden="true">
+              <span class="lg-passage-stamp-top">FILED</span>
+              <span class="lg-passage-stamp-mid">&#x26C6;</span>
+              <span class="lg-passage-stamp-bot">UNDER LOG</span>
+            </span>
+          </header>
+          <div class="lg-passage-body">${body}</div>
+        </div>
+      </div>
+    </details>`;
+}
+
+function renderAppendix(
+  items: InventoryItem[],
+  quests: QuestEntry[],
+  stats: RpgStats | null,
+): string {
+  const abilities = renderAbilityScores(stats);
   const manifest = renderPackManifest(items);
   const charts = renderStandingCharts(quests);
-  if (!manifest && !charts) return "";
+  if (!abilities && !manifest && !charts) return "";
   return `
     <footer class="lg-appendix">
+      ${abilities}
       ${manifest}
       ${charts}
     </footer>`;
 }
 
-// ── Empty state ─────────────────────────────
+// ── Next Choices (선택지 버튼) ──────────────
+//
+// scene.md 의 마지막 [CHOICES] 블록만 렌더링. data-action="fill" 로 클릭 시 입력창에 채움.
+// 메타 칩(stat / dc) 은 옵션. 계단식 등장(--i 인덱스 기반).
 
-// README의 "시작하는 한 줄" 세 개 — empty state의 잉크 칩에 그대로 노출
-const OPENING_SEEDS: string[] = [
-  "초보 모험가 1레벨. 마을 광장에서 시작.",
-  "장비 없이 해적선 갑판에서 깨어나는 장면. HP 60/100으로 시작.",
-  "엘라라가 퀘스트를 주는 주점에서 시작",
-];
+function formatMod(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
+function lookupStatMod(stats: RpgStats | null, stat: string): number | null {
+  if (!stats) return null;
+  const match = STAT_KEYS.find((k) => k === stat);
+  return match ? stats[match] : null;
+}
+
+function renderNextChoices(
+  options: ChoiceOption[],
+  stats: RpgStats | null,
+): string {
+  if (options.length === 0) return "";
+  const rows = options
+    .map((opt, i) => {
+      const mod = opt.stat ? lookupStatMod(stats, opt.stat) : null;
+      const statText = opt.stat
+        ? mod !== null
+          ? `${opt.stat} ${formatMod(mod)}`
+          : opt.stat
+        : "";
+      const stat = statText
+        ? `<span class="lg-choice-stat">${escapeText(statText)}</span>`
+        : "";
+      const dc =
+        typeof opt.dc === "number"
+          ? `<span class="lg-choice-dc">DC ${opt.dc}</span>`
+          : "";
+      const meta =
+        stat || dc ? `<span class="lg-choice-meta">${stat}${dc}</span>` : "";
+      return `<button type="button"
+                class="lg-choice-option"
+                style="--i:${i}"
+                data-action="fill"
+                data-text="${escapeHtml(opt.action)}">
+                <span class="lg-choice-label">${escapeText(opt.label)}</span>
+                ${meta}
+              </button>`;
+    })
+    .join("");
+
+  return `
+    <div class="lg-choice" role="group" aria-label="다음 행동">
+      <div class="lg-choice-head">
+        <span class="lg-choice-glyph" aria-hidden="true">&#x2756;</span>
+        <span class="lg-choice-title">다음 행동</span>
+        <span class="lg-choice-hint">버튼을 누르면 입력창에 채워집니다. 자유 입력도 가능합니다.</span>
+      </div>
+      <div class="lg-choice-list">${rows}</div>
+    </div>`;
+}
+
+// ── Scriptorium Ritual (스트리밍 중 시각 피드백) ─────────
+//
+// 도구 호출 단계마다 작은 의식이 돌아간다. dice-roll(script) 호출은
+// args/result.content를 통해 실제 굴러나온 숫자에 정확히 멈춘다.
+// id 고정 → Idiomorph가 DOM을 보존하므로 CSS 애니메이션이 끊기지 않는다.
+
+const RITUAL_NARRATION: Record<"peace" | "combat", Record<string, string>> = {
+  peace: {
+    thinking: "필경사의 깃펜이 떠오른다",
+    script: "오라클이 주사위를 흔든다",
+    read: "낡은 책장이 펼쳐진다",
+    grep: "돋보기가 양피지를 훑는다",
+    write: "서기관이 인장을 찍는다",
+    edit: "잉크를 지워 다시 새긴다",
+    tree: "나침반이 방위를 돌린다",
+    activate_skill: "비의서의 인장이 빛을 낸다",
+  },
+  combat: {
+    thinking: "촛불 아래 호흡이 가라앉는다",
+    script: "피 묻은 주사위가 던져진다",
+    read: "오래된 서약서가 풀린다",
+    grep: "횃불로 어둠을 훑는다",
+    write: "검은 잉크가 새겨진다",
+    edit: "맹세가 고쳐 쓰인다",
+    tree: "어둠 속 지도가 펼쳐진다",
+    activate_skill: "인장이 핏빛으로 달아오른다",
+  },
+};
+
+function ritualNarration(mode: "peace" | "combat", tool: string): string {
+  const map = RITUAL_NARRATION[mode];
+  return map[tool] ?? map.thinking ?? "";
+}
+
+function lastSegment(p: string): string {
+  const parts = p.split(/[\\/]/);
+  return parts[parts.length - 1] ?? p;
+}
+
+function ritualArgLabel(toolName: string, args: unknown): string {
+  if (!args || typeof args !== "object") return "";
+  const a = args as Record<string, unknown>;
+  switch (toolName) {
+    case "read": {
+      const path = a.path;
+      return typeof path === "string" ? lastSegment(path) : "";
+    }
+    case "grep": {
+      const p = a.pattern;
+      if (typeof p !== "string") return "";
+      return p.length > 28 ? p.slice(0, 28) + "\u2026" : p;
+    }
+    case "write":
+    case "edit": {
+      const fp = a.file_path ?? a.path;
+      return typeof fp === "string" ? lastSegment(fp) : "";
+    }
+    case "tree": {
+      const path = a.path;
+      return typeof path === "string" ? path : "";
+    }
+    case "activate_skill": {
+      const sn = a.skill_name ?? a.name;
+      return typeof sn === "string" ? sn : "";
+    }
+    case "script": {
+      // dice-roll skill: { file: "skills/dice-roll/scripts/roll.ts", args: ["1d20+3", "12"] }
+      const inner = a.args;
+      if (Array.isArray(inner) && typeof inner[0] === "string") return inner[0];
+      const file = a.file;
+      if (typeof file === "string") return lastSegment(file);
+      return "";
+    }
+    default:
+      return "";
+  }
+}
+
+interface DiceParse {
+  expr: string;
+  count: number;
+  sides: number;
+  mod: number;
+  keep: number | null;
+  dc: number | null;
+}
+
+function parseDiceArgs(args: unknown): DiceParse | null {
+  if (!args || typeof args !== "object") return null;
+  const a = (args as Record<string, unknown>).args;
+  if (!Array.isArray(a) || typeof a[0] !== "string") return null;
+  const expr = a[0];
+  const m = expr
+    .toLowerCase()
+    .trim()
+    .match(/^(\d*)d(\d+)(?:kh(\d+))?(?:([+-])(\d+))?$/);
+  if (!m) return null;
+  const count = m[1] ? parseInt(m[1], 10) : 1;
+  const sides = parseInt(m[2] ?? "0", 10);
+  const keep = m[3] ? parseInt(m[3], 10) : null;
+  const sign = m[4] === "-" ? -1 : 1;
+  const mod = m[5] ? sign * parseInt(m[5], 10) : 0;
+
+  const dcRaw = a[1];
+  const dc =
+    typeof dcRaw === "string" && /^\d+$/.test(dcRaw)
+      ? parseInt(dcRaw, 10)
+      : typeof dcRaw === "number"
+        ? dcRaw
+        : null;
+  return { expr, count, sides, mod, keep, dc };
+}
+
+interface DiceResult {
+  rolls: number[];
+  total: number;
+  dc: number | null;
+  passed: boolean | null;
+  margin: number | null;
+}
+
+function parseDiceResult(
+  content: RenderToolContentBlock[] | undefined,
+): DiceResult | null {
+  if (!content) return null;
+  const text = content
+    .filter((c) => c.type === "text")
+    .map((c) => c.text ?? "")
+    .join("\n");
+  if (!text) return null;
+
+  let rolls: number[] = [];
+  const kept = text.match(/^Kept: \[([^\]]+)\]/m);
+  const multi = text.match(/^Rolls: \[([^\]]+)\]/m);
+  const single = text.match(/^Roll: (-?\d+)/m);
+  if (kept) {
+    rolls = (kept[1] ?? "")
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !Number.isNaN(n));
+  } else if (multi) {
+    // Strip ~N~ markers for "discarded" dice, take just numbers
+    rolls = (multi[1] ?? "")
+      .split(",")
+      .map((s) => parseInt(s.trim().replace(/^~|~$/g, ""), 10))
+      .filter((n) => !Number.isNaN(n));
+  } else if (single && single[1]) {
+    rolls = [parseInt(single[1], 10)];
+  } else {
+    return null;
+  }
+
+  const totalMatch = text.match(/^Total: -?\d+ [+-]\d+ = (-?\d+)/m);
+  const total = totalMatch
+    ? parseInt(totalMatch[1] ?? "0", 10)
+    : rolls.reduce((a, b) => a + b, 0);
+
+  const dcMatch = text.match(/^DC (\d+): (PASS|FAIL) \(margin ([+-]?\d+)\)/m);
+  if (dcMatch) {
+    return {
+      rolls,
+      total,
+      dc: parseInt(dcMatch[1] ?? "0", 10),
+      passed: dcMatch[2] === "PASS",
+      margin: parseInt(dcMatch[3] ?? "0", 10),
+    };
+  }
+  return { rolls, total, dc: null, passed: null, margin: null };
+}
+
+// SVG die: 44×44 rounded square, face number at center. Centered around
+// viewBox center (150, 70). `transform-box: fill-box` keeps tumble centered.
+function renderDieSvg(
+  index: number,
+  total: number,
+  face: string,
+  settled: boolean,
+): string {
+  // Spacing shrinks as count grows so 5 dice still fit in 300px wide
+  const spacing = total <= 2 ? 64 : total === 3 ? 60 : total === 4 ? 52 : 46;
+  const centerX = 150;
+  const x = centerX + (index - (total - 1) / 2) * spacing;
+  const stagger = (index % 3) * 0.08;
+  return `
+    <g class="rdie" transform="translate(${x.toFixed(1)} 68)" data-settled="${settled ? "1" : "0"}" style="--ddur: ${(0.85 + stagger).toFixed(2)}s; --ddly: -${stagger.toFixed(2)}s">
+      <g class="rdie-spin">
+        <rect class="rdie-face" x="-22" y="-22" width="44" height="44" rx="7" />
+        <text class="rdie-text" x="0" y="1" text-anchor="middle" dominant-baseline="middle">${escapeText(face)}</text>
+      </g>
+    </g>`;
+}
+
+function renderDiceCanvas(
+  parse: DiceParse | null,
+  result: DiceResult | null,
+): string {
+  // Cap visible dice at 5; show "+N" badge if more
+  const totalDice = parse?.count ?? 1;
+  const visibleDice = Math.min(totalDice, 5);
+  const overflow = totalDice - visibleDice;
+
+  const settled = result !== null;
+  const dies: string[] = [];
+  for (let i = 0; i < visibleDice; i++) {
+    const face = settled
+      ? String(result.rolls[i] ?? "?")
+      : "?";
+    dies.push(renderDieSvg(i, visibleDice, face, settled));
+  }
+
+  const overflowBadge = overflow > 0
+    ? `<text class="rdie-overflow" x="288" y="30" text-anchor="end">+${overflow}</text>`
+    : "";
+
+  // DC inscription on the left (when DC present), modifier on the right
+  const dcPart = parse?.dc != null
+    ? `<g class="rdc-target" transform="translate(36 68)">
+        <circle class="rdc-ring" cx="0" cy="0" r="22"/>
+        <circle class="rdc-ring rdc-ring-inner" cx="0" cy="0" r="14"/>
+        <text class="rdc-label" x="0" y="-28" text-anchor="middle">DC</text>
+        <text class="rdc-value" x="0" y="5" text-anchor="middle">${parse.dc}</text>
+      </g>`
+    : "";
+
+  const modPart = parse && parse.mod !== 0
+    ? `<g class="rdc-mod" transform="translate(264 68)">
+        <text class="rdc-mod-sign" x="0" y="-4" text-anchor="middle">${parse.mod > 0 ? "+" : "\u2212"}</text>
+        <text class="rdc-mod-value" x="0" y="22" text-anchor="middle">${Math.abs(parse.mod)}</text>
+        <text class="rdc-mod-label" x="0" y="38" text-anchor="middle">MOD</text>
+      </g>`
+    : "";
+
+  return dcPart + modPart + dies.join("") + overflowBadge;
+}
+
+function renderDiceVerdict(
+  parse: DiceParse | null,
+  result: DiceResult | null,
+): string {
+  if (!parse || !result) return "";
+  const { total, dc, passed, margin } = result;
+  const marginStr = margin != null ? (margin >= 0 ? `+${margin}` : `${margin}`) : "";
+  const stamp = passed === true
+    ? `<span class="lg-dice-stamp lg-dice-stamp--pass">
+        <span class="lg-dice-stamp-word">PASS</span>
+        <span class="lg-dice-stamp-dc">${dc != null ? `DC ${dc} · 차이 ${marginStr}` : ""}</span>
+      </span>`
+    : passed === false
+      ? `<span class="lg-dice-stamp lg-dice-stamp--fail">
+          <span class="lg-dice-stamp-word">FAIL</span>
+          <span class="lg-dice-stamp-dc">${dc != null ? `DC ${dc} · 차이 ${marginStr}` : ""}</span>
+        </span>`
+      : "";
+  return `
+    <div class="lg-dice-verdict" aria-hidden="true">
+      <span class="lg-dice-total">${total}</span>
+      ${stamp}
+    </div>`;
+}
+
+// Generic ritual scenes — abstract glyphs for non-dice tools.
+// Scenes share viewBox 0 0 300 140; center is (150, 70).
+function renderGenericScenes(): string {
+  return `
+    <g class="rscene rscene-thinking" aria-hidden="true">
+      <ellipse cx="150" cy="120" rx="46" ry="8" class="rs-shadow"/>
+      <path class="rs-pot" d="M 112 80 L 112 116 Q 112 128 150 128 Q 188 128 188 116 L 188 80 Z"/>
+      <ellipse cx="150" cy="80" rx="38" ry="9" class="rs-pot-rim"/>
+      <ellipse cx="150" cy="82" rx="30" ry="6" class="rs-ink"/>
+      <circle cx="150" cy="82" r="10" class="rs-ripple rs-ripple-1"/>
+      <circle cx="150" cy="82" r="10" class="rs-ripple rs-ripple-2"/>
+      <circle cx="150" cy="82" r="10" class="rs-ripple rs-ripple-3"/>
+      <path class="rs-vapor rs-vapor-1" d="M 138 62 Q 132 46 150 36 Q 168 26 150 10"/>
+      <path class="rs-vapor rs-vapor-2" d="M 162 62 Q 168 48 155 40 Q 140 30 158 18"/>
+    </g>
+    <g class="rscene rscene-read" aria-hidden="true">
+      <path class="rs-page rs-page-l" d="M 154 30 L 50 34 L 54 118 L 150 114 Z"/>
+      <path class="rs-page rs-page-r" d="M 146 30 L 250 34 L 246 118 L 150 114 Z"/>
+      <path class="rs-spine" d="M 150 30 L 150 114"/>
+      <line class="rs-line rs-line-1" x1="62" y1="52" x2="136" y2="50"/>
+      <line class="rs-line rs-line-2" x1="62" y1="68" x2="134" y2="66"/>
+      <line class="rs-line rs-line-3" x1="62" y1="84" x2="132" y2="82"/>
+      <line class="rs-line rs-line-4" x1="62" y1="100" x2="130" y2="98"/>
+      <line class="rs-line rs-line-5" x1="164" y1="52" x2="238" y2="54"/>
+      <line class="rs-line rs-line-6" x1="164" y1="68" x2="236" y2="70"/>
+      <line class="rs-line rs-line-7" x1="164" y1="84" x2="234" y2="86"/>
+      <line class="rs-line rs-line-8" x1="164" y1="100" x2="232" y2="102"/>
+    </g>
+    <g class="rscene rscene-grep" aria-hidden="true">
+      <line class="rs-grep-line rs-grep-line-1" x1="32" y1="44" x2="268" y2="44"/>
+      <line class="rs-grep-line rs-grep-line-2" x1="32" y1="70" x2="268" y2="70"/>
+      <line class="rs-grep-line rs-grep-line-3" x1="32" y1="96" x2="268" y2="96"/>
+      <circle class="rs-grep-hit rs-grep-hit-1" cx="68" cy="44" r="3"/>
+      <circle class="rs-grep-hit rs-grep-hit-2" cx="168" cy="70" r="3"/>
+      <circle class="rs-grep-hit rs-grep-hit-3" cx="228" cy="96" r="3"/>
+      <g class="rs-lens">
+        <circle class="rs-lens-ring" cx="0" cy="0" r="22"/>
+        <circle class="rs-lens-glass" cx="0" cy="0" r="18"/>
+        <line class="rs-lens-handle" x1="16" y1="16" x2="30" y2="30"/>
+      </g>
+    </g>
+    <g class="rscene rscene-write" aria-hidden="true">
+      <rect class="rs-parchment" x="36" y="40" width="228" height="82" rx="4"/>
+      <line class="rs-write-line rs-write-line-1" x1="52" y1="60" x2="220" y2="60"/>
+      <line class="rs-write-line rs-write-line-2" x1="52" y1="80" x2="200" y2="80"/>
+      <line class="rs-write-line rs-write-line-3" x1="52" y1="100" x2="170" y2="100"/>
+      <g class="rs-quill">
+        <path class="rs-quill-feather" d="M 232 6 Q 262 30 252 78 Q 244 86 236 78 Q 228 50 220 20 Z"/>
+        <line class="rs-quill-shaft" x1="240" y1="60" x2="202" y2="96"/>
+        <circle class="rs-quill-tip" cx="202" cy="96" r="2.6"/>
+        <circle class="rs-quill-drop" cx="202" cy="106" r="2.2"/>
+      </g>
+    </g>
+    <g class="rscene rscene-edit" aria-hidden="true">
+      <rect class="rs-parchment" x="36" y="30" width="228" height="90" rx="4"/>
+      <line class="rs-edit-line rs-edit-old-1" x1="52" y1="52" x2="216" y2="52"/>
+      <line class="rs-edit-line rs-edit-old-2" x1="52" y1="76" x2="190" y2="76"/>
+      <line class="rs-edit-line rs-edit-new" x1="52" y1="102" x2="244" y2="102"/>
+      <line class="rs-edit-strike rs-edit-strike-1" x1="52" y1="52" x2="216" y2="52"/>
+    </g>
+    <g class="rscene rscene-tree" aria-hidden="true">
+      <g class="rs-compass">
+        <circle class="rs-compass-ring" cx="150" cy="70" r="54"/>
+        <circle class="rs-compass-inner" cx="150" cy="70" r="40"/>
+        <circle class="rs-compass-inner rs-compass-inner-2" cx="150" cy="70" r="26"/>
+        <path class="rs-compass-rose" d="M 150 20 L 156 70 L 150 120 L 144 70 Z M 100 70 L 150 76 L 200 70 L 150 64 Z"/>
+        <text class="rs-compass-mark" x="150" y="18" text-anchor="middle">N</text>
+        <text class="rs-compass-mark" x="210" y="73" text-anchor="middle">E</text>
+        <text class="rs-compass-mark" x="150" y="132" text-anchor="middle">S</text>
+        <text class="rs-compass-mark" x="90" y="73" text-anchor="middle">W</text>
+      </g>
+      <g class="rs-needle">
+        <path d="M 150 28 L 154 70 L 150 112 L 146 70 Z" class="rs-needle-shape"/>
+      </g>
+      <circle cx="150" cy="70" r="4" class="rs-compass-pivot"/>
+    </g>
+    <g class="rscene rscene-activate_skill" aria-hidden="true">
+      <circle class="rs-sigil-outer" cx="150" cy="70" r="56"/>
+      <circle class="rs-sigil-inner" cx="150" cy="70" r="40"/>
+      <circle class="rs-sigil-inner rs-sigil-inner-2" cx="150" cy="70" r="26"/>
+      <path class="rs-sigil-star" d="M 150 22 L 178 110 L 106 58 L 194 58 L 122 110 Z"/>
+      <circle class="rs-sigil-core" cx="150" cy="70" r="5"/>
+    </g>`;
+}
+
+function renderRitualCanvas(
+  toolKey: string,
+  argLabel: string,
+  parse: DiceParse | null,
+  result: DiceResult | null,
+): string {
+  const diceGroup = toolKey === "script"
+    ? `<g class="rscene rscene-script" aria-hidden="true">${renderDiceCanvas(parse, result)}</g>`
+    : "";
+  const verdict = toolKey === "script" ? renderDiceVerdict(parse, result) : "";
+  const argBadge = argLabel
+    ? `<span class="lg-ritual-arg">${escapeText(argLabel)}</span>`
+    : "";
+  return `
+    <div class="lg-ritual-stage">
+      <svg class="lg-ritual-svg" viewBox="0 0 300 140" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        ${renderGenericScenes()}
+        ${diceGroup}
+      </svg>
+      ${argBadge}
+      ${verdict}
+    </div>`;
+}
+
+function renderSealChain(
+  toolCalls: ReadonlyArray<RenderToolCall>,
+): string {
+  if (toolCalls.length === 0) return "";
+  const max = 8;
+  const visible = toolCalls.slice(-max);
+  const overflow = toolCalls.length - visible.length;
+  const seals = visible.map((tc) => {
+    if (!tc.result) {
+      return `<span class="lg-seal lg-seal--live" title="${escapeHtml(tc.name)}" aria-hidden="true"></span>`;
+    }
+    const cls = tc.result.isError ? "lg-seal--err" : "lg-seal--done";
+    return `<span class="lg-seal ${cls}" title="${escapeHtml(tc.name)}" aria-hidden="true"></span>`;
+  });
+  const more = overflow > 0
+    ? `<span class="lg-seal-more">+${overflow}</span>`
+    : "";
+  return `<div class="lg-ritual-chain" aria-hidden="true">${seals.join("")}${more}</div>`;
+}
+
+function renderPendingCard(
+  stream: RenderStreamView,
+  mode: "peace" | "combat",
+): string {
+  const hidden = stream.isStreaming ? "" : ' hidden aria-hidden="true"';
+  const latest = stream.toolCalls.length > 0
+    ? stream.toolCalls[stream.toolCalls.length - 1]
+    : undefined;
+  const inFlight = stream.toolCalls.find((tc) => !tc.result);
+  // Active focus: prefer in-flight tool, else show settled state of last tool.
+  const focus = inFlight ?? latest;
+  const toolKey = focus?.name ?? "thinking";
+  const stateAttr = focus
+    ? focus.result
+      ? "settled"
+      : "busy"
+    : "thinking";
+
+  // Dice-specific data — only when focus tool is script
+  const diceParse = toolKey === "script" ? parseDiceArgs(focus?.args) : null;
+  const diceResult = toolKey === "script"
+    ? parseDiceResult(focus?.result?.content)
+    : null;
+
+  const narration = ritualNarration(mode, toolKey);
+  const argLabel = focus ? ritualArgLabel(focus.name, focus.args) : "";
+  const sealChain = renderSealChain(stream.toolCalls);
+
+  return `
+    <aside id="lg-pending" class="lg-ritual" data-mode="${mode}" data-tool="${escapeHtml(toolKey)}" data-state="${stateAttr}" role="status" aria-live="polite"${hidden}>
+      <header class="lg-ritual-head">
+        <span class="lg-ritual-name">${escapeText(narration)}</span>
+      </header>
+      ${renderRitualCanvas(toolKey, argLabel, diceParse, diceResult)}
+      ${sealChain}
+      <span class="lg-ritual-mote lg-ritual-mote-1" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-2" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-3" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-4" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-5" aria-hidden="true"></span>
+      <span class="lg-ritual-mote lg-ritual-mote-6" aria-hidden="true"></span>
+    </aside>`;
+}
+
+// ── Empty state: Character Builder ─────────────────────────────
+//
+// 첫 세션 부트스트랩. 스탯 스테퍼(총합 6, 각 -1~+5) + 이름 입력 + 확인 버튼으로
+// `/init` 슬래시 메시지를 조합해 send한다. 확인 버튼은 capture-phase 리스너에서
+// DOM 상태를 읽어 data-text 를 채운 뒤 bubbling의 RenderedView 핸들러가 기존
+// data-action="send" 파이프라인으로 전송하도록 한다. 총합 ≠ 6 또는 이름 공백이면
+// stopImmediatePropagation 으로 전송을 막는다.
+
+const BUILDER_TOTAL = 6;
+const BUILDER_MIN = -1;
+const BUILDER_MAX = 5;
+
+function renderBuilderStepper(key: StatKey): string {
+  return `
+    <div class="lg-builder-row">
+      <span class="lg-builder-label">
+        <span class="lg-builder-long">${escapeText(key)}</span>
+      </span>
+      <div class="lg-builder-stepper" data-stat="${key}">
+        <button type="button" class="lg-builder-step" data-inc="-1" aria-label="${escapeHtml(key)} 감소">&#x2212;</button>
+        <span class="lg-builder-value" data-stat-value="${key}" data-value="0">0</span>
+        <button type="button" class="lg-builder-step" data-inc="1" aria-label="${escapeHtml(key)} 증가">&#x002B;</button>
+      </div>
+    </div>`;
+}
 
 function renderEmpty(): string {
-  const chips = OPENING_SEEDS.map(
-    (seed) => `
-      <button type="button" class="lg-seed" data-action="fill" data-text="${escapeHtml(seed)}">
-        <span class="lg-seed-glyph" aria-hidden="true">&#x2605;</span>
-        <span class="lg-seed-text">${escapeText(seed)}</span>
-      </button>`,
-  ).join("");
+  const rows = STAT_KEYS.map(renderBuilderStepper).join("");
 
   return `
     <div class="lg-empty">
@@ -843,12 +1647,143 @@ function renderEmpty(): string {
         <line x1="6" y1="72" x2="34" y2="72" stroke="currentColor" stroke-width="0.5" opacity="0.4" />
       </svg>
       <div class="lg-empty-rule"></div>
-      <h2 class="lg-empty-title">Uncharted Shores</h2>
-      <p class="lg-empty-sub">첫 로그 엔트리가 기록되면 이 해안이 드러납니다.</p>
+      <h2 class="lg-empty-title">Character Ledger</h2>
+      <p class="lg-empty-sub">모험가 시트를 채워주세요. 총합 ${BUILDER_TOTAL}점을 ${BUILDER_MAX}과 ${BUILDER_MIN} 사이에서 나눕니다.</p>
       <div class="lg-empty-rule"></div>
-      <div class="lg-seed-label">try an opening</div>
-      <div class="lg-seeds">${chips}</div>
-    </div>`;
+      <form class="lg-builder" data-builder="1" onsubmit="return false">
+        <div class="lg-builder-stats">${rows}</div>
+        <div class="lg-builder-total" data-builder-total>
+          <span class="lg-builder-total-label">Total</span>
+          <span class="lg-builder-total-value" data-total-value>0</span>
+          <span class="lg-builder-total-target">/ ${BUILDER_TOTAL}</span>
+        </div>
+        <label class="lg-builder-name">
+          <span class="lg-builder-name-label">이름</span>
+          <input type="text" data-builder-name maxlength="20" placeholder="예: 시아" autocomplete="off" spellcheck="false" />
+        </label>
+        <p class="lg-builder-error" data-builder-error hidden></p>
+        <button type="button" class="lg-builder-submit" data-builder-submit data-action="send" data-text="" disabled>
+          <span class="lg-builder-submit-glyph" aria-hidden="true">&#x2756;</span>
+          <span>이 인물로 시작</span>
+        </button>
+      </form>
+    </div>
+    <script>
+    (function () {
+      var root = document.currentScript && document.currentScript.previousElementSibling;
+      // currentScript는 <div class="lg-empty">의 형제가 아닐 수 있으므로 가장 가까운 폼으로 fallback
+      var form = (root && root.querySelector) ? root.querySelector('.lg-builder') : null;
+      if (!form) form = document.querySelector('.lg-builder[data-builder="1"]');
+      if (!form || form.dataset.bound === '1') return;
+      form.dataset.bound = '1';
+
+      var MIN = ${BUILDER_MIN};
+      var MAX = ${BUILDER_MAX};
+      var TARGET = ${BUILDER_TOTAL};
+      var KEYS = ${JSON.stringify(STAT_KEYS)};
+
+      var nameInput = form.querySelector('[data-builder-name]');
+      var totalEl = form.querySelector('[data-total-value]');
+      var totalBox = form.querySelector('[data-builder-total]');
+      var errorEl = form.querySelector('[data-builder-error]');
+      var submit = form.querySelector('[data-builder-submit]');
+
+      function readStats() {
+        var out = {};
+        KEYS.forEach(function (k) {
+          var el = form.querySelector('[data-stat-value="' + k + '"]');
+          out[k] = el ? parseInt(el.dataset.value, 10) || 0 : 0;
+        });
+        return out;
+      }
+
+      function sum(stats) {
+        return KEYS.reduce(function (a, k) { return a + stats[k]; }, 0);
+      }
+
+      function refresh() {
+        var stats = readStats();
+        var total = sum(stats);
+        totalEl.textContent = String(total);
+        totalBox.dataset.state = total === TARGET ? 'ok' : (total > TARGET ? 'over' : 'under');
+
+        // 경계 도달한 +/- 버튼 비활성화 + 총합 초과 시 +1 억제
+        KEYS.forEach(function (k) {
+          var stepper = form.querySelector('.lg-builder-stepper[data-stat="' + k + '"]');
+          if (!stepper) return;
+          var value = stats[k];
+          var minusBtn = stepper.querySelector('[data-inc="-1"]');
+          var plusBtn = stepper.querySelector('[data-inc="1"]');
+          if (minusBtn) minusBtn.disabled = value <= MIN;
+          if (plusBtn) plusBtn.disabled = value >= MAX || total >= TARGET;
+        });
+
+        var name = (nameInput && nameInput.value || '').trim();
+        var valid = total === TARGET && name.length > 0;
+        submit.disabled = !valid;
+        if (errorEl) {
+          errorEl.hidden = true;
+          errorEl.textContent = '';
+        }
+      }
+
+      form.querySelectorAll('[data-inc]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var stepper = btn.closest('.lg-builder-stepper');
+          if (!stepper) return;
+          var key = stepper.dataset.stat;
+          var valueEl = stepper.querySelector('[data-stat-value="' + key + '"]');
+          if (!valueEl) return;
+          var cur = parseInt(valueEl.dataset.value, 10) || 0;
+          var delta = parseInt(btn.dataset.inc, 10) || 0;
+          var next = cur + delta;
+          if (next < MIN || next > MAX) return;
+          if (delta > 0) {
+            var total = sum(readStats());
+            if (total >= TARGET) return;
+          }
+          valueEl.dataset.value = String(next);
+          valueEl.textContent = next > 0 ? ('+' + next) : String(next);
+          refresh();
+        });
+      });
+
+      if (nameInput) {
+        nameInput.addEventListener('input', refresh);
+        nameInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !e.isComposing) {
+            e.preventDefault();
+            if (!submit.disabled) submit.click();
+          }
+        });
+      }
+
+      // capture-phase: bubbling에서 RenderedView가 data-text를 읽기 전에 세팅 or 차단
+      submit.addEventListener('click', function (e) {
+        var stats = readStats();
+        var total = sum(stats);
+        var name = (nameInput && nameInput.value || '').trim();
+        if (total !== TARGET || !name) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          if (errorEl) {
+            errorEl.hidden = false;
+            errorEl.textContent = total !== TARGET
+              ? '스탯 총합이 ' + TARGET + '이어야 합니다. (현재 ' + total + ')'
+              : '이름을 입력해주세요.';
+          }
+          return;
+        }
+        var statLine = KEYS.map(function (k) { return k + ' ' + stats[k]; }).join(' ');
+        var text = '/init\\n이름: ' + name + '\\n스탯: ' + statLine;
+        submit.dataset.text = text;
+      }, true);
+
+      refresh();
+    })();
+    </script>`;
 }
 
 // ── Beat assembly ────────────────────────────
@@ -874,7 +1809,7 @@ function renderBeats(
         case "divider":
           return renderDivider(id);
         case "system":
-          return renderSystem(g.lines[0], id);
+          return renderSystem(g.lines[0] ?? "", id);
       }
     })
     .join("\n");
@@ -885,14 +1820,22 @@ function renderBeats(
 const STYLES = `<style>
   /* ── Root: Logbook stage ─────────────────────────────────────── */
   .lg-stage {
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     min-height: 100%;
     font-family: var(--font-family-body);
     color: var(--color-fg);
   }
-  .lg-reel {
+  .lg-body {
     flex: 1;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    box-sizing: border-box;
+  }
+  .lg-reel {
     width: 100%;
     max-width: 760px;
     margin: 0 auto;
@@ -902,6 +1845,37 @@ const STYLES = `<style>
     justify-content: flex-end;
     gap: 28px;
     box-sizing: border-box;
+    min-width: 0;
+  }
+  .lg-side {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 28px 24px;
+    box-sizing: border-box;
+  }
+  @container (min-width: 1080px) {
+    .lg-body {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(0, 1fr);
+    }
+    .lg-reel { grid-column: 2; }
+    .lg-side {
+      grid-column: 3;
+      justify-self: start;
+      position: sticky;
+      top: 88px;
+      align-self: start;
+      max-width: 300px;
+      margin: 0;
+      padding: 28px 24px 32px 24px;
+      max-height: calc(100vh - 96px);
+      overflow-y: auto;
+    }
+    .lg-side::-webkit-scrollbar { width: 6px; }
+    .lg-side::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--color-edge) 30%, transparent);
+      border-radius: 3px;
+    }
   }
 
   /* ── Log Header: sticky 상단 스트립 ──────────────────────────── */
@@ -1378,19 +2352,18 @@ const STYLES = `<style>
 
   /* ── Appendix: Pack Manifest / Standing Charts ────────────────── */
   .lg-appendix {
-    position: sticky;
-    bottom: 0;
-    z-index: 4;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1px;
-    background: color-mix(in srgb, var(--color-edge) 10%, transparent);
-    border-top: 1px solid color-mix(in srgb, var(--color-edge) 12%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
   .lg-appendix-section {
-    background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+    background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-edge) 22%, transparent);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px -18px color-mix(in srgb, #000 38%, transparent);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
   }
   .lg-appendix-head {
     display: flex;
@@ -1434,6 +2407,457 @@ const STYLES = `<style>
     transform: rotate(45deg);
   }
 
+  /* ── Passage Papers: header에 착 달라붙는 통행문서 ledger tab ──── */
+  /* Closed: sticky strip welded to header. Open: absolute dossier overlay. */
+  .lg-passage {
+    position: sticky;
+    top: 58px;
+    z-index: 4;
+    background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+    backdrop-filter: blur(12px) saturate(1.05);
+    -webkit-backdrop-filter: blur(12px) saturate(1.05);
+    border-bottom: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 26%, transparent);
+  }
+  .lg-passage[open] {
+    z-index: 6;
+  }
+
+  .lg-passage-strip {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 28px 9px 22px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background 0.2s ease;
+  }
+  .lg-passage-strip::-webkit-details-marker { display: none; }
+  .lg-passage-strip::before {
+    /* hairline tick — signals flush attachment to header */
+    content: "";
+    position: absolute;
+    left: 28px;
+    top: 0;
+    width: 1px;
+    height: 6px;
+    background: color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 40%, transparent);
+  }
+  .lg-passage-strip:hover {
+    background: color-mix(in srgb, var(--c, var(--color-fg)) 5%, transparent);
+  }
+  .lg-passage-seal {
+    flex-shrink: 0;
+    position: relative;
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    background: conic-gradient(from 120deg,
+      var(--c, ${ILLUMINATED_COPPER}) 0deg,
+      color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 20%, transparent) 140deg,
+      var(--c, ${ILLUMINATED_COPPER}) 220deg,
+      color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 20%, transparent) 360deg);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 35%, transparent);
+  }
+  .lg-passage-seal-avatar {
+    display: inline-flex;
+    background: var(--color-surface);
+    border-radius: 999px;
+    padding: 1px;
+  }
+  .lg-passage-seal-avatar .lg-portrait {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .lg-passage-seal-avatar .lg-portrait-img,
+  .lg-passage-seal-avatar .lg-portrait-halo {
+    border-radius: 999px;
+  }
+  .lg-passage-label {
+    font-family: var(--font-family-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+    flex-shrink: 0;
+  }
+  .lg-passage-divider {
+    width: 1px;
+    height: 14px;
+    background: color-mix(in srgb, var(--color-edge) 45%, transparent);
+    flex-shrink: 0;
+  }
+  .lg-passage-name {
+    font-family: var(--font-family-display);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--c, var(--color-fg));
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lg-passage-hint {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    font-family: var(--font-family-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.32em;
+    color: var(--color-fg-4);
+    transition: color 0.2s ease;
+  }
+  .lg-passage-strip:hover .lg-passage-hint {
+    color: var(--c, var(--color-fg-2));
+  }
+  .lg-passage-hint-text--open { display: none; }
+  .lg-passage[open] .lg-passage-hint-text:not(.lg-passage-hint-text--open) { display: none; }
+  .lg-passage[open] .lg-passage-hint-text--open { display: inline; }
+  .lg-passage-chevron {
+    width: 6px;
+    height: 6px;
+    border-right: 1px solid currentColor;
+    border-bottom: 1px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.32s cubic-bezier(0.2, 0.75, 0.25, 1);
+    flex-shrink: 0;
+  }
+  .lg-passage[open] .lg-passage-chevron {
+    transform: rotate(-135deg);
+  }
+
+  /* ── Dossier drawer (absolute overlay — covers content area) ───── */
+  .lg-passage-drawer {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 14px 20px 28px;
+    pointer-events: none;
+    /* subtle scrim over content behind */
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--color-void, #000) 38%, transparent) 0%,
+      color-mix(in srgb, var(--color-void, #000) 12%, transparent) 60%,
+      transparent 100%);
+    animation: lg-passage-unfurl 0.42s cubic-bezier(0.2, 0.75, 0.25, 1);
+  }
+  .lg-passage-drawer > * { pointer-events: auto; }
+
+  @keyframes lg-passage-unfurl {
+    0%   { opacity: 0; transform: translateY(-12px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .lg-passage-card {
+    position: relative;
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 32px 36px 30px;
+    background:
+      repeating-linear-gradient(
+        transparent 0 34px,
+        color-mix(in srgb, var(--color-fg) 3.5%, transparent) 34px 35px
+      ),
+      color-mix(in srgb, var(--color-elevated, var(--color-surface)) 98%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-edge) 40%, transparent);
+    box-shadow:
+      0 36px 90px -40px color-mix(in srgb, var(--color-void, #000) 75%, transparent),
+      0 12px 30px -18px color-mix(in srgb, var(--color-void, #000) 55%, transparent);
+    isolation: isolate;
+    animation: lg-passage-card-in 0.5s cubic-bezier(0.16, 0.84, 0.3, 1) 0.05s backwards;
+  }
+  @keyframes lg-passage-card-in {
+    0%   { opacity: 0; transform: translateY(-8px) scale(0.992); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .lg-passage-card::before {
+    /* inner hairline frame */
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 26%, transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .lg-passage-card::after {
+    /* warm paper tint */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at 30% 0%,
+      color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 6%, transparent) 0%,
+      transparent 60%
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Corner ticks — like cartographer frame marks */
+  .lg-passage-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 55%, transparent);
+    z-index: 2;
+  }
+  .lg-passage-corner--tl { top: 4px; left: 4px; border-top: 1px solid; border-left: 1px solid; }
+  .lg-passage-corner--tr { top: 4px; right: 4px; border-top: 1px solid; border-right: 1px solid; }
+  .lg-passage-corner--bl { bottom: 4px; left: 4px; border-bottom: 1px solid; border-left: 1px solid; }
+  .lg-passage-corner--br { bottom: 4px; right: 4px; border-bottom: 1px solid; border-right: 1px solid; }
+
+  /* Meridian decoration at top center */
+  .lg-passage-meridian {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    padding: 0 10px;
+    background: color-mix(in srgb, var(--color-elevated, var(--color-surface)) 98%, transparent);
+  }
+  .lg-passage-meridian::before,
+  .lg-passage-meridian::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 42px;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      var(--c, ${ILLUMINATED_COPPER}) 100%);
+    opacity: 0.6;
+  }
+  .lg-passage-meridian::before { right: 100%; background: linear-gradient(90deg, transparent, var(--c, ${ILLUMINATED_COPPER})); }
+  .lg-passage-meridian::after { left: 100%; background: linear-gradient(90deg, var(--c, ${ILLUMINATED_COPPER}), transparent); }
+  .lg-passage-meridian-mark {
+    font-size: 12px;
+    color: var(--c, ${ILLUMINATED_COPPER});
+    line-height: 1;
+  }
+
+  .lg-passage-head {
+    position: relative;
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr) auto;
+    column-gap: 26px;
+    align-items: end;
+    padding-bottom: 20px;
+    z-index: 2;
+  }
+  .lg-passage-portrait {
+    position: relative;
+  }
+  .lg-passage-portrait::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 30%, transparent);
+    pointer-events: none;
+  }
+  .lg-passage-portrait .lg-portrait {
+    width: 104px;
+    height: 104px;
+    border-radius: 0;
+  }
+  .lg-passage-portrait .lg-portrait-img,
+  .lg-passage-portrait .lg-portrait-halo,
+  .lg-passage-portrait .lg-portrait-fallback {
+    border-radius: 0;
+  }
+  .lg-passage-portrait .lg-portrait-fallback {
+    font-size: 38px;
+  }
+  .lg-passage-title {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding-bottom: 4px;
+  }
+  .lg-passage-eyebrow {
+    font-family: var(--font-family-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    color: var(--color-fg-4);
+  }
+  .lg-passage-display {
+    font-family: var(--font-family-display);
+    font-size: 30px;
+    line-height: 1.05;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--c, var(--color-fg));
+    margin: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .lg-passage-rule {
+    height: 1px;
+    width: 56px;
+    background: var(--c, var(--color-fg-3));
+    opacity: 0.55;
+    margin-top: 4px;
+  }
+
+  /* Circular "FILED UNDER LOG" stamp */
+  .lg-passage-stamp {
+    position: relative;
+    align-self: start;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border: 1px solid color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 55%, transparent);
+    border-radius: 999px;
+    color: var(--c, ${ILLUMINATED_COPPER});
+    font-family: var(--font-family-mono);
+    font-size: 7.5px;
+    letter-spacing: 0.22em;
+    line-height: 1.1;
+    text-align: center;
+    opacity: 0.82;
+    transform: rotate(-6deg);
+    gap: 2px;
+    margin-top: 4px;
+  }
+  .lg-passage-stamp::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1px dashed color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 28%, transparent);
+    border-radius: 999px;
+    pointer-events: none;
+  }
+  .lg-passage-stamp-mid {
+    font-size: 14px;
+    letter-spacing: 0;
+  }
+  .lg-passage-stamp-top,
+  .lg-passage-stamp-bot {
+    font-weight: 600;
+  }
+
+  /* Dossier body */
+  .lg-passage-body {
+    position: relative;
+    z-index: 2;
+    padding-top: 14px;
+    border-top: 1px solid color-mix(in srgb, var(--color-edge) 30%, transparent);
+    font-size: 14px;
+    line-height: 1.85;
+    color: var(--color-fg);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    max-height: min(62vh, 640px);
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  .lg-passage-body::-webkit-scrollbar { width: 6px; }
+  .lg-passage-body::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--c, ${ILLUMINATED_COPPER}) 30%, transparent);
+    border-radius: 3px;
+  }
+  @container (min-width: 820px) {
+    .lg-passage-body {
+      column-count: 2;
+      column-gap: 36px;
+      column-rule: 1px solid color-mix(in srgb, var(--color-edge) 24%, transparent);
+    }
+    .lg-passage-body h4,
+    .lg-passage-body h5,
+    .lg-passage-body h6 {
+      column-span: all;
+    }
+  }
+  .lg-passage-body > :first-child { margin-top: 0; }
+  .lg-passage-body > :last-child { margin-bottom: 0; }
+  .lg-passage-body h4,
+  .lg-passage-body h5,
+  .lg-passage-body h6 {
+    font-family: var(--font-family-display);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--color-fg-2);
+    margin: 18px 0 6px;
+    break-after: avoid;
+  }
+  .lg-passage-body h4 {
+    font-size: 18px;
+    color: var(--c, var(--color-fg));
+  }
+  .lg-passage-body h5 {
+    font-size: 10.5px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--c, var(--color-fg-3));
+    opacity: 0.88;
+    position: relative;
+    padding-left: 16px;
+    margin-top: 20px;
+  }
+  .lg-passage-body h5::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 10px;
+    height: 1px;
+    background: currentColor;
+    transform: translateY(-50%);
+  }
+  .lg-passage-body h6 {
+    font-size: 12px;
+    color: var(--color-fg-3);
+  }
+  .lg-passage-body p { margin: 0 0 10px; }
+  .lg-passage-body ul {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .lg-passage-body li {
+    position: relative;
+    padding-left: 20px;
+  }
+  .lg-passage-body li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.75em;
+    width: 10px;
+    height: 1px;
+    background: var(--c, var(--color-fg-4));
+    opacity: 0.55;
+  }
+
+  @media (max-width: 640px) {
+    .lg-passage-strip { padding: 8px 16px 8px 12px; gap: 10px; }
+    .lg-passage-label { font-size: 9px; letter-spacing: 0.26em; }
+    .lg-passage-hint { font-size: 9px; letter-spacing: 0.22em; }
+    .lg-passage-card { padding: 26px 20px 22px; }
+    .lg-passage-head { grid-template-columns: 76px minmax(0, 1fr); column-gap: 18px; }
+    .lg-passage-stamp { display: none; }
+    .lg-passage-portrait .lg-portrait { width: 76px; height: 76px; }
+    .lg-passage-display { font-size: 22px; }
+  }
+
   .lg-item-list, .lg-quest-list {
     list-style: none;
     margin: 0;
@@ -1444,14 +2868,19 @@ const STYLES = `<style>
   }
   .lg-item, .lg-quest {
     display: grid;
-    grid-template-columns: 16px auto 1fr auto;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "glyph header trailing"
+      ".     desc   desc";
     align-items: baseline;
-    gap: 8px;
+    column-gap: 8px;
+    row-gap: 2px;
     font-size: 13px;
     line-height: 1.7;
     color: var(--color-fg);
   }
   .lg-item-glyph, .lg-quest-glyph {
+    grid-area: glyph;
     font-family: var(--font-family-mono);
     font-size: 12px;
     font-weight: 700;
@@ -1459,11 +2888,23 @@ const STYLES = `<style>
     color: var(--color-fg-3);
   }
   .lg-item-name, .lg-quest-name {
+    grid-area: header;
     font-weight: 500;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .lg-item-qty, .lg-quest-flag, .lg-item-flag {
+    grid-area: trailing;
+    align-self: baseline;
   }
   .lg-item-desc, .lg-quest-desc {
+    grid-area: desc;
     color: var(--color-fg-3);
     font-size: 12px;
+    min-width: 0;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
   }
   .lg-item-flag, .lg-quest-flag {
     font-family: var(--font-family-mono);
@@ -1494,6 +2935,54 @@ const STYLES = `<style>
   .lg-quest--closed .lg-quest-name,
   .lg-quest--closed .lg-quest-desc {
     opacity: 0.5;
+  }
+
+  /* ── Ability Scores ────────────────────────────────────────────── */
+  .lg-ability-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 20px 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+  }
+  .lg-ability {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: baseline;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-fg);
+    padding: 4px 8px;
+    border-left: 2px solid color-mix(in srgb, ${VERDIGRIS} 24%, transparent);
+    background: color-mix(in srgb, ${VERDIGRIS} 4%, transparent);
+  }
+  .lg-ability-ko {
+    font-weight: 500;
+    color: var(--color-fg);
+  }
+  .lg-ability-mod {
+    font-family: var(--font-family-mono);
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: ${VERDIGRIS};
+  }
+  .lg-ability--strong {
+    border-left-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 55%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 6%, transparent);
+  }
+  .lg-ability--strong .lg-ability-mod {
+    color: ${ILLUMINATED_COPPER};
+  }
+  .lg-ability--weak {
+    border-left-color: color-mix(in srgb, var(--color-fg-4) 30%, transparent);
+    background: transparent;
+    opacity: 0.75;
+  }
+  .lg-ability--weak .lg-ability-mod {
+    color: var(--color-fg-4);
   }
 
   /* ── Empty state: Uncharted Shores ────────────────────────────── */
@@ -1546,49 +3035,170 @@ const STYLES = `<style>
     line-height: 1.75;
     color: var(--color-fg-3);
   }
-  .lg-seed-label {
+  /* ── Character Builder ─────────────────────────────────────── */
+  .lg-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: 440px;
+    margin-top: 8px;
+  }
+  .lg-builder-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lg-builder-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 14px;
+    border: 1px solid color-mix(in srgb, var(--color-edge) 18%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 3%, transparent);
+  }
+  .lg-builder-label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    color: var(--color-fg);
+  }
+  .lg-builder-long {
+    font-family: var(--font-family-body);
+    font-size: 13px;
+    color: var(--color-fg);
+    letter-spacing: 0.04em;
+  }
+  .lg-builder-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .lg-builder-step {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 30%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 4%, transparent);
+    color: var(--color-fg);
+    font-family: var(--font-family-mono);
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+  }
+  .lg-builder-step:hover:not(:disabled) {
+    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 65%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 12%, transparent);
+  }
+  .lg-builder-step:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+  }
+  .lg-builder-value {
+    min-width: 32px;
+    text-align: center;
+    font-family: var(--font-family-mono);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-fg);
+  }
+  .lg-builder-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px dashed color-mix(in srgb, var(--color-edge) 22%, transparent);
+    border-bottom: 1px dashed color-mix(in srgb, var(--color-edge) 22%, transparent);
+    font-family: var(--font-family-mono);
+  }
+  .lg-builder-total-label {
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--color-fg-4);
+  }
+  .lg-builder-total-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-fg-3);
+    transition: color 0.25s ease;
+  }
+  .lg-builder-total[data-state="ok"] .lg-builder-total-value {
+    color: ${ILLUMINATED_COPPER};
+  }
+  .lg-builder-total[data-state="over"] .lg-builder-total-value {
+    color: #c85a3a;
+  }
+  .lg-builder-total-target {
+    font-size: 13px;
+    color: var(--color-fg-4);
+  }
+  .lg-builder-name {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .lg-builder-name-label {
     font-family: var(--font-family-mono);
     font-size: 9.5px;
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: var(--color-fg-4);
-    margin-top: 12px;
   }
-  .lg-seeds {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 8px;
+  .lg-builder-name input {
     width: 100%;
-    max-width: 440px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-edge) 22%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 3%, transparent);
+    color: var(--color-fg);
+    font-family: var(--font-family-body);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
   }
-  .lg-seed {
+  .lg-builder-name input:focus {
+    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 60%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 6%, transparent);
+  }
+  .lg-builder-error {
+    margin: 0;
+    font-family: var(--font-family-body);
+    font-size: 12px;
+    color: #c85a3a;
+    text-align: center;
+  }
+  .lg-builder-submit {
     display: inline-flex;
     align-items: center;
-    gap: 14px;
+    justify-content: center;
+    gap: 10px;
     padding: 12px 18px;
-    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 28%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 4%, transparent);
+    margin-top: 4px;
+    border: 1px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 45%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 10%, transparent);
     color: var(--color-fg);
     font-family: var(--font-family-body);
     font-size: 13.5px;
-    text-align: left;
+    letter-spacing: 0.04em;
     cursor: pointer;
-    transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease;
+    transition: transform 0.2s ease, border-color 0.25s ease, background 0.25s ease, opacity 0.25s ease;
   }
-  .lg-seed:hover {
+  .lg-builder-submit:hover:not(:disabled) {
     transform: translateY(-1px);
-    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 60%, transparent);
-    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 10%, transparent);
+    border-color: color-mix(in srgb, ${ILLUMINATED_COPPER} 70%, transparent);
+    background: color-mix(in srgb, ${ILLUMINATED_COPPER} 18%, transparent);
   }
-  .lg-seed:focus-visible {
-    outline: 2px solid color-mix(in srgb, ${ILLUMINATED_COPPER} 60%, transparent);
-    outline-offset: 2px;
+  .lg-builder-submit:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
-  .lg-seed-glyph {
+  .lg-builder-submit-glyph {
     color: ${ILLUMINATED_COPPER};
-    font-size: 12px;
-    flex-shrink: 0;
+    font-size: 11px;
   }
 
   /* ── Animations ──────────────────────────────────────────────── */
@@ -1623,7 +3233,1060 @@ const STYLES = `<style>
     .lg-plate-dialogue { grid-template-columns: 56px minmax(0, 1fr); gap: 14px; }
     .lg-portrait { width: 56px; height: 56px; }
     .lg-whisper { max-width: 82%; font-size: 14.5px; }
-    .lg-appendix { grid-template-columns: 1fr; }
+  }
+
+  /* ── Next Choices (선택지 버튼) ───────────────────────────────── */
+  .lg-choice {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    margin-top: 4px;
+    background: color-mix(in srgb, #b36b2a 3%, var(--color-surface, #f6ecd2));
+    border: 1px solid color-mix(in srgb, #b36b2a 22%, transparent);
+    border-radius: 4px;
+    box-shadow: 0 1px 0 color-mix(in srgb, #3d2a15 6%, transparent);
+  }
+  .lg-choice-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .lg-choice-glyph {
+    color: #b36b2a;
+    font-size: 14px;
+  }
+  .lg-choice-title {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-fg-2, #5a4530);
+  }
+  .lg-choice-hint {
+    font-size: 11px;
+    color: var(--color-fg-3, #8a6e4d);
+    font-style: italic;
+  }
+  .lg-choice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lg-choice-option {
+    appearance: none;
+    -webkit-appearance: none;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    padding: 12px 16px;
+    background: color-mix(in srgb, #b36b2a 2%, var(--color-elevated, #fff8e4));
+    border: 1px solid color-mix(in srgb, #b36b2a 18%, transparent);
+    border-radius: 3px;
+    color: var(--color-fg, #2d2015);
+    font-family: inherit;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    animation: lg-choice-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 0.06s);
+  }
+  .lg-choice-option:hover {
+    background: color-mix(in srgb, #b36b2a 8%, var(--color-elevated, #fff8e4));
+    border-color: color-mix(in srgb, #b36b2a 38%, transparent);
+  }
+  .lg-choice-option:active {
+    transform: translateY(1px);
+  }
+  .lg-choice-label {
+    font-size: 14.5px;
+    line-height: 1.4;
+    flex: 1 1 auto;
+  }
+  .lg-choice-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .lg-choice-stat,
+  .lg-choice-dc {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-fg-3, #8a6e4d);
+    padding: 2px 8px;
+    border: 1px solid color-mix(in srgb, #3d2a15 18%, transparent);
+    border-radius: 2px;
+    background: color-mix(in srgb, #fff 35%, transparent);
+  }
+  .lg-choice-dc {
+    color: #b36b2a;
+    border-color: color-mix(in srgb, #b36b2a 28%, transparent);
+  }
+  @keyframes lg-choice-rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Scriptorium Ritual (스트리밍 중 시각 피드백) ─────────── */
+  .lg-ritual {
+    position: sticky;
+    bottom: 14px;
+    margin: 14px auto 0;
+    max-width: 520px;
+    padding: 14px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background:
+      radial-gradient(ellipse at 50% -20%, color-mix(in srgb, #b36b2a 7%, transparent), transparent 55%),
+      color-mix(in srgb, #b36b2a 5%, var(--color-elevated, #fff8e4));
+    border: 1px solid color-mix(in srgb, #b36b2a 28%, transparent);
+    border-radius: 4px;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent),
+      0 10px 28px -12px color-mix(in srgb, #3d2a15 35%, transparent);
+    z-index: 5;
+    overflow: hidden;
+    animation: lg-ritual-fade 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .lg-ritual[hidden] { display: none; }
+
+  /* decorative corner flourishes */
+  .lg-ritual::before,
+  .lg-ritual::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    width: 22px;
+    height: 22px;
+    pointer-events: none;
+    opacity: 0.5;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    background-image: linear-gradient(
+      45deg,
+      transparent calc(50% - 0.6px),
+      color-mix(in srgb, #b36b2a 45%, transparent) calc(50% - 0.6px),
+      color-mix(in srgb, #b36b2a 45%, transparent) calc(50% + 0.6px),
+      transparent calc(50% + 0.6px)
+    );
+  }
+  .lg-ritual::before { left: 6px; transform: scaleX(-1); }
+  .lg-ritual::after  { right: 6px; }
+
+  .lg-ritual-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 300 / 140;
+    border-radius: 3px;
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, #fff 80%, transparent), transparent 65%),
+      color-mix(in srgb, #fff 22%, var(--color-elevated, #fff8e4));
+    border: 1px solid color-mix(in srgb, #b36b2a 20%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent),
+      inset 0 -20px 40px -30px color-mix(in srgb, #b36b2a 40%, transparent);
+    overflow: hidden;
+  }
+  .lg-ritual-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Default: hide all scenes; tool-specific selectors below reveal one. */
+  .lg-ritual .rscene {
+    opacity: 0;
+    transition: opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+  .lg-ritual[data-tool="thinking"] .rscene-thinking,
+  .lg-ritual[data-tool="script"] .rscene-script,
+  .lg-ritual[data-tool="read"] .rscene-read,
+  .lg-ritual[data-tool="grep"] .rscene-grep,
+  .lg-ritual[data-tool="write"] .rscene-write,
+  .lg-ritual[data-tool="edit"] .rscene-edit,
+  .lg-ritual[data-tool="tree"] .rscene-tree,
+  .lg-ritual[data-tool="activate_skill"] .rscene-activate_skill {
+    opacity: 1;
+  }
+
+  /* ── Scene styles ────────────────────────────────────────── */
+  /* All strokes/fills source from the ritual ink color. Combat mode below
+     overrides --rink to the candlelight gold. */
+  .lg-ritual {
+    --rink: #6a4f2d;
+    --rink-strong: #3d2a15;
+    --rink-soft: color-mix(in srgb, #6a4f2d 60%, transparent);
+    --rink-faint: color-mix(in srgb, #6a4f2d 24%, transparent);
+    --rink-bg: #fff8e4;
+    --rink-accent: #b36b2a;
+  }
+
+  /* Inkwell (thinking) */
+  .rs-pot {
+    fill: color-mix(in srgb, var(--rink-strong) 80%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 1.2;
+  }
+  .rs-pot-rim {
+    fill: color-mix(in srgb, var(--rink-strong) 50%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.8;
+  }
+  .rs-ink {
+    fill: var(--rink-strong);
+  }
+  .rs-shadow {
+    fill: color-mix(in srgb, var(--rink-strong) 18%, transparent);
+  }
+  .rs-ripple {
+    fill: none;
+    stroke: var(--rink-accent);
+    stroke-width: 1;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-ripple 2.6s ease-out infinite;
+  }
+  .rs-ripple-2 { animation-delay: -0.85s; }
+  .rs-ripple-3 { animation-delay: -1.7s; }
+  @keyframes rs-ripple {
+    0%   { transform: scale(0.4); opacity: 0.55; }
+    100% { transform: scale(2.6); opacity: 0; }
+  }
+  .rs-vapor {
+    fill: none;
+    stroke: var(--rink-soft);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-dasharray: 70;
+    stroke-dashoffset: 70;
+    animation: rs-vapor 3.4s ease-in-out infinite;
+  }
+  @keyframes rs-vapor {
+    0%   { stroke-dashoffset: 70; opacity: 0; }
+    35%  { opacity: 0.7; }
+    80%  { opacity: 0.2; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+
+  /* Read (page) */
+  .rs-page {
+    fill: color-mix(in srgb, #fff 18%, var(--rink-bg));
+    stroke: var(--rink);
+    stroke-width: 1.1;
+  }
+  .rs-spine {
+    stroke: var(--rink-strong);
+    stroke-width: 1.2;
+    fill: none;
+  }
+  .rs-line {
+    stroke: var(--rink);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: rs-line-draw 2.4s ease-out infinite;
+  }
+  .rs-line-1, .rs-line-4 { animation-delay: 0s; }
+  .rs-line-2, .rs-line-5 { animation-delay: 0.4s; }
+  .rs-line-3, .rs-line-6 { animation-delay: 0.8s; }
+  @keyframes rs-line-draw {
+    0%   { stroke-dashoffset: 24; opacity: 0; }
+    20%  { opacity: 1; }
+    60%  { stroke-dashoffset: 0; opacity: 1; }
+    90%  { opacity: 0.7; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+
+  /* Grep (magnifier) */
+  .rs-grep-line {
+    stroke: var(--rink-faint);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+  }
+  .rs-grep-hit {
+    fill: var(--rink-accent);
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-grep-flash 2.4s ease-in-out infinite;
+  }
+  .rs-grep-hit-1 { animation-delay: 0.4s; }
+  .rs-grep-hit-2 { animation-delay: 1.05s; }
+  .rs-grep-hit-3 { animation-delay: 1.6s; }
+  @keyframes rs-grep-flash {
+    0%, 100% { opacity: 0; transform: scale(0.6); }
+    20%      { opacity: 1; transform: scale(1.5); }
+    50%      { opacity: 0.6; transform: scale(1); }
+  }
+  .rs-lens {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-lens-pan 2.4s ease-in-out infinite;
+  }
+  .rs-lens-ring {
+    fill: none;
+    stroke: var(--rink-strong);
+    stroke-width: 1.6;
+  }
+  .rs-lens-glass {
+    fill: color-mix(in srgb, #fff 35%, transparent);
+    stroke: var(--rink);
+    stroke-width: 0.6;
+  }
+  .rs-lens-handle {
+    stroke: var(--rink-strong);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+  @keyframes rs-lens-pan {
+    0%   { transform: translate(28px, 30px); }
+    50%  { transform: translate(78px, 60px); }
+    100% { transform: translate(28px, 30px); }
+  }
+
+  /* Write (quill + parchment) */
+  .rs-parchment {
+    fill: color-mix(in srgb, #fff 22%, var(--rink-bg));
+    stroke: var(--rink-faint);
+    stroke-width: 0.8;
+  }
+  .rs-write-line {
+    stroke: var(--rink);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: rs-line-draw 2.6s ease-out infinite;
+  }
+  .rs-write-line-2 { animation-delay: 0.55s; }
+  .rs-write-line-3 { animation-delay: 1.1s; }
+  .rs-quill {
+    transform-box: fill-box;
+    transform-origin: 80px 60px;
+    animation: rs-quill-bob 2.6s ease-in-out infinite;
+  }
+  .rs-quill-feather {
+    fill: color-mix(in srgb, var(--rink) 30%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.8;
+  }
+  .rs-quill-shaft {
+    stroke: var(--rink-strong);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+  }
+  .rs-quill-tip {
+    fill: var(--rink-strong);
+  }
+  .rs-quill-drop {
+    fill: var(--rink-accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-drop 2.6s ease-in infinite;
+  }
+  @keyframes rs-quill-bob {
+    0%, 100% { transform: translate(0, 0) rotate(-2deg); }
+    50%      { transform: translate(-6px, 4px) rotate(3deg); }
+  }
+  @keyframes rs-drop {
+    0%, 60%  { opacity: 0; transform: translateY(-2px) scale(0.8); }
+    70%      { opacity: 1; transform: translateY(0) scale(1); }
+    95%      { opacity: 0.4; transform: translateY(8px) scale(1.4); }
+    100%     { opacity: 0; transform: translateY(10px) scale(1.6); }
+  }
+
+  /* Edit (erase + rewrite) */
+  .rs-edit-line {
+    stroke: var(--rink);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+  }
+  .rs-edit-old-1 { opacity: 0.6; animation: rs-edit-fade 3.2s ease-in-out infinite; }
+  .rs-edit-old-2 { opacity: 0.6; animation: rs-edit-fade 3.2s ease-in-out infinite 0.5s; }
+  .rs-edit-strike {
+    stroke: var(--rink-accent);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: rs-edit-strike 3.2s ease-in-out infinite;
+  }
+  .rs-edit-new {
+    stroke: var(--rink-strong);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: rs-edit-new 3.2s ease-out infinite;
+  }
+  @keyframes rs-edit-fade {
+    0%, 30% { opacity: 0.6; }
+    50%     { opacity: 0.15; }
+    100%    { opacity: 0.6; }
+  }
+  @keyframes rs-edit-strike {
+    0%, 30% { stroke-dashoffset: 60; }
+    50%     { stroke-dashoffset: 0; opacity: 1; }
+    80%     { opacity: 0.4; }
+    100%    { stroke-dashoffset: 0; opacity: 0; }
+  }
+  @keyframes rs-edit-new {
+    0%, 60%  { stroke-dashoffset: 60; opacity: 0; }
+    70%      { opacity: 1; }
+    100%     { stroke-dashoffset: 0; opacity: 1; }
+  }
+
+  /* Tree (compass) */
+  .rs-compass-ring, .rs-compass-inner {
+    fill: none;
+    stroke: var(--rink);
+    stroke-width: 1.4;
+  }
+  .rs-compass-inner { stroke-width: 0.8; opacity: 0.5; }
+  .rs-compass-rose {
+    fill: color-mix(in srgb, var(--rink) 22%, transparent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.8;
+  }
+  .rs-compass-mark {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 7px;
+    fill: var(--rink-strong);
+    font-weight: 600;
+  }
+  .rs-compass {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-compass-rotate 22s linear infinite;
+  }
+  .rs-needle {
+    transform-box: fill-box;
+    transform-origin: 60px 60px;
+    animation: rs-needle-wobble 1.8s ease-in-out infinite;
+  }
+  .rs-needle-shape {
+    fill: var(--rink-accent);
+    stroke: var(--rink-strong);
+    stroke-width: 0.6;
+  }
+  .rs-compass-pivot {
+    fill: var(--rink-strong);
+  }
+  @keyframes rs-compass-rotate {
+    from { transform: rotate(0); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes rs-needle-wobble {
+    0%, 100% { transform: rotate(-12deg); }
+    50%      { transform: rotate(8deg); }
+  }
+
+  /* Activate skill (sigil) */
+  .rs-sigil-outer, .rs-sigil-inner {
+    fill: none;
+    stroke: var(--rink-accent);
+    stroke-width: 1.6;
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-sigil-draw 3.2s ease-in-out infinite;
+  }
+  .rs-sigil-inner {
+    stroke-width: 1;
+    stroke-dasharray: 140;
+    stroke-dashoffset: 140;
+    animation-delay: 0.3s;
+    animation-duration: 3.2s;
+    animation-name: rs-sigil-draw-inner;
+  }
+  .rs-sigil-star {
+    fill: none;
+    stroke: var(--rink-strong);
+    stroke-width: 1.2;
+    stroke-linejoin: round;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-sigil-rotate 12s linear infinite;
+  }
+  .rs-sigil-core {
+    fill: var(--rink-accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rs-sigil-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes rs-sigil-draw {
+    0%   { stroke-dashoffset: 220; opacity: 0.3; }
+    50%  { stroke-dashoffset: 0; opacity: 1; }
+    80%  { stroke-dashoffset: 0; opacity: 0.7; }
+    100% { stroke-dashoffset: -220; opacity: 0; }
+  }
+  @keyframes rs-sigil-draw-inner {
+    0%   { stroke-dashoffset: 140; opacity: 0.2; }
+    50%  { stroke-dashoffset: 0; opacity: 0.9; }
+    100% { stroke-dashoffset: -140; opacity: 0; }
+  }
+  @keyframes rs-sigil-rotate {
+    from { transform: rotate(0); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes rs-sigil-pulse {
+    0%, 100% { transform: scale(0.85); opacity: 0.7; }
+    50%      { transform: scale(1.4); opacity: 1; }
+  }
+
+  /* Dice (script) */
+  .rdie-face {
+    fill: color-mix(in srgb, #fff 70%, var(--rink-bg));
+    stroke: var(--rink-strong);
+    stroke-width: 1.4;
+    filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--rink-strong) 30%, transparent));
+  }
+  .rdie-text {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 14px;
+    font-weight: 700;
+    fill: var(--rink-strong);
+  }
+  .rdie-spin {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .lg-ritual[data-state="busy"] .rdie-spin {
+    animation: rdie-tumble var(--ddur, 1s) cubic-bezier(0.4, 0.1, 0.6, 0.9) infinite;
+    animation-delay: var(--ddly, 0s);
+  }
+  .lg-ritual[data-state="busy"] .rdie-text {
+    animation: rdie-flicker calc(var(--ddur, 1s) * 0.4) ease-in-out infinite;
+  }
+  .lg-ritual[data-state="settled"] .rdie-spin {
+    animation: rdie-settle 0.55s cubic-bezier(0.5, 1.4, 0.3, 1) both;
+  }
+  .lg-ritual[data-state="settled"] .rdie-face {
+    fill: color-mix(in srgb, var(--rink-accent) 14%, var(--rink-bg));
+  }
+  @keyframes rdie-tumble {
+    0%   { transform: rotate(0deg) scale(1); }
+    25%  { transform: rotate(120deg) scale(0.92, 1.08); }
+    50%  { transform: rotate(240deg) scale(1.08, 0.92); }
+    75%  { transform: rotate(360deg) scale(0.95, 1.05); }
+    100% { transform: rotate(480deg) scale(1); }
+  }
+  @keyframes rdie-flicker {
+    0%, 100% { opacity: 0.35; }
+    50%      { opacity: 0.85; }
+  }
+  @keyframes rdie-settle {
+    0%   { transform: rotate(720deg) scale(0.7); }
+    60%  { transform: rotate(40deg) scale(1.18); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+  .rdie-overflow {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 11px;
+    fill: var(--rink);
+    font-style: italic;
+  }
+
+  /* DC target ring (left of dice) */
+  .rdc-target {
+    opacity: 0.9;
+  }
+  .rdc-ring {
+    fill: none;
+    stroke: var(--rink);
+    stroke-width: 1.2;
+    stroke-dasharray: 4 3;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: rdc-ring-turn 18s linear infinite;
+  }
+  .rdc-ring-inner {
+    stroke-width: 0.8;
+    opacity: 0.6;
+    animation-duration: 12s;
+    animation-direction: reverse;
+  }
+  @keyframes rdc-ring-turn {
+    from { transform: rotate(0); }
+    to   { transform: rotate(360deg); }
+  }
+  .rdc-label {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 8px;
+    letter-spacing: 0.18em;
+    fill: var(--rink);
+    font-weight: 600;
+  }
+  .rdc-value {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 18px;
+    font-weight: 700;
+    fill: var(--rink-strong);
+  }
+  .lg-ritual[data-state="settled"] .rdc-ring {
+    stroke: var(--rink-accent);
+  }
+
+  /* Modifier inscription (right of dice) */
+  .rdc-mod {
+    opacity: 0.85;
+  }
+  .rdc-mod-sign {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 22px;
+    font-weight: 700;
+    fill: var(--rink-accent);
+  }
+  .rdc-mod-value {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 18px;
+    font-weight: 700;
+    fill: var(--rink-strong);
+  }
+  .rdc-mod-label {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 7.5px;
+    letter-spacing: 0.18em;
+    fill: var(--rink);
+  }
+
+  /* Dice verdict overlay (settled) — dominant reveal */
+  .lg-dice-verdict {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    pointer-events: none;
+    opacity: 0;
+  }
+  .lg-ritual[data-state="settled"] .lg-dice-verdict {
+    animation: lg-dice-verdict-in 0.5s 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+  .lg-ritual[data-state="settled"] .rscene-script {
+    animation: rscene-dim 0.5s 0.55s ease-out both;
+  }
+  @keyframes rscene-dim {
+    to { opacity: 0.18; }
+  }
+  @keyframes lg-dice-verdict-in {
+    from { opacity: 0; backdrop-filter: blur(0); }
+    to   { opacity: 1; backdrop-filter: blur(1px); }
+  }
+  .lg-dice-total {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 68px;
+    font-weight: 700;
+    color: var(--rink-strong);
+    line-height: 1;
+    text-shadow:
+      0 1px 0 color-mix(in srgb, #fff 50%, transparent),
+      0 4px 14px color-mix(in srgb, var(--rink-accent) 35%, transparent);
+    animation: lg-dice-total-pop 0.5s 0.55s cubic-bezier(0.2, 1.3, 0.3, 1) both;
+  }
+  @keyframes lg-dice-total-pop {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .lg-dice-stamp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 14px;
+    border: 2px solid;
+    border-radius: 3px;
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    line-height: 1.1;
+    transform: rotate(-8deg);
+    background: color-mix(in srgb, #fff 80%, transparent);
+    box-shadow: 0 2px 8px -3px color-mix(in srgb, #000 30%, transparent);
+    animation: lg-dice-stamp-slam 0.5s 0.8s cubic-bezier(0.2, 1.6, 0.3, 1) both;
+  }
+  .lg-dice-stamp-word {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+  }
+  .lg-dice-stamp-dc {
+    font-size: 8.5px;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+    margin-top: 2px;
+    opacity: 0.85;
+  }
+  @keyframes lg-dice-stamp-slam {
+    0%   { transform: rotate(-20deg) scale(2.2); opacity: 0; }
+    60%  { transform: rotate(-8deg) scale(1.08); opacity: 1; }
+    100% { transform: rotate(-8deg) scale(1); opacity: 1; }
+  }
+  .lg-dice-stamp--pass {
+    color: #2a6b4d;
+    border-color: color-mix(in srgb, #2a6b4d 80%, transparent);
+  }
+  .lg-dice-stamp--fail {
+    color: #b8381f;
+    border-color: color-mix(in srgb, #b8381f 80%, transparent);
+  }
+
+  /* ── Header (narration only, single line, fixed height) ──── */
+  .lg-ritual-head {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 32px;
+    text-align: center;
+    height: 20px;
+  }
+  .lg-ritual-name {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    color: var(--rink-strong);
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Arg badge — lives on the stage, top-right. Fixed slot, ellipsis overflow.
+     Decoupled from header so card outer size never reflows on tool switch. */
+  .lg-ritual-arg {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    max-width: 180px;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    border: 1px solid var(--rink-faint);
+    border-radius: 2px;
+    background: color-mix(in srgb, #fff 55%, transparent);
+    backdrop-filter: blur(2px);
+    color: var(--rink);
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 1;
+    animation: lg-ritual-arg-in 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  @keyframes lg-ritual-arg-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .lg-ritual-chain {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 18px;
+  }
+  .lg-seal {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--rink-strong) 40%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 20%, transparent);
+    flex-shrink: 0;
+  }
+  .lg-seal--live {
+    background:
+      radial-gradient(circle at 50% 60%, #f3b042, var(--rink-accent) 70%);
+    border-color: var(--rink-accent);
+    animation: lg-seal-flicker 1.1s ease-in-out infinite;
+  }
+  .lg-seal--done {
+    background:
+      radial-gradient(circle at 35% 30%, color-mix(in srgb, #fff 60%, transparent), transparent 50%),
+      #b8381f;
+    border-color: color-mix(in srgb, #b8381f 70%, transparent);
+    animation: lg-seal-press 0.45s cubic-bezier(0.2, 1.2, 0.3, 1) both;
+  }
+  .lg-seal--err {
+    background: #2d2015;
+    border-color: color-mix(in srgb, #2d2015 70%, transparent);
+    opacity: 0.55;
+  }
+  .lg-seal-more {
+    font-family: var(--font-display, "Syne", "Lexend", system-ui, sans-serif);
+    font-size: 10px;
+    color: var(--rink);
+    font-style: italic;
+    letter-spacing: 0.05em;
+  }
+  @keyframes lg-seal-flicker {
+    0%, 100% { box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 20%, transparent), 0 0 0 0 color-mix(in srgb, var(--rink-accent) 50%, transparent); }
+    50%      { box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 35%, transparent), 0 0 6px 0 color-mix(in srgb, var(--rink-accent) 60%, transparent); }
+  }
+  @keyframes lg-seal-press {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+
+  /* Floating dust motes (peace) / embers (combat) */
+  .lg-ritual-mote {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--rink-accent) 55%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    animation: lg-mote-drift 12s ease-in-out infinite;
+  }
+  .lg-ritual-mote-1 { left: 12%; bottom: -6px; animation-delay: 0s;   animation-duration: 11s; }
+  .lg-ritual-mote-2 { left: 28%; bottom: -6px; animation-delay: 2s;   animation-duration: 13s; }
+  .lg-ritual-mote-3 { left: 44%; bottom: -6px; animation-delay: 4s;   animation-duration: 12s; }
+  .lg-ritual-mote-4 { left: 60%; bottom: -6px; animation-delay: 6s;   animation-duration: 14s; }
+  .lg-ritual-mote-5 { left: 76%; bottom: -6px; animation-delay: 8s;   animation-duration: 11.5s; }
+  .lg-ritual-mote-6 { left: 90%; bottom: -6px; animation-delay: 10s;  animation-duration: 13.5s; }
+  @keyframes lg-mote-drift {
+    0%   { transform: translate(0, 0); opacity: 0; }
+    15%  { opacity: 0.7; }
+    50%  { transform: translate(-12px, -120px); opacity: 0.5; }
+    100% { transform: translate(20px, -220px); opacity: 0; }
+  }
+
+  @keyframes lg-ritual-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lg-ritual,
+    .lg-ritual *,
+    .rs-ripple, .rs-vapor, .rs-line, .rs-grep-hit, .rs-lens,
+    .rs-write-line, .rs-quill, .rs-quill-drop, .rs-edit-line, .rs-edit-strike, .rs-edit-new,
+    .rs-compass, .rs-needle,
+    .rs-sigil-outer, .rs-sigil-inner, .rs-sigil-star, .rs-sigil-core,
+    .rdie-spin, .rdie-text, .lg-seal--live, .lg-ritual-mote,
+    .rdc-ring, .lg-dice-total, .lg-dice-stamp, .lg-dice-verdict, .rscene-script {
+      animation: none !important;
+      transition: none !important;
+    }
+    .rdie-text { opacity: 1; }
+    .rs-line, .rs-write-line, .rs-edit-new, .rs-edit-strike,
+    .rs-sigil-outer, .rs-sigil-inner {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    .lg-ritual[data-state="settled"] .lg-dice-verdict { opacity: 1; }
+  }
+
+  /* ── Combat Mode (어두운 가죽 · 촛불 황금) ──────────────────── */
+  .lg-stage[data-mode="combat"] {
+    background: #1a110a;
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-header,
+  .lg-stage[data-mode="combat"] .lg-header--empty {
+    background: color-mix(in srgb, #251810 92%, transparent);
+    border-bottom-color: color-mix(in srgb, #d48a1f 24%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-header-title {
+    color: #d48a1f;
+    text-shadow: 0 1px 0 color-mix(in srgb, #000 60%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-header-stamp,
+  .lg-stage[data-mode="combat"] .lg-bearing-label,
+  .lg-stage[data-mode="combat"] .lg-bearing-text {
+    color: #b8a38a;
+  }
+  .lg-stage[data-mode="combat"] .lg-vital-track {
+    stroke: color-mix(in srgb, #d8c9a8 14%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-effect {
+    color: #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 35%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-reel {
+    background:
+      radial-gradient(ellipse at 50% 0%, color-mix(in srgb, #d48a1f 8%, transparent), transparent 50%),
+      #1a110a;
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-narration-text {
+    color: #b8a38a;
+  }
+  .lg-stage[data-mode="combat"] .lg-narration-rule {
+    background: color-mix(in srgb, #d8c9a8 18%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-stamp {
+    background: color-mix(in srgb, #d48a1f 10%, #2e1c14);
+    border-color: color-mix(in srgb, #d48a1f 30%, transparent);
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-stamp-glyph {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-whisper {
+    background: color-mix(in srgb, #d48a1f 6%, #251810);
+    color: #d8c9a8;
+    border-color: color-mix(in srgb, #d48a1f 18%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-plate-text {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-name {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-appendix {
+    background: color-mix(in srgb, #251810 90%, transparent);
+    border-top-color: color-mix(in srgb, #d48a1f 24%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-appendix-title,
+  .lg-stage[data-mode="combat"] .lg-appendix-count {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-item-name,
+  .lg-stage[data-mode="combat"] .lg-quest-name {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-item-desc,
+  .lg-stage[data-mode="combat"] .lg-quest-desc {
+    color: #8a7658;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability {
+    background: color-mix(in srgb, #d48a1f 4%, #1a110a);
+    border-left-color: color-mix(in srgb, #d48a1f 28%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ability-ko {
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability-mod {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--strong {
+    border-left-color: color-mix(in srgb, #d48a1f 60%, transparent);
+    background: color-mix(in srgb, #d48a1f 10%, #1a110a);
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--strong .lg-ability-mod {
+    color: #f3b042;
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--weak {
+    background: transparent;
+    border-left-color: color-mix(in srgb, #8a7658 25%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ability--weak .lg-ability-mod {
+    color: #8a7658;
+  }
+  .lg-stage[data-mode="combat"] .lg-choice {
+    background: color-mix(in srgb, #d48a1f 6%, #1a110a);
+    border-color: color-mix(in srgb, #d48a1f 32%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-option {
+    background: color-mix(in srgb, #d48a1f 4%, #251810);
+    border-color: color-mix(in srgb, #d48a1f 24%, transparent);
+    color: #d8c9a8;
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-option:hover {
+    background: color-mix(in srgb, #d48a1f 14%, #251810);
+    border-color: color-mix(in srgb, #d48a1f 50%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-title,
+  .lg-stage[data-mode="combat"] .lg-choice-hint {
+    color: #b8a38a;
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-stat {
+    color: #b8a38a;
+    border-color: color-mix(in srgb, #d48a1f 24%, transparent);
+    background: color-mix(in srgb, #000 30%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-choice-dc {
+    color: #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 45%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual {
+    --rink: #d8c9a8;
+    --rink-strong: #f3b042;
+    --rink-soft: color-mix(in srgb, #d48a1f 60%, transparent);
+    --rink-faint: color-mix(in srgb, #d48a1f 28%, transparent);
+    --rink-bg: #2e1c14;
+    --rink-accent: #d48a1f;
+    background:
+      radial-gradient(ellipse at 100% 0%, color-mix(in srgb, #d48a1f 10%, transparent), transparent 60%),
+      color-mix(in srgb, #d48a1f 8%, #251810);
+    border-color: color-mix(in srgb, #d48a1f 38%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #d48a1f 14%, transparent),
+      0 8px 22px -10px color-mix(in srgb, #000 60%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual-stage {
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, #d48a1f 14%, transparent), transparent 65%),
+      color-mix(in srgb, #d48a1f 4%, #1a110a);
+    border-color: color-mix(in srgb, #d48a1f 28%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, #d48a1f 16%, transparent),
+      inset 0 -20px 40px -30px color-mix(in srgb, #d48a1f 40%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .rs-page {
+    fill: color-mix(in srgb, #d48a1f 10%, #2e1c14);
+  }
+  .lg-stage[data-mode="combat"] .rs-parchment {
+    fill: color-mix(in srgb, #d48a1f 6%, #2e1c14);
+  }
+  .lg-stage[data-mode="combat"] .rdie-face {
+    fill: color-mix(in srgb, #d48a1f 12%, #2e1c14);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, #d48a1f 30%, transparent));
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual[data-state="settled"] .rdie-face {
+    fill: color-mix(in srgb, #d48a1f 22%, #2e1c14);
+  }
+  .lg-stage[data-mode="combat"] .rdie-text {
+    fill: #f3b042;
+  }
+  .lg-stage[data-mode="combat"] .rs-pot {
+    fill: color-mix(in srgb, #d48a1f 22%, #1a110a);
+    stroke: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-dice-stamp {
+    background: color-mix(in srgb, #d48a1f 8%, #1a110a);
+  }
+  .lg-stage[data-mode="combat"] .lg-dice-stamp--pass {
+    color: #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 80%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-dice-stamp--fail {
+    color: #ff6a4a;
+    border-color: color-mix(in srgb, #ff6a4a 70%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-seal--done {
+    background:
+      radial-gradient(circle at 35% 30%, color-mix(in srgb, #fff 30%, transparent), transparent 50%),
+      #d48a1f;
+    border-color: color-mix(in srgb, #d48a1f 70%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-seal--err {
+    background: #6b1a1a;
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual-arg {
+    color: #d8c9a8;
+    background: color-mix(in srgb, #000 30%, transparent);
+    border-color: color-mix(in srgb, #d48a1f 28%, transparent);
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual-name {
+    color: #d48a1f;
+  }
+  .lg-stage[data-mode="combat"] .lg-ritual-mote {
+    background: color-mix(in srgb, #d48a1f 70%, transparent);
+    box-shadow: 0 0 4px color-mix(in srgb, #d48a1f 70%, transparent);
   }
 </style>`;
 
@@ -1631,29 +4294,23 @@ const STYLES = `<style>
 
 export function render(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
+  const mode = readWorldMode(ctx);
+  const status = readStatusYaml(ctx);
+  const stats = readStatsYaml(ctx);
+  const inventory = readInventoryYaml(ctx);
+  const quests = readQuestYaml(ctx);
 
   const sceneFiles = ctx.files.filter(
     (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
   );
-
-  if (sceneFiles.length === 0) {
-    return `${STYLES}
-      <div class="lg-stage">
-        ${renderLogHeader(null, stampCode("empty"))}
-        <div class="lg-reel">${renderEmpty()}</div>
-      </div>`;
-  }
 
   const allContent = sceneFiles
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((f) => f.content)
     .join("\n\n---\n\n");
 
-  const status = parseStatusBlock(allContent);
-  const inventory = parseInventoryBlock(allContent);
-  const quests = parseQuestBlock(allContent);
-  const entryCode = stampCode(allContent);
-
+  const entryCode = stampCode(allContent || "empty");
+  const choices = parseChoicesMarker(allContent);
   const chatContent = stripRpgBlocks(allContent);
 
   const fallbackColorMap = new Map<string, string>();
@@ -1666,24 +4323,35 @@ export function render(ctx: RenderContext): string {
     .map((l) => resolveAvatar(l, nameMap));
   const groups = groupLines(parsed);
 
-  if (groups.length === 0 && !status) {
+  const pendingCard = renderPendingCard(ctx.stream, mode);
+
+  if (sceneFiles.length === 0 || (groups.length === 0 && !status)) {
     return `${STYLES}
-      <div class="lg-stage">
-        ${renderLogHeader(null, entryCode)}
+      <div class="lg-stage" data-mode="${mode}">
+        ${renderLogHeader(status, entryCode)}
+        ${renderPersonaBar(persona)}
         <div class="lg-reel">${renderEmpty()}</div>
+        ${pendingCard}
       </div>`;
   }
 
   const beats = renderBeats(groups, ctx, nameMap, fallbackColorMap, persona);
-  const appendix = renderAppendix(inventory, quests);
+  const appendix = renderAppendix(inventory, quests, stats);
+  const personaBar = renderPersonaBar(persona);
+  const choicesHtml = renderNextChoices(choices, stats);
 
   return `${STYLES}
-    <div class="lg-stage">
+    <div class="lg-stage" data-mode="${mode}">
       ${renderLogHeader(status, entryCode)}
-      <div class="lg-reel">
-        ${beats}
-        <div data-chat-anchor></div>
+      ${personaBar}
+      <div class="lg-body">
+        <div class="lg-reel">
+          ${beats}
+          ${choicesHtml}
+          <div data-chat-anchor></div>
+        </div>
+        ${appendix ? `<aside class="lg-side">${appendix}</aside>` : ""}
       </div>
-      ${appendix}
+      ${pendingCard}
     </div>`;
 }
