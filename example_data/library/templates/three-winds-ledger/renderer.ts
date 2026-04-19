@@ -50,24 +50,52 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | DataFile | BinaryFile;
 
-interface RenderToolCallView {
+// pi-ai content blocks (inline — 렌더러는 별도 transpile되어 import 불가)
+interface TextContent { type: "text"; text: string }
+interface ThinkingContent { type: "thinking"; thinking: string }
+interface ImageContent { type: "image"; data: string; mimeType: string }
+interface ToolCall {
+  type: "toolCall";
   id: string;
   name: string;
-  argsComplete: boolean;
-  executionStarted: boolean;
-  result?: { isError: boolean };
+  arguments: Record<string, any>;
 }
 
-interface RenderStreamView {
-  isStreaming: boolean;
-  text: string;
-  toolCalls: ReadonlyArray<RenderToolCallView>;
+type ToolResultContent = (TextContent | ImageContent)[];
+
+interface UserMessage {
+  role: "user";
+  content: string | (TextContent | ImageContent)[];
+  timestamp: number;
+}
+interface AssistantMessage {
+  role: "assistant";
+  content: (TextContent | ThinkingContent | ToolCall)[];
+  provider?: string;
+  model?: string;
+}
+interface ToolResultMessage {
+  role: "toolResult";
+  toolCallId: string;
+  toolName: string;
+  content: ToolResultContent;
+  isError: boolean;
+}
+type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
+
+// pi `AgentState`(agent/types.ts:221) UI subset — AgentPanel과 공유.
+interface AgentState {
+  readonly messages: ReadonlyArray<AgentMessage>;
+  readonly isStreaming: boolean;
+  readonly streamingMessage?: AssistantMessage;
+  readonly pendingToolCalls: ReadonlySet<string>;
+  readonly errorMessage?: string;
 }
 
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
-  stream: RenderStreamView;
+  state: AgentState;
 }
 
 // ── Renderer theme contract (인라인 선언) ──
@@ -4354,20 +4382,47 @@ function toolLabelFor(name: string): string {
   return TOOL_LABELS[name] ?? "비의를 엮는다";
 }
 
+// 현재 in-flight assistant message에서 toolCall 블록만 시간순으로 추출.
+function activeToolCalls(state: AgentState): ToolCall[] {
+  const content = state.streamingMessage?.content ?? [];
+  return content.filter((b): b is ToolCall => b.type === "toolCall");
+}
+
+// 가장 최근에 도착한 ToolResultMessage를 messages에서 찾는다.
+function findToolResult(
+  state: AgentState,
+  toolCallId: string,
+): ToolResultMessage | null {
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    const m = state.messages[i];
+    if (m && m.role === "toolResult" && m.toolCallId === toolCallId) return m;
+  }
+  return null;
+}
+
+// 현재 in-flight assistant message의 모든 text 블록을 시간순으로 이어붙인다.
+function streamingText(state: AgentState): string {
+  return (state.streamingMessage?.content ?? [])
+    .filter((b): b is TextContent => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
 function renderPendingCard(
-  stream: RenderStreamView,
+  state: AgentState,
   mode: "peace" | "combat",
 ): string {
   // 항상 DOM에 유지하고 hidden으로만 토글 — Idiomorph가 id 기반으로 매칭한다.
   // 진행 중인 도구를 우선, 없으면 가장 최근 엔트리(완료 포함)를 노출해 turn 내 flashing 제거.
-  // StreamContext는 RESET 전까지 toolCalls를 누적 유지하므로 "직전 tool" 참조가 안전.
-  const inFlight = stream.toolCalls.find((tc) => !tc.result);
-  const latest = inFlight ?? stream.toolCalls[stream.toolCalls.length - 1];
+  // streamingMessage.content는 turn 끝까지 누적되므로 "직전 tool" 참조가 안전.
+  const tools = activeToolCalls(state);
+  const inFlight = tools.find((tc) => !findToolResult(state, tc.id));
+  const latest = inFlight ?? tools[tools.length - 1];
   const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
-  const raw = stream.text.trim();
+  const raw = streamingText(state).trim();
   const clipped = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;
   const toolLabel = latest ? toolLabelFor(latest.name) : "";
-  const hidden = stream.isStreaming ? "" : " hidden";
+  const hidden = state.isStreaming ? "" : " hidden";
   return `
     <aside id="rpg-pending" class="rpg-pending" data-mode="${mode}"${hidden} role="status" aria-live="polite">
       <div class="rpg-pending-head">
@@ -4386,7 +4441,7 @@ export function render(ctx: RenderContext): string {
   const visibleCtx: RenderContext = {
     files: ctx.files.filter(isVisible),
     baseUrl: ctx.baseUrl,
-    stream: ctx.stream,
+    state: ctx.state,
   };
 
   const charIndex = buildCharacterIndex(visibleCtx);
@@ -4449,6 +4504,6 @@ export function render(ctx: RenderContext): string {
         </main>
         ${sidePanel}
       </div>
-      ${renderPendingCard(ctx.stream, mode)}
+      ${renderPendingCard(ctx.state, mode)}
     </div>`;
 }

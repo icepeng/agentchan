@@ -1,22 +1,39 @@
 import type { TokenUsage } from "@agentchan/creative-agent";
+import type {
+  AssistantMessage,
+  ImageContent,
+  Message,
+  TextContent,
+  ThinkingContent,
+  ToolCall,
+  ToolResultMessage,
+  UserMessage,
+} from "@mariozechner/pi-ai";
 
-export type { TokenUsage };
+export type {
+  AssistantMessage,
+  ImageContent,
+  Message,
+  TextContent,
+  ThinkingContent,
+  ToolResultMessage,
+  TokenUsage,
+  UserMessage,
+};
 
-// --- pi-ai content block mirror types (rendering-only fields) ---
+/** Backwards-compatible alias used by `MessageContent` / `ToolCallDisplay`. */
+export type ToolCallContent = ToolCall;
 
-export interface TextContent { type: "text"; text: string }
-export interface ThinkingContent { type: "thinking"; thinking: string }
-export interface ToolCallContent { type: "toolCall"; id: string; name: string; arguments: Record<string, unknown> }
-export interface ImageContent { type: "image"; data: string; mimeType: string }
+/** Content union for assistant messages — text, thinking, or tool call. */
+export type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
-export type AssistantContentBlock = TextContent | ToolCallContent | ThinkingContent;
-
-// --- pi-ai message mirror types ---
-
-export type ClientMessage =
-  | { role: "user"; content: string | (TextContent | ImageContent)[]; timestamp: number }
-  | { role: "assistant"; content: AssistantContentBlock[]; provider: string; model: string }
-  | { role: "toolResult"; toolCallId: string; toolName: string; content: (TextContent | ImageContent)[]; isError: boolean };
+/**
+ * Persisted JSONL nodes carry pi-ai `Message` verbatim. The previous narrower
+ * `ClientMessage` definition lost optional fields (timestamp, usage, api,
+ * stopReason). Aliasing to pi `Message` keeps existing UI code working while
+ * letting the renderer rebuild canonical pi messages from `state.messages`.
+ */
+export type ClientMessage = Message;
 
 // --- Tree node ---
 

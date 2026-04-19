@@ -14,24 +14,52 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | BinaryFile;
 
-interface RenderToolCallView {
+// pi-ai content blocks (inline — 렌더러는 별도 transpile되어 import 불가)
+interface TextContent { type: "text"; text: string }
+interface ThinkingContent { type: "thinking"; thinking: string }
+interface ImageContent { type: "image"; data: string; mimeType: string }
+interface ToolCall {
+  type: "toolCall";
   id: string;
   name: string;
-  argsComplete: boolean;
-  executionStarted: boolean;
-  result?: { isError: boolean };
+  arguments: Record<string, any>;
 }
 
-interface RenderStreamView {
-  isStreaming: boolean;
-  text: string;
-  toolCalls: ReadonlyArray<RenderToolCallView>;
+type ToolResultContent = (TextContent | ImageContent)[];
+
+interface UserMessage {
+  role: "user";
+  content: string | (TextContent | ImageContent)[];
+  timestamp: number;
+}
+interface AssistantMessage {
+  role: "assistant";
+  content: (TextContent | ThinkingContent | ToolCall)[];
+  provider?: string;
+  model?: string;
+}
+interface ToolResultMessage {
+  role: "toolResult";
+  toolCallId: string;
+  toolName: string;
+  content: ToolResultContent;
+  isError: boolean;
+}
+type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
+
+// pi `AgentState`(agent/types.ts:221) UI subset — AgentPanel과 공유.
+interface AgentState {
+  readonly messages: ReadonlyArray<AgentMessage>;
+  readonly isStreaming: boolean;
+  readonly streamingMessage?: AssistantMessage;
+  readonly pendingToolCalls: ReadonlySet<string>;
+  readonly errorMessage?: string;
 }
 
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
-  stream: RenderStreamView;
+  state: AgentState;
 }
 
 // ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
@@ -1703,14 +1731,20 @@ const STYLES = `<style>
 // 에이전트가 스트리밍 중일 때만 sticky 스트립을 그린다. 도구 실행 중이면
 // 현재 도구 이름을 노출, 그 외는 "STREAMING RESPONSE".
 
-function renderPendingStrip(stream: RenderStreamView): string {
+// 현재 in-flight assistant message에서 toolCall 블록만 시간순으로 추출.
+function activeToolCalls(state: AgentState): ToolCall[] {
+  const content = state.streamingMessage?.content ?? [];
+  return content.filter((b): b is ToolCall => b.type === "toolCall");
+}
+
+function renderPendingStrip(state: AgentState): string {
   // 항상 DOM에 존재시키고 `hidden` 속성으로만 토글 — Idiomorph가 id 기반으로
   // 매칭하여 element를 유지하므로 ms-body 맨 위에 안정적으로 들어간다.
-  const active = stream.toolCalls.find((tc) => !tc.result);
+  const active = activeToolCalls(state).find((tc) => state.pendingToolCalls.has(tc.id));
   const detail = active
     ? `EXEC :: ${active.name.toUpperCase().replace(/_/g, " ")}`
     : "STREAMING RESPONSE";
-  const hidden = stream.isStreaming ? "" : " hidden";
+  const hidden = state.isStreaming ? "" : " hidden";
   return `
     <div id="ms-pending" class="ms-pending-strip"${hidden} role="status" aria-live="polite">
       <span class="ms-pending-glyph" aria-hidden="true"></span>
@@ -1748,7 +1782,7 @@ export function render(ctx: RenderContext): string {
         <div class="ms-body">
           ${renderEmptyStandby()}
         </div>
-        ${renderPendingStrip(ctx.stream)}
+        ${renderPendingStrip(ctx.state)}
       </div>`;
   }
 
@@ -1814,6 +1848,6 @@ export function render(ctx: RenderContext): string {
         ${bodyParts.join("\n")}
         <div data-chat-anchor></div>
       </div>
-      ${renderPendingStrip(ctx.stream)}
+      ${renderPendingStrip(ctx.state)}
     </div>`;
 }

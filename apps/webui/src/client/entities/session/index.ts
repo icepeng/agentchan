@@ -1,13 +1,17 @@
 export type {
-  Session,
-  TreeNode,
-  TokenUsage,
+  AssistantContentBlock,
+  AssistantMessage,
   ClientMessage,
+  ImageContent,
+  Message,
+  Session,
   TextContent,
   ThinkingContent,
+  TokenUsage,
   ToolCallContent,
-  ImageContent,
-  AssistantContentBlock,
+  ToolResultMessage,
+  TreeNode,
+  UserMessage,
 } from "./session.types.js";
 
 export {
@@ -24,7 +28,13 @@ export {
   deleteNode, switchBranch, sendMessage, regenerateResponse, compactSession,
   registerAbortController, clearAbortController, abortProjectStream,
 } from "./session.api.js";
-export type { SSECallbacks } from "./session.api.js";
+export type {
+  SSECallbacks,
+  AssistantMessageEvent,
+  ToolResultContent,
+} from "./session.api.js";
+
+export { flattenActivePathToMessages } from "./session.selectors.js";
 
 export {
   SessionSelectionProvider,

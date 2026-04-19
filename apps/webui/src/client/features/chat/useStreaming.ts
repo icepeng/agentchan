@@ -170,18 +170,12 @@ export function useStreaming() {
             { revalidate: false },
           );
         },
-        onTextDelta: (text) =>
-          streamDispatch({ type: "TEXT_DELTA", projectSlug, text }),
-        onToolUseStart: (id, name) =>
-          streamDispatch({ type: "TOOL_START", projectSlug, id, name }),
-        onToolUseDelta: (id, inputJson) =>
-          streamDispatch({ type: "TOOL_DELTA", projectSlug, id, inputJson }),
-        onToolUseEnd: (id) =>
-          streamDispatch({ type: "TOOL_END", projectSlug, id }),
+        onAssistantEvent: (event) =>
+          streamDispatch({ type: "ASSISTANT_EVENT", projectSlug, event }),
         onToolExecStart: (id, _name, args) =>
           streamDispatch({ type: "TOOL_EXEC_START", projectSlug, id, args }),
-        onToolExecEnd: (id, isError, content) =>
-          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id, isError, content }),
+        onToolExecEnd: (id, name, isError, content) =>
+          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id, name, isError, content }),
         onUsageSummary: (usage) =>
           streamDispatch({ type: "USAGE_SUMMARY", projectSlug, usage }),
         onAssistantNodes: (nodes) => {
