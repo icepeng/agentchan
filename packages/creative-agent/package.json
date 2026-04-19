@@ -14,11 +14,13 @@
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/grep": "workspace:*",
     "@google/genai": "^1.49.0",
+    "@jitl/quickjs-wasmfile-release-sync": "^0.31.0",
     "@mariozechner/pi-agent-core": "^0.66.1",
     "@mariozechner/pi-ai": "^0.66.1",
     "@sinclair/typebox": "^0.34.49",
     "nanoid": "^5.1.7",
     "picocolors": "^1.1.1",
+    "quickjs-emscripten": "^0.31.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {}

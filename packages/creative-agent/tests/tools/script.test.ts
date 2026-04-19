@@ -52,7 +52,6 @@ describe("call signature", () => {
     await writeScript("a.ts", `export default { not: "a function" };`);
     const out = await run("a.ts");
     expect(out).toContain("must `export default` a function");
-    expect(out).toContain("[exit code: 2]");
   });
 });
 
@@ -84,20 +83,43 @@ describe("return value handling", () => {
 });
 
 describe("error handling", () => {
-  test("throw Error becomes Error: <msg> + non-zero exit", async () => {
+  test("throw Error surfaces the message", async () => {
     await writeScript("a.ts", `
       export default () => { throw new Error("something broke"); };
     `);
     const out = await run("a.ts");
     expect(out).toContain("Error: ");
     expect(out).toContain("something broke");
-    expect(out).toContain("[exit code: 1]");
   });
 
-  test("synchronous import error surfaces", async () => {
-    await writeScript("a.ts", `import "node:nonexistent-module";\nexport default () => "ok";`);
+  test("host module imports are rejected by the sandbox", async () => {
+    await writeScript("a.ts", `import "node:fs";\nexport default () => "ok";`);
     const out = await run("a.ts");
-    expect(out).toContain("[exit code: 1]");
+    expect(out).toContain("imports are not allowed");
+  });
+
+  test("timeout aborts a runaway loop", async () => {
+    await writeScript("a.ts", `export default () => { while (true) {} };`);
+    const out = await run("a.ts", [], 500);
+    expect(out).toContain("Script timed out after 500ms");
+  });
+
+  test("host globals (Bun/process/fetch) are absent from the sandbox", async () => {
+    // `typeof require` is intentionally omitted — Bun.Transpiler inlines it
+    // to the literal `"function"` regardless of the runtime environment.
+    await writeScript("a.ts", `
+      export default () => ({
+        bun: typeof Bun,
+        process: typeof process,
+        fetch: typeof fetch,
+      });
+    `);
+    const out = await run("a.ts");
+    expect(JSON.parse(out)).toEqual({
+      bun: "undefined",
+      process: "undefined",
+      fetch: "undefined",
+    });
   });
 });
 
@@ -250,7 +272,6 @@ describe("ctx.sqlite", () => {
     `);
     const out = await run("db.ts");
     expect(out).toContain("path outside project");
-    expect(out).toContain("[exit code: 1]");
   });
 
   test("leaked handle is force-closed by the host (next run reopens cleanly)", async () => {
@@ -327,7 +348,7 @@ describe("ctx.util.parseArgs", () => {
       };
     `);
     const out = await run("p.ts", ["--unknown", "x"]);
-    expect(out).toContain("[exit code: 1]");
+    expect(out).toContain("Unknown option");
   });
 });
 
@@ -359,7 +380,6 @@ describe("path containment", () => {
     `);
     const out = await run("escape.ts");
     expect(out).toContain("path outside project");
-    expect(out).toContain("[exit code: 1]");
   });
 
   test("tool refuses to run a script outside the project dir", async () => {

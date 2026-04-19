@@ -1,23 +1,16 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-import { Database, type Statement } from "bun:sqlite";
-import { randomInt } from "node:crypto";
-import { parseArgs } from "node:util";
-import { resolveInProject } from "../tools/_paths.js";
+import type { parseArgs } from "node:util";
 
 /**
- * Capability surface exposed to user scripts. All access to the host
- * environment goes through this object — `fs`, `process`, `Bun`, `fetch`,
- * `require` are not available inside the script function body.
+ * Capability surface exposed to user scripts inside the QuickJS WASM sandbox.
  *
- * `project.*` paths are lexically contained to `projectDir` via
- * `resolveInProject` (same helper the other tools use).
+ * Template scripts reach this contract via `import type { ScriptContext }
+ * from "@agentchan/creative-agent"` — the runtime implementation lives in
+ * `quickjs-runner.ts`, which wires each member to a host bridge that applies
+ * `resolveInProject` before touching the filesystem.
  *
- * Every method here must be reachable over a structured-clone RPC bridge:
- * arguments and return values use only plain data (string/number/boolean/
- * bigint/array/object). That constraint lets phase 2 swap the runtime to
- * `quickjs-emscripten` without changing user-visible script APIs — the host
- * will proxy each call through the bridge instead of executing it in-process.
+ * All arguments and return values are plain data (string/number/boolean/
+ * bigint/array/object) because they must round-trip through a structured-
+ * clone RPC bridge between the host and the sandbox.
  */
 export interface ProjectScope {
   readFile(path: string): string;
@@ -79,98 +72,3 @@ export interface ScriptContext {
 }
 
 export type ScriptResult = string | object | void;
-
-// Internal: tracks open sqlite handles per context so the host can force-close
-// them after the script run, even if the user script forgot to call close().
-const openHandles = new WeakMap<ScriptContext, Set<SqliteHandle>>();
-
-export function createScriptContext(projectDir: string): ScriptContext {
-  const join = (p: string) => resolveInProject(projectDir, p);
-  const handles = new Set<SqliteHandle>();
-
-  const ctx: ScriptContext = {
-    project: {
-      readFile: (p) => readFileSync(join(p), "utf-8"),
-      writeFile: (p, content) => writeFileSync(join(p), content, "utf-8"),
-      exists: (p) => existsSync(join(p)),
-      listDir: (p) => readdirSync(join(p)),
-      stat: (p) => {
-        try {
-          const st = statSync(join(p));
-          return { mtime: st.mtimeMs, size: st.size };
-        } catch (err) {
-          if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-          throw err;
-        }
-      },
-    },
-    sqlite: {
-      open: (p) => {
-        const dbPath = join(p);
-        mkdirSync(dirname(dbPath), { recursive: true });
-        const db = new Database(dbPath);
-        const cache = new Map<string, Statement>();
-        const prep = (sql: string): Statement => {
-          let s = cache.get(sql);
-          if (!s) {
-            s = db.prepare(sql);
-            cache.set(sql, s);
-          }
-          return s;
-        };
-        const handle: SqliteHandle = {
-          exec: (sql) => {
-            db.exec(sql);
-          },
-          all: <T>(sql: string, params?: readonly unknown[]): T[] => {
-            return prep(sql).all(...((params ?? []) as unknown[])) as T[];
-          },
-          run: (sql, params) => {
-            const res = prep(sql).run(...((params ?? []) as unknown[]));
-            return { changes: res.changes, lastInsertRowid: res.lastInsertRowid };
-          },
-          batch: (fn) => {
-            db.transaction(fn)();
-          },
-          close: () => {
-            if (!handles.has(handle)) return;
-            handles.delete(handle);
-            cache.clear();
-            db.close();
-          },
-        };
-        handles.add(handle);
-        return handle;
-      },
-    },
-    yaml: {
-      parse: (text) => Bun.YAML.parse(text),
-      stringify: (value) => Bun.YAML.stringify(value),
-    },
-    random: {
-      int: (min, max) => randomInt(min, max),
-    },
-    util: { parseArgs },
-  };
-
-  openHandles.set(ctx, handles);
-  return ctx;
-}
-
-/**
- * Force-closes any sqlite handles still open on `ctx`. Call this after the
- * user script returns (or throws) to guarantee file descriptors are released
- * before the process exits — useful when scripts leak a handle.
- */
-export function disposeScriptContext(ctx: ScriptContext): void {
-  const handles = openHandles.get(ctx);
-  if (!handles) return;
-  for (const h of [...handles]) {
-    try {
-      h.close();
-    } catch {
-      // best effort — one bad handle shouldn't block the rest
-    }
-  }
-  handles.clear();
-}

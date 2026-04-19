@@ -1,4 +1,3 @@
-export { createScriptContext, disposeScriptContext } from "./script-context.js";
 export type {
   ProjectScope,
   ScriptContext,
@@ -6,3 +5,5 @@ export type {
   SqliteHandle,
   SqliteScope,
 } from "./script-context.js";
+export { runScriptInQuickJS } from "./quickjs-runner.js";
+export type { ScriptRunOptions, ScriptRunResult } from "./quickjs-runner.js";
