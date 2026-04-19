@@ -1,30 +1,28 @@
-#!/usr/bin/env bun
 /**
  * scripts/travel.ts
  *
  * Moves the party between locations. Validates via door_to mesh (BFS),
  * computes time cost, updates world-state.yaml.
- * YAML 읽기는 Bun.YAML.parse, 쓰기는 line 치환 (주석·포맷 보존).
  *
- * Usage:
- *   scripts/travel.ts --to <location-slug>
+ * Usage: --to <location-slug>
  *
  * 동작: world-state.yaml 의 time/day/location 을 직접 수정.
- * stdout 마지막 줄에 JSON 한 줄: {"changed":[...],"deltas":{...},"summary":"..."}
+ * 반환 JSON: {changed, deltas, summary}.
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import type { ScriptContext } from "@agentchan/creative-agent";
 
 // ─── Args ────────────────────────────────────────────────────────────────────
 
-function parseArgs(argv: string[]): { to: string } {
-  const args: Record<string, string> = {};
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i].startsWith("--")) { args[argv[i].slice(2)] = argv[i + 1]; i++; }
-  }
-  if (!args.to) { console.error("Usage: scripts/travel.ts --to <location-slug>"); process.exit(1); }
-  return { to: args.to };
+function parseTravelArgs(argv: readonly string[], ctx: ScriptContext): { to: string } {
+  const { values } = ctx.util.parseArgs({
+    args: [...argv],
+    options: { to: { type: "string" } },
+    strict: true,
+  });
+  const to = values.to;
+  if (!to) throw new Error("Usage: --to <location-slug>");
+  return { to };
 }
 
 // ─── Read world state ─────────────────────────────────────────────────────────
@@ -36,13 +34,13 @@ interface WorldState {
   raw: string;
 }
 
-function readWorldState(): WorldState {
+function readWorldState(ctx: ScriptContext): WorldState {
   const path = "files/world-state.yaml";
-  if (!existsSync(path)) { console.error(`Missing: ${path}`); process.exit(1); }
-  const raw = readFileSync(path, "utf-8");
-  const data = Bun.YAML.parse(raw) as { time?: string; day?: number; location?: string };
+  if (!ctx.project.exists(path)) throw new Error(`Missing: ${path}`);
+  const raw = ctx.project.readFile(path);
+  const data = ctx.yaml.parse(raw) as { time?: string; day?: number; location?: string };
   if (typeof data?.time !== "string" || typeof data.day !== "number" || typeof data.location !== "string") {
-    console.error(`world-state.yaml missing required fields (time/day/location)`); process.exit(1);
+    throw new Error("world-state.yaml missing required fields (time/day/location)");
   }
   return { time: data.time, day: data.day, location: data.location, raw };
 }
@@ -56,11 +54,11 @@ interface LocationNode {
   timeCost: Record<string, number>;
 }
 
-function parseLocationFile(path: string): LocationNode | null {
-  const raw = readFileSync(path, "utf-8");
+function parseLocationFile(ctx: ScriptContext, path: string): LocationNode | null {
+  const raw = ctx.project.readFile(path);
   const fmMatch = raw.match(/^---\s*\n([\s\S]*?)\n---/);
   if (!fmMatch) return null;
-  const fm = Bun.YAML.parse(fmMatch[1]) as {
+  const fm = ctx.yaml.parse(fmMatch[1] ?? "") as {
     slug?: string; name?: string; door_to?: string[]; time_cost?: Record<string, number>;
   };
   if (typeof fm?.slug !== "string") return null;
@@ -74,13 +72,13 @@ function parseLocationFile(path: string): LocationNode | null {
   };
 }
 
-function readLocations(): Map<string, LocationNode> {
+function readLocations(ctx: ScriptContext): Map<string, LocationNode> {
   const dir = "files/locations";
-  if (!existsSync(dir)) { console.error(`Missing: ${dir}/`); process.exit(1); }
+  if (!ctx.project.exists(dir)) throw new Error(`Missing: ${dir}/`);
   const mesh = new Map<string, LocationNode>();
-  for (const entry of readdirSync(dir)) {
+  for (const entry of ctx.project.listDir(dir)) {
     if (!entry.endsWith(".md")) continue;
-    const node = parseLocationFile(join(dir, entry));
+    const node = parseLocationFile(ctx, `${dir}/${entry}`);
     if (node) mesh.set(node.slug, node);
   }
   return mesh;
@@ -160,44 +158,38 @@ function rewriteWorldState(raw: string, newTime: string, newDay: number, newLoc:
     .replace(/^location:\s*\w+/m, `location: ${newLoc}`);
 }
 
-function main() {
-  const { to } = parseArgs(process.argv.slice(2));
-  const ws = readWorldState();
+export default function (rawArgs: readonly string[], ctx: ScriptContext) {
+  const { to } = parseTravelArgs(rawArgs, ctx);
+  const ws = readWorldState(ctx);
 
   if (ws.location === to) {
-    console.log(JSON.stringify({
+    return {
       changed: [],
       deltas: {},
       summary: `이미 ${to} 에 있음. 이동 없음.`,
-    }));
-    return;
+    };
   }
 
-  const mesh = readLocations();
+  const mesh = readLocations(ctx);
   if (!mesh.has(to)) {
-    console.error(`Unknown location: ${to}. Known: ${[...mesh.keys()].join(", ")}`);
-    process.exit(1);
+    throw new Error(`Unknown location: ${to}. Known: ${[...mesh.keys()].join(", ")}`);
   }
   if (!mesh.has(ws.location)) {
-    console.error(`Current location not in mesh: ${ws.location}`);
-    process.exit(1);
+    throw new Error(`Current location not in mesh: ${ws.location}`);
   }
 
   const path = findShortestPath(mesh, ws.location, to);
-  if (!path) {
-    console.error(`No path from ${ws.location} to ${to} via door_to mesh.`);
-    process.exit(1);
-  }
+  if (!path) throw new Error(`No path from ${ws.location} to ${to} via door_to mesh.`);
 
   const fromName = mesh.get(ws.location)!.name;
   const toName = mesh.get(to)!.name;
   const arrival = addMinutes(ws.time, ws.day, path.totalMinutes);
-  const pathStr = path.nodes.map(s => mesh.get(s)?.name ?? s).join(" → ");
+  const pathStr = path.nodes.map((s) => mesh.get(s)?.name ?? s).join(" → ");
 
   const newRaw = rewriteWorldState(ws.raw, arrival.time, arrival.day, to);
-  writeFileSync("files/world-state.yaml", newRaw, "utf-8");
+  ctx.project.writeFile("files/world-state.yaml", newRaw);
 
-  const result = {
+  return {
     changed: ["files/world-state.yaml"],
     deltas: {
       location: { from: ws.location, to },
@@ -210,8 +202,4 @@ function main() {
       `${fromName} → ${toName} · ${pathStr} · ${path.totalMinutes}분 ` +
       `(${ws.time} → ${arrival.time}${arrival.day !== ws.day ? `, ${arrival.day}일차` : ""})`,
   };
-
-  console.log(JSON.stringify(result));
 }
-
-main();

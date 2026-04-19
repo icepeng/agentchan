@@ -1,4 +1,6 @@
-import { resolve } from "node:path";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
@@ -12,7 +14,7 @@ const ScriptParams = Type.Object({
   args: Type.Optional(
     Type.Array(Type.String(), {
       description:
-        "Arguments passed to the script as argv. Each element becomes one argv entry — no shell quoting needed.",
+        "Arguments passed to the script as the first parameter. Each element becomes one entry — no shell quoting needed.",
     }),
   ),
   timeout: Type.Optional(
@@ -24,10 +26,106 @@ type ScriptInput = Static<typeof ScriptParams>;
 
 const DESCRIPTION = `Run a TypeScript or JavaScript file from the project directory.
 
-The script runs with cwd set to the project root. Captured stdout and stderr are returned together; non-zero exit codes are surfaced. Output is truncated to roughly the last 50KB / 2000 lines.`;
+The script must \`export default function (args, ctx)\` (sync or async). It receives:
+- \`args\` — the args[] passed to this tool, as a readonly string[]
+- \`ctx\` — { project: { readFile, writeFile, exists, listDir }, yaml: { parse, stringify }, random: { int(minIncl, maxExcl) }, util: { parseArgs(config) } }
+- \`ctx.util.parseArgs\` mirrors \`node:util.parseArgs\` — pass {args, options, strict, allowPositionals} as usual.
+
+The function's return value becomes the tool's output: \`string\` is passed through, \`object\` is JSON.stringify'd, \`undefined\` yields "(no output)". Throw an Error to fail; the message is surfaced to the caller and the script exits non-zero. Output is truncated to roughly the last 50KB / 2000 lines.
+
+\`fs\`, \`process\`, \`Bun\`, \`fetch\`, \`require\` are not exposed — use the ctx capabilities instead. Top-level \`import\` of host modules will not be available in future runtimes; \`import type\` only.`;
+
+/**
+ * Wrapper source executed inside the spawned Bun process. Self-contained
+ * (no imports of agentchan internals) so it works under both dev (`bun run`)
+ * and `bun --compile` single-executable, where the parent's import graph
+ * is not visible to the child.
+ *
+ * Mirrors `runtime/script-context.ts` — keep the two in sync if either
+ * changes. The duplication is intentional: dev/test exercises the host
+ * implementation, the spawned child re-creates an equivalent context
+ * inside its own process.
+ */
+const SCRIPT_RUNNER_SOURCE = `import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { randomInt } from "node:crypto";
+import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
+
+function createScriptContext(projectDir) {
+  const join = (p) => resolve(projectDir, p);
+  return {
+    project: {
+      readFile: (p) => readFileSync(join(p), "utf-8"),
+      writeFile: (p, content) => writeFileSync(join(p), content, "utf-8"),
+      exists: (p) => existsSync(join(p)),
+      listDir: (p) => readdirSync(join(p)),
+    },
+    yaml: {
+      parse: (text) => Bun.YAML.parse(text),
+      stringify: (value) => Bun.YAML.stringify(value),
+    },
+    random: {
+      int: (min, max) => randomInt(min, max),
+    },
+    util: {
+      parseArgs: (config) => parseArgs(config),
+    },
+  };
+}
+
+const userScriptPath = process.argv[2];
+const args = Object.freeze(process.argv.slice(3));
+
+if (!userScriptPath) {
+  process.stderr.write("script-runner: missing user script path\\n");
+  process.exit(2);
+}
+
+const ctx = createScriptContext(process.cwd());
+
+try {
+  const mod = await import(pathToFileURL(userScriptPath).href);
+  const fn = mod.default;
+  if (typeof fn !== "function") {
+    process.stderr.write(\`script-runner: \${userScriptPath} must \\\`export default\\\` a function (args, ctx) => result\\n\`);
+    process.exit(2);
+  }
+  const result = await fn(args, ctx);
+  if (result === undefined || result === null) {
+    // void → no output
+  } else if (typeof result === "string") {
+    process.stdout.write(result);
+  } else {
+    process.stdout.write(JSON.stringify(result));
+  }
+} catch (err) {
+  const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
+  process.stderr.write(\`Error: \${message}\\n\`);
+  process.exit(1);
+}
+`;
+
+let cachedRunnerPath: Promise<string> | null = null;
+
+async function getRunnerPath(): Promise<string> {
+  if (!cachedRunnerPath) {
+    cachedRunnerPath = (async () => {
+      const dir = await mkdtemp(join(tmpdir(), "agentchan-script-runner-"));
+      const runnerPath = join(dir, "runner.mjs");
+      await writeFile(runnerPath, SCRIPT_RUNNER_SOURCE, "utf-8");
+      return runnerPath;
+    })();
+  }
+  return cachedRunnerPath;
+}
 
 /**
  * Run a TypeScript/JavaScript file using the bundled Bun runtime.
+ *
+ * Spawns `bun run <runner> <userScript> <...args>`. The runner imports the
+ * user script and calls its default export with `(args, ctx)`, where ctx
+ * exposes only the capabilities defined in `runtime/script-context.ts`.
  *
  * In dev mode `process.execPath` is the user's `bun` binary; in a `bun --compile`
  * single executable it is the compiled exe itself, which when invoked with
@@ -49,11 +147,12 @@ export function createScriptTool(cwd?: string): AgentTool<typeof ScriptParams, v
     ): Promise<AgentToolResult<void>> {
       const { file, args = [], timeout: timeoutMs = 120_000 } = params;
       const scriptPath = resolve(workDir, file);
+      const runnerPath = await getRunnerPath();
 
       let proc: ReturnType<typeof Bun.spawn>;
       try {
         proc = Bun.spawn(
-          [process.execPath, "run", scriptPath, ...args],
+          [process.execPath, "run", runnerPath, scriptPath, ...args],
           {
             cwd: workDir,
             stdout: "pipe",

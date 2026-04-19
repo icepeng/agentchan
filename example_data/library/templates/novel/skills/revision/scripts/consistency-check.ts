@@ -1,9 +1,7 @@
-#!/usr/bin/env bun
 /**
  * consistency-check.ts — 소설 프로젝트 파일의 일관성을 검사합니다.
  *
- * 사용법:
- *   bun run scripts/consistency-check.ts --project <프로젝트-디렉토리>
+ * 사용법: (인자 없음)
  *
  * 검사 항목:
  *   1. 챕터에 언급되었지만 characters/에 없는 캐릭터 이름
@@ -13,8 +11,7 @@
  *   5. 아웃라인에서 참조되지 않는 고아 챕터
  */
 
-import { readdir, readFile } from "node:fs/promises";
-import { join, basename } from "node:path";
+import type { ScriptContext } from "@agentchan/creative-agent";
 
 // --- 타입 ---
 
@@ -28,33 +25,30 @@ interface Issue {
 interface CharacterProfile {
   name: string;
   file: string;
-  traits: Map<string, string>; // 특성 키 → 값 (예: "eye color" → "blue")
+  traits: Map<string, string>;
 }
 
 // --- 헬퍼 ---
 
-async function readMarkdown(path: string): Promise<string> {
-  try {
-    return await readFile(path, "utf-8");
-  } catch {
-    return "";
-  }
+function readMarkdown(ctx: ScriptContext, path: string): string {
+  return ctx.project.exists(path) ? ctx.project.readFile(path) : "";
 }
 
-async function listMdFiles(dir: string): Promise<string[]> {
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-    return entries
-      .filter((e) => e.isFile() && e.name.endsWith(".md"))
-      .map((e) => join(dir, e.name));
-  } catch {
-    return [];
-  }
+function listMdFiles(ctx: ScriptContext, dir: string): string[] {
+  if (!ctx.project.exists(dir)) return [];
+  return ctx.project
+    .listDir(dir)
+    .filter((name: string) => name.endsWith(".md"))
+    .map((name: string) => `${dir}/${name}`);
+}
+
+function baseName(path: string, ext = ""): string {
+  const withExt = path.split(/[\\/]/).pop() ?? path;
+  if (ext && withExt.endsWith(ext)) return withExt.slice(0, -ext.length);
+  return withExt;
 }
 
 function extractNames(content: string): string[] {
-  // 대문자로 시작하는 단어 중 캐릭터 이름으로 보이는 것을 매칭
-  // 휴리스틱: 대문자로 시작하는 2글자 이상 단어, 일반 단어 제외
   const commonWords = new Set([
     "The", "This", "That", "There", "Then", "They", "Their", "These", "Those",
     "When", "Where", "What", "Which", "While", "With", "Would", "Will",
@@ -90,33 +84,24 @@ function extractTraits(content: string): Map<string, string> {
 
 // --- 검사 ---
 
-async function checkCharacterConsistency(
-  projectDir: string,
-): Promise<{ profiles: CharacterProfile[]; issues: Issue[] }> {
+function checkCharacterConsistency(ctx: ScriptContext): { profiles: CharacterProfile[]; issues: Issue[] } {
   const issues: Issue[] = [];
   const profiles: CharacterProfile[] = [];
 
-  const charFiles = await listMdFiles(join(projectDir, "characters"));
-
-  for (const file of charFiles) {
-    const content = await readMarkdown(file);
-    const name = basename(file, ".md");
+  for (const file of listMdFiles(ctx, "files/characters")) {
+    const content = readMarkdown(ctx, file);
+    const name = baseName(file, ".md");
     const traits = extractTraits(content);
     profiles.push({ name, file, traits });
   }
 
-  // 챕터에서 특성 모순 검사
-  const chapterFiles = await listMdFiles(join(projectDir, "chapters"));
-
-  for (const chFile of chapterFiles) {
-    const content = await readMarkdown(chFile);
+  for (const chFile of listMdFiles(ctx, "files/chapters")) {
+    const content = readMarkdown(ctx, chFile);
     const chapterTraits = extractTraits(content);
-    const chName = basename(chFile);
+    const chName = baseName(chFile);
 
     for (const profile of profiles) {
-      // 이 캐릭터가 챕터에 언급된 경우에만 검사
       if (!content.includes(profile.name)) continue;
-
       for (const [key, profileValue] of profile.traits) {
         const chapterValue = chapterTraits.get(key);
         if (chapterValue && chapterValue !== profileValue) {
@@ -134,18 +119,14 @@ async function checkCharacterConsistency(
   return { profiles, issues };
 }
 
-async function checkChapterReferences(
-  projectDir: string,
-  knownNames: string[],
-): Promise<Issue[]> {
+function checkChapterReferences(ctx: ScriptContext, knownNames: string[]): Issue[] {
   const issues: Issue[] = [];
-  const chapterFiles = await listMdFiles(join(projectDir, "chapters"));
   const knownSet = new Set(knownNames.map((n) => n.toLowerCase()));
 
-  for (const file of chapterFiles) {
-    const content = await readMarkdown(file);
+  for (const file of listMdFiles(ctx, "files/chapters")) {
+    const content = readMarkdown(ctx, file);
     const names = extractNames(content);
-    const chName = basename(file);
+    const chName = baseName(file);
 
     for (const name of names) {
       if (!knownSet.has(name.toLowerCase())) {
@@ -162,44 +143,39 @@ async function checkChapterReferences(
   return issues;
 }
 
-async function checkOutline(projectDir: string): Promise<Issue[]> {
+function checkOutline(ctx: ScriptContext): Issue[] {
   const issues: Issue[] = [];
-  const outline = await readMarkdown(join(projectDir, "outline.md"));
+  const outline = readMarkdown(ctx, "files/outline.md");
 
   if (!outline) {
     issues.push({
       type: "outline",
       severity: "warning",
-      file: "outline.md",
-      message: "프로젝트 디렉토리에 outline.md가 없습니다",
+      file: "files/outline.md",
+      message: "프로젝트 디렉토리에 files/outline.md가 없습니다",
     });
     return issues;
   }
 
-  // 체크되지 않은 할 일 확인
   const unchecked = outline.match(/- \[ \] .+/g) || [];
   for (const item of unchecked) {
     issues.push({
       type: "outline",
       severity: "warning",
-      file: "outline.md",
+      file: "files/outline.md",
       message: `미해결: ${item.replace("- [ ] ", "")}`,
     });
   }
 
-  // 아웃라인에서 참조하는 챕터 vs. 실제 존재하는 챕터 확인
-  const chapterFiles = await listMdFiles(join(projectDir, "chapters"));
-  const chapterNames = new Set(
-    chapterFiles.map((f) => basename(f, ".md")),
-  );
+  const chapterFiles = listMdFiles(ctx, "files/chapters");
+  const chapterNames = new Set(chapterFiles.map((f) => baseName(f, ".md")));
 
-  // 아웃라인에 참조되지 않는 챕터 찾기
   for (const name of chapterNames) {
     if (!outline.toLowerCase().includes(name.toLowerCase().replace(/^\d+-/, ""))) {
       issues.push({
         type: "orphan",
         severity: "warning",
-        file: `chapters/${name}.md`,
+        file: `files/chapters/${name}.md`,
         message: `챕터 "${name}"이(가) 아웃라인에서 참조되지 않을 수 있습니다`,
       });
     }
@@ -208,25 +184,22 @@ async function checkOutline(projectDir: string): Promise<Issue[]> {
   return issues;
 }
 
-async function checkTimeline(projectDir: string): Promise<Issue[]> {
+function checkTimeline(ctx: ScriptContext): Issue[] {
   const issues: Issue[] = [];
-  const chapterFiles = await listMdFiles(join(projectDir, "chapters"));
 
   const timelineEntries: Array<{ file: string; marker: string; order: number }> = [];
 
-  for (const file of chapterFiles) {
-    const content = await readMarkdown(file);
-    const chName = basename(file);
+  for (const file of listMdFiles(ctx, "files/chapters")) {
+    const content = readMarkdown(ctx, file);
+    const chName = baseName(file);
 
-    // 챕터 메타데이터에서 타임라인 마커 추출
     const timelineMatch = content.match(/>\s*\*\*Timeline\*\*:\s*(.+)/);
     if (timelineMatch) {
       const order = parseInt(chName.match(/^(\d+)/)?.[1] || "0");
-      timelineEntries.push({ file: chName, marker: timelineMatch[1].trim(), order });
+      timelineEntries.push({ file: chName, marker: timelineMatch[1]!.trim(), order });
     }
   }
 
-  // 중복 또는 누락된 타임라인 마커 확인
   const seen = new Map<string, string>();
   for (const entry of timelineEntries) {
     if (seen.has(entry.marker)) {
@@ -245,62 +218,46 @@ async function checkTimeline(projectDir: string): Promise<Issue[]> {
 
 // --- 메인 ---
 
-async function main() {
-  const projectFlag = process.argv.indexOf("--project");
-  if (projectFlag === -1 || !process.argv[projectFlag + 1]) {
-    console.error("사용법: bun run consistency-check.ts --project <프로젝트-디렉토리>");
-    process.exit(1);
-  }
-
-  const projectDir = process.argv[projectFlag + 1];
-  console.log(`\n=== 일관성 검사: ${projectDir} ===\n`);
+export default function (_args: readonly string[], ctx: ScriptContext) {
+  const lines: string[] = [];
+  lines.push("");
+  lines.push("=== 일관성 검사 ===");
+  lines.push("");
 
   const allIssues: Issue[] = [];
 
-  // 1. 캐릭터 일관성
-  const { profiles, issues: charIssues } = await checkCharacterConsistency(projectDir);
+  const { profiles, issues: charIssues } = checkCharacterConsistency(ctx);
   allIssues.push(...charIssues);
 
-  // 2. 알 수 없는 캐릭터 참조
   const knownNames = profiles.map((p) => p.name);
-  const refIssues = await checkChapterReferences(projectDir, knownNames);
-  allIssues.push(...refIssues);
+  allIssues.push(...checkChapterReferences(ctx, knownNames));
+  allIssues.push(...checkOutline(ctx));
+  allIssues.push(...checkTimeline(ctx));
 
-  // 3. 아웃라인 검사
-  const outlineIssues = await checkOutline(projectDir);
-  allIssues.push(...outlineIssues);
-
-  // 4. 타임라인 검사
-  const timelineIssues = await checkTimeline(projectDir);
-  allIssues.push(...timelineIssues);
-
-  // --- 보고서 ---
   const errors = allIssues.filter((i) => i.severity === "error");
   const warnings = allIssues.filter((i) => i.severity === "warning");
 
   if (errors.length > 0) {
-    console.log(`오류 (${errors.length}):`);
+    lines.push(`오류 (${errors.length}):`);
     for (const issue of errors) {
-      console.log(`  [${issue.type}] ${issue.file}: ${issue.message}`);
+      lines.push(`  [${issue.type}] ${issue.file}: ${issue.message}`);
     }
-    console.log();
+    lines.push("");
   }
 
   if (warnings.length > 0) {
-    console.log(`경고 (${warnings.length}):`);
+    lines.push(`경고 (${warnings.length}):`);
     for (const issue of warnings) {
-      console.log(`  [${issue.type}] ${issue.file}: ${issue.message}`);
+      lines.push(`  [${issue.type}] ${issue.file}: ${issue.message}`);
     }
-    console.log();
+    lines.push("");
   }
 
   if (allIssues.length === 0) {
-    console.log("발견된 문제가 없습니다. 원고의 일관성이 유지되고 있습니다.");
+    lines.push("발견된 문제가 없습니다. 원고의 일관성이 유지되고 있습니다.");
   } else {
-    console.log(`합계: 오류 ${errors.length}건, 경고 ${warnings.length}건`);
+    lines.push(`합계: 오류 ${errors.length}건, 경고 ${warnings.length}건`);
   }
 
-  process.exit(errors.length > 0 ? 1 : 0);
+  return lines.join("\n");
 }
-
-main();

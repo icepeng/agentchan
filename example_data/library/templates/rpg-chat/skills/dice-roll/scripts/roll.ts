@@ -1,9 +1,12 @@
-#!/usr/bin/env bun
+/**
+ * Dice roller for rpg-chat. Returns human-readable text (multi-line).
+ *
+ * Usage: <dice> [DC]
+ *   dice: Standard notation (1d20, 2d6+3, 4d6kh3, d100)
+ *   DC:   Difficulty class (optional, for pass/fail check)
+ */
 
-import { randomInt } from "node:crypto";
-
-// ── Dice notation parser ────────────────────
-// Supports: 1d20, 2d6+3, 1d20-2, 3d8, d100, 4d6kh3 (keep highest 3)
+import type { ScriptContext } from "@agentchan/creative-agent";
 
 interface DiceRoll {
   count: number;
@@ -14,73 +17,47 @@ interface DiceRoll {
 
 function parseDice(expr: string): DiceRoll {
   const normalized = expr.toLowerCase().trim();
-
-  // Match: [N]d<sides>[kh<keep>][+/-<mod>]
-  const match = normalized.match(
-    /^(\d*)d(\d+)(?:kh(\d+))?(?:([+-])(\d+))?$/,
-  );
+  const match = normalized.match(/^(\d*)d(\d+)(?:kh(\d+))?(?:([+-])(\d+))?$/);
   if (!match) {
-    console.error(`Invalid dice notation: "${expr}"`);
-    console.error("Usage: roll.ts <dice> [DC]");
-    console.error("Examples: 1d20, 2d6+3, d100, 4d6kh3");
-    process.exit(1);
+    throw new Error(
+      `Invalid dice notation: "${expr}". Examples: 1d20, 2d6+3, d100, 4d6kh3`,
+    );
   }
-
   const count = match[1] ? parseInt(match[1], 10) : 1;
   const sides = parseInt(match[2], 10);
   const keepHighest = match[3] ? parseInt(match[3], 10) : undefined;
   const modSign = match[4] === "-" ? -1 : 1;
   const modValue = match[5] ? parseInt(match[5], 10) : 0;
 
-  if (count < 1 || count > 100) {
-    console.error("Dice count must be 1-100");
-    process.exit(1);
-  }
-  if (sides < 2 || sides > 1000) {
-    console.error("Dice sides must be 2-1000");
-    process.exit(1);
-  }
+  if (count < 1 || count > 100) throw new Error("Dice count must be 1-100");
+  if (sides < 2 || sides > 1000) throw new Error("Dice sides must be 2-1000");
   if (keepHighest !== undefined && keepHighest > count) {
-    console.error(`Cannot keep ${keepHighest} dice when rolling ${count}`);
-    process.exit(1);
+    throw new Error(`Cannot keep ${keepHighest} dice when rolling ${count}`);
   }
-
   return { count, sides, modifier: modSign * modValue, keepHighest };
 }
 
-// ── RNG using crypto ────────────────────────
+export default function (args: readonly string[], ctx: ScriptContext) {
+  const { positionals } = ctx.util.parseArgs({
+    args: [...args],
+    options: {},
+    strict: true,
+    allowPositionals: true,
+  });
+  if (positionals.length === 0) throw new Error("Usage: <dice> [DC]");
 
-function roll(sides: number): number {
-  return randomInt(1, sides + 1);
-}
-
-// ── Main ────────────────────────────────────
-
-function main() {
-  const args = process.argv.slice(2);
-
-  if (args.length === 0) {
-    console.error("Usage: roll.ts <dice> [DC]");
-    console.error("  dice: Standard notation (1d20, 2d6+3, 4d6kh3, d100)");
-    console.error("  DC:   Difficulty class (optional, for pass/fail check)");
-    process.exit(1);
-  }
-
-  const diceExpr = args[0];
-  const dc = args[1] ? parseInt(args[1], 10) : undefined;
+  const diceExpr = positionals[0]!;
+  const dc = positionals[1] ? parseInt(positionals[1], 10) : undefined;
   const parsed = parseDice(diceExpr);
 
-  // Roll all dice
   const rolls: number[] = [];
   for (let i = 0; i < parsed.count; i++) {
-    rolls.push(roll(parsed.sides));
+    rolls.push(ctx.random.int(1, parsed.sides + 1));
   }
 
-  // Apply keep-highest if specified
   let keptIndices: Set<number> = new Set(rolls.map((_, i) => i));
   let kept = rolls;
   if (parsed.keepHighest !== undefined) {
-    // Sort indices by roll value descending, keep top N
     const sortedIndices = rolls
       .map((v, i) => ({ v, i }))
       .sort((a, b) => b.v - a.v);
@@ -91,10 +68,7 @@ function main() {
   const subtotal = kept.reduce((a, b) => a + b, 0);
   const total = subtotal + parsed.modifier;
 
-  // Format output
   const parts: string[] = [];
-
-  // Roll line
   if (parsed.keepHighest !== undefined) {
     const rollStr = rolls
       .map((r, i) => (keptIndices.has(i) ? `${r}` : `~${r}~`))
@@ -107,14 +81,12 @@ function main() {
     parts.push(`${diceExpr}: ${subtotal}`);
   }
 
-  // Modifier
   if (parsed.modifier !== 0) {
     const sign = parsed.modifier > 0 ? "+" : "";
     parts.push(`Modifier: ${sign}${parsed.modifier}`);
     parts.push(`Total: ${total}`);
   }
 
-  // DC check
   if (dc !== undefined) {
     const passed = total >= dc;
     const margin = total - dc;
@@ -122,7 +94,5 @@ function main() {
     parts.push(`DC ${dc}: ${passed ? "PASS" : "FAIL"} (${marginStr})`);
   }
 
-  console.log(parts.join("\n"));
+  return parts.join("\n");
 }
-
-main();
