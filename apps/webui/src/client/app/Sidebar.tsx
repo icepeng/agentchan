@@ -1,4 +1,4 @@
-import { BookOpen, PanelLeftClose, Settings } from "lucide-react";
+import { BookOpen, PanelLeftClose, Settings, Wrench } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
@@ -55,14 +55,21 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Projects */}
+      {/* Workbench + Projects */}
       <ScrollArea className="flex-1 border-t border-edge/6" viewportClassName="pt-1 pb-2">
-        <div className="px-5 pt-3 pb-1">
+        <div className="px-5 pt-3 pb-1 flex items-center gap-1.5">
+          <Wrench size={11} strokeWidth={2} className="text-fg-3" />
+          <label className="text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em]">
+            {t("sidebar.workbench")}
+          </label>
+        </div>
+        <ProjectTabs intent="workbench" />
+        <div className="px-5 pt-4 pb-1">
           <label className="text-[11px] font-semibold text-fg-3 uppercase tracking-[0.12em]">
             {t("sidebar.projects")}
           </label>
         </div>
-        <ProjectTabs />
+        <ProjectTabs intent="creative" />
       </ScrollArea>
 
       {/* Bottom panel */}

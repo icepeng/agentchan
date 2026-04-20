@@ -5,6 +5,8 @@ import {
   useProjectSelectionDispatch,
   useProjects,
   useProjectMutations,
+  type CreateProjectOptions,
+  type ProjectIntent,
 } from "@/client/entities/project/index.js";
 import {
   useStreamDispatch,
@@ -89,15 +91,19 @@ export function useProject() {
     }
   };
 
-  const createProject = async (name: string, fromTemplate?: string) => {
-    const project = await createProjectMutation(name, fromTemplate);
+  const createProject = async (name: string, opts?: CreateProjectOptions) => {
+    const project = await createProjectMutation(name, opts);
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
     rendererViewDispatch({ type: "CLEAR_HTML" });
     return project;
   };
 
-  const duplicateProject = async (sourceSlug: string, name: string) => {
-    const project = await duplicateProjectMutation(sourceSlug, name);
+  const duplicateProject = async (
+    sourceSlug: string,
+    name: string,
+    opts?: { intent?: ProjectIntent },
+  ) => {
+    const project = await duplicateProjectMutation(sourceSlug, name, opts);
     await activateProject(project.slug);
     return project;
   };

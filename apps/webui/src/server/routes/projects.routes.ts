@@ -1,10 +1,14 @@
 import { Hono } from "hono";
-import type { AppEnv } from "../types.js";
+import type { AppEnv, ProjectIntent } from "../types.js";
 import { createSessionRoutes } from "./sessions.routes.js";
 import { createSkillRoutes } from "./skills.routes.js";
 
 import { IMAGE_EXTS } from "../paths.js";
 import { readmeResponse } from "../readme.js";
+
+function normalizeIntent(raw: unknown): ProjectIntent | undefined {
+  return raw === "workbench" || raw === "creative" ? raw : undefined;
+}
 
 export function createProjectRoutes() {
   const app = new Hono<AppEnv>();
@@ -14,12 +18,20 @@ export function createProjectRoutes() {
   });
 
   app.post("/", async (c) => {
-    const { name, fromTemplate } = await c.req.json<{ name: string; fromTemplate?: string }>();
+    const body = await c.req.json<{
+      name: string;
+      fromTemplate?: string;
+      intent?: ProjectIntent;
+    }>();
+    const { name, fromTemplate } = body;
+    const intent = normalizeIntent(body.intent);
     if (!name?.trim()) return c.json({ error: "Name is required" }, 400);
 
     if (fromTemplate) {
       try {
-        const project = await c.get("projectService").createFromTemplate(name.trim(), fromTemplate);
+        const project = await c
+          .get("projectService")
+          .createFromTemplate(name.trim(), fromTemplate, intent ? { intent } : undefined);
         return c.json(project, 201);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Failed to create from template";
@@ -27,7 +39,10 @@ export function createProjectRoutes() {
       }
     }
 
-    return c.json(await c.get("projectService").create(name.trim()), 201);
+    return c.json(
+      await c.get("projectService").create(name.trim(), intent ? { intent } : undefined),
+      201,
+    );
   });
 
   app.put("/:slug", async (c) => {
@@ -61,11 +76,15 @@ export function createProjectRoutes() {
 
   app.post("/:slug/duplicate", async (c) => {
     const slug = c.req.param("slug");
-    const { name } = await c.req.json<{ name: string }>();
+    const body = await c.req.json<{ name: string; intent?: ProjectIntent }>();
+    const { name } = body;
+    const intent = normalizeIntent(body.intent);
     if (!name?.trim()) return c.json({ error: "Name is required" }, 400);
 
     try {
-      const project = await c.get("projectService").duplicate(slug, name.trim());
+      const project = await c
+        .get("projectService")
+        .duplicate(slug, name.trim(), intent ? { intent } : undefined);
       return c.json(project, 201);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to duplicate project";

@@ -47,12 +47,16 @@ export type AppEnv = {
 
 // --- Project (folder) - webui-specific ---
 
+/** Project의 목적. 기본값은 "creative"(창작용). "workbench"는 새 템플릿 저작용 */
+export type ProjectIntent = "creative" | "workbench";
+
 /** Disk format stored in _project.json (no slug — derived from folder name). */
 export interface ProjectMeta {
   name: string;
   createdAt: number;
   updatedAt: number;
   notes?: string;
+  intent?: ProjectIntent;
 }
 
 /** Runtime / API response format (slug derived from folder name on disk). */

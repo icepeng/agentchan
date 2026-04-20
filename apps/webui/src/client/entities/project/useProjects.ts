@@ -8,8 +8,9 @@ import {
   updateProject as apiUpdate,
   deleteProject as apiDelete,
   duplicateProject as apiDuplicate,
+  type CreateProjectOptions,
 } from "./project.api.js";
-import type { Project, ProjectFile } from "./project.types.js";
+import type { Project, ProjectFile, ProjectIntent } from "./project.types.js";
 
 export function useProjects() {
   return useSWR<Project[]>(qk.projects());
@@ -41,8 +42,8 @@ export function useRendererJs(slug: string | null) {
 export function useProjectMutations() {
   const { mutate } = useSWRConfig();
 
-  const create = async (name: string, fromTemplate?: string) => {
-    const project = await apiCreate(name, fromTemplate);
+  const create = async (name: string, opts?: CreateProjectOptions) => {
+    const project = await apiCreate(name, opts);
     await mutate(qk.projects());
     return project;
   };
@@ -64,8 +65,12 @@ export function useProjectMutations() {
     await mutate(matchesSlug(slug), undefined, { revalidate: false });
   };
 
-  const duplicate = async (sourceSlug: string, name: string) => {
-    const project = await apiDuplicate(sourceSlug, name);
+  const duplicate = async (
+    sourceSlug: string,
+    name: string,
+    opts?: { intent?: ProjectIntent },
+  ) => {
+    const project = await apiDuplicate(sourceSlug, name, opts);
     await mutate(qk.projects());
     return project;
   };

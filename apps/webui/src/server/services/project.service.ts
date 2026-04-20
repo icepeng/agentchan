@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
+import type { ProjectIntent } from "../types.js";
 
 export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
@@ -10,15 +11,17 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
     async list() { return projectRepo.list(); },
     async getCoverFile(slug: string) { return projectRepo.getCoverFile(slug); },
     async get(slug: string) { return projectRepo.get(slug); },
-    async create(name: string) { return projectRepo.create(name); },
+    async create(name: string, opts?: { intent?: ProjectIntent }) { return projectRepo.create(name, opts); },
     async update(slug: string, updates: { name?: string; notes?: string }) {
       return projectRepo.update(slug, updates);
     },
     async delete(slug: string) { return projectRepo.delete(slug); },
-    async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
-    async createFromTemplate(name: string, templateName: string) {
+    async duplicate(sourceSlug: string, name: string, opts?: { intent?: ProjectIntent }) {
+      return projectRepo.duplicate(sourceSlug, name, opts);
+    },
+    async createFromTemplate(name: string, templateName: string, opts?: { intent?: ProjectIntent }) {
       const templateDir = templateRepo.getSourceDir(templateName);
-      return projectRepo.createFromSource(name, templateDir);
+      return projectRepo.createFromSource(name, templateDir, opts);
     },
     async scanWorkspaceFiles(slug: string) {
       return projectRepo.scanWorkspaceFiles(slug);

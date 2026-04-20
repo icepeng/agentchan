@@ -66,7 +66,7 @@ export function useOnboarding() {
     if (creatingSlug) return;
     setCreatingSlug(slug);
     try {
-      await createProject(name, slug);
+      await createProject(name, { fromTemplate: slug });
       await mutateCompleteOnboarding();
       setWizardOpen(false);
       uiDispatch({ type: "NAVIGATE", route: { page: "main" } });

@@ -3,7 +3,7 @@ import {
   useSessions,
   useActiveSessionSelection,
 } from "@/client/entities/session/index.js";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import { useProjectSelectionState, useActiveProject } from "@/client/entities/project/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
@@ -13,6 +13,7 @@ export function SessionTabs() {
   const selection = useActiveSessionSelection();
   const { activeProjectSlug } = useProjectSelectionState();
   const { data: sessions = [] } = useSessions(activeProjectSlug);
+  const isWorkbench = useActiveProject()?.intent === "workbench";
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
   const { create, load, remove } = useSession();
@@ -58,9 +59,8 @@ export function SessionTabs() {
           );
         })}
 
-        {/* New session */}
         <button
-          onClick={() => create()}
+          onClick={() => create(isWorkbench ? "meta" : undefined)}
           className="flex-shrink-0 p-1.5 rounded-md text-fg-3 hover:text-accent hover:bg-accent/8 transition-all duration-150"
           title={t("session.new")}
         >
