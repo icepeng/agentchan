@@ -1,16 +1,19 @@
+#!/usr/bin/env bun
 /**
  * start-scene/init.ts
  *
  * Generates initial state files for a chosen PC preset.
  * Self-contained — no YAML parser, pure template literals.
  *
- * Usage: --preset <warrior|rogue|scholar>
+ * Usage:
+ *   init.ts --preset <warrior|rogue|scholar>
  *
  * 동작: pc.md / party.yaml / inventory.yaml / world-state.yaml / next-choices.yaml 을
- * 직접 생성한다. 반환은 {changed, deltas, summary} JSON.
+ * 직접 생성한다. stdout 마지막 줄에 JSON 한 줄을 출력.
+ *   {"changed":[...],"deltas":{...},"summary":"..."}
  */
 
-import type { ScriptContext } from "@agentchan/creative-agent";
+import { writeFileSync } from "node:fs";
 
 // ─── Preset specs ────────────────────────────────────────────────────────────
 
@@ -72,7 +75,7 @@ const PRESETS: Record<string, Preset> = {
     attributes: { strength: -1, agility: 0, insight: 2, charisma: 2 },
     hp_max: 16,
     mp_max: 4,
-    spells: ["fireball", "heal_light", "veil", "bless"],
+    spells: ["fireball", "heal_light", "veil", "bless"],  // balanced preset
     weapon: null,
     armor: null,
     accessory: { slug: "scholars_tome", name: "마력서", schools: ["elemental", "restoration", "illusion"] },
@@ -88,18 +91,23 @@ const PRESETS: Record<string, Preset> = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function parsePresetArgs(args: readonly string[], ctx: ScriptContext): string {
-  const { values } = ctx.util.parseArgs({
-    args: [...args],
-    options: { preset: { type: "string" } },
-    strict: true,
-  });
-  const preset = values.preset;
-  if (!preset) throw new Error("Usage: --preset <warrior|rogue|scholar>");
-  if (!PRESETS[preset]) {
-    throw new Error(`Unknown preset: ${preset}. Valid: warrior | rogue | scholar`);
+function parseArgs(argv: string[]): { preset: string } {
+  const args: Record<string, string> = {};
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith("--")) {
+      args[argv[i].slice(2)] = argv[i + 1];
+      i++;
+    }
   }
-  return preset;
+  if (!args.preset) {
+    console.error("Usage: init.ts --preset <warrior|rogue|scholar>");
+    process.exit(1);
+  }
+  if (!PRESETS[args.preset]) {
+    console.error(`Unknown preset: ${args.preset}. Valid: warrior | rogue | scholar`);
+    process.exit(1);
+  }
+  return { preset: args.preset };
 }
 
 function formatAttr(n: number): string {
@@ -256,9 +264,9 @@ options:
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function (args: readonly string[], ctx: ScriptContext) {
-  const preset = parsePresetArgs(args, ctx);
-  const p = PRESETS[preset]!;
+function main() {
+  const { preset } = parseArgs(process.argv.slice(2));
+  const p = PRESETS[preset];
 
   const files: { file: string; content: string }[] = [
     { file: "files/pc.md", content: renderPcMd(p) },
@@ -269,11 +277,11 @@ export default function (args: readonly string[], ctx: ScriptContext) {
   ];
 
   for (const { file, content } of files) {
-    ctx.project.writeFile(file, content);
+    writeFileSync(file, content, "utf-8");
   }
 
-  return {
-    changed: files.map((f) => f.file),
+  const result = {
+    changed: files.map(f => f.file),
     deltas: {
       preset: p.slug,
       display_name: p.display_name,
@@ -286,4 +294,8 @@ export default function (args: readonly string[], ctx: ScriptContext) {
       `프리셋 ${p.display_name}: HP ${p.hp_max}/${p.hp_max} · MP ${p.mp_max}/${p.mp_max}` +
       (p.spells.length ? ` · 주문 ${p.spells.length}개` : ""),
   };
+
+  console.log(JSON.stringify(result));
 }
+
+main();
