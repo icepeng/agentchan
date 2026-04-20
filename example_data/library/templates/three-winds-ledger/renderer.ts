@@ -1,3 +1,5 @@
+import { defineRenderer } from "@agentchan/renderer-runtime";
+
 // ─────────────────────────────────────────────────────────────────────────────
 //   three-winds-ledger renderer  ·  "Salren — Three Winds Ledger"
 //
@@ -183,7 +185,7 @@ const COMBAT_THEME: RendererTheme = {
   prefersScheme: "dark",
 };
 
-export function theme(ctx: RenderContext): RendererTheme {
+function theme(ctx: RenderContext): RendererTheme {
   return detectCurrentMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
 }
 
@@ -4436,7 +4438,7 @@ function renderPendingCard(
 
 // ── Main render function ──────────────────────
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   // 숨김 파일은 애초에 스캔에서 제외 — 렌더러 전체가 이 필터된 뷰만 본다.
   const visibleCtx: RenderContext = {
     files: ctx.files.filter(isVisible),
@@ -4507,3 +4509,5 @@ export function render(ctx: RenderContext): string {
       ${renderPendingCard(ctx.state, mode)}
     </div>`;
 }
+
+export default defineRenderer(render, { theme });

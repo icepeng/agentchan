@@ -45,14 +45,9 @@ export function useProject() {
 
   const activateProject = async (slug: string): Promise<Session[]> => {
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug });
-    // Must fire synchronously with slug change: if RenderedView is off-screen
-    // (Templates/Settings) during a project switch, its slug-keyed effect
-    // won't run on return, so the previous project's HTML would briefly
-    // flash. Theme is kept to avoid a two-step palette flicker.
-    rendererViewDispatch({ type: "CLEAR_HTML" });
-    // Single GET: SWR's fetcher runs, result seeds the cache atomically.
-    // Calling `fetchSessions` separately risked a duplicate fetch when
-    // `useSessions(slug)` mounted outside the dedupe window.
+    // RenderedView keys its renderer reload on activeProjectSlug; stale HTML
+    // can no longer leak across switches because the renderer instance owns
+    // the DOM and gets torn down when the slug-keyed effect fires.
     const sessions = await mutate<Session[]>(qk.sessions(slug));
     return sessions ?? [];
   };
@@ -92,7 +87,6 @@ export function useProject() {
   const createProject = async (name: string, fromTemplate?: string) => {
     const project = await createProjectMutation(name, fromTemplate);
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
-    rendererViewDispatch({ type: "CLEAR_HTML" });
     return project;
   };
 

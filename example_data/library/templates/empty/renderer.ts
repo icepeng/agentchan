@@ -1,3 +1,5 @@
+import { defineRenderer } from "@agentchan/renderer-runtime";
+
 interface TextFile {
   type: "text";
   path: string;
@@ -42,7 +44,7 @@ const STYLES = `<style>
   .dr-body { white-space: pre-wrap; word-break: break-word; line-height: 1.625; font-size: 14px; color: var(--color-fg); }
 </style>`;
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   // Show all text files that don't have frontmatter (exclude character/world definitions)
   const contentFiles = ctx.files.filter(
     (f): f is TextFile => f.type === "text" && !f.frontmatter,
@@ -63,3 +65,5 @@ export function render(ctx: RenderContext): string {
 
   return `${STYLES}${inner}`;
 }
+
+export default defineRenderer(render);

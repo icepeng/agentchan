@@ -1,3 +1,5 @@
+import { defineRenderer } from "@agentchan/renderer-runtime";
+
 interface TextFile {
   type: "text";
   path: string;
@@ -134,7 +136,7 @@ const METRIC_DESCRIPTIONS: [string, string, string] = [
 // 렌더러가 STYLES 안에서 이미 선언한 --ms-* 팔레트를 앱 전역 --color-* 토큰으로 전파한다.
 // 값을 새로 결정하지 않고, 각 --ms-* 역할을 가장 가까운 --color-* 슬롯에 매핑.
 // prefersScheme: "dark"로 프로젝트 페이지에서만 다크 강제 (Settings 이동 시 자동 복귀).
-export function theme(_ctx: RenderContext): RendererTheme {
+function theme(_ctx: RenderContext): RendererTheme {
   return {
     base: {
       void: "#0a0e14", // = --ms-bg
@@ -1757,7 +1759,7 @@ function renderPendingStrip(state: AgentState): string {
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
 
   const sceneFiles = ctx.files
@@ -1851,3 +1853,5 @@ export function render(ctx: RenderContext): string {
       ${renderPendingStrip(ctx.state)}
     </div>`;
 }
+
+export default defineRenderer(render, { theme });

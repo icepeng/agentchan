@@ -32,6 +32,7 @@ import type { AgentService } from "./services/agent.service.js";
 import type { TemplateService } from "./services/template.service.js";
 import type { SkillService } from "./services/skill.service.js";
 import type { UpdateService } from "./services/update.service.js";
+import type { RendererRuntimeService } from "./services/renderer-runtime.service.js";
 
 export type AppEnv = {
   Variables: {
@@ -42,6 +43,7 @@ export type AppEnv = {
     templateService: TemplateService;
     skillService: SkillService;
     updateService: UpdateService;
+    rendererRuntimeService: RendererRuntimeService;
   };
 };
 

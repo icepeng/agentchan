@@ -1,3 +1,5 @@
+import { defineRenderer } from "@agentchan/renderer-runtime";
+
 interface TextFile {
   type: "text";
   path: string;
@@ -416,7 +418,7 @@ const STYLES = `<style>
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
 
   const sceneFiles = ctx.files.filter(
@@ -465,3 +467,5 @@ export function render(ctx: RenderContext): string {
       <div data-chat-anchor></div>
     </div>`;
 }
+
+export default defineRenderer(render);

@@ -1,10 +1,14 @@
 import {
   createContext,
   use,
+  useEffect,
+  useMemo,
   useReducer,
+  useRef,
   type ReactNode,
   type Dispatch,
 } from "react";
+import type { RendererActions } from "@agentchan/renderer-runtime";
 import type { RendererAction } from "./renderer.types.js";
 
 // --- State ---
@@ -61,4 +65,37 @@ export function useRendererActionState() {
 
 export function useRendererActionDispatch() {
   return use(DispatchContext);
+}
+
+/**
+ * Stable RendererActions object for renderer ctx.actions injection.
+ *
+ * Memoized intentionally: `actions` is an effect dep in useOutput.refresh,
+ * so a fresh identity each render would re-mount the iframe on every parent
+ * re-render. The thunk pattern (ref-latest dispatch) keeps the wrapper
+ * functional even if React hands useReducer a new dispatch reference.
+ */
+export function useRendererActions(): RendererActions {
+  const dispatch = useRendererActionDispatch();
+  const dispatchRef = useRef(dispatch);
+  useEffect(() => {
+    dispatchRef.current = dispatch;
+  });
+  return useMemo<RendererActions>(
+    () => ({
+      send(text) {
+        dispatchRef.current({
+          type: "SET_ACTION",
+          action: { type: "send", text },
+        });
+      },
+      fill(text) {
+        dispatchRef.current({
+          type: "SET_ACTION",
+          action: { type: "fill", text },
+        });
+      },
+    }),
+    [],
+  );
 }

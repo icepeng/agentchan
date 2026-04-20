@@ -56,7 +56,14 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       const rendererPath = join(projectsDir, slug, "renderer.ts");
       if (!existsSync(rendererPath)) return null;
       const source = await Bun.file(rendererPath).text();
-      return transpiler.transformSync(source);
+      const js = transpiler.transformSync(source);
+      // Bare specifier rewrite: the transpiled module is loaded via a Blob URL
+      // in the browser, where bare specifiers can't resolve. Host code exposes
+      // the runtime on `globalThis.__rendererRuntime` before loading.
+      return js.replace(
+        /import\s*\{([^}]+)\}\s*from\s*["']@agentchan\/renderer-runtime["']\s*;?/g,
+        "const {$1} = globalThis.__rendererRuntime;",
+      );
     },
 
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {

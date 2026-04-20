@@ -1,3 +1,5 @@
+import { defineRenderer } from "@agentchan/renderer-runtime";
+
 interface TextFile {
   type: "text";
   path: string;
@@ -322,7 +324,7 @@ const STYLES = `<style>
   }
 </style>`;
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   const files = ctx.files.filter((f): f is TextFile => f.type === "text");
   if (files.length === 0) {
     return `${STYLES}<div class="rb-empty">아직 출력 파일이 없습니다</div>`;
@@ -432,3 +434,5 @@ export function render(ctx: RenderContext): string {
 
   return `${STYLES}${html}`;
 }
+
+export default defineRenderer(render);

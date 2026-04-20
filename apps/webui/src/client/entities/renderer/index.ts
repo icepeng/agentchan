@@ -2,15 +2,12 @@ export type {
   AgentState,
   ProjectFile,
   RenderContext,
+  RendererActions,
   RendererTheme,
   RendererAction,
 } from "./renderer.types.js";
 
-export {
-  validateTheme,
-  resolveThemeVars,
-  resolveRawTheme,
-} from "./projectTheme.js";
+export { validateTheme, resolveThemeVars } from "./projectTheme.js";
 
 export {
   RendererViewProvider,
@@ -22,6 +19,7 @@ export {
   RendererActionProvider,
   useRendererActionState,
   useRendererActionDispatch,
+  useRendererActions,
 } from "./RendererActionContext.js";
 export type { RendererActionState } from "./RendererActionContext.js";
 

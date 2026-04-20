@@ -22,6 +22,7 @@ import { createAgentService } from "./services/agent.service.js";
 import { createTemplateService } from "./services/template.service.js";
 import { createSkillService } from "./services/skill.service.js";
 import { createUpdateService } from "./services/update.service.js";
+import { createRendererRuntimeService } from "./services/renderer-runtime.service.js";
 
 // --- Migrations ---
 import { migrateConversationsToSessions } from "./migrations/rename-conversations-to-sessions.js";
@@ -31,6 +32,7 @@ import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
 import { createTemplateRoutes } from "./routes/template.routes.js";
 import { createUpdateRoutes } from "./routes/update.routes.js";
+import { createRendererRuntimeRoutes } from "./routes/renderer-runtime.routes.js";
 
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
@@ -45,6 +47,7 @@ const templateService = createTemplateService(templateRepo, PROJECTS_DIR);
 const projectService = createProjectService(projectRepo, templateRepo, PROJECTS_DIR);
 const skillService = createSkillService(projectSkillRepo, PROJECTS_DIR);
 const updateService = createUpdateService(updateRepo);
+const rendererRuntimeService = createRendererRuntimeService();
 
 // ===== 2b. Agent context (stateless handle) =====
 const agentContext = createAgentContext({
@@ -88,6 +91,35 @@ app.onError((err, c) => {
   return c.json({ error: err.message }, 500);
 });
 
+// CSP baseline. `'unsafe-inline'` for scripts is a temporary allowance while
+// one renderer template (tides-of-moonhaven) still ships an inline IIFE and
+// `index.html` carries a theme-preload script; both move out in Phase 4 and
+// this directive tightens to `'self' 'wasm-unsafe-eval'` then. `blob:` in
+// `script-src` is required for the renderer: the host fetches transpiled
+// renderer.ts JS and loads it via `import(blobURL)` so bare specifiers for
+// `@agentchan/renderer-runtime` can be satisfied by the host-realm global.
+// Under the project-trust model (PR #114) renderer iframes are same-origin
+// DOM/CSS boundaries rather than security sandboxes — no `data:` frame-src
+// needed anymore.
+const CSP_HEADER = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+  "connect-src 'self'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+  "form-action 'self'",
+  "frame-src 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+].join("; ");
+
+app.use("*", async (c, next) => {
+  await next();
+  c.header("Content-Security-Policy", CSP_HEADER);
+});
+
 // CORS for development (Vite dev server on different port)
 app.use("/api/*", cors());
 
@@ -100,6 +132,7 @@ app.use("/api/*", async (c, next) => {
   c.set("templateService", templateService);
   c.set("skillService", skillService);
   c.set("updateService", updateService);
+  c.set("rendererRuntimeService", rendererRuntimeService);
   await next();
 });
 
@@ -108,6 +141,7 @@ app.route("/api/projects", createProjectRoutes());
 app.route("/api/config", createConfigRoutes());
 app.route("/api/templates", createTemplateRoutes());
 app.route("/api/update", createUpdateRoutes());
+app.route("/api/renderer-runtime", createRendererRuntimeRoutes());
 
 // Serve static files in production
 if (existsSync(CLIENT_DIR)) {

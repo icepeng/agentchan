@@ -1,3 +1,5 @@
+import { defineRenderer } from "@agentchan/renderer-runtime";
+
 // ─────────────────────────────────────────────────────────────────────────────
 //   character-chat renderer  ·  "The Chamber Theatre"
 //
@@ -844,7 +846,7 @@ const STYLES = `<style>
 
 // ── Main renderer ────────────────────────────────────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   const stage = buildStage(ctx);
 
   const sceneFiles = ctx.files.filter(
@@ -869,3 +871,5 @@ function renderBody(sceneText: string, stage: Stage): string {
   if (beats.length === 0) return renderEmpty();
   return renderBeats(beats, stage);
 }
+
+export default defineRenderer(render);
