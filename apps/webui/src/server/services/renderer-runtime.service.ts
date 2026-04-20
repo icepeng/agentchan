@@ -30,7 +30,12 @@ body{min-height:100vh;}
 // CSS the browser parses directly.
 function adaptMainCssForIframe(css: string): string {
   let out = css.replace(/@import\s+["']tailwindcss["']\s*;?\s*/g, "");
-  out = out.replace(/@theme\s*\{([\s\S]*?)\n\}/g, ":root {$1\n}");
+  // Non-greedy `[\s\S]*?` already stops at the first `}`, and `@theme`
+  // blocks never nest braces — so we don't need `\n\}` as an anchor.
+  // Requiring the newline would silently no-op if main.css were ever
+  // collapsed (formatter, inline authoring), leaking a raw `@theme` block
+  // that browsers discard per CSS error-recovery, losing every token.
+  out = out.replace(/@theme\s*\{([\s\S]*?)\}/g, ":root {$1}");
   return out;
 }
 

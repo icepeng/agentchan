@@ -60,9 +60,12 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       // Bare specifier rewrite: the transpiled module is loaded via a Blob URL
       // in the browser, where bare specifiers can't resolve. Host code exposes
       // the runtime on `globalThis.__rendererRuntime` before loading.
+      // `import { X as Y }` maps to `const { X: Y } = ...` — ES import
+      // aliases are not valid destructuring syntax, so we translate.
       return js.replace(
         /import\s*\{([^}]+)\}\s*from\s*["']@agentchan\/renderer-runtime["']\s*;?/g,
-        "const {$1} = globalThis.__rendererRuntime;",
+        (_m, spec) =>
+          `const {${spec.replace(/\s+as\s+/g, ": ")}} = globalThis.__rendererRuntime;`,
       );
     },
 

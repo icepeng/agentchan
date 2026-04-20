@@ -6,7 +6,7 @@ export type {
 export { bindActions } from "./bindActions.js";
 export { executeInlineScripts } from "./executeInlineScripts.js";
 export { morph } from "./morph.js";
-export { validateTheme, resolveThemeVars } from "./theme.js";
+export { validateTheme, resolveThemeVars, TOKEN_TO_CSS, TOKEN_KEYS } from "./theme.js";
 export type { ResolvedThemeVars } from "./theme.js";
 export type {
   AgentMessage,

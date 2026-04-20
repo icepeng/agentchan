@@ -1,6 +1,6 @@
 import type { RendererTheme, RendererThemeTokens } from "./types.js";
 
-const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
+export const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
   void: "--color-void",
   base: "--color-base",
   surface: "--color-surface",
@@ -12,7 +12,7 @@ const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
   edge: "--color-edge",
 };
 
-const TOKEN_KEYS = Object.keys(TOKEN_TO_CSS) as (keyof RendererThemeTokens)[];
+export const TOKEN_KEYS = Object.keys(TOKEN_TO_CSS) as (keyof RendererThemeTokens)[];
 
 export interface ResolvedThemeVars {
   vars: Record<string, string>;

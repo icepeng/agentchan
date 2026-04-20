@@ -3,6 +3,7 @@ import * as rendererRuntime from "@agentchan/renderer-runtime";
 import type {
   MountFn,
   RenderFn,
+  RendererTheme,
   ThemeFn,
 } from "@agentchan/renderer-runtime";
 import type {
@@ -20,7 +21,6 @@ import {
 } from "@/client/entities/project/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import { useRendererActions } from "./RendererActionContext.js";
-import { validateTheme } from "./projectTheme.js";
 import { createIsolatedRenderer } from "./IsolatedRenderer.js";
 import type { ProjectFile, RenderContext } from "./renderer.types.js";
 
@@ -37,13 +37,20 @@ let baseCssCache: Promise<string> | null = null;
 
 function fetchBaseCss(): Promise<string> {
   if (!baseCssCache) {
-    baseCssCache = fetch("/api/renderer-runtime/base.css").then((res) => {
-      if (!res.ok) {
+    // .catch resets the cache for both network-level rejection (offline /
+    // DNS / aborted / CORS) and HTTP non-OK — otherwise a transient failure
+    // would wedge the cache at a rejected Promise for the page lifetime.
+    baseCssCache = fetch("/api/renderer-runtime/base.css")
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`renderer-runtime base.css fetch failed: ${res.status}`);
+        }
+        return res.text();
+      })
+      .catch((e) => {
         baseCssCache = null;
-        throw new Error(`renderer-runtime base.css fetch failed: ${res.status}`);
-      }
-      return res.text();
-    });
+        throw e;
+      });
   }
   return baseCssCache;
 }
@@ -138,6 +145,9 @@ export function useOutput() {
   // reports first paint, then faded out. May be null at any time.
   const fadingInstanceRef = useRef<IsolatedRendererInstance | null>(null);
   const lastSnapshotRef = useRef<RendererSnapshot | null>(null);
+  // Guards rapid slug switches: each refresh captures its own generation
+  // and bails after any await where a newer refresh has started.
+  const refreshGenRef = useRef(0);
 
   // Caller must give the target `position: relative` (or another non-static
   // value) so the absolute-positioned iframes anchor here, not to an
@@ -182,14 +192,16 @@ export function useOutput() {
   );
 
   const handleTheme = useCallback(
-    (raw: unknown) => {
-      const theme = validateTheme(raw);
+    (theme: RendererTheme | null) => {
       rendererViewDispatch({ type: "SET_THEME", theme });
     },
     [rendererViewDispatch],
   );
 
   const refresh = useCallback(async () => {
+    const myGen = ++refreshGenRef.current;
+    const isCurrent = () => myGen === refreshGenRef.current;
+
     const slug = activeProjectSlug;
     if (!slug) {
       teardown();
@@ -209,8 +221,12 @@ export function useOutput() {
         fetchWorkspaceFiles(slug),
         fetchBaseCss(),
       ]);
+      if (!isCurrent()) return;
       adopted = await loadRendererModule(result.js);
+      if (!isCurrent()) return;
     } catch (e: unknown) {
+      // Stale failure must not teardown a successor that has already mounted.
+      if (!isCurrent()) return;
       if (e instanceof Error && e.message.includes("404")) {
         renderError(NOT_FOUND_HTML);
       } else {

@@ -72,10 +72,13 @@ export function createValidateRendererTool(
       // `globalThis.__rendererRuntime` destructure — the tmp file can't
       // resolve workspace specifiers, and we avoid a hard package dep so
       // creative-agent stays Node-only (renderer-runtime pulls in DOM lib).
+      // `import { X as Y }` maps to `const { X: Y }` — ES import aliases
+      // are invalid destructuring syntax otherwise.
       // Keep the regex in sync with apps/webui's project.service.ts.
       const rewritten = js.replace(
         /import\s*\{([^}]+)\}\s*from\s*["']@agentchan\/renderer-runtime["']\s*;?/g,
-        "const {$1} = globalThis.__rendererRuntime;",
+        (_m, spec: string) =>
+          `const {${spec.replace(/\s+as\s+/g, ": ")}} = globalThis.__rendererRuntime;`,
       );
 
       try {
