@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * act-transition/check-gate.ts
  *
@@ -5,18 +6,23 @@
  * current state (flags, choices, trust, evidence). Reports OPEN/CLOSED
  * and (if closed) which atoms are still failing.
  *
+ * Reads YAML via Bun.YAML.parse (no external deps, YAML 1.2 compliant).
+ *
+ * Usage:
+ *   check-gate.ts
+ *
  * 동작: 파일 수정 없음 (순수 질의).
- * 반환: {changed:[], deltas:{act,gate,open,atoms,narrative_cue?,required_beats?}, summary}.
+ * stdout 마지막 줄에 JSON: {"changed":[],"deltas":{act,gate,open,atoms,narrative_cue?,required_beats?},"summary":"..."}
  * 전환 자체(act 갱신 + 씬 작성)는 LLM 의 서사적 결정.
  */
 
-import type { ScriptContext } from "@agentchan/creative-agent";
+import { readFileSync, existsSync } from "node:fs";
 
 // ─── YAML 로딩 헬퍼 ──────────────────────────────────────────────────────────
 
-function loadYaml<T = unknown>(ctx: ScriptContext, path: string): T | null {
-  if (!ctx.project.exists(path)) return null;
-  return ctx.yaml.parse(ctx.project.readFile(path)) as T;
+function loadYaml<T = unknown>(path: string): T | null {
+  if (!existsSync(path)) return null;
+  return Bun.YAML.parse(readFileSync(path, "utf-8")) as T;
 }
 
 // ─── State aggregation ───────────────────────────────────────────────────────
@@ -28,19 +34,19 @@ interface State {
   choices: Record<string, boolean>;
 }
 
-function readState(ctx: ScriptContext): State {
+function readState(): State {
   const trust: Record<string, number> = {};
 
-  const stats = loadYaml<{ npcs?: Record<string, number> }>(ctx, "files/stats.yaml");
+  const stats = loadYaml<{ npcs?: Record<string, number> }>("files/stats.yaml");
   if (stats?.npcs) for (const [k, v] of Object.entries(stats.npcs)) {
     if (typeof v === "number") trust[k] = v;
   }
 
-  const party = loadYaml<{ companions?: { riwu?: { trust?: number } } }>(ctx, "files/party.yaml");
+  const party = loadYaml<{ companions?: { riwu?: { trust?: number } } }>("files/party.yaml");
   const riwuTrust = party?.companions?.riwu?.trust;
   if (typeof riwuTrust === "number") trust.riwu = riwuTrust;
 
-  const campaign = loadYaml<{ flags?: string[]; choices?: Record<string, boolean> }>(ctx, "files/campaign.yaml");
+  const campaign = loadYaml<{ flags?: string[]; choices?: Record<string, boolean> }>("files/campaign.yaml");
   const flags = Array.isArray(campaign?.flags)
     ? campaign.flags.filter((s): s is string => typeof s === "string")
     : [];
@@ -49,7 +55,7 @@ function readState(ctx: ScriptContext): State {
     if (typeof v === "boolean") choices[k] = v;
   }
 
-  const inventory = loadYaml<{ evidence?: Array<{ slug?: string } | string> }>(ctx, "files/inventory.yaml");
+  const inventory = loadYaml<{ evidence?: Array<{ slug?: string } | string> }>("files/inventory.yaml");
   const evidence: string[] = [];
   if (Array.isArray(inventory?.evidence)) for (const e of inventory.evidence) {
     if (typeof e === "string") evidence.push(e);
@@ -131,7 +137,8 @@ function evalCondition(cond: string, state: State): { value: boolean; atoms: Arr
   try {
     value = !!new Function(`return (${js})`)();
   } catch (e) {
-    throw new Error(`DSL eval failed for: ${cond}\n  → transformed: ${js}\n  → error: ${e}`);
+    console.error(`DSL eval failed for: ${cond}\n  → transformed: ${js}\n  → error: ${e}`);
+    process.exit(1);
   }
 
   return { value, atoms };
@@ -139,16 +146,16 @@ function evalCondition(cond: string, state: State): { value: boolean; atoms: Arr
 
 // ─── Read campaign act_gates ─────────────────────────────────────────────────
 
-function readCampaignData(ctx: ScriptContext): {
+function readCampaignData(): {
   act: number;
   gates: Record<string, { condition: string; required_beats: string[]; narrative_cue: string }>;
 } {
   const data = loadYaml<{
     act?: number;
     act_gates?: Record<string, { condition?: string; required_beats?: string[]; narrative_cue?: string }>;
-  }>(ctx, "files/campaign.yaml");
+  }>("files/campaign.yaml");
   if (!data || typeof data.act !== "number") {
-    throw new Error("campaign.yaml missing 'act:' field");
+    console.error("campaign.yaml missing 'act:' field"); process.exit(1);
   }
 
   const gates: Record<string, { condition: string; required_beats: string[]; narrative_cue: string }> = {};
@@ -166,34 +173,38 @@ function readCampaignData(ctx: ScriptContext): {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function (_args: readonly string[], ctx: ScriptContext) {
-  const state = readState(ctx);
-  const { act, gates } = readCampaignData(ctx);
+function main() {
+  const state = readState();
+  const { act, gates } = readCampaignData();
 
   const targetGate = act === 1 ? "to_act2" : act === 2 ? "to_act3" : null;
 
   if (!targetGate) {
-    return {
+    console.log(JSON.stringify({
       changed: [],
       deltas: { act, gate: null, open: false, final_act: true },
       summary: `최종 막(${act}) — 전환 없음. ending-check 로 엔딩 후보 점검 권장.`,
-    };
+    }));
+    return;
   }
 
   const gate = gates[targetGate];
-  if (!gate) throw new Error(`Gate ${targetGate} not defined in campaign.yaml`);
+  if (!gate) {
+    console.error(`Gate ${targetGate} not defined in campaign.yaml`);
+    process.exit(1);
+  }
 
   const { value, atoms } = evalCondition(gate.condition, state);
-  const failed = atoms.filter((a) => !a.value).map((a) => a.atom);
+  const failed = atoms.filter(a => !a.value).map(a => a.atom);
 
-  return {
+  const result = {
     changed: [],
     deltas: {
       act,
       gate: targetGate,
       open: value,
       condition: gate.condition,
-      atoms: atoms.map((a) => ({ atom: a.atom, value: a.value, explain: a.explain })),
+      atoms: atoms.map(a => ({ atom: a.atom, value: a.value, explain: a.explain })),
       ...(value ? { narrative_cue: gate.narrative_cue, next_act: act + 1 } : {}),
       ...(gate.required_beats.length > 0 ? { required_beats: gate.required_beats } : {}),
       ...(failed.length > 0 ? { failed } : {}),
@@ -202,4 +213,8 @@ export default function (_args: readonly string[], ctx: ScriptContext) {
       ? `${targetGate} OPEN — 전환 가능. LLM 이 world-state.yaml 의 act 를 ${act + 1} 로 갱신하고 전환 씬 작성.`
       : `${targetGate} CLOSED — 남은 조건: ${failed.join(", ") || "(없음·비트 대기)"}`,
   };
+
+  console.log(JSON.stringify(result));
 }
+
+main();
