@@ -96,9 +96,3 @@ export type MountFn = (
 ) => RendererInstance;
 export type ThemeFn = (ctx: RenderContext) => RendererTheme;
 export type RenderFn = (ctx: RenderContext) => string;
-
-// --- Action wire format (renderer-runtime → host bridge) ---
-
-export type RendererAction =
-  | { type: "send"; text: string }
-  | { type: "fill"; text: string };

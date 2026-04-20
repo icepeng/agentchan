@@ -96,9 +96,6 @@ function currentHostTheme(): "light" | "dark" {
   return attr === "light" ? "light" : "dark";
 }
 
-// Renderers consume `ctx.baseUrl` to build asset URLs. Under same-origin
-// iframes a relative path resolves against the host document, so a plain
-// `/api/projects/...` works.
 function projectBaseUrl(slug: string): string {
   return `/api/projects/${encodeURIComponent(slug)}`;
 }

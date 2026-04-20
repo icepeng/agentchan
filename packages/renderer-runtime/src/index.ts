@@ -18,7 +18,6 @@ export type {
   ProjectFile,
   RenderContext,
   RenderFn,
-  RendererAction,
   RendererActions,
   RendererInstance,
   RendererTheme,

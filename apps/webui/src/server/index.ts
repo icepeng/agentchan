@@ -91,16 +91,11 @@ app.onError((err, c) => {
   return c.json({ error: err.message }, 500);
 });
 
-// CSP baseline. `'unsafe-inline'` for scripts is a temporary allowance while
-// one renderer template (tides-of-moonhaven) still ships an inline IIFE and
-// `index.html` carries a theme-preload script; both move out in Phase 4 and
-// this directive tightens to `'self' 'wasm-unsafe-eval'` then. `blob:` in
-// `script-src` is required for the renderer: the host fetches transpiled
-// renderer.ts JS and loads it via `import(blobURL)` so bare specifiers for
-// `@agentchan/renderer-runtime` can be satisfied by the host-realm global.
-// Under the project-trust model (PR #114) renderer iframes are same-origin
-// DOM/CSS boundaries rather than security sandboxes — no `data:` frame-src
-// needed anymore.
+// `script-src blob:` enables `import(blobURL)` for transpiled renderer.ts —
+// the bare specifier for `@agentchan/renderer-runtime` is resolved via a
+// host-realm global that the rewrite pass sets up. `'unsafe-inline'` for
+// scripts is carried for `index.html`'s theme-preload and tides-of-moonhaven's
+// inline IIFE; tighten to `'self' 'wasm-unsafe-eval'` once both move out.
 const CSP_HEADER = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:",

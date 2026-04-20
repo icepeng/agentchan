@@ -7,13 +7,8 @@ import {
 } from "@agentchan/renderer-runtime";
 import type { RenderContext } from "./renderer.types.js";
 
-// Host-side wrapper around a same-origin iframe. The iframe is a pure
-// DOM/CSS boundary — the renderer module runs in the host realm and
-// mutates the iframe's body directly. Under the project-level trust
-// model (PR #114) the null-origin postMessage shell earlier built here
-// was asymmetric defense (script tools already have full process
-// access), so the isolation was downgraded to style/script containment
-// only.
+// The iframe is a DOM/CSS boundary, not a security sandbox — the renderer
+// runs in the host realm and mutates the iframe body directly.
 
 export interface AdoptedRenderer {
   mount: MountFn;
@@ -52,7 +47,6 @@ class IsolatedRendererImpl implements IsolatedRendererInstance {
   private readonly iframe: HTMLIFrameElement;
   private instance: RendererInstance | null = null;
   private destroyed = false;
-  private loaded = false;
   private pendingCtx: RenderContext | null = null;
   private fadeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -84,7 +78,6 @@ class IsolatedRendererImpl implements IsolatedRendererInstance {
       this.options.onError("iframe document unavailable");
       return;
     }
-    this.loaded = true;
     const ctx = this.pendingCtx;
     this.pendingCtx = null;
     if (!ctx) return;
@@ -129,7 +122,7 @@ class IsolatedRendererImpl implements IsolatedRendererInstance {
 
   update(ctx: RenderContext): void {
     if (this.destroyed) return;
-    if (!this.loaded || !this.instance) {
+    if (!this.instance) {
       // iframe still bootstrapping — coalesce to the freshest ctx.
       this.pendingCtx = ctx;
       return;

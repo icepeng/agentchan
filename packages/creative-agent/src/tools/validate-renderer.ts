@@ -68,28 +68,21 @@ export function createValidateRendererTool(
       // 3. Scan workspace files
       const files = await scanWorkspaceFiles(join(projectDir, "files"));
 
-      // 4. Write to temp file and dynamic import. Renderer modules that use
-      // the mount contract import `@agentchan/renderer-runtime`; the tmp file
-      // lives in the OS temp dir and can't resolve that workspace specifier,
-      // so rewrite it to pull from a globalThis handle we populate here.
-      // Host (apps/webui) does the same rewrite server-side at transpile time.
+      // Rewrite the `@agentchan/renderer-runtime` bare specifier to a
+      // `globalThis.__rendererRuntime` destructure — the tmp file can't
+      // resolve workspace specifiers, and we avoid a hard package dep so
+      // creative-agent stays Node-only (renderer-runtime pulls in DOM lib).
+      // Keep the regex in sync with apps/webui's project.service.ts.
       const rewritten = js.replace(
         /import\s*\{([^}]+)\}\s*from\s*["']@agentchan\/renderer-runtime["']\s*;?/g,
         "const {$1} = globalThis.__rendererRuntime;",
       );
 
-      // renderer-runtime is a peer of the host app — creative-agent itself
-      // stays Node-only (no DOM). When this tool runs inside the webui server
-      // the host has already installed it in the shared workspace node_modules,
-      // so a dynamic import resolves at runtime. When creative-agent runs
-      // stand-alone (tests, CLI experiments), the catch falls through and only
-      // legacy `render()` exports get full validation.
       try {
         const runtime = await import(/* @vite-ignore */ "@agentchan/renderer-runtime" as string);
         (globalThis as unknown as { __rendererRuntime: unknown }).__rendererRuntime = runtime;
       } catch {
-        // renderer-runtime not reachable from this process — mount-contract
-        // renderers won't import cleanly. Legacy `render()` exports still run.
+        // Stand-alone creative-agent: only legacy `render()` exports validate fully.
       }
 
       const tmpPath = join(tmpdir(), `agentchan-renderer-${nanoid(8)}.mjs`);
