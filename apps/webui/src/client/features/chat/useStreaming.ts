@@ -5,10 +5,9 @@ import {
   useProjects,
 } from "@/client/entities/project/index.js";
 import {
-  useStreamState,
-  useStreamDispatch,
-  selectStreamSlot,
-} from "@/client/entities/stream/index.js";
+  useAgentState,
+  useAgentStateDispatch,
+} from "@/client/entities/agent-state/index.js";
 import {
   useSessionSelectionState,
   selectSessionSelection,
@@ -20,6 +19,7 @@ import {
   regenerateResponse,
   registerAbortController,
   clearAbortController,
+  flattenActivePathToMessages,
   type SessionData,
   type TreeNode,
   type ClientMessage,
@@ -51,22 +51,17 @@ function makeTempUserNode(text: string, parentId: string | null): TreeNode {
 export function useStreaming() {
   const projectSelection = useProjectSelectionState();
   const { data: projects } = useProjects();
-  const streamState = useStreamState();
-  const streamDispatch = useStreamDispatch();
+  const agentDispatch = useAgentStateDispatch();
   const sessionSelectionState = useSessionSelectionState();
   const { t } = useI18n();
-  // Needed so notification onClick can perform a full project switch
-  // (sessions + skills SWR warm-up) — not just flip activeProjectSlug,
-  // which would leave the target project's SWR caches cold.
+  // Notification onClick needs a full project switch (sessions + skills SWR
+  // warm-up), not just a slug flip.
   const { selectProject } = useProject();
 
   const activeSlug = projectSelection.activeProjectSlug;
   const activeSelection = selectSessionSelection(sessionSelectionState, activeSlug);
-  const activeSlot = selectStreamSlot(streamState, activeSlug);
+  const activeState = useAgentState(activeSlug);
 
-  // Live data for the current active session so send/regenerate can
-  // compute the parent node without re-fetching. Refs avoid re-creating the
-  // callbacks on every delta.
   const { data: activeSessionData } = useSessionData(
     activeSlug,
     activeSelection.openSessionId,
@@ -74,7 +69,7 @@ export function useStreaming() {
 
   const projectSelectionRef = useRef(projectSelection);
   const projectsRef = useRef(projects);
-  const streamStateRef = useRef(streamState);
+  const activeStateRef = useRef(activeState);
   const sessionSelectionStateRef = useRef(sessionSelectionState);
   const activeSessionDataRef = useRef(activeSessionData);
   const tRef = useRef(t);
@@ -82,24 +77,32 @@ export function useStreaming() {
   useEffect(() => {
     projectSelectionRef.current = projectSelection;
     projectsRef.current = projects;
-    streamStateRef.current = streamState;
+    activeStateRef.current = activeState;
     sessionSelectionStateRef.current = sessionSelectionState;
     activeSessionDataRef.current = activeSessionData;
     tRef.current = t;
     selectProjectRef.current = selectProject;
   });
 
-  /**
-   * Shared streaming callbacks — write-through SWR for persisted state (user
-   * node, assistant nodes), reducer for in-flight ephemera (text,
-   * tool call input deltas, usage delta). `projectSlug` + `sessionId`
-   * are captured in closure so mutations and dispatches route to the right
-   * cache key / stream slot even after the user switches projects.
-   *
-   * `tempUserId`: the optimistic temp id we inserted for the user message.
-   * When the server echoes back `onUserNode` with the real node, we splice
-   * it in to replace the temp. Regenerate paths pass null — no temp node.
-   */
+  // SWR activePath change ≡ re-init (session / branch / project switch).
+  // Reducer guards HYDRATE while streaming, so events stay authoritative.
+  const hydrateFromSession = useCallback(
+    (projectSlug: string, data: SessionData) => {
+      if (activeStateRef.current.isStreaming && projectSlug === activeSlug) return;
+      const messages = flattenActivePathToMessages(data.nodes, data.activePath);
+      agentDispatch({ type: "HYDRATE", projectSlug, messages });
+    },
+    [activeSlug, agentDispatch],
+  );
+  useEffect(() => {
+    if (!activeSlug || !activeSessionData) return;
+    hydrateFromSession(activeSlug, activeSessionData);
+  }, [activeSlug, activeSessionData, hydrateFromSession]);
+
+  // projectSlug + sessionId captured in closure so cache writes and agent-state
+  // dispatches stay routed to the originating stream after a project switch.
+  // tempUserId: optimistic user-node id to replace on server echo; null for
+  // regenerate (no temp node).
   const makeCallbacks = useCallback(
     (projectSlug: string, sessionId: string, tempUserId: string | null): SSECallbacks => {
       const key = qk.session(projectSlug, sessionId);
@@ -170,19 +173,11 @@ export function useStreaming() {
             { revalidate: false },
           );
         },
-        onAssistantEvent: (event) =>
-          streamDispatch({ type: "ASSISTANT_EVENT", projectSlug, event }),
-        onToolExecStart: (id, _name, args) =>
-          streamDispatch({ type: "TOOL_EXEC_START", projectSlug, id, args }),
-        onToolExecEnd: (id, name, isError, content) =>
-          streamDispatch({ type: "TOOL_EXEC_END", projectSlug, id, name, isError, content }),
-        onUsageSummary: (usage) =>
-          streamDispatch({ type: "USAGE_SUMMARY", projectSlug, usage }),
+        onAgentEvent: (event) =>
+          agentDispatch({ type: "AGENT_EVENT", projectSlug, event }),
         onAssistantNodes: (nodes) => {
-          // Write-through: splice persisted assistant nodes into the SWR
-          // cache synchronously, then reset the stream slot. Next render
-          // pulls nodes from SWR — the streaming bubble (reducer) vanishes,
-          // canonical MessageBubbles appear in place.
+          // Write-through so activePath updates synchronously; the HYDRATE
+          // effect then re-keys state.messages to tree-backed references.
           void globalMutate<SessionData>(
             key,
             (cur) => {
@@ -195,50 +190,39 @@ export function useStreaming() {
             },
             { revalidate: false },
           );
-          streamDispatch({ type: "RESET", projectSlug });
         },
         onDone: () => {
-          // Always revalidate — write-throughs already seeded canonical data
-          // but the server may have persisted side effects (updated title,
-          // compact triggers, etc.). Key-scoped mutate can't cross-stomp
-          // whatever project the user has navigated to, so the old
-          // `activeProjectSlug !== projectSlug` guard is gone.
+          // Revalidate to pick up server-side side effects (title, compact, …).
           void globalMutate(key);
           void globalMutate(qk.sessions(projectSlug));
           fireBackgroundNotification("done");
         },
         onError: (message) => {
           console.error("Stream error:", message);
-          streamDispatch({ type: "ERROR", projectSlug, error: message });
-          // Reconcile — server may have partially persisted, or the temp
-          // user node may or may not survive the retry. SWR revalidate gives
-          // the authoritative tree.
+          agentDispatch({ type: "ERROR", projectSlug, message });
           void globalMutate(key);
           fireBackgroundNotification("error", message);
         },
       };
     },
-    [streamDispatch],
+    [agentDispatch],
   );
 
   const send = useCallback(
     async (text: string, sessionId?: string) => {
       const p = projectSelectionRef.current;
       const sel = sessionSelectionStateRef.current;
-      const streams = streamStateRef.current;
       if (!p.activeProjectSlug) return;
       const projectSlug = p.activeProjectSlug;
       const selection = selectSessionSelection(sel, projectSlug);
       const sid = sessionId ?? selection.openSessionId;
       if (!sid) return;
 
-      const slot = selectStreamSlot(streams, projectSlug);
       // Per-project concurrency guard: one in-flight stream per project.
-      if (slot.isStreaming) return;
+      if (activeStateRef.current.isStreaming) return;
 
-      // Parent: explicit reply-to > last activePath node > null.
-      // For freshly-created sessions (`sessionId` passed in), there is
-      // no prior activePath in the current ref, so pass null.
+      // Parent: explicit reply-to > last activePath node > null. Freshly-created
+      // sessions (`sessionId` passed in) have no prior activePath.
       const data = activeSessionDataRef.current;
       const sameSession = data?.session.id === sid;
       const lastActive = sameSession
@@ -248,13 +232,12 @@ export function useStreaming() {
         ? null
         : selection.replyToNodeId ?? lastActive ?? null;
 
-      // Optimistic user bubble — server persists the real user node before
-      // streaming; when `onUserNode` echoes back we replace the temp.
-      // `rollbackOnError: false` keeps the bubble on SSE break (server has
-      // already written it), matching current UX.
+      // Optimistic user bubble — server persists the real node before streaming;
+      // `onUserNode` echoes back and we splice in the real id.
+      // `rollbackOnError: false`: keep the bubble on SSE break (server wrote it).
       const tempNode = makeTempUserNode(text, parentNodeId);
       const key = qk.session(projectSlug, sid);
-      await globalMutate<SessionData>(
+      const updated = await globalMutate<SessionData>(
         key,
         (cur) => {
           if (!cur) return cur;
@@ -267,7 +250,10 @@ export function useStreaming() {
         { revalidate: false, rollbackOnError: false },
       );
 
-      streamDispatch({ type: "START", projectSlug });
+      // HYDRATE before START so the optimistic user message is visible before
+      // the reducer's isStreaming guard locks further HYDRATEs.
+      if (updated) hydrateFromSession(projectSlug, updated);
+      agentDispatch({ type: "START", projectSlug });
 
       const controller = new AbortController();
       registerAbortController(projectSlug, controller);
@@ -284,22 +270,24 @@ export function useStreaming() {
         clearAbortController(projectSlug, controller);
       }
     },
-    [streamDispatch, makeCallbacks],
+    [agentDispatch, hydrateFromSession, makeCallbacks],
   );
 
   const regenerate = async (userNodeId: string) => {
     const p = projectSelectionRef.current;
     const sel = sessionSelectionStateRef.current;
-    const streams = streamStateRef.current;
     if (!p.activeProjectSlug) return;
     const projectSlug = p.activeProjectSlug;
     const selection = selectSessionSelection(sel, projectSlug);
     if (!selection.openSessionId) return;
 
-    const slot = selectStreamSlot(streams, projectSlug);
-    if (slot.isStreaming) return;
+    if (activeStateRef.current.isStreaming) return;
 
-    streamDispatch({ type: "START", projectSlug });
+    const data = activeSessionDataRef.current;
+    if (data?.session.id === selection.openSessionId) {
+      hydrateFromSession(projectSlug, data);
+    }
+    agentDispatch({ type: "START", projectSlug });
 
     const controller = new AbortController();
     registerAbortController(projectSlug, controller);
@@ -316,5 +304,5 @@ export function useStreaming() {
     }
   };
 
-  return { send, regenerate, isStreaming: activeSlot.isStreaming };
+  return { send, regenerate, isStreaming: activeState.isStreaming };
 }

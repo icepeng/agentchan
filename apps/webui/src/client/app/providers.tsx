@@ -3,7 +3,7 @@ import { SwrRoot } from "@/client/shared/swr.js";
 import { UIProvider } from "@/client/entities/ui/index.js";
 import { ProjectSelectionProvider } from "@/client/entities/project/index.js";
 import { SessionSelectionProvider } from "@/client/entities/session/index.js";
-import { StreamProvider } from "@/client/entities/stream/index.js";
+import { AgentStateProvider } from "@/client/entities/agent-state/index.js";
 import {
   RendererViewProvider,
   RendererActionProvider,
@@ -16,7 +16,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <UIProvider>
         <ProjectSelectionProvider>
           <SessionSelectionProvider>
-            <StreamProvider>
+            <AgentStateProvider>
               <RendererViewProvider>
                 <RendererActionProvider>
                   <EditorProvider>
@@ -24,7 +24,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
                   </EditorProvider>
                 </RendererActionProvider>
               </RendererViewProvider>
-            </StreamProvider>
+            </AgentStateProvider>
           </SessionSelectionProvider>
         </ProjectSelectionProvider>
       </UIProvider>

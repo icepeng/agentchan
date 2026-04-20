@@ -153,7 +153,8 @@ async function cmdSend(text: string) {
   const decoder = new TextDecoder();
   let buf = "";
   let finalNodes: Array<{ id: string }> = [];
-  let currentToolName = "";
+  let lastAssistantUsage: any = null;
+  let lastStreamedText = "";
 
   // @ts-expect-error — Bun/Node streams
   for await (const chunk of res.body) {
@@ -177,35 +178,11 @@ async function cmdSend(text: string) {
       }
 
       switch (event) {
-        case "text_delta":
-          process.stdout.write(data?.text ?? "");
-          break;
-        case "thinking_delta":
-          process.stdout.write(C.dim(data?.text ?? ""));
-          break;
-        case "tool_use_start":
-          currentToolName = data?.name ?? "?";
-          process.stdout.write(`\n${C.yellow(`[tool] ${currentToolName}(`)}`);
-          break;
-        case "tool_use_delta":
-          if (data?.input_json) process.stdout.write(C.yellow(data.input_json));
-          break;
-        case "tool_use_end":
-          process.stdout.write(C.yellow(`)`));
-          break;
-        case "tool_exec_end":
-          if (data?.is_error) process.stdout.write(C.red(` [error]`));
-          process.stdout.write(`\n`);
+        case "agent_event":
+          handleAgentEvent(data);
           break;
         case "assistant_nodes":
           finalNodes = Array.isArray(data) ? data : [];
-          break;
-        case "usage_summary":
-          console.log(
-            C.dim(
-              `\n[usage] in=${data?.input ?? "?"} out=${data?.output ?? "?"} cacheR=${data?.cacheRead ?? 0} cacheW=${data?.cacheCreation ?? 0}`,
-            ),
-          );
           break;
         case "error":
           console.error(C.red(`\n[error] ${JSON.stringify(data)}`));
@@ -213,6 +190,52 @@ async function cmdSend(text: string) {
         case "done":
           break;
       }
+    }
+  }
+
+  if (lastAssistantUsage) {
+    console.log(
+      C.dim(
+        `\n[usage] in=${lastAssistantUsage.input ?? "?"} out=${lastAssistantUsage.output ?? "?"} cacheR=${lastAssistantUsage.cacheRead ?? 0} cacheW=${lastAssistantUsage.cacheWrite ?? 0}`,
+      ),
+    );
+  }
+
+  function handleAgentEvent(ev: any) {
+    if (!ev || typeof ev !== "object") return;
+    switch (ev.type) {
+      case "message_update": {
+        // Stream incremental assistant text by diffing against the last partial.
+        const msg = ev.message;
+        if (msg?.role !== "assistant") return;
+        const text = (msg.content ?? [])
+          .filter((b: any) => b.type === "text")
+          .map((b: any) => b.text)
+          .join("");
+        if (text.length > lastStreamedText.length && text.startsWith(lastStreamedText)) {
+          process.stdout.write(text.slice(lastStreamedText.length));
+        }
+        lastStreamedText = text;
+        return;
+      }
+      case "message_end": {
+        const msg = ev.message;
+        if (msg?.role === "assistant") {
+          lastStreamedText = "";
+          if (msg.usage) lastAssistantUsage = msg.usage;
+          process.stdout.write("\n");
+        }
+        return;
+      }
+      case "tool_execution_start":
+        process.stdout.write(
+          `\n${C.yellow(`[tool] ${ev.toolName}(${JSON.stringify(ev.args ?? {})})`)}`,
+        );
+        return;
+      case "tool_execution_end":
+        if (ev.isError) process.stdout.write(C.red(` [error]`));
+        process.stdout.write("\n");
+        return;
     }
   }
 

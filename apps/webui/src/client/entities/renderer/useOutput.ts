@@ -11,7 +11,7 @@ import type {
 } from "./IsolatedRenderer.js";
 import {
   EMPTY_AGENT_STATE,
-  useActiveAgentState,
+  useAgentState,
 } from "@/client/entities/agent-state/index.js";
 import {
   useProjectSelectionState,
@@ -126,7 +126,7 @@ export function useOutput() {
   const rendererViewDispatch = useRendererViewDispatch();
   const actions = useRendererActions();
 
-  const agentState = useActiveAgentState();
+  const agentState = useAgentState();
   const stateRef = useRef(agentState);
   useEffect(() => {
     stateRef.current = agentState;

@@ -7,8 +7,8 @@ import {
   useProjectMutations,
 } from "@/client/entities/project/index.js";
 import {
-  useStreamDispatch,
-} from "@/client/entities/stream/index.js";
+  useAgentStateDispatch,
+} from "@/client/entities/agent-state/index.js";
 import {
   useRendererViewDispatch,
 } from "@/client/entities/renderer/index.js";
@@ -27,7 +27,7 @@ export function useProject() {
   const projectSelectionDispatch = useProjectSelectionDispatch();
   const sessionSelectionState = useSessionSelectionState();
   const sessionSelectionDispatch = useSessionSelectionDispatch();
-  const streamDispatch = useStreamDispatch();
+  const agentDispatch = useAgentStateDispatch();
   const rendererViewDispatch = useRendererViewDispatch();
   const { mutate } = useSWRConfig();
 
@@ -105,7 +105,7 @@ export function useProject() {
     // and drop the stream+selection slots so stale completion events can't
     // resurrect them.
     abortProjectStream(slug);
-    streamDispatch({ type: "CLOSE", projectSlug: slug });
+    agentDispatch({ type: "CLOSE", projectSlug: slug });
     sessionSelectionDispatch({ type: "CLEAR", projectSlug: slug });
 
     await deleteProjectMutation(slug);

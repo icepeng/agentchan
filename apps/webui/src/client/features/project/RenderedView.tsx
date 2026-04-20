@@ -1,17 +1,17 @@
 import { useEffect, useRef } from "react";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/stream/index.js";
+import { useAgentState } from "@/client/entities/agent-state/index.js";
 import { useOutput } from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 
 export function RenderedView() {
   const project = useProjectSelectionState();
-  const stream = useActiveStream();
+  const state = useAgentState();
   const { attach, teardown, refresh, refreshState } = useOutput();
 
-  const streamRef = useRef(stream);
+  const stateRef = useRef(state);
   useEffect(() => {
-    streamRef.current = stream;
+    stateRef.current = state;
   });
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export function RenderedView() {
   });
   useEffect(() => {
     const slug = project.activeProjectSlug;
-    const isStreaming = stream.isStreaming;
+    const isStreaming = state.isStreaming;
     const last = lastSyncedRef.current;
     const slugChanged = last.slug !== slug;
     const streamJustEnded = last.isStreaming && !isStreaming;
@@ -39,23 +39,23 @@ export function RenderedView() {
     if (slugChanged || (slug && streamJustEnded)) {
       void refresh();
     }
-  }, [project.activeProjectSlug, stream.isStreaming, refresh]);
+  }, [project.activeProjectSlug, state.isStreaming, refresh]);
 
   useEffect(() => {
-    if (!stream.isStreaming) return;
+    if (!state.isStreaming) return;
     let raf = 0;
-    let lastSlot = streamRef.current;
+    let lastState = stateRef.current;
     refreshState();
     const tick = () => {
-      if (streamRef.current !== lastSlot) {
-        lastSlot = streamRef.current;
+      if (stateRef.current !== lastState) {
+        lastState = stateRef.current;
         refreshState();
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [stream.isStreaming, refreshState]);
+  }, [state.isStreaming, refreshState]);
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0">

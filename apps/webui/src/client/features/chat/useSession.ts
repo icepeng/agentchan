@@ -2,8 +2,8 @@ import { useCallback } from "react";
 import { useSWRConfig } from "swr";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
-  useStreamDispatch,
-} from "@/client/entities/stream/index.js";
+  useAgentStateDispatch,
+} from "@/client/entities/agent-state/index.js";
 import {
   useSessionMutations,
   useActiveSessionSelection,
@@ -15,7 +15,7 @@ export function useSession() {
   const projectSelection = useProjectSelectionState();
   const selection = useActiveSessionSelection();
   const sessionSelectionDispatch = useSessionSelectionDispatch();
-  const streamDispatch = useStreamDispatch();
+  const agentDispatch = useAgentStateDispatch();
   const slug = projectSelection.activeProjectSlug;
   const mutations = useSessionMutations(slug);
   const { mutate } = useSWRConfig();
@@ -79,8 +79,7 @@ export function useSession() {
   const compact = async () => {
     if (!slug || !selection.openSessionId) return;
     const sessionId = selection.openSessionId;
-    // Stream START locks the input while compact runs server-side.
-    streamDispatch({ type: "START", projectSlug: slug });
+    agentDispatch({ type: "START", projectSlug: slug });
     try {
       const result = await mutations.compact(sessionId);
       sessionSelectionDispatch({
@@ -88,12 +87,12 @@ export function useSession() {
         projectSlug: slug,
         sessionId: result.session.id,
       });
-      streamDispatch({ type: "RESET", projectSlug: slug });
+      agentDispatch({ type: "STOP", projectSlug: slug });
     } catch (err) {
-      streamDispatch({
+      agentDispatch({
         type: "ERROR",
         projectSlug: slug,
-        error: err instanceof Error ? err.message : String(err),
+        message: err instanceof Error ? err.message : String(err),
       });
     }
   };
