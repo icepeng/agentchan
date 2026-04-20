@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
-import { useActiveUsage } from "@/client/entities/stream/index.js";
+import { useActiveUsage } from "@/client/entities/agent-state/index.js";
 import { useActiveSessionSelection } from "@/client/entities/session/index.js";
 import {
   notificationPermission,

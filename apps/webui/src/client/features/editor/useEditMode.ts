@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useSWRConfig } from "swr";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/stream/index.js";
+import { useAgentState } from "@/client/entities/agent-state/index.js";
 import { useUIState } from "@/client/entities/ui/index.js";
 import {
   useEditorState,
@@ -17,7 +17,7 @@ import { useLatestRef } from "@/client/shared/useLatestRef.js";
 export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
   const ui = useUIState();
   const project = useProjectSelectionState();
-  const stream = useActiveStream();
+  const state = useAgentState();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
   const { mutate } = useSWRConfig();
@@ -57,7 +57,7 @@ export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
   // Refetch tree + active file when an agent stream finishes — it may have
   // edited files behind our back.
   useEffect(() => {
-    if (stream.isStreaming) {
+    if (state.isStreaming) {
       wasStreaming.current = true;
       return;
     }
@@ -71,7 +71,7 @@ export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
       const { content } = await readProjectFile(slug, path);
       editorDispatch({ type: "EXTERNAL_REFRESH", path, content });
     })();
-  }, [stream.isStreaming, isEdit, slug, mutate, selectedPathRef, dirtyRef, editorDispatch]);
+  }, [state.isStreaming, isEdit, slug, mutate, selectedPathRef, dirtyRef, editorDispatch]);
 
   useEffect(() => {
     // Cross-project contamination guard: an in-flight fetch from the

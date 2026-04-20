@@ -30,8 +30,7 @@ export {
 } from "./session.api.js";
 export type {
   SSECallbacks,
-  AssistantMessageEvent,
-  ToolResultContent,
+  AgentEvent,
 } from "./session.api.js";
 
 export { flattenActivePathToMessages } from "./session.selectors.js";

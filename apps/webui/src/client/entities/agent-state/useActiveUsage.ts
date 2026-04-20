@@ -4,8 +4,24 @@ import {
   useActiveSessionSelection,
 } from "@/client/entities/session/index.js";
 import type { TreeNode } from "@/client/entities/session/index.js";
-import { useStreamState, selectStreamSlot } from "./StreamContext.js";
-import { EMPTY_USAGE, type SessionUsage } from "./stream.types.js";
+
+export interface SessionUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  cacheCreationTokens: number;
+  cost: number;
+  contextTokens: number;
+}
+
+export const EMPTY_USAGE: SessionUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cachedInputTokens: 0,
+  cacheCreationTokens: 0,
+  cost: 0,
+  contextTokens: 0,
+};
 
 function computeUsageFromNodes(
   nodes: readonly TreeNode[],
@@ -47,30 +63,11 @@ function computeUsageFromNodes(
   };
 }
 
-/**
- * Combined server + in-flight stream usage for the active project.
- *
- *  - `base`: canonical sum across the current activePath's nodes (SWR).
- *  - `delta`: per-round accumulator from `USAGE_SUMMARY`, reset on
- *     `RESET` / `START`.
- *
- * `contextTokens` is latest-wins (LLM reports a snapshot per round), not
- * summed — delta wins if non-zero, else base.
- */
+// Cumulative usage derived from persisted TreeNode.usage — updates once per
+// turn end when `assistant_nodes` rolls usage onto the last assistant node.
 export function useActiveUsage(): SessionUsage {
   const { activeProjectSlug } = useProjectSelectionState();
   const { openSessionId } = useActiveSessionSelection();
-  const streamState = useStreamState();
-  const slot = selectStreamSlot(streamState, activeProjectSlug);
   const { data } = useSessionData(activeProjectSlug, openSessionId);
-  const delta = slot.streamUsageDelta;
-  const base = data ? computeUsageFromNodes(data.nodes, data.activePath) : EMPTY_USAGE;
-  return {
-    inputTokens: base.inputTokens + delta.inputTokens,
-    outputTokens: base.outputTokens + delta.outputTokens,
-    cachedInputTokens: base.cachedInputTokens + delta.cachedInputTokens,
-    cacheCreationTokens: base.cacheCreationTokens + delta.cacheCreationTokens,
-    cost: base.cost + delta.cost,
-    contextTokens: delta.contextTokens || base.contextTokens,
-  };
+  return data ? computeUsageFromNodes(data.nodes, data.activePath) : EMPTY_USAGE;
 }

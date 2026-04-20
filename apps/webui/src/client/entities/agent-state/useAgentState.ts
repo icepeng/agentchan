@@ -1,30 +1,19 @@
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import {
-  flattenActivePathToMessages,
-  useActiveSessionSelection,
-  useSessionData,
-} from "@/client/entities/session/index.js";
-import {
-  selectStreamSlot,
-  useStreamState,
-} from "@/client/entities/stream/index.js";
 import type { AgentState } from "./agentState.js";
-import { fromSession } from "./fromSession.js";
+import { EMPTY_AGENT_STATE } from "./agentState.js";
+import { useAgentStateMap } from "./AgentStateContext.js";
 
 /**
- * Active project + session 기준 합성된 `AgentState` 셀렉터.
+ * Returns the pi `AgentState` for the active project (or a given slug).
  *
- * AgentPanel과 Renderer가 동일한 인터페이스(`state: AgentState`)를 소비하도록
- * persisted SWR 데이터와 in-flight StreamSlot을 한 곳에서 합성한다.
+ * Idle projects share `EMPTY_AGENT_STATE` for referential stability — consumers
+ * depending on `state` identity for effect deps won't re-fire for untouched
+ * projects.
  */
-export function useActiveAgentState(): AgentState {
+export function useAgentState(projectSlug?: string | null): AgentState {
   const { activeProjectSlug } = useProjectSelectionState();
-  const { openSessionId } = useActiveSessionSelection();
-  const streamState = useStreamState();
-  const slot = selectStreamSlot(streamState, activeProjectSlug);
-  const { data } = useSessionData(activeProjectSlug, openSessionId);
-  const messages = data
-    ? flattenActivePathToMessages(data.nodes, data.activePath)
-    : [];
-  return fromSession(slot, messages);
+  const slug = projectSlug ?? activeProjectSlug;
+  const map = useAgentStateMap();
+  if (!slug) return EMPTY_AGENT_STATE;
+  return map.get(slug) ?? EMPTY_AGENT_STATE;
 }

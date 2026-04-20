@@ -1,4 +1,4 @@
-import { useActiveAgentState } from "@/client/entities/agent-state/index.js";
+import { useAgentState } from "@/client/entities/agent-state/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { BubbleWrap } from "./MessageBubble.js";
@@ -24,7 +24,7 @@ function Sentence({ text, animating }: { text: string; animating: boolean }) {
  * sentence animation을 적용한다. 그 외 블록은 `MessageContent` 통합 경로로.
  */
 export function StreamingMessage({ variant = "compact" }: { variant?: "compact" | "wide" }) {
-  const state = useActiveAgentState();
+  const state = useAgentState();
   const { t } = useI18n();
 
   const isWide = variant === "wide";

@@ -5,7 +5,7 @@ import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
 import { useTemplates } from "@/client/entities/template/index.js";
-import { useStreamState, selectStreamSlot } from "@/client/entities/stream/index.js";
+import { useAgentStateMap, EMPTY_AGENT_STATE } from "@/client/entities/agent-state/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
@@ -64,7 +64,7 @@ function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
 export function ProjectTabs() {
   const { t } = useI18n();
   const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
-  const streamState = useStreamState();
+  const agentStateMap = useAgentStateMap();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
   const { data: templates } = useTemplates();
   const createInputRef = useRef<HTMLInputElement>(null);
@@ -240,8 +240,8 @@ export function ProjectTabs() {
 
       {projects.map((project) => {
         const isActive = activeProjectSlug === project.slug;
-        const slot = selectStreamSlot(streamState, project.slug);
-        const streamBadge: "idle" | "streaming" | "error" = slot.streamError
+        const slot = agentStateMap.get(project.slug) ?? EMPTY_AGENT_STATE;
+        const streamBadge: "idle" | "streaming" | "error" = slot.errorMessage
           ? "error"
           : slot.isStreaming
             ? "streaming"
@@ -326,7 +326,7 @@ export function ProjectTabs() {
                   data-slug={project.slug}
                   data-error="true"
                   className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-danger"
-                  title={slot?.streamError ?? ""}
+                  title={slot.errorMessage ?? ""}
                 />
               )}
               <span

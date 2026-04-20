@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { useActiveStream } from "@/client/entities/stream/index.js";
+import { useAgentState } from "@/client/entities/agent-state/index.js";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
   useSessionData,
@@ -93,7 +93,7 @@ const EMPTY_PATH: readonly string[] = [];
 
 export function AgentPanel() {
   const selection = useActiveSessionSelection();
-  const stream = useActiveStream();
+  const state = useAgentState();
   const { activeProjectSlug } = useProjectSelectionState();
   const { data: sessionData } = useSessionData(
     activeProjectSlug,
@@ -111,7 +111,7 @@ export function AgentPanel() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activePath, stream.streamingMessage]);
+  }, [activePath, state.streamingMessage]);
 
   const getSiblings = (node: TreeNode): string[] => {
     if (!node.parentId) return [node.id];
@@ -169,7 +169,7 @@ export function AgentPanel() {
           branchFrom={setReplyTo}
           deleteNode={deleteNode}
           regenerate={regenerate}
-          isStreaming={stream.isStreaming}
+          isStreaming={state.isStreaming}
         >
           {groups.map((g) => {
             if (g.kind === "user") {
@@ -179,7 +179,7 @@ export function AgentPanel() {
                   node={g.node}
                   siblings={getSiblings(g.node)}
                   actions={actions}
-                  isStreaming={stream.isStreaming}
+                  isStreaming={state.isStreaming}
                   variant="compact"
                 />
               );
@@ -195,7 +195,7 @@ export function AgentPanel() {
                 nodes={g.nodes}
                 siblings={getSiblings(first)}
                 actions={actions}
-                isStreaming={stream.isStreaming}
+                isStreaming={state.isStreaming}
                 variant="compact"
                 footer={
                   lastAssistant && lastAssistant.message.role === "assistant" && lastAssistant.message.model
@@ -209,7 +209,7 @@ export function AgentPanel() {
 
         <StreamingMessage variant="compact" />
 
-        {activePath.length === 0 && !stream.isStreaming && (
+        {activePath.length === 0 && !state.isStreaming && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-fg-3 tracking-wide">
               {t("chat.awaitingInput")}
