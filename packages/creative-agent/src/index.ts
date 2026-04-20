@@ -48,9 +48,6 @@ export {
   type SessionEvent,
 } from "./agent/index.js";
 
-// Script tool runtime — type-only surface for template script authors
-export type { ScriptContext, ScriptResult } from "./runtime/script-context.js";
-
 // Workspace
 export type { ProjectFile, TextFile, DataFile, BinaryFile } from "./workspace/types.js";
 export { scanWorkspaceFiles } from "./workspace/scan.js";

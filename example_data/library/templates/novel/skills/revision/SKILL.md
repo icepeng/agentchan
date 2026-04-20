@@ -12,7 +12,7 @@ metadata:
 
 ## A. 일관성 점검
 
-`script` 도구로 자동 일관성 검사기를 실행합니다 (`file: "scripts/consistency-check.ts"`, `args: []`):
+`script` 도구로 자동 일관성 검사기를 실행합니다 (`file: "scripts/consistency-check.ts"`, `args: ["--project", "files"]`):
 
 모든 챕터 및 캐릭터 파일에서 다음을 검사합니다:
 - 캐릭터 이름/특성 모순
@@ -33,6 +33,6 @@ metadata:
 
 ## C. 원고 편집
 
-모든 챕터 교정이 완료되면 `script` 도구로 편집합니다 (`file: "scripts/compile.ts"`, `args: ["<제목>"]`, 저자 추가 시 `["<제목>", "--author", "<저자>"]`).
+모든 챕터 교정이 완료되면 `script` 도구로 편집합니다 (`file: "scripts/compile.ts"`, `args: ["files", "<제목>"]`, 저자 추가 시 `["files", "<제목>", "--author", "<저자>"]`).
 
 이렇게 하면 `files/manuscript.md`가 생성되며, 표지, 목차, 전체 챕터가 하나로 합쳐집니다.

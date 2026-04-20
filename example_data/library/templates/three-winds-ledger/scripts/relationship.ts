@@ -1,17 +1,24 @@
+#!/usr/bin/env bun
 /**
  * scripts/relationship.ts
  *
  * Applies a trust cue event to an NPC (or riwu). Checks cooldown against
- * recent turn history, clamps value to [-5, +5], outputs [STAT] marker and
+ * recent scene history, clamps value to [-5, +5], outputs [STAT] marker and
  * YAML patch.
  *
- * Usage: --npc <slug> --event <trigger_slug> --delta <+N|-N>
- *        [--skip-cooldown] [--cooldown-scenes <N>]
+ * YAML 읽기는 Bun.YAML.parse, 쓰기는 field-level 문자열 치환 (주석·포맷 보존).
  *
- * 반환 JSON: {changed, deltas, summary, scene_block}.
+ * Usage:
+ *   scripts/relationship.ts --npc <slug> --event <trigger_slug> --delta <+N|-N>
+ *                           [--skip-cooldown]      (bypass 3-scene cooldown for plot-critical)
+ *                           [--cooldown-scenes <N>] (override default 3)
+ *
+ * 동작: trust 값을 clamp([-5,+5])하여 stats.yaml 또는 party.yaml 을 직접 수정.
+ * stdout 마지막 줄에 JSON: {"changed":[...],"deltas":{...},"summary":"...","scene_block":"[STAT] ..."}
+ * scene_block 은 scene.md 에 append 할 한 줄 마커 (변화 없을 때도 방향 'steady' 로 포함).
  */
 
-import type { ScriptContext } from "@agentchan/creative-agent";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 // ─── Args ────────────────────────────────────────────────────────────────────
 
@@ -23,50 +30,54 @@ interface Args {
   cooldownScenes: number;
 }
 
-function parseRelArgs(argv: readonly string[], ctx: ScriptContext): Args {
-  const { values } = ctx.util.parseArgs({
-    args: [...argv],
-    options: {
-      npc: { type: "string" },
-      event: { type: "string" },
-      delta: { type: "string" },
-      "skip-cooldown": { type: "boolean" },
-      "cooldown-scenes": { type: "string" },
-    },
-    strict: true,
-  });
-  const { npc, event, delta: deltaStr } = values;
-  if (!npc || !event || deltaStr === undefined) {
-    throw new Error("Usage: --npc <slug> --event <trigger> --delta <+N|-N>");
+function parseArgs(argv: string[]): Args {
+  const args: Record<string, string | boolean> = {};
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--skip-cooldown") { args.skipCooldown = true; continue; }
+    if (argv[i].startsWith("--")) {
+      const key = argv[i].slice(2);
+      args[key] = argv[i + 1];
+      i++;
+    }
   }
+  const npc = args.npc as string;
+  const event = args.event as string;
+  const deltaStr = args.delta as string;
+  if (!npc || !event || deltaStr === undefined) {
+    console.error("Usage: scripts/relationship.ts --npc <slug> --event <trigger> --delta <+N|-N>");
+    process.exit(1);
+  }
+  // Delta parse: accepts "+1", "-2", "1", "-3"
   const delta = parseInt(deltaStr.replace(/^\+/, ""), 10);
-  if (isNaN(delta)) throw new Error(`--delta must be integer. got: ${deltaStr}`);
-  if (Math.abs(delta) > 3) throw new Error("--delta must be in [-3, +3]. SYSTEM.md §5 forbids ±4+");
+  if (isNaN(delta)) { console.error(`--delta must be integer. got: ${deltaStr}`); process.exit(1); }
+  if (Math.abs(delta) > 3) { console.error(`--delta must be in [-3, +3]. SYSTEM.md §5 forbids ±4+`); process.exit(1); }
   return {
     npc,
     event,
     delta,
-    skipCooldown: values["skip-cooldown"] === true,
-    cooldownScenes: values["cooldown-scenes"] ? parseInt(values["cooldown-scenes"], 10) : 3,
+    skipCooldown: !!args.skipCooldown,
+    cooldownScenes: args["cooldown-scenes"] ? parseInt(args["cooldown-scenes"] as string, 10) : 3,
   };
 }
 
 // ─── Cooldown check ──────────────────────────────────────────────────────────
 
-function checkCooldown(ctx: ScriptContext, npc: string, event: string, windowScenes: number): { blocked: boolean; reason?: string } {
-  if (!ctx.project.exists("files/scenes/scene.md")) return { blocked: false };
-  const raw = ctx.project.readFile("files/scenes/scene.md");
+function checkCooldown(npc: string, event: string, windowScenes: number): { blocked: boolean; reason?: string } {
+  if (!existsSync("files/scenes/scene.md")) return { blocked: false };
+  const raw = readFileSync("files/scenes/scene.md", "utf-8");
   // 턴 구분자 = 유저 메시지 에코 줄 `> ...` (SYSTEM.md output_contract 보장).
   const turnMatches = Array.from(raw.matchAll(/^>\s+.+$/gm));
   if (turnMatches.length === 0) return { blocked: false };
 
+  // Window = from (N+1)-th-from-last turn marker to EOF (= 최근 windowScenes 턴)
   let windowStart = 0;
   if (turnMatches.length > windowScenes) {
-    const anchor = turnMatches[turnMatches.length - windowScenes] as RegExpMatchArray;
-    windowStart = anchor.index ?? 0;
+    const anchor = turnMatches[turnMatches.length - windowScenes];
+    windowStart = anchor.index!;
   }
   const window = raw.slice(windowStart);
 
+  // Look for matching [STAT] line
   const rx = new RegExp(
     `\\[STAT\\]\\s+${npc}\\s+[+-]?\\d+\\s+\\(${event.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}\\)`,
     "g",
@@ -79,59 +90,61 @@ function checkCooldown(ctx: ScriptContext, npc: string, event: string, windowSce
 
 // ─── Read current trust ──────────────────────────────────────────────────────
 
-function readCurrentTrust(ctx: ScriptContext, npc: string): { value: number; source: "stats.yaml" | "party.yaml" } {
+function readCurrentTrust(npc: string): { value: number; source: "stats.yaml" | "party.yaml" } {
   if (npc === "riwu") {
-    const data = ctx.yaml.parse(ctx.project.readFile("files/party.yaml")) as
+    const data = Bun.YAML.parse(readFileSync("files/party.yaml", "utf-8")) as
       { companions?: { riwu?: { trust?: number } } };
     const v = data?.companions?.riwu?.trust;
-    if (typeof v !== "number") throw new Error("riwu.trust not found in party.yaml");
+    if (typeof v !== "number") { console.error("riwu.trust not found in party.yaml"); process.exit(1); }
     return { value: v, source: "party.yaml" };
   } else {
-    const data = ctx.yaml.parse(ctx.project.readFile("files/stats.yaml")) as
+    const data = Bun.YAML.parse(readFileSync("files/stats.yaml", "utf-8")) as
       { npcs?: Record<string, number> };
     const v = data?.npcs?.[npc];
-    if (typeof v !== "number") throw new Error(`${npc} not found in stats.yaml npcs: block`);
+    if (typeof v !== "number") { console.error(`${npc} not found in stats.yaml npcs: block`); process.exit(1); }
     return { value: v, source: "stats.yaml" };
   }
 }
 
 // ─── Update trust value ──────────────────────────────────────────────────────
 
-function updateTrust(ctx: ScriptContext, npc: string, newVal: number, source: "stats.yaml" | "party.yaml"): string {
+function updateTrust(npc: string, newVal: number, source: "stats.yaml" | "party.yaml"): string {
   if (source === "stats.yaml") {
     const path = "files/stats.yaml";
-    const raw = ctx.project.readFile(path);
+    const raw = readFileSync(path, "utf-8");
     const rx = new RegExp(`^(  ${npc}:\\s*)-?\\d+`, "m");
     const newRaw = raw.replace(rx, `$1${newVal}`);
-    ctx.project.writeFile(path, newRaw);
+    writeFileSync(path, newRaw, "utf-8");
     return path;
   } else {
     const path = "files/party.yaml";
-    const raw = ctx.project.readFile(path);
+    const raw = readFileSync(path, "utf-8");
     const blockRx = /(^  riwu:[\s\S]*?trust:\s*)-?\d+/m;
     const newRaw = raw.replace(blockRx, `$1${newVal}`);
-    ctx.project.writeFile(path, newRaw);
+    writeFileSync(path, newRaw, "utf-8");
     return path;
   }
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function (rawArgs: readonly string[], ctx: ScriptContext) {
-  const args = parseRelArgs(rawArgs, ctx);
+function main() {
+  const args = parseArgs(process.argv.slice(2));
 
+  // Cooldown
   if (!args.skipCooldown) {
-    const cd = checkCooldown(ctx, args.npc, args.event, args.cooldownScenes);
+    const cd = checkCooldown(args.npc, args.event, args.cooldownScenes);
     if (cd.blocked) {
-      return {
+      console.log(JSON.stringify({
         changed: [],
         deltas: {},
         summary: `쿨다운 적용 — trust 변화 없음 (${cd.reason})`,
-      };
+      }));
+      return;
     }
   }
 
-  const { value: oldVal, source } = readCurrentTrust(ctx, args.npc);
+  const { value: oldVal, source } = readCurrentTrust(args.npc);
   const newVal = Math.max(-5, Math.min(5, oldVal + args.delta));
   const actualDelta = newVal - oldVal;
 
@@ -143,11 +156,11 @@ export default function (rawArgs: readonly string[], ctx: ScriptContext) {
 
   const changed: string[] = [];
   if (actualDelta !== 0) {
-    const updatedPath = updateTrust(ctx, args.npc, newVal, source);
+    const updatedPath = updateTrust(args.npc, newVal, source);
     changed.push(updatedPath);
   }
 
-  return {
+  const result = {
     changed,
     deltas: {
       [`${args.npc}.trust`]: { from: oldVal, to: newVal, delta: actualDelta, direction },
@@ -159,4 +172,8 @@ export default function (rawArgs: readonly string[], ctx: ScriptContext) {
         : `${args.npc} trust ${oldVal} → ${newVal} (${deltaStr} ${direction}, event ${args.event})`,
     scene_block: statLine,
   };
+
+  console.log(JSON.stringify(result));
 }
+
+main();

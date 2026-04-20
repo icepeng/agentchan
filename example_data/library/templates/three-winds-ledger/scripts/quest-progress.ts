@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * scripts/quest-progress.ts
  *
@@ -6,14 +7,15 @@
  *
  * Self-contained — block-based YAML patching via regex.
  *
- * Usage: --quest <slug> --event <progress|complete|fail> [--step "<description>"]
+ * Usage:
+ *   scripts/quest-progress.ts --quest <slug> --event <progress|complete|fail> [--step "<description>"]
  *
  * 동작: quests.yaml 을 직접 수정. 완료 시 campaign.yaml flags 에 플래그 추가.
- * 반환 JSON: {changed, deltas, summary, scene_block?}.
+ * stdout 마지막 줄에 JSON: {"changed":[...],"deltas":{...},"summary":"...","scene_block"?:"..."}
  * scene_block 은 quest:<slug> 마커 한 줄 — scene.md 에 append.
  */
 
-import type { ScriptContext } from "@agentchan/creative-agent";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 // ─── Args ────────────────────────────────────────────────────────────────────
 
@@ -23,25 +25,19 @@ interface Args {
   step?: string;
 }
 
-function parseQuestArgs(argv: readonly string[], ctx: ScriptContext): Args {
-  const { values } = ctx.util.parseArgs({
-    args: [...argv],
-    options: {
-      quest: { type: "string" },
-      event: { type: "string" },
-      step: { type: "string" },
-    },
-    strict: true,
-  });
-  const quest = values.quest;
-  const event = values.event;
-  if (!quest || !event) {
-    throw new Error("Usage: --quest <slug> --event <progress|complete|fail> [--step \"...\"]");
+function parseArgs(argv: string[]): Args {
+  const args: Record<string, string> = {};
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith("--")) { args[argv[i].slice(2)] = argv[i + 1]; i++; }
   }
-  if (!["progress", "complete", "fail"].includes(event)) {
-    throw new Error("--event must be progress|complete|fail");
+  if (!args.quest || !args.event) {
+    console.error("Usage: scripts/quest-progress.ts --quest <slug> --event <progress|complete|fail> [--step \"...\"]");
+    process.exit(1);
   }
-  return { quest, event: event as Args["event"], step: values.step };
+  if (!["progress", "complete", "fail"].includes(args.event)) {
+    console.error(`--event must be progress|complete|fail`); process.exit(1);
+  }
+  return { quest: args.quest, event: args.event as Args["event"], step: args.step };
 }
 
 // ─── Locate quest block ──────────────────────────────────────────────────────
@@ -131,40 +127,44 @@ function applyEvent(body: string, event: Args["event"], step?: string): { newBod
 
 // ─── Add flag to campaign.yaml ───────────────────────────────────────────────
 
-function addCampaignFlag(ctx: ScriptContext, flag: string): boolean {
+// 반환값: 실제로 수정된 경우 true. 이미 존재하거나 파일이 없으면 false.
+function addCampaignFlag(flag: string): boolean {
   const path = "files/campaign.yaml";
-  if (!ctx.project.exists(path)) return false;
-  const raw = ctx.project.readFile(path);
+  if (!existsSync(path)) return false;
+  const raw = readFileSync(path, "utf-8");
   const m = raw.match(/^flags:\s*\[([^\]]*)\]/m);
   if (!m) return false;
-  const inner = (m[1] ?? "").trim();
-  if (inner.split(",").map((s) => s.trim()).includes(flag)) return false;
+  const inner = m[1].trim();
+  if (inner.split(",").map(s => s.trim()).includes(flag)) return false;  // already present (idempotent)
   const newInner = inner ? `${inner}, ${flag}` : flag;
   const newRaw = raw.replace(/^flags:\s*\[([^\]]*)\]/m, `flags: [${newInner}]`);
-  ctx.project.writeFile(path, newRaw);
+  writeFileSync(path, newRaw, "utf-8");
   return true;
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-export default function (rawArgs: readonly string[], ctx: ScriptContext) {
-  const args = parseQuestArgs(rawArgs, ctx);
+function main() {
+  const args = parseArgs(process.argv.slice(2));
 
   const qpath = "files/quests.yaml";
-  if (!ctx.project.exists(qpath)) throw new Error(`Missing: ${qpath}`);
-  const raw = ctx.project.readFile(qpath);
+  if (!existsSync(qpath)) { console.error(`Missing: ${qpath}`); process.exit(1); }
+  const raw = readFileSync(qpath, "utf-8");
 
   const block = locateQuest(raw, args.quest);
-  if (!block) throw new Error(`Quest '${args.quest}' not found in quests.yaml`);
+  if (!block) {
+    console.error(`Quest '${args.quest}' not found in quests.yaml`);
+    process.exit(1);
+  }
 
   const { newBody, completionFlag } = applyEvent(block.body, args.event, args.step);
   const newRaw = raw.slice(0, block.start) + newBody + raw.slice(block.end);
-  ctx.project.writeFile(qpath, newRaw);
+  writeFileSync(qpath, newRaw, "utf-8");
 
   const changed: string[] = [qpath];
   let flagAdded = false;
   if (completionFlag) {
-    flagAdded = addCampaignFlag(ctx, completionFlag);
+    flagAdded = addCampaignFlag(completionFlag);
     if (flagAdded) changed.push("files/campaign.yaml");
   }
 
@@ -178,7 +178,7 @@ export default function (rawArgs: readonly string[], ctx: ScriptContext) {
     markerLines.push(`[quest:${args.quest} fail]`);
   }
 
-  return {
+  const result = {
     changed,
     deltas: {
       quest: args.quest,
@@ -193,4 +193,8 @@ export default function (rawArgs: readonly string[], ctx: ScriptContext) {
       (completionFlag ? ` · flag ${flagAdded ? "+" : "="}${completionFlag}` : ""),
     ...(markerLines.length > 0 ? { scene_block: markerLines.join("\n") } : {}),
   };
+
+  console.log(JSON.stringify(result));
 }
+
+main();
