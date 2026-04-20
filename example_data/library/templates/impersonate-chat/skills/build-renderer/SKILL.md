@@ -21,9 +21,11 @@ metadata:
 
 ## 계약
 
-renderer.ts는 외부 import 없이 단일 파일로 작성한다. 모든 타입을 파일 상단에 인라인 선언한다.
+renderer.ts는 단일 파일로 작성한다. 허용되는 import는 `@agentchan/renderer-runtime` 하나뿐이고, 모든 도메인 타입은 파일 상단에 인라인 선언한다.
 
 ```typescript
+import { defineRenderer } from "@agentchan/renderer-runtime";
+
 interface TextFile { type: "text"; path: string; content: string; frontmatter: Record<string, unknown> | null; modifiedAt: number; }
 interface BinaryFile { type: "binary"; path: string; modifiedAt: number; }
 type ProjectFile = TextFile | BinaryFile;
@@ -49,18 +51,42 @@ interface AgentState {
   readonly errorMessage?: string;
 }
 
+interface RendererActions {
+  send(text: string): void;  // 입력창에 채우고 즉시 전송
+  fill(text: string): void;  // 입력창에 채우기만
+}
+
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
   state: AgentState;
+  actions: RendererActions;
 }
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   // ctx.files에서 콘텐츠를 읽고, ctx.baseUrl로 에셋 URL을 구성하여 HTML 문자열 반환
 }
+
+export default defineRenderer(render, { /* theme? */ });
 ```
 
 `state.messages`는 persisted 대화 기록 + in-flight toolResult까지 합쳐진 한 흐름이다. tool 결과는 `state.messages`에서 `role === "toolResult"`로 찾는다 — 별도 result 필드 없음. tool이 진행 중인지 판단할 때는 `state.pendingToolCalls.has(toolCall.id)`.
+
+### 인터랙티브 액션
+
+HTML에 `data-action` + `data-text` 속성을 찍으면 런타임이 클릭을 위임해 처리한다. 인라인 `addEventListener`/`onclick`/`<script>`로 직접 다는 것 대신 이 선언적 경로를 사용한다.
+
+```html
+<button data-action="send" data-text="/cast fireball">불기둥</button>
+<button data-action="fill" data-text="안녕하세요">인사</button>
+```
+
+- `send`: 입력창에 채운 뒤 즉시 전송
+- `fill`: 입력창에 채우기만
+- `data-text` 생략 시 `textContent` 사용
+- 빈 텍스트는 무시, 스트리밍 중 `send`는 자동 무시
+
+프로그래매틱이 필요하면 `ctx.actions.send(text)` / `ctx.actions.fill(text)` 호출.
 
 ## 디자인 원칙
 

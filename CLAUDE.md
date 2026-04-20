@@ -28,7 +28,7 @@
 - **Layout**: Split-pane — left: rendered output, right: agent chat (collapsible), bottom: input
 - **Routing**: State-based via `currentPage` in `entities/ui/UIContext.tsx` (no react-router). Pages: main, templates, settings
 - **ViewMode**: `"chat" | "edit"` — UIContext에서 관리. Edit mode는 AgentPanel 헤더에서 토글
-- **Renderer system**: Per-project `renderer.ts` — server에서 TS→JS transpile, client에서 Blob URL dynamic import로 실행
+- **Renderer system**: Per-project `renderer.ts` — `@agentchan/renderer-runtime`의 `defineRenderer`로 `mount/update/destroy`를 export. server에서 TS→JS transpile + bare specifier rewrite, client는 host 번들에 runtime을 직접 import 후 same-origin iframe body에 mount
 - **Templates**: 프로젝트 생성용 프리셋 목록 (`data/library/templates/`). `README.md` frontmatter(name/description) + SYSTEM.md + skills/ + renderer.ts + files/. 사용자 지정 순서는 `_order.json`에 저장 (파일시스템이 진실, order는 힌트)
 - **Parallel streaming**: 프로젝트 단위 동시 스트리밍. 런타임 상태는 3개 Context로 분해 — `StreamContext`(projectSlug→stream 슬롯 Map), `SessionSelectionContext`(projectSlug→openSessionId + replyToNodeId Map), `RendererViewContext`(현재 보이는 프로젝트의 html/theme singleton). active 여부는 `ProjectSelectionContext.activeProjectSlug`와 조합해 `useActiveStream` 등의 셀렉터가 결정. 서버는 `c.req.raw.signal`을 Agent.abort()에 연결, 탭 닫기/fetch abort 시 정리. 백그라운드 완료 시 Notification API + 탭 타이틀 배지 + Sidebar unseen 인디케이터 (권한 거부 시 graceful fallback)
 - **Project Settings**: name/notes 편집 모달. SYSTEM.md/skills/renderer.ts 편집은 Edit Mode에서 직접 수행
@@ -100,16 +100,18 @@ apps/webui/data/
 ```
 
 ## Renderer System
-- Contract: `export function render(ctx: RenderContext): string` — `RenderContext { files: ProjectFile[], baseUrl: string, state: AgentState }`, HTML 반환. `ProjectFile = TextFile | BinaryFile` (TextFile: `path`, `content`, `frontmatter`, `modifiedAt`)
-- 렌더러는 독립 transpile되므로 `RenderContext` 등 타입을 파일 내에 inline 선언 (import 불가)
-- **Server**: TS→JS transpile only (`Bun.Transpiler`). 실행하지 않음 · **Client**: Blob URL로 dynamic import하여 `render(ctx)` 실행 (`entities/renderer/useOutput.ts`). 프로젝트 전환/스트리밍 완료 시 full refresh + 스트리밍 중 rAF 주기로 state-only refresh(`useOutput.refreshState` — 네트워크 fetch 없이 스냅샷 재사용)
-- `ctx.baseUrl`로 프로젝트 에셋 URL 구성 (예: `ctx.baseUrl + "/files/characters/elara-brightwell/assets/avatar"`). `/files/:path` 라우트는 확장자 없는 경로에 대해 이미지 확장자 탐색 폴백 지원
+- Contract: `export default defineRenderer(render, { theme? })` — `defineRenderer`가 `render(ctx): string`을 `mount/update/destroy`로 감싼다. 레거시 `export function render`도 host `adoptRenderer`가 자동 래핑해 호환 유지
+- `RenderContext { files: ProjectFile[], baseUrl: string, state: AgentState, actions: RendererActions }`. `ProjectFile = TextFile | BinaryFile` (TextFile: `path`, `content`, `frontmatter`, `modifiedAt`). `actions.send(text)` / `actions.fill(text)`는 프로그래매틱 전송, HTML에선 `data-action` 선언 경로 사용
+- 렌더러는 단일 파일 + `@agentchan/renderer-runtime` 하나만 import 허용. 도메인 타입은 파일 내 inline 선언. server가 transpile 시 이 import를 `globalThis.__rendererRuntime` 참조로 정규식 rewrite (`project.service.transpileRenderer`)
+- **Server**: TS→JS transpile (`Bun.Transpiler`) + bare specifier rewrite. 실행하지 않음 · **Client**: `@agentchan/renderer-runtime`을 host 번들에 직접 import 후 `globalThis.__rendererRuntime`에 노출, 렌더러 JS는 Blob URL로 host realm에서 dynamic import. `IsolatedRenderer`가 same-origin iframe을 띄우고 `adopted.mount(iframe.contentDocument.body, ctx)` 호출 (DOM/CSS/인라인 스크립트 격리, opacity 크로스페이드). 프로젝트 전환/스트리밍 완료 시 full refresh + 스트리밍 중 rAF 주기로 state-only refresh (`useOutput.refreshState` — 네트워크 fetch 없이 스냅샷 재사용)
+- iframe 문서엔 host `main.css`의 `@theme`를 `:root`로 변환한 base.css와 폰트 CDN `@import`가 `/api/renderer-runtime/base.css`로 자동 주입. iframe unmount = 리스너·DOM 전부 자동 정리 (cross-project 리스너 좀비 구조적 해소)
+- `ctx.baseUrl`로 프로젝트 에셋 URL 구성 (예: `ctx.baseUrl + "/files/characters/elara-brightwell/assets/avatar"`). same-origin이라 상대 경로로 내려옴. `/files/:path` 라우트는 확장자 없는 경로에 대해 이미지 확장자 탐색 폴백 지원
 - Image tokens: `[name:path]` — 렌더러가 frontmatter의 `name` 필드로 캐릭터를 매칭하여 resolve
-- `renderer.ts` 부재 또는 render 실패 시 error HTML 표시
+- `renderer.ts` 부재 또는 mount 실패 시 error HTML 표시
 - **렌더러는 순수 함수** — `(files, state) → HTML`. skills, SYSTEM.md에는 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터, `role: persona`면 사용자 페르소나)
 - **Renderer owns viewport** — `RenderedView`에 외부 padding 없음. 렌더러가 viewport edge-to-edge 소유. 필요한 간격/정렬은 렌더러 내부 `<style>`에서 (예: `.root { max-width: 680px; margin: 0 auto; padding: 24px }`). 풀블리드 배경·그라디언트·헤로 레이아웃 가능
-- **Renderer theme export** — 렌더러가 `export function theme(ctx: RenderContext): { base, dark?, prefersScheme? }`를 선언하면 프로젝트 페이지 한정으로 전역 `--color-*` 오버라이드 (Sidebar/AgentPanel/BottomInput까지 동조). `render`와 동일하게 매 refresh마다 호출되므로 `ctx.files` 기반 동적 테마 가능 (예: three-winds-ledger가 peace/combat 씬에 맞춰 팔레트 전환). 토큰 이름은 CSS 변수와 1:1 (`void/base/surface/elevated/accent/fg/fg2/fg3/edge`). `prefersScheme` 명시 시 사용자 토글 강제 오버라이드 (Settings 이동 시 자동 해제). 색상만, 폰트는 렌더러 내부 `<style>`에서. 검증·병합은 `entities/renderer/projectTheme.ts`의 `validateTheme` / `resolveThemeVars` (하위 호환: 객체 export도 허용되지만 공식 시그니처는 함수)
-- **Renderer Actions** — 렌더러 HTML에 `data-action` + `data-text` 속성으로 인터랙티브 액션 선언. `data-action="send"` (즉시 전송), `data-action="fill"` (입력창에 채우기). `data-text` 생략 시 `textContent` 사용. 빈 텍스트 무시, 스트리밍 중 send 무시. `entities/renderer/RendererActionContext.tsx`가 cross-feature 브릿지
+- **Renderer theme** — `defineRenderer(render, { theme: (ctx) => ... })`로 전달하거나 레거시 `export function theme(ctx: RenderContext): { base, dark?, prefersScheme? }`. 프로젝트 페이지 한정으로 전역 `--color-*` 오버라이드 (Sidebar/AgentPanel/BottomInput까지 동조). 매 refresh마다 호출되므로 `ctx.files` 기반 동적 테마 가능 (예: three-winds-ledger가 peace/combat 씬에 맞춰 팔레트 전환). 토큰 이름은 CSS 변수와 1:1 (`void/base/surface/elevated/accent/fg/fg2/fg3/edge`). `prefersScheme` 명시 시 사용자 토글 강제 오버라이드 (Settings 이동 시 자동 해제). 색상만, 폰트는 렌더러 내부 `<style>`에서. 검증·병합 유틸은 `@agentchan/renderer-runtime`의 `validateTheme` / `resolveThemeVars` (`entities/renderer/projectTheme.ts`가 thin re-export)
+- **Renderer Actions** — 렌더러 HTML에 `data-action` + `data-text` 속성으로 인터랙티브 액션 선언. `data-action="send"` (즉시 전송), `data-action="fill"` (입력창에 채우기). `data-text` 생략 시 `textContent` 사용. 빈 텍스트 무시, 스트리밍 중 send 무시. `@agentchan/renderer-runtime`의 `bindActions`가 iframe body에 위임 listener를 달고, `entities/renderer/RendererActionContext.tsx`가 cross-feature 브릿지
 - **Renderer State** — `ctx.state: AgentState`는 pi `agent.state`(agent/types.ts:221)의 UI subset이고 AgentPanel과 동일한 인터페이스다. idle 시 `EMPTY_AGENT_STATE = { messages:[], isStreaming:false, pendingToolCalls: new Set() }`. 필드:
   - `messages: AgentMessage[]` — persisted activePath(meta 노드 제외) + 아직 persist되지 않은 in-flight `ToolResultMessage` 합성. `role: "user" | "assistant" | "toolResult"` 기준으로 분기
   - `streamingMessage?: AssistantMessage` — 현재 in-flight assistant message. pi `AssistantMessageEvent.partial`이 매 이벤트마다 그대로 들어와 단순 replace됨. content는 시간순으로 [text, toolCall, text, ...] 인터리빙 가능
