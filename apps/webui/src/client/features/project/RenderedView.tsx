@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Idiomorph } from "idiomorph";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { useActiveStream } from "@/client/entities/stream/index.js";
+import { useAgentState } from "@/client/entities/agent-state/index.js";
 import {
   useOutput,
   useRendererViewState,
@@ -17,7 +17,7 @@ const FADE_DURATION_MS = 300;
 export function RenderedView() {
   const project = useProjectSelectionState();
   const rendererView = useRendererViewState();
-  const stream = useActiveStream();
+  const state = useAgentState();
   const { refresh, refreshState } = useOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -27,11 +27,12 @@ export function RenderedView() {
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [phase, setPhase] = useState<TransitionPhase>("idle");
 
-  // Mirror the latest slot into a ref so the rAF tick reads it without
-  // re-running the effect on every delta.
-  const streamRef = useRef(stream);
+  // Mirror the latest AgentState into a ref so the rAF tick reads it without
+  // re-running the effect on every delta. Identity changes whenever the
+  // reducer produces a new slot object — that's the cue to refreshState.
+  const stateRef = useRef(state);
   useEffect(() => {
-    streamRef.current = stream;
+    stateRef.current = state;
   });
 
   // Snapshot the current renderer DOM into the back layer so it can cross-fade
@@ -63,29 +64,29 @@ export function RenderedView() {
   }, [project.activeProjectSlug, refresh]);
 
   useEffect(() => {
-    if (!stream.isStreaming && project.activeProjectSlug) {
+    if (!state.isStreaming && project.activeProjectSlug) {
       void refresh();
     }
-  }, [stream.isStreaming, project.activeProjectSlug, refresh]);
+  }, [state.isStreaming, project.activeProjectSlug, refresh]);
 
   // rAF-coalesced stream re-render. `useOutput` reads the latest AgentState
-  // via ref each call, so the tick just compares stream slot identity to
-  // skip refreshState when nothing has changed — avoiding 60fps CPU burn.
+  // via ref each call, so the tick just compares state identity to skip
+  // refreshState when nothing has changed — avoiding 60fps CPU burn.
   useEffect(() => {
-    if (!stream.isStreaming) return;
+    if (!state.isStreaming) return;
     let raf = 0;
-    let lastSlot = streamRef.current;
+    let lastState = stateRef.current;
     refreshState();
     const tick = () => {
-      if (streamRef.current !== lastSlot) {
-        lastSlot = streamRef.current;
+      if (stateRef.current !== lastState) {
+        lastState = stateRef.current;
         refreshState();
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [stream.isStreaming, refreshState]);
+  }, [state.isStreaming, refreshState]);
 
   useEffect(() => {
     const el = frontRef.current;
@@ -143,14 +144,14 @@ export function RenderedView() {
   // 스트리밍이 끝난 직후 한 번만 바닥으로 이동시킨다. isStreaming이 true→false로 바뀌는
   // 전이에서 effect가 재실행되며 최종 결과로 스크롤된다.
   useEffect(() => {
-    if (stream.isStreaming) return;
+    if (state.isStreaming) return;
     const el = containerRef.current;
     if (!el) return;
     const anchor = el.querySelector("[data-chat-anchor]");
     if (anchor) {
       anchor.scrollIntoView({ behavior: "smooth" });
     }
-  }, [rendererView.html, stream.isStreaming]);
+  }, [rendererView.html, state.isStreaming]);
 
   useEffect(() => {
     const el = frontRef.current;

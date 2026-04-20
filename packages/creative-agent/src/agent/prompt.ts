@@ -31,7 +31,6 @@ export type SessionEvent =
   | { type: "user_node"; node: TreeNode }
   | { type: "agent_event"; event: AgentEvent }
   | { type: "assistant_nodes"; nodes: TreeNode[] }
-  | { type: "usage_summary"; usage: TokenUsage }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -316,7 +315,6 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     await persistAndInsertNode(ctx, slug, sessionId, tree, node);
   }
 
-  if (turnUsage) emit({ type: "usage_summary", usage: turnUsage });
   if (newNodes.length === 0) {
     emit({ type: "error", message: "No response from model" });
   } else {

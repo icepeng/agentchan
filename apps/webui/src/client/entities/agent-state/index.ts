@@ -7,6 +7,13 @@ export type {
 } from "./agentState.js";
 export { EMPTY_AGENT_STATE } from "./agentState.js";
 
-export { fromSession } from "./fromSession.js";
+export {
+  AgentStateProvider,
+  useAgentStateMap,
+  useAgentStateDispatch,
+  type AgentStateAction,
+} from "./AgentStateContext.js";
 
-export { useActiveAgentState } from "./useAgentState.js";
+export { useAgentState } from "./useAgentState.js";
+
+export { useActiveUsage, EMPTY_USAGE, type SessionUsage } from "./useActiveUsage.js";

@@ -1,6 +1,5 @@
 import type { SSEStreamingApi } from "hono/streaming";
 import {
-  type AgentEvent,
   type AgentContext,
   type SessionEvent,
   runPrompt,
@@ -8,9 +7,9 @@ import {
 } from "@agentchan/creative-agent";
 
 /**
- * SSE adapter — translates SessionEvent into the wire format the frontend
- * already expects. Event name strings here are the client contract; see
- * useChatStream for the consumer.
+ * SSE adapter — forwards pi `AgentEvent` raw under the single `agent_event`
+ * wire name and keeps agentchan-specific session persistence events
+ * (`user_node`, `assistant_nodes`, `error`, `done`) on their own names.
  *
  * `prepareRun` is called before each prompt/regenerate. OAuth providers use it
  * to refresh expired tokens into the DB so the sync `resolveAgentConfig` reads
@@ -72,7 +71,7 @@ export type AgentService = ReturnType<typeof createAgentService>;
 
 /**
  * Session listeners are sync (called from inside Agent's sync subscribe loop).
- * SSE writes are async. We need a serial queue so back-to-back text deltas
+ * SSE writes are async. We need a serial queue so back-to-back events
  * don't interleave on the wire.
  */
 function createSerialWriter(stream: SSEStreamingApi) {
@@ -97,20 +96,21 @@ async function writeSessionEvent(
       await stream.writeSSE({ event: "user_node", data: JSON.stringify(ev.node) });
       return;
     case "agent_event": {
-      const sse = agentEventToSSE(ev.event);
-      if (sse) await stream.writeSSE(sse);
+      // user role message_start/end 은 `user_node` SSE 로 별도 채널 — 중복 방지
+      const event = ev.event;
+      if (
+        (event.type === "message_start" || event.type === "message_end") &&
+        event.message.role === "user"
+      ) {
+        return;
+      }
+      await stream.writeSSE({ event: "agent_event", data: JSON.stringify(event) });
       return;
     }
     case "assistant_nodes":
       await stream.writeSSE({
         event: "assistant_nodes",
         data: JSON.stringify(ev.nodes),
-      });
-      return;
-    case "usage_summary":
-      await stream.writeSSE({
-        event: "usage_summary",
-        data: JSON.stringify(ev.usage),
       });
       return;
     case "error":
@@ -122,45 +122,5 @@ async function writeSessionEvent(
     case "done":
       await stream.writeSSE({ event: "done", data: "" });
       return;
-  }
-}
-
-/**
- * Forward pi `AssistantMessageEvent` raw — `partial: AssistantMessage` and
- * `contentIndex` are preserved end-to-end, so the client can rebuild the
- * exact in-flight message without losing block ordering.
- *
- * `tool_execution_*` is folded back into a single SSE pair; `toolName` is
- * carried through `tool_exec_end` so the client can synthesize the canonical
- * pi `ToolResultMessage` without re-querying.
- */
-function agentEventToSSE(event: AgentEvent): { event: string; data: string } | null {
-  switch (event.type) {
-    case "message_update":
-      return {
-        event: "assistant_event",
-        data: JSON.stringify(event.assistantMessageEvent),
-      };
-    case "tool_execution_start":
-      return {
-        event: "tool_exec_start",
-        data: JSON.stringify({
-          id: event.toolCallId,
-          name: event.toolName,
-          args: event.args,
-        }),
-      };
-    case "tool_execution_end":
-      return {
-        event: "tool_exec_end",
-        data: JSON.stringify({
-          id: event.toolCallId,
-          name: event.toolName,
-          is_error: event.isError,
-          content: event.result?.content ?? [],
-        }),
-      };
-    default:
-      return null;
   }
 }

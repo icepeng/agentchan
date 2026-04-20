@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
   EMPTY_AGENT_STATE,
-  useActiveAgentState,
+  useAgentState,
 } from "@/client/entities/agent-state/index.js";
 import {
   useProjectSelectionState,
@@ -66,10 +66,10 @@ export function useOutput() {
   const { activeProjectSlug } = useProjectSelectionState();
   const rendererViewDispatch = useRendererViewDispatch();
 
-  // useActiveAgentState reads from project/session/stream contexts. Capturing
-  // it via ref lets `refreshState` read the latest snapshot without rebinding
-  // the rAF loop in RenderedView on every event.
-  const agentState = useActiveAgentState();
+  // useAgentState reads from the active project slot. Capturing it via ref
+  // lets `refreshState` read the latest snapshot without rebinding the rAF
+  // loop in RenderedView on every event.
+  const agentState = useAgentState();
   const stateRef = useRef(agentState);
   useEffect(() => {
     stateRef.current = agentState;
