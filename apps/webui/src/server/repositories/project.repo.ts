@@ -2,7 +2,7 @@ import { readFile, mkdir, readdir, rename, rm, cp, stat, unlink } from "node:fs/
 import { existsSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
-import type { Project, ProjectMeta } from "../types.js";
+import type { Project, ProjectMeta, ProjectIntent } from "../types.js";
 import { probeCover } from "../paths.js";
 
 export interface TreeEntry {
@@ -40,20 +40,33 @@ export function createProjectRepo(projectsDir: string) {
     return slug;
   }
 
-  async function createFromSource(name: string, srcDir: string): Promise<Project> {
+  async function createFromSource(
+    name: string,
+    srcDir: string,
+    opts?: { intent?: ProjectIntent },
+  ): Promise<Project> {
     const slug = uniqueSlug(name);
     const now = Date.now();
-    const meta: ProjectMeta = { name, createdAt: now, updatedAt: now };
+    const meta: ProjectMeta = {
+      name,
+      createdAt: now,
+      updatedAt: now,
+      ...(opts?.intent ? { intent: opts.intent } : {}),
+    };
 
     await ensureProjectDir(slug);
-    await Bun.write(projectMetaPath(slug), JSON.stringify(meta, null, 2));
 
     const destDir = projectDir(slug);
+    // 원본의 _project.json은 제외하고 나머지만 복사 — intent/메타는 새 프로젝트 기준으로 덮어쓴다
     const entries = await readdir(srcDir, { withFileTypes: true });
-    const copies = entries.map((e) =>
-      cp(join(srcDir, e.name), join(destDir, e.name), { recursive: e.isDirectory() }),
-    );
+    const copies = entries
+      .filter((e) => e.name !== "_project.json")
+      .map((e) =>
+        cp(join(srcDir, e.name), join(destDir, e.name), { recursive: e.isDirectory() }),
+      );
     await Promise.all(copies);
+
+    await Bun.write(projectMetaPath(slug), JSON.stringify(meta, null, 2));
     return { ...meta, slug };
   }
 
@@ -94,10 +107,15 @@ export function createProjectRepo(projectsDir: string) {
       return { ...meta, slug };
     },
 
-    async create(name: string): Promise<Project> {
+    async create(name: string, opts?: { intent?: ProjectIntent }): Promise<Project> {
       const slug = uniqueSlug(name);
       const now = Date.now();
-      const meta: ProjectMeta = { name, createdAt: now, updatedAt: now };
+      const meta: ProjectMeta = {
+        name,
+        createdAt: now,
+        updatedAt: now,
+        ...(opts?.intent ? { intent: opts.intent } : {}),
+      };
 
       await ensureProjectDir(slug);
       await Bun.write(projectMetaPath(slug), JSON.stringify(meta, null, 2));
@@ -135,11 +153,15 @@ export function createProjectRepo(projectsDir: string) {
       await rm(dir, { recursive: true });
     },
 
-    async duplicate(sourceSlug: string, name: string): Promise<Project> {
+    async duplicate(
+      sourceSlug: string,
+      name: string,
+      opts?: { intent?: ProjectIntent },
+    ): Promise<Project> {
       if (!existsSync(projectMetaPath(sourceSlug))) {
         throw new Error(`Source project not found: ${sourceSlug}`);
       }
-      return createFromSource(name, projectDir(sourceSlug));
+      return createFromSource(name, projectDir(sourceSlug), opts);
     },
 
     createFromSource,

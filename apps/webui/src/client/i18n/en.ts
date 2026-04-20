@@ -84,6 +84,15 @@ export const translations = {
   "project.newOptionsEmpty": "Empty project",
   "project.newOptionsFromTemplate": "From template",
 
+  // Workbench (intent=workbench projects — template authoring)
+  "sidebar.workbench": "Workbench",
+  "workbench.new": "New workbench",
+  "workbench.newOptionsEmpty": "Blank workbench",
+  "workbench.newOptionsFromTemplate": "Start from template",
+  "workbench.publish": "Publish as Template",
+  "workbench.badge": "Workbench",
+  "workbench.description": "Author new templates with the meta agent, then publish.",
+
   // Project settings
   "settings.back": "Back",
   "settings.general": "General",

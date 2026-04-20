@@ -1,9 +1,9 @@
 import { useState, useRef, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import { useProjectSelectionState, useActiveProject } from "@/client/entities/project/index.js";
 import { useUIState, useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { RenderedView } from "@/client/features/project/index.js";
+import { RenderedView, WorkbenchHeader } from "@/client/features/project/index.js";
 import { AgentPanel, BottomInput } from "@/client/features/chat/index.js";
 import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
 
@@ -27,11 +27,13 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
+  const activeProject = useActiveProject();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef(0);
 
   const isEdit = ui.viewMode === "edit";
+  const isWorkbench = activeProject?.intent === "workbench";
 
   const handlePanelResize = (delta: number) => {
     const container = containerRef.current;
@@ -87,6 +89,9 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
             style={{ width: panelWidth }}
             className="flex-shrink-0 flex flex-col min-h-0 bg-base/40 transition-colors duration-300 hidden lg:flex"
           >
+            {isWorkbench && project.activeProjectSlug && (
+              <WorkbenchHeader slug={project.activeProjectSlug} />
+            )}
             <AgentPanel />
             {isEdit && <BottomInput variant="embedded" />}
           </div>

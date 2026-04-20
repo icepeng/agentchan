@@ -6,6 +6,7 @@ import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
 import { useTemplates } from "@/client/entities/template/index.js";
 import { useStreamState, selectStreamSlot } from "@/client/entities/stream/index.js";
+import type { ProjectIntent } from "@/client/entities/project/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
@@ -61,9 +62,27 @@ function tabsReducer(state: TabsMode, action: TabsAction): TabsMode {
 
 // -- Component ---
 
-export function ProjectTabs() {
+/**
+ * intent가 전달되면 해당 intent의 프로젝트만 렌더링하고, 새 프로젝트 생성 시
+ * 자동으로 그 intent를 부여한다. 기본값 "creative"는 기존 Projects 섹션 동작.
+ */
+interface ProjectTabsProps {
+  intent?: ProjectIntent;
+}
+
+export function ProjectTabs({ intent = "creative" }: ProjectTabsProps) {
   const { t } = useI18n();
-  const { projects, activeProjectSlug, selectProject, createProject, duplicateProject, renameProject, deleteProject } = useProject();
+  const {
+    projects: allProjects,
+    activeProjectSlug,
+    selectProject,
+    createProject,
+    duplicateProject,
+    renameProject,
+    deleteProject,
+  } = useProject();
+  const projects = allProjects.filter((p) => (p.intent ?? "creative") === intent);
+  const isWorkbench = intent === "workbench";
   const streamState = useStreamState();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
   const { data: templates } = useTemplates();
@@ -94,7 +113,10 @@ export function ProjectTabs() {
     }
     submittingRef.current = true;
     try {
-      await createProject(name, mode.templateName);
+      await createProject(name, {
+        ...(mode.templateName ? { fromTemplate: mode.templateName } : {}),
+        intent,
+      });
       modeDispatch({ type: "RESET" });
     } finally {
       submittingRef.current = false;
@@ -112,7 +134,7 @@ export function ProjectTabs() {
     }
     submittingRef.current = true;
     try {
-      await duplicateProject(mode.sourceSlug, name);
+      await duplicateProject(mode.sourceSlug, name, { intent });
       modeDispatch({ type: "RESET" });
     } finally {
       submittingRef.current = false;
@@ -183,24 +205,33 @@ export function ProjectTabs() {
             }
           >
             <Plus size={12} strokeWidth={2.5} />
-            {t("project.new")}
+            {isWorkbench ? t("workbench.new") : t("project.new")}
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner sideOffset={6} align="start">
               <Menu.Popup className={`${MENU_POPUP_CLASS} min-w-[220px]`}>
                 <Menu.Item
-                  onClick={() => modeDispatch({ type: "START_CREATE" })}
+                  onClick={() =>
+                    modeDispatch({
+                      type: "START_CREATE",
+                      // Workbench의 "빈" 시작점은 build-renderer 스킬이 들어있는
+                      // empty 템플릿을 복제해야 메타 에이전트가 즉시 동작한다.
+                      ...(isWorkbench ? { templateName: "empty" } : {}),
+                    })
+                  }
                   className={`${MENU_ITEM_CLASS} flex items-center gap-2`}
                 >
                   <Plus size={12} strokeWidth={2.5} />
-                  {t("project.newOptionsEmpty")}
+                  {isWorkbench ? t("workbench.newOptionsEmpty") : t("project.newOptionsEmpty")}
                 </Menu.Item>
                 {templates && templates.length > 0 && (
                   <>
                     <div className="my-1 border-t border-edge/8" role="separator" />
                     <Menu.Group>
                       <Menu.GroupLabel className="px-4 py-1 text-[10px] uppercase tracking-wider text-fg-4">
-                        {t("project.newOptionsFromTemplate")}
+                        {isWorkbench
+                          ? t("workbench.newOptionsFromTemplate")
+                          : t("project.newOptionsFromTemplate")}
                       </Menu.GroupLabel>
                       {templates.map((s) => (
                         <Menu.Item

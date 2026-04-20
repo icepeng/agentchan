@@ -86,6 +86,15 @@ export const translations: Record<TranslationKey, string> = {
   "project.newOptionsEmpty": "빈 프로젝트",
   "project.newOptionsFromTemplate": "템플릿에서",
 
+  // Workbench (intent=workbench 프로젝트 — 템플릿 저작)
+  "sidebar.workbench": "Workbench",
+  "workbench.new": "새 Workbench",
+  "workbench.newOptionsEmpty": "빈 Workbench",
+  "workbench.newOptionsFromTemplate": "템플릿에서 시작",
+  "workbench.publish": "템플릿으로 Publish",
+  "workbench.badge": "Workbench",
+  "workbench.description": "메타 에이전트와 대화하며 새 템플릿을 만들고 Publish합니다.",
+
   // Project settings
   "settings.back": "뒤로",
   "settings.general": "일반",

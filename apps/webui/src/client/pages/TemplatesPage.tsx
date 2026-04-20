@@ -152,7 +152,7 @@ export function TemplatesPage() {
     }
     setCreating(true);
     try {
-      await createProject(name, selectedSlug);
+      await createProject(name, { fromTemplate: selectedSlug });
       uiDispatch({ type: "NAVIGATE", route: { page: "main" } });
     } finally {
       setCreating(false);
