@@ -1,7 +1,17 @@
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
+
+/**
+ * renderer/ 폴더 **안**의 파일로 scope를 좁혀 경로 탐색(`..`, absolute)을 차단한다.
+ * resolve 후 문자열 prefix 체크가 Node.js에서 가장 안전한 방법.
+ */
+function safeRendererPath(projectsDir: string, slug: string, relPath: string): string | null {
+  const rendererRoot = resolve(projectsDir, slug, "renderer");
+  const abs = resolve(rendererRoot, relPath);
+  if (abs !== rendererRoot && !abs.startsWith(rendererRoot + sep)) return null;
+  return abs;
+}
 
 export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
@@ -52,11 +62,27 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       return projectRepo.createProjectDir(slug, dirPath);
     },
 
-    async transpileRenderer(slug: string): Promise<string | null> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      if (!existsSync(rendererPath)) return null;
-      const source = await Bun.file(rendererPath).text();
-      return transpiler.transformSync(source);
+    /**
+     * `.ts`만 허용. renderer 폴더 밖 경로나 파일 부재 시 null.
+     */
+    async transpileRenderer(slug: string, relPath: string = "index.ts"): Promise<string | null> {
+      if (!relPath.endsWith(".ts")) return null;
+      const absPath = safeRendererPath(projectsDir, slug, relPath);
+      if (!absPath) return null;
+      try {
+        const source = await Bun.file(absPath).text();
+        return transpiler.transformSync(source);
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw err;
+      }
+    },
+
+    /** raw 정적 에셋(css, pre-bundled js)의 디스크 경로를 돌려준다. */
+    resolveRendererAsset(slug: string, relPath: string): { fullPath: string } | null {
+      const absPath = safeRendererPath(projectsDir, slug, relPath);
+      if (!absPath) return null;
+      return { fullPath: absPath };
     },
 
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {

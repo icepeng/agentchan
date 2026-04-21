@@ -5,16 +5,14 @@ import { nanoid } from "nanoid";
 import { Type } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
-import { scanWorkspaceFiles } from "../workspace/scan.js";
 
 const ValidateRendererParams = Type.Object({});
 
-const DESCRIPTION = `Validate the project's renderer.ts by transpiling and executing it with the current project files.
+const DESCRIPTION = `Validate the project's renderer/index.ts by transpiling and checking it exports mount().
 
-Returns rendered HTML on success, or a detailed error message with the failure phase (transpile / export / runtime).
-Use this after writing or editing renderer.ts to verify it works before asking the user to check.`;
-
-const MAX_HTML_CHARS = 3000;
+Reports the failure phase (read / transpile / export) with a detailed message.
+Runtime execution requires a DOM (iframe) so actual rendering is verified by the user in the UI — this tool catches syntax and contract errors only.
+Use this after writing or editing renderer/index.ts.`;
 
 export function createValidateRendererTool(
   projectDir: string,
@@ -26,16 +24,14 @@ export function createValidateRendererTool(
     label: "Validate renderer",
 
     async execute(): Promise<AgentToolResult<void>> {
-      // 1. Read renderer.ts
-      const rendererPath = join(projectDir, "renderer.ts");
+      const rendererPath = join(projectDir, "renderer", "index.ts");
       let source: string;
       try {
         source = await readFile(rendererPath, "utf-8");
       } catch {
-        return textResult("Error: renderer.ts not found in project root.");
+        return textResult("Error: renderer/index.ts not found in project root.");
       }
 
-      // 2. Transpile TS → JS
       const transpiler = new Bun.Transpiler({ loader: "ts" });
       let js: string;
       try {
@@ -46,39 +42,26 @@ export function createValidateRendererTool(
         );
       }
 
-      // 3. Scan workspace files
-      const files = await scanWorkspaceFiles(join(projectDir, "files"));
-
-      // 4. Write to temp file and dynamic import
       const tmpPath = join(tmpdir(), `agentchan-renderer-${nanoid(8)}.mjs`);
       await writeFile(tmpPath, js);
       try {
         const mod = await import(tmpPath);
-
-        if (typeof mod.render !== "function") {
+        if (typeof mod.mount !== "function") {
           return textResult(
-            "Export error: renderer.ts does not export a render() function.",
+            "Export error: renderer/index.ts must export a `mount(container, ctx)` function.",
           );
         }
-
-        // 5. Execute render()
-        const ctx = { files, baseUrl: "/api/projects/_validate" };
-        const html: string = mod.render(ctx);
-
-        const preview =
-          html.length > MAX_HTML_CHARS
-            ? html.slice(0, MAX_HTML_CHARS) + `\n...(truncated, ${html.length} chars total)`
-            : html;
-
-        return textResult(`OK — rendered ${html.length} chars.\n\n${preview}`);
       } catch (e) {
-        const err = e instanceof Error ? e : new Error(String(e));
         return textResult(
-          `Runtime error:\n${err.message}${err.stack ? "\n" + err.stack : ""}`,
+          `Export error: module failed to import — ${e instanceof Error ? e.message : String(e)}`,
         );
       } finally {
         await unlink(tmpPath).catch(() => {});
       }
+
+      return textResult(
+        "OK — transpile succeeded and `mount` is exported. Runtime behaviour (render output, scroll, actions, theme) requires a DOM; verify in the UI.",
+      );
     },
   };
 }

@@ -1,27 +1,36 @@
 ---
 name: build-renderer
-description: "프로젝트의 files/ 구조를 분석하여 renderer.ts를 자동 생성하거나 수정한다."
+description: "프로젝트의 files/ 구조를 분석하여 renderer/index.ts를 자동 생성하거나 수정한다."
 environment: meta
 metadata:
   author: agentchan
-  version: "1.0"
+  version: "2.0"
 ---
 
-프로젝트의 files/ 구조와 파일 내용을 분석하여 맞춤형 renderer.ts를 작성한다.
+프로젝트의 files/ 구조와 파일 내용을 분석하여 맞춤형 renderer/index.ts를 작성한다.
 
 ## 워크플로우
 
-1. renderer.ts를 read로 읽고 이해한 후 진행. 없으면 신규 생성
+1. renderer/index.ts를 read로 읽고 이해한 후 진행. 없으면 신규 생성
 2. SYSTEM.md를 읽어 프로젝트의 목적과 출력 형식을 파악
 3. 출력 파일이 있으면 우선으로 읽어 콘텐츠 구조를 이해. 필요하다면 나머지 파일도 읽음
-4. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다. 기존 renderer.ts 수정 시: 전면 재작성 vs 부분 수정 여부를 사용자에게 확인한다.
-5. 사용자가 답변하면, 아래 기법들을 참고하여 renderer.ts를 작성 혹은 편집
-6. validate-renderer 도구로 transpile + 실행 검증. 실패 시 에러를 분석하고 자동 수정 후 재검증
+4. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다. 기존 renderer/index.ts 수정 시: 전면 재작성 vs 부분 수정 여부를 사용자에게 확인한다.
+5. 사용자가 답변하면, 아래 기법들을 참고하여 renderer/index.ts를 작성 혹은 편집
+6. validate-renderer 도구로 transpile + export shape를 검증. 실제 렌더링 결과는 UI에서 사용자가 확인
 7. 사용자에게 좌측 패널의 시각 결과 확인 요청
+
+## 격리 모델
+
+렌더러는 same-origin iframe 안에서 실행된다. 호스트는 `<iframe>`만 배치하고, DOM/스크롤/애니메이션/이벤트는 전부 렌더러가 소유한다. 프로젝트 루트의 `renderer/` 폴더가 하나의 독립 웹앱이다.
+
+- `renderer/index.ts` — 엔트리 (필수). `export function mount(container, ctx)` 하나를 반드시 export한다
+- `renderer/index.css` — 선택. 서버가 shell `<link>`로 자동 주입
+- `renderer/lib/*.js` — vendor 번들(idiomorph 등). 상대 경로로 import: `import { X } from "./lib/x.js"`
+- `renderer/*.ts` — 내부 분할 파일(선택). 상대 import 가능
 
 ## 계약
 
-renderer.ts는 외부 import 없이 단일 파일로 작성한다. 모든 타입을 파일 상단에 인라인 선언한다.
+renderer/index.ts는 외부 import(npm) 없이 작성한다. 모든 타입을 파일 상단에 인라인 선언한다.
 
 ```typescript
 interface TextFile { type: "text"; path: string; content: string; frontmatter: Record<string, unknown> | null; modifiedAt: number; }
@@ -40,7 +49,6 @@ interface AssistantMessage { role: "assistant"; content: (TextContent | Thinking
 interface ToolResultMessage { role: "toolResult"; toolCallId: string; toolName: string; content: ToolResultContent; isError: boolean }
 type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
 
-// pi AgentState UI subset — AgentPanel과 동일한 인터페이스
 interface AgentState {
   readonly messages: ReadonlyArray<AgentMessage>;
   readonly isStreaming: boolean;
@@ -49,18 +57,138 @@ interface AgentState {
   readonly errorMessage?: string;
 }
 
-interface RenderContext {
-  files: ProjectFile[];
-  baseUrl: string;
-  state: AgentState;
+interface RendererAction { type: "send" | "fill"; text: string; }
+
+interface RendererThemeTokens {
+  void?: string; base?: string; surface?: string; elevated?: string; accent?: string;
+  fg?: string; fg2?: string; fg3?: string; edge?: string;
+}
+interface RendererTheme {
+  base: RendererThemeTokens;
+  dark?: Partial<RendererThemeTokens>;
+  prefersScheme?: "light" | "dark";
 }
 
-export function render(ctx: RenderContext): string {
-  // ctx.files에서 콘텐츠를 읽고, ctx.baseUrl로 에셋 URL을 구성하여 HTML 문자열 반환
+interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+interface MountContext {
+  files: ProjectFile[];
+  baseUrl: string;           // "/api/projects/{slug}"
+  assetsUrl: string;         // baseUrl + "/files"
+  state: AgentState;
+  host: RendererHostApi;
+}
+
+interface RendererHandle {
+  destroy(): void;
+}
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  // 초기 paint → subscribe → listener → destroy로 정리
 }
 ```
 
 `state.messages`는 persisted 대화 기록 + in-flight toolResult까지 합쳐진 한 흐름이다. tool 결과는 `state.messages`에서 `role === "toolResult"`로 찾는다 — 별도 result 필드 없음. tool이 진행 중인지 판단할 때는 `state.pendingToolCalls.has(toolCall.id)`.
+
+## mount 스켈레톤
+
+```typescript
+import { Idiomorph } from "./lib/idiomorph.js"; // 애니메이션 지속 필요할 때만
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  let files = ctx.files;
+  let scheduled = false;
+  let lastHtml = "";
+
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const html = renderScene({ files, baseUrl: ctx.baseUrl });
+      if (html === lastHtml) return;
+      lastHtml = html;
+      Idiomorph.morph(container, html, { morphStyle: "innerHTML", ignoreActiveValue: true });
+    });
+  }
+
+  // 초기 paint (morph할 이전 DOM이 없으므로 innerHTML 직접 교체)
+  lastHtml = renderScene({ files, baseUrl: ctx.baseUrl });
+  container.innerHTML = lastHtml;
+
+  const unsubState = ctx.host.subscribeState(() => schedule());
+  const unsubFiles = ctx.host.subscribeFiles((next) => { files = next; schedule(); });
+
+  const onClick = (ev: MouseEvent) => {
+    const el = (ev.target as Element | null)?.closest<HTMLElement>("[data-action]");
+    if (!el) return;
+    const type = el.dataset.action;
+    if (type !== "send" && type !== "fill") return;
+    const text = (el.dataset.text ?? el.textContent ?? "").trim();
+    if (!text) return;
+    ev.preventDefault();
+    ctx.host.sendAction({ type, text });
+  };
+  container.addEventListener("click", onClick);
+
+  return {
+    destroy() {
+      unsubState();
+      unsubFiles();
+      container.removeEventListener("click", onClick);
+      container.innerHTML = "";
+    },
+  };
+}
+```
+
+- `subscribeState`는 매 AgentState 변화마다 호출(rAF로 coalesce 권장). state를 안 쓰는 템플릿은 구독을 생략해도 된다
+- `subscribeFiles`는 streaming 종료 시 files가 새로 도착하면 호출. 구독 즉시 현재 files로 1회 push
+- `setTheme(theme)`는 프로그래매틱 호출 — files 기반 동적 분기도 `subscribeFiles` 안에서 `ctx.host.setTheme(computedTheme)`로
+- `sendAction({ type: "send" | "fill", text })` — `data-action` 속성은 **템플릿 내부 컨벤션**. 호스트는 `sendAction`만 받아 처리
+
+## 자동 스크롤 패턴
+
+iframe 내부 document가 scroll을 소유하므로 `container.ownerDocument.scrollingElement`로 접근.
+
+```typescript
+const doc = container.ownerDocument;
+const scrollEl = doc.scrollingElement ?? doc.documentElement;
+function isNearBottom() {
+  return scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight <= 64;
+}
+function scrollToBottom(behavior: ScrollBehavior) {
+  scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior });
+}
+```
+
+초기 paint 후 `scrollToBottom("auto")`, schedule 루프에서 `wasAtBottom`을 morph 전에 측정 후 true였으면 morph 후 `scrollToBottom("smooth")`.
+
+## Theme 동적 분기
+
+files 내용에 따라 팔레트가 바뀌는 경우(전투/평시 등), `subscribeFiles` 안에서 계산해 `ctx.host.setTheme(theme)`를 호출하면 된다. 호스트가 shallow 비교로 중복 dispatch를 막는다.
+
+```typescript
+ctx.host.subscribeFiles((next) => {
+  files = next;
+  ctx.host.setTheme(computeTheme(files));
+  schedule();
+});
+```
+
+## 스타일링 규칙
+
+CSS 변수 (덮어쓰기 금지): `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
+
+이미지 URL: `${ctx.assetsUrl}/${경로}` 또는 `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
+
+사용자 콘텐츠에 escapeHtml 필수. iframe 내부이므로 document/window API는 **자유롭게** 사용 가능 (격리되어 호스트에 영향 없음) — 이전 제약이 풀렸다.
 
 ## 디자인 원칙
 
@@ -95,12 +223,6 @@ export function render(ctx: RenderContext): string {
 - 빈 상태에 안내 메시지. 짧은/평균/긴 입력 모두 대응
 - 이미지에 명시적 width/height (CLS 방지), onerror 처리
 
-## 스타일링 규칙
-
-CSS 변수 (덮어쓰기 금지): `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
-이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
-렌더러는 자체 `<style>` 포함 필수. 사용자 콘텐츠에 escapeHtml 필수. document/window 등 DOM API 사용 금지.
-
 ## 참고 기법
 
 아래는 기존 렌더러에서 사용된 기법들이다. 프로젝트에 맞게 자유롭게 조합하거나 새로운 접근을 설계한다.
@@ -124,23 +246,19 @@ function renderBasicMarkdown(text: string): string {
 ### 이미지 URL 구성
 
 ```typescript
-function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
+function resolveImageUrl(ctx: MountContext | { baseUrl: string }, dir: string, imageKey: string): string {
   return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
 }
 ```
 
 ### 스트리밍 상태 헬퍼
 
-`state`는 한 곳에서 모든 진행 정보를 노출한다. 자주 쓰이는 추출 패턴:
-
 ```typescript
-// 현재 in-flight assistant message의 toolCall 블록 (시간순)
 function activeToolCalls(state: AgentState): ToolCall[] {
   return (state.streamingMessage?.content ?? [])
     .filter((b): b is ToolCall => b.type === "toolCall");
 }
 
-// 가장 최근에 도착한 ToolResultMessage를 messages에서 찾는다
 function findToolResult(state: AgentState, toolCallId: string): ToolResultMessage | null {
   for (let i = state.messages.length - 1; i >= 0; i--) {
     const m = state.messages[i];
@@ -149,7 +267,6 @@ function findToolResult(state: AgentState, toolCallId: string): ToolResultMessag
   return null;
 }
 
-// in-flight assistant text 모음 — pending 카드 미리보기 등에 사용
 function streamingText(state: AgentState): string {
   return (state.streamingMessage?.content ?? [])
     .filter((b): b is TextContent => b.type === "text")
@@ -159,8 +276,6 @@ function streamingText(state: AgentState): string {
 ```
 
 ### 대화 파싱
-
-줄 단위 파싱으로 대화, 사용자 입력, 나레이션 등을 구분한다.
 
 ```typescript
 interface ChatLine {
@@ -181,18 +296,14 @@ function parseLine(raw: string): ChatLine | null {
 }
 ```
 
-동일 타입/캐릭터의 연속 라인을 그룹으로 묶으면 하나의 말풍선으로 렌더링할 수 있다.
-
 ### frontmatter 기반 캐릭터 매핑
-
-frontmatter의 avatar-image, names(쉼표 구분), display-name, color 필드로 캐릭터를 식별하고 아바타 이미지를 resolve한다.
 
 ```typescript
 interface NameMapEntry { dir: string; avatarImage: string; color?: string; }
 
-function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
+function buildNameMap(files: ProjectFile[]): Map<string, NameMapEntry> {
   const map = new Map<string, NameMapEntry>();
-  for (const file of ctx.files) {
+  for (const file of files) {
     if (file.type !== "text" || !file.frontmatter) continue;
     const fm = file.frontmatter;
     if (!fm["avatar-image"]) continue;
@@ -210,13 +321,11 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
 
 ### 인라인 감정 삽화
 
-텍스트 안의 `[name:image-key]` 토큰을 감지하여 삽화 이미지로 치환한다. nameMap으로 캐릭터 디렉토리를 resolve한다.
-
 ```typescript
 const INLINE_IMAGE = /\[([a-z0-9][a-z0-9-]*):([^\]]+)\]/g;
 
 function formatInline(
-  text: string, ctx: RenderContext, nameMap: Map<string, NameMapEntry>,
+  text: string, ctx: { baseUrl: string }, nameMap: Map<string, NameMapEntry>,
 ): string {
   let html = escapeHtml(text);
   html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
@@ -231,11 +340,7 @@ function formatInline(
 }
 ```
 
-입력: `*미소를 짓는다* [elara:smile] "반갑습니다"` → italic + 삽화 이미지 + 텍스트
-
 ### 마크다운 렌더링
-
-heading, blockquote, list 등을 변환하고 단락을 분리한다.
 
 ```typescript
 function renderMarkdown(text: string): string {

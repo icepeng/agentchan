@@ -1,3 +1,15 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//   interactive-chat renderer  ·  branching chat with choice buttons
+//
+//   iframe 격리된 렌더러 — mount(container, ctx)로 부팅하고 subscribeFiles로
+//   변화를 받아 Idiomorph로 morph한다. 선택지 버튼은 data-action="send"로
+//   컨테이너 click 위임 처리.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Idiomorph } from "./lib/idiomorph.js";
+
+// --- Contract (inline — renderer는 독립 transpile이라 타입 import 불가) -----
+
 interface TextFile {
   type: "text";
   path: string;
@@ -14,6 +26,57 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | BinaryFile;
 
+interface AgentState {
+  messages: ReadonlyArray<unknown>;
+  streamingMessage?: unknown;
+  pendingToolCalls: ReadonlySet<string>;
+  isStreaming: boolean;
+}
+
+interface RendererAction {
+  type: "send" | "fill";
+  text: string;
+}
+
+interface RendererThemeTokens {
+  void?: string;
+  base?: string;
+  surface?: string;
+  elevated?: string;
+  accent?: string;
+  fg?: string;
+  fg2?: string;
+  fg3?: string;
+  edge?: string;
+}
+
+interface RendererTheme {
+  base: RendererThemeTokens;
+  dark?: Partial<RendererThemeTokens>;
+  prefersScheme?: "light" | "dark";
+}
+
+interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+interface MountContext {
+  files: ProjectFile[];
+  baseUrl: string;
+  assetsUrl: string;
+  state: AgentState;
+  host: RendererHostApi;
+}
+
+interface RendererHandle {
+  destroy(): void;
+}
+
+// 내부 pure 렌더링 단위. mount가 MountContext에서 뽑아 넘긴다.
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
@@ -38,7 +101,8 @@ function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
@@ -85,7 +149,6 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
       color: fm.color ? String(fm.color) : undefined,
     };
 
-    // Map all known names to this entry
     if (fm.names) {
       for (const raw of String(fm.names).split(",")) {
         const name = raw.trim();
@@ -94,8 +157,6 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
     }
     const dn = fm["display-name"];
     if (dn && !map.has(String(dn))) map.set(String(dn), entry);
-
-    // Also map the frontmatter name field
     if (fm.name && !map.has(String(fm.name))) map.set(String(fm.name), entry);
   }
   return map;
@@ -131,6 +192,22 @@ function formatInline(
   return result;
 }
 
+// ── Choices parsing ─────────────────────────
+
+function extractChoices(content: string): { cleaned: string; choices: string[] } {
+  const re = /\[CHOICES\]\s*\n([\s\S]*?)\n\s*\[\/CHOICES\]/g;
+  let lastChoices: string[] = [];
+  const cleaned = content.replace(re, (_match, body: string) => {
+    lastChoices = body
+      .split("\n")
+      .map((l: string) => l.trim())
+      .filter((l: string) => /^\d+\.\s+/.test(l))
+      .map((l: string) => l.replace(/^\d+\.\s+/, ""));
+    return "";
+  });
+  return { cleaned, choices: lastChoices };
+}
+
 // ── Parsing ──────────────────────────────────
 
 const IMAGE_TOKEN = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s*/;
@@ -148,7 +225,7 @@ function parseLine(raw: string): ChatLine | null {
   let imageKey: string | undefined;
   const tokenMatch = trimmed.match(IMAGE_TOKEN);
   if (tokenMatch) {
-    charDir = tokenMatch[1]; // Will be resolved via nameMap later
+    charDir = tokenMatch[1];
     imageKey = tokenMatch[2];
     rest = trimmed.slice(tokenMatch[0].length);
   }
@@ -345,11 +422,22 @@ function renderDivider(): string {
     </div>`;
 }
 
+function renderChoices(choices: string[]): string {
+  if (choices.length === 0) return "";
+  const buttons = choices
+    .map((c) => `<button class="cr-choice-btn" data-action="send" data-text="${escapeHtml(c)}">${escapeHtml(c)}</button>`)
+    .join("\n        ");
+  return `
+      <div class="cr-choices">
+        ${buttons}
+      </div>`;
+}
+
 function renderEmpty(): string {
   return `
     <div class="cr-empty">
       <div class="cr-empty-rule"></div>
-      <div class="cr-empty-text">무대가 기다리고 있습니다</div>
+      <div class="cr-empty-text">모험이 기다리고 있습니다</div>
       <div class="cr-empty-rule"></div>
     </div>`;
 }
@@ -383,14 +471,17 @@ const STYLES = `<style>
   .cr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; opacity: 0.3; }
   .cr-empty-rule { width: 28px; height: 1px; background: var(--color-fg-4); }
   .cr-empty-text { font-family: var(--font-family-display); font-size: 12px; color: var(--color-fg-3); letter-spacing: 0.08em; }
+  .cr-choices { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 4px; margin-bottom: 8px; }
+  .cr-choice-btn { width: 100%; padding: 10px 16px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--color-accent) 12%, transparent); background: color-mix(in srgb, var(--color-accent) 3%, transparent); color: var(--color-accent); font-family: var(--font-family-body); font-size: 13.5px; line-height: 1.5; text-align: left; cursor: pointer; transition: all 0.15s ease; }
+  .cr-choice-btn:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); border-color: color-mix(in srgb, var(--color-accent) 25%, transparent); }
+  .cr-choice-btn:active { transform: scale(0.98); }
 </style>`;
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function renderScene(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
 
-  // Scene files = text files in scenes/ directory
   const sceneFiles = ctx.files.filter(
     (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
   );
@@ -401,10 +492,12 @@ export function render(ctx: RenderContext): string {
     .map((f) => f.content)
     .join("\n\n---\n\n");
 
+  const { cleaned, choices } = extractChoices(allContent);
+
   const fallbackColorMap = new Map<string, string>();
   const persona = resolvePersona(ctx, nameMap);
 
-  const parsed = allContent
+  const parsed = cleaned
     .split("\n")
     .map(parseLine)
     .filter((l): l is ChatLine => l !== null)
@@ -431,6 +524,73 @@ export function render(ctx: RenderContext): string {
   return `${STYLES}
     <div class="cr-root">
       ${rendered}
+      ${renderChoices(choices)}
       <div data-chat-anchor></div>
     </div>`;
+}
+
+// ── Mount ───────────────────────────────────────────────────────────────────
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  let files = ctx.files;
+  let scheduled = false;
+  let lastHtml = "";
+
+  const doc = container.ownerDocument;
+  const scrollEl = doc.scrollingElement ?? doc.documentElement;
+
+  function isNearBottom(): boolean {
+    const slack = 64;
+    return scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight <= slack;
+  }
+
+  function scrollToBottom(behavior: ScrollBehavior) {
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior });
+  }
+
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const html = renderScene({ files, baseUrl: ctx.baseUrl });
+      if (html === lastHtml) return;
+      const wasAtBottom = isNearBottom();
+      lastHtml = html;
+      Idiomorph.morph(container, html, { morphStyle: "innerHTML", ignoreActiveValue: true });
+      if (wasAtBottom) scrollToBottom("smooth");
+    });
+  }
+
+  // 초기 렌더: 이전 DOM이 없으므로 innerHTML로 paint 후 바닥 고정.
+  lastHtml = renderScene({ files, baseUrl: ctx.baseUrl });
+  container.innerHTML = lastHtml;
+  scrollToBottom("auto");
+
+  const unsubFiles = ctx.host.subscribeFiles((next) => {
+    files = next;
+    schedule();
+  });
+
+  const onClick = (ev: MouseEvent) => {
+    const target = ev.target as Element | null;
+    if (!target) return;
+    const el = target.closest<HTMLElement>("[data-action]");
+    if (!el) return;
+    const type = el.dataset.action;
+    if (type !== "send" && type !== "fill") return;
+    const text = (el.dataset.text ?? el.textContent ?? "").trim();
+    if (!text) return;
+    ev.preventDefault();
+    ctx.host.sendAction({ type, text });
+  };
+  container.addEventListener("click", onClick);
+
+  return {
+    destroy() {
+      unsubFiles();
+      container.removeEventListener("click", onClick);
+      container.innerHTML = "";
+    },
+  };
 }

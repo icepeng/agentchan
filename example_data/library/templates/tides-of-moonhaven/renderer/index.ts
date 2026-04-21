@@ -16,6 +16,8 @@
 //   · 하단 APPENDIX: PACK MANIFEST(인벤토리) · STANDING CHARTS(퀘스트)
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { Idiomorph } from "./lib/idiomorph.js";
+
 interface TextFile {
   type: "text";
   path: string;
@@ -111,6 +113,31 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
+interface RendererAction {
+  type: "send" | "fill";
+  text: string;
+}
+
+interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+interface MountContext {
+  files: ProjectFile[];
+  baseUrl: string;
+  assetsUrl: string;
+  state: AgentState;
+  host: RendererHostApi;
+}
+
+interface RendererHandle {
+  destroy(): void;
+}
+
 // ── Theme: Vellum Day(평상) ↔ Iron Vigil(전투) ──
 //
 // world-state.yaml 의 mode 필드(peace|combat)에 따라 팔레트를 분기.
@@ -161,7 +188,7 @@ function readWorldMode(ctx: RenderContext): "peace" | "combat" {
   return root.mode === "combat" ? "combat" : "peace";
 }
 
-export function theme(ctx: RenderContext): RendererTheme {
+function computeTheme(ctx: RenderContext): RendererTheme {
   return readWorldMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
 }
 
@@ -4877,7 +4904,7 @@ const STYLES = `<style>
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function renderScene(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
   const mode = readWorldMode(ctx);
   const status = readStatusYaml(ctx);
@@ -4939,4 +4966,81 @@ export function render(ctx: RenderContext): string {
       </div>
       ${pendingCard}
     </div>`;
+}
+
+// ── Mount ───────────────────────────────────────────────────────────────────
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  let files = ctx.files;
+  let state = ctx.state;
+  let scheduled = false;
+  let lastHtml = "";
+
+  const doc = container.ownerDocument;
+  const scrollEl = doc.scrollingElement ?? doc.documentElement;
+
+  function isNearBottom(): boolean {
+    const slack = 64;
+    return scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight <= slack;
+  }
+
+  function scrollToBottom(behavior: ScrollBehavior) {
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior });
+  }
+
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const rctx: RenderContext = { files, baseUrl: ctx.baseUrl, state };
+      // peace/combat 팔레트 분기 — files가 바뀔 때마다 재계산. 호스트가 sameTheme 비교.
+      ctx.host.setTheme(computeTheme(rctx));
+      const html = renderScene(rctx);
+      if (html === lastHtml) return;
+      const wasAtBottom = isNearBottom();
+      lastHtml = html;
+      Idiomorph.morph(container, html, { morphStyle: "innerHTML", ignoreActiveValue: true });
+      if (wasAtBottom) scrollToBottom("smooth");
+    });
+  }
+
+  // 초기 렌더: 이전 DOM이 없으므로 innerHTML로 paint 후 바닥 고정.
+  const initialCtx: RenderContext = { files, baseUrl: ctx.baseUrl, state };
+  ctx.host.setTheme(computeTheme(initialCtx));
+  lastHtml = renderScene(initialCtx);
+  container.innerHTML = lastHtml;
+  scrollToBottom("auto");
+
+  const unsubState = ctx.host.subscribeState((next) => {
+    state = next;
+    schedule();
+  });
+  const unsubFiles = ctx.host.subscribeFiles((next) => {
+    files = next;
+    schedule();
+  });
+
+  const onClick = (ev: MouseEvent) => {
+    const target = ev.target as Element | null;
+    if (!target) return;
+    const el = target.closest<HTMLElement>("[data-action]");
+    if (!el) return;
+    const type = el.dataset.action;
+    if (type !== "send" && type !== "fill") return;
+    const text = (el.dataset.text ?? el.textContent ?? "").trim();
+    if (!text) return;
+    ev.preventDefault();
+    ctx.host.sendAction({ type, text });
+  };
+  container.addEventListener("click", onClick);
+
+  return {
+    destroy() {
+      unsubState();
+      unsubFiles();
+      container.removeEventListener("click", onClick);
+      container.innerHTML = "";
+    },
+  };
 }

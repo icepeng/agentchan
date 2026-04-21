@@ -1,3 +1,15 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//   sentinel renderer  ·  "Case File Monitor"
+//
+//   iframe 격리된 렌더러 — mount(container, ctx)로 부팅하고 subscribeState/Files
+//   로 변화를 받아 Idiomorph로 morph한다. pending strip의 blink 애니메이션 등
+//   CSS 애니메이션이 재렌더 간 지속된다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Idiomorph } from "./lib/idiomorph.js";
+
+// --- Contract (inline — renderer는 독립 transpile이라 타입 import 불가) -----
+
 interface TextFile {
   type: "text";
   path: string;
@@ -82,6 +94,31 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
+interface RendererAction {
+  type: "send" | "fill";
+  text: string;
+}
+
+interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+interface MountContext {
+  files: ProjectFile[];
+  baseUrl: string;
+  assetsUrl: string;
+  state: AgentState;
+  host: RendererHostApi;
+}
+
+interface RendererHandle {
+  destroy(): void;
+}
+
 // ── Character meta (hardcoded for this template) ────────
 //
 // 경계 ↔ 신뢰 단일 축을 세 NPC가 공유한다.
@@ -134,7 +171,7 @@ const METRIC_DESCRIPTIONS: [string, string, string] = [
 // 렌더러가 STYLES 안에서 이미 선언한 --ms-* 팔레트를 앱 전역 --color-* 토큰으로 전파한다.
 // 값을 새로 결정하지 않고, 각 --ms-* 역할을 가장 가까운 --color-* 슬롯에 매핑.
 // prefersScheme: "dark"로 프로젝트 페이지에서만 다크 강제 (Settings 이동 시 자동 복귀).
-export function theme(_ctx: RenderContext): RendererTheme {
+function computeTheme(_ctx: RenderContext): RendererTheme {
   return {
     base: {
       void: "#0a0e14", // = --ms-bg
@@ -1757,7 +1794,7 @@ function renderPendingStrip(state: AgentState): string {
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function renderScene(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
 
   const sceneFiles = ctx.files
@@ -1850,4 +1887,80 @@ export function render(ctx: RenderContext): string {
       </div>
       ${renderPendingStrip(ctx.state)}
     </div>`;
+}
+
+// ── Mount ───────────────────────────────────────────────────────────────────
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  let files = ctx.files;
+  let state = ctx.state;
+  let scheduled = false;
+  let lastHtml = "";
+
+  const doc = container.ownerDocument;
+  const scrollEl = doc.scrollingElement ?? doc.documentElement;
+
+  function isNearBottom(): boolean {
+    const slack = 64;
+    return scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight <= slack;
+  }
+
+  function scrollToBottom(behavior: ScrollBehavior) {
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior });
+  }
+
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const rctx: RenderContext = { files, baseUrl: ctx.baseUrl, state };
+      ctx.host.setTheme(computeTheme(rctx));
+      const html = renderScene(rctx);
+      if (html === lastHtml) return;
+      const wasAtBottom = isNearBottom();
+      lastHtml = html;
+      Idiomorph.morph(container, html, { morphStyle: "innerHTML", ignoreActiveValue: true });
+      if (wasAtBottom) scrollToBottom("smooth");
+    });
+  }
+
+  // 초기 렌더: 이전 DOM이 없으므로 innerHTML로 paint 후 바닥 고정.
+  const initialCtx: RenderContext = { files, baseUrl: ctx.baseUrl, state };
+  ctx.host.setTheme(computeTheme(initialCtx));
+  lastHtml = renderScene(initialCtx);
+  container.innerHTML = lastHtml;
+  scrollToBottom("auto");
+
+  const unsubState = ctx.host.subscribeState((next) => {
+    state = next;
+    schedule();
+  });
+  const unsubFiles = ctx.host.subscribeFiles((next) => {
+    files = next;
+    schedule();
+  });
+
+  const onClick = (ev: MouseEvent) => {
+    const target = ev.target as Element | null;
+    if (!target) return;
+    const el = target.closest<HTMLElement>("[data-action]");
+    if (!el) return;
+    const type = el.dataset.action;
+    if (type !== "send" && type !== "fill") return;
+    const text = (el.dataset.text ?? el.textContent ?? "").trim();
+    if (!text) return;
+    ev.preventDefault();
+    ctx.host.sendAction({ type, text });
+  };
+  container.addEventListener("click", onClick);
+
+  return {
+    destroy() {
+      unsubState();
+      unsubFiles();
+      container.removeEventListener("click", onClick);
+      container.innerHTML = "";
+    },
+  };
 }

@@ -10,9 +10,6 @@ import {
   useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
 import {
-  useRendererViewDispatch,
-} from "@/client/entities/renderer/index.js";
-import {
   useSessionSelectionState,
   useSessionSelectionDispatch,
   selectSessionSelection,
@@ -28,7 +25,6 @@ export function useProject() {
   const sessionSelectionState = useSessionSelectionState();
   const sessionSelectionDispatch = useSessionSelectionDispatch();
   const agentDispatch = useAgentStateDispatch();
-  const rendererViewDispatch = useRendererViewDispatch();
   const { mutate } = useSWRConfig();
 
   const { data: projects = [] } = useProjects();
@@ -45,11 +41,6 @@ export function useProject() {
 
   const activateProject = async (slug: string): Promise<Session[]> => {
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug });
-    // Must fire synchronously with slug change: if RenderedView is off-screen
-    // (Templates/Settings) during a project switch, its slug-keyed effect
-    // won't run on return, so the previous project's HTML would briefly
-    // flash. Theme is kept to avoid a two-step palette flicker.
-    rendererViewDispatch({ type: "CLEAR_HTML" });
     // Single GET: SWR's fetcher runs, result seeds the cache atomically.
     // Calling `fetchSessions` separately risked a duplicate fetch when
     // `useSessions(slug)` mounted outside the dedupe window.
@@ -58,9 +49,6 @@ export function useProject() {
   };
 
   const selectProject = async (slug: string) => {
-    // No-op if already active. Otherwise SET_ACTIVE_PROJECT would re-fire
-    // and clear renderedHtml, but the slug-keyed useEffect in RenderedView
-    // wouldn't re-run (primitive equality), leaving the renderer blank.
     if (projectSelection.activeProjectSlug === slug) return;
 
     localStore.lastProject.write(slug);
@@ -92,7 +80,6 @@ export function useProject() {
   const createProject = async (name: string, fromTemplate?: string) => {
     const project = await createProjectMutation(name, fromTemplate);
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
-    rendererViewDispatch({ type: "CLEAR_HTML" });
     return project;
   };
 
@@ -123,7 +110,6 @@ export function useProject() {
         await activateProject(fallback.slug);
       } else {
         projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: null });
-        rendererViewDispatch({ type: "CLEAR" });
       }
     }
   };

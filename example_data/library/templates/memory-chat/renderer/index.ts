@@ -1,3 +1,14 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//   memory-chat renderer  ·  chat with persistent memory bubbles
+//
+//   iframe 격리된 렌더러 — mount(container, ctx)로 부팅하고 subscribeFiles로
+//   변화를 받아 Idiomorph로 morph한다. CSS 애니메이션은 재렌더 간 지속된다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Idiomorph } from "./lib/idiomorph.js";
+
+// --- Contract (inline — renderer는 독립 transpile이라 타입 import 불가) -----
+
 interface TextFile {
   type: "text";
   path: string;
@@ -14,6 +25,57 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | BinaryFile;
 
+interface AgentState {
+  messages: ReadonlyArray<unknown>;
+  streamingMessage?: unknown;
+  pendingToolCalls: ReadonlySet<string>;
+  isStreaming: boolean;
+}
+
+interface RendererAction {
+  type: "send" | "fill";
+  text: string;
+}
+
+interface RendererThemeTokens {
+  void?: string;
+  base?: string;
+  surface?: string;
+  elevated?: string;
+  accent?: string;
+  fg?: string;
+  fg2?: string;
+  fg3?: string;
+  edge?: string;
+}
+
+interface RendererTheme {
+  base: RendererThemeTokens;
+  dark?: Partial<RendererThemeTokens>;
+  prefersScheme?: "light" | "dark";
+}
+
+interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+interface MountContext {
+  files: ProjectFile[];
+  baseUrl: string;
+  assetsUrl: string;
+  state: AgentState;
+  host: RendererHostApi;
+}
+
+interface RendererHandle {
+  destroy(): void;
+}
+
+// 내부 pure 렌더링 단위. mount가 MountContext에서 뽑아 넘긴다.
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
@@ -387,7 +449,7 @@ const STYLES = `<style>
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function renderScene(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
 
   // Scene files = text files in scenes/ directory
@@ -433,4 +495,70 @@ export function render(ctx: RenderContext): string {
       ${rendered}
       <div data-chat-anchor></div>
     </div>`;
+}
+
+// ── Mount ───────────────────────────────────────────────────────────────────
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  let files = ctx.files;
+  let scheduled = false;
+  let lastHtml = "";
+
+  const doc = container.ownerDocument;
+  const scrollEl = doc.scrollingElement ?? doc.documentElement;
+
+  function isNearBottom(): boolean {
+    const slack = 64;
+    return scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight <= slack;
+  }
+
+  function scrollToBottom(behavior: ScrollBehavior) {
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior });
+  }
+
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const html = renderScene({ files, baseUrl: ctx.baseUrl });
+      if (html === lastHtml) return;
+      const wasAtBottom = isNearBottom();
+      lastHtml = html;
+      Idiomorph.morph(container, html, { morphStyle: "innerHTML", ignoreActiveValue: true });
+      if (wasAtBottom) scrollToBottom("smooth");
+    });
+  }
+
+  // 초기 렌더: 이전 DOM이 없으므로 innerHTML로 paint 후 바닥 고정.
+  lastHtml = renderScene({ files, baseUrl: ctx.baseUrl });
+  container.innerHTML = lastHtml;
+  scrollToBottom("auto");
+
+  const unsubFiles = ctx.host.subscribeFiles((next) => {
+    files = next;
+    schedule();
+  });
+
+  const onClick = (ev: MouseEvent) => {
+    const target = ev.target as Element | null;
+    if (!target) return;
+    const el = target.closest<HTMLElement>("[data-action]");
+    if (!el) return;
+    const type = el.dataset.action;
+    if (type !== "send" && type !== "fill") return;
+    const text = (el.dataset.text ?? el.textContent ?? "").trim();
+    if (!text) return;
+    ev.preventDefault();
+    ctx.host.sendAction({ type, text });
+  };
+  container.addEventListener("click", onClick);
+
+  return {
+    destroy() {
+      unsubFiles();
+      container.removeEventListener("click", onClick);
+      container.innerHTML = "";
+    },
+  };
 }

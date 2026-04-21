@@ -1,19 +1,16 @@
 import type {
-  RenderContext,
   RendererTheme,
   RendererThemeTokens,
   ResolvedThemeVars,
 } from "./renderer.types.js";
 
 /**
- * Renderer-owned theme: 렌더러가 프로젝트 페이지 한정으로 전역 CSS custom property를
- * 오버라이드할 수 있도록 하는 계약.
+ * 렌더러가 호출하는 `host.setTheme(theme)`에 의해 프로젝트 페이지 한정으로
+ * 전역 CSS custom property를 오버라이드한다.
  *
- * - 색상 전용. 폰트는 렌더러 자체 `<style>` 안에서 `font-family`로 직접 지정한다.
+ * - 색상 전용. 폰트는 렌더러 자체 `<style>` 안에서 `font-family`로 직접 지정.
  * - `base`만 있으면 단일 모드, `dark`가 있으면 듀얼 모드.
  * - `prefersScheme`이 명시되면 프로젝트 페이지에서만 사용자 Appearance 토글을 강제 오버라이드.
- * - `theme` export는 정적 객체 또는 `(ctx: RenderContext) => RendererTheme` 함수 둘 다 지원.
- *   함수면 매 refresh마다 현재 files를 보고 팔레트를 다르게 반환할 수 있다 (예: 전투/평시 분기).
  */
 
 const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
@@ -29,22 +26,6 @@ const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
 };
 
 const TOKEN_KEYS = Object.keys(TOKEN_TO_CSS) as (keyof RendererThemeTokens)[];
-
-/**
- * 렌더러 모듈의 `theme` export가 함수면 RenderContext를 넘겨 호출하고,
- * 그 외에는 값을 그대로 통과시킨다. 함수가 throw하면 warn 후 null을 반환.
- *
- * 반환값은 아직 "검증되지 않은 raw"이므로 반드시 `validateTheme`을 거쳐야 한다.
- */
-export function resolveRawTheme(raw: unknown, ctx: RenderContext): unknown {
-  if (typeof raw !== "function") return raw;
-  try {
-    return (raw as (ctx: RenderContext) => unknown)(ctx);
-  } catch (e) {
-    console.warn("[renderer.theme] theme function threw", e);
-    return null;
-  }
-}
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -62,7 +43,7 @@ function pickTokens(src: Record<string, unknown>): RendererThemeTokens {
 }
 
 /**
- * 렌더러 모듈의 `theme` export를 런타임 검증한다.
+ * 렌더러가 `host.setTheme(raw)`로 넘긴 값을 검증한다.
  * 잘못된 shape이면 null 반환 (console.warn 남김).
  */
 export function validateTheme(raw: unknown): RendererTheme | null {
@@ -104,14 +85,63 @@ export function validateTheme(raw: unknown): RendererTheme | null {
   return theme;
 }
 
+function tokensEqual(
+  a: RendererThemeTokens | undefined,
+  b: RendererThemeTokens | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  for (const k of TOKEN_KEYS) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
 /**
- * 사용자의 현재 scheme과 theme 선언을 합쳐 실제 주입할 CSS 변수와 실효 scheme을 계산한다.
+ * 렌더러가 rAF 주기로 `setTheme(new object with same values)`를 호출해도
+ * 호스트 상태 dispatch를 스킵해 AppShell re-render를 피한다.
+ */
+export function sameTheme(
+  a: RendererTheme | null,
+  b: RendererTheme | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.prefersScheme !== b.prefersScheme) return false;
+  if (!tokensEqual(a.base, b.base)) return false;
+  return tokensEqual(a.dark, b.dark);
+}
+
+/**
+ * 사용자의 현재 scheme과 theme 선언을 합쳐 실제 주입할 CSS 변수와 실효 scheme을 계산.
  *
  * - 듀얼 모드(base + dark): effectiveScheme = prefersScheme ?? userScheme
  * - 단일 모드(base only): effectiveScheme = prefersScheme ?? "light"
- *   → prefersScheme 없으면 base를 light로 가정 (data-theme 강제 안 함 — 사용자 토글 유지)
- * - `forceScheme`은 prefersScheme이 명시됐거나, 단일 모드인데 사용자 scheme이 base 가정과 다른 경우에만 true
+ * - `forceScheme`은 prefersScheme이 명시된 경우에만 true
  */
+/**
+ * 같은 토큰 팔레트를 host document와 iframe contentDocument 양쪽에 적용해야 하므로,
+ * "root에 CSS variable 쓰기/지우기"를 한 지점에서 관리. theme=null이면 전체 clear.
+ */
+export function applyThemeVars(
+  root: HTMLElement,
+  theme: RendererTheme | null,
+  userScheme: "light" | "dark",
+): void {
+  for (const cssVar of Object.values(TOKEN_TO_CSS)) {
+    root.style.removeProperty(cssVar);
+  }
+  root.removeAttribute("data-theme");
+  if (!theme) return;
+  const resolved = resolveThemeVars(theme, userScheme);
+  for (const [key, value] of Object.entries(resolved.vars)) {
+    root.style.setProperty(key, value);
+  }
+  if (resolved.forceScheme) {
+    root.setAttribute("data-theme", resolved.effectiveScheme);
+  }
+}
+
 export function resolveThemeVars(
   theme: RendererTheme,
   userScheme: "light" | "dark",

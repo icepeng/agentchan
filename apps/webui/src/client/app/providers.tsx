@@ -5,7 +5,7 @@ import { ProjectSelectionProvider } from "@/client/entities/project/index.js";
 import { SessionSelectionProvider } from "@/client/entities/session/index.js";
 import { AgentStateProvider } from "@/client/entities/agent-state/index.js";
 import {
-  RendererViewProvider,
+  RendererThemeProvider,
   RendererActionProvider,
 } from "@/client/entities/renderer/index.js";
 import { EditorProvider } from "@/client/entities/editor/index.js";
@@ -17,13 +17,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <ProjectSelectionProvider>
           <SessionSelectionProvider>
             <AgentStateProvider>
-              <RendererViewProvider>
+              <RendererThemeProvider>
                 <RendererActionProvider>
                   <EditorProvider>
                     {children}
                   </EditorProvider>
                 </RendererActionProvider>
-              </RendererViewProvider>
+              </RendererThemeProvider>
             </AgentStateProvider>
           </SessionSelectionProvider>
         </ProjectSelectionProvider>

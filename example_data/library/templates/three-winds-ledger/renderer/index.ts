@@ -23,6 +23,8 @@
 //     해 탭 선택 · details open · 애니메이션이 재렌더 간 보존된다.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { Idiomorph } from "./lib/idiomorph.js";
+
 // ── Types (inline — renderer는 별도 transpile이라 import 불가) ──
 
 interface TextFile {
@@ -118,6 +120,31 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
+interface RendererAction {
+  type: "send" | "fill";
+  text: string;
+}
+
+interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+interface MountContext {
+  files: ProjectFile[];
+  baseUrl: string;
+  assetsUrl: string;
+  state: AgentState;
+  host: RendererHostApi;
+}
+
+interface RendererHandle {
+  destroy(): void;
+}
+
 // ── Palette (renderer internal) ───────────────
 
 const ILLUMINATED_COPPER = "#b36b2a"; // warn · vigor mid · 브랜딩
@@ -183,7 +210,7 @@ const COMBAT_THEME: RendererTheme = {
   prefersScheme: "dark",
 };
 
-export function theme(ctx: RenderContext): RendererTheme {
+function computeTheme(ctx: RenderContext): RendererTheme {
   return detectCurrentMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
 }
 
@@ -4436,7 +4463,7 @@ function renderPendingCard(
 
 // ── Main render function ──────────────────────
 
-export function render(ctx: RenderContext): string {
+function renderScene(ctx: RenderContext): string {
   // 숨김 파일은 애초에 스캔에서 제외 — 렌더러 전체가 이 필터된 뷰만 본다.
   const visibleCtx: RenderContext = {
     files: ctx.files.filter(isVisible),
@@ -4506,4 +4533,81 @@ export function render(ctx: RenderContext): string {
       </div>
       ${renderPendingCard(ctx.state, mode)}
     </div>`;
+}
+
+// ── Mount ───────────────────────────────────────────────────────────────────
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  let files = ctx.files;
+  let state = ctx.state;
+  let scheduled = false;
+  let lastHtml = "";
+
+  const doc = container.ownerDocument;
+  const scrollEl = doc.scrollingElement ?? doc.documentElement;
+
+  function isNearBottom(): boolean {
+    const slack = 64;
+    return scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight <= slack;
+  }
+
+  function scrollToBottom(behavior: ScrollBehavior) {
+    scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior });
+  }
+
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const rctx: RenderContext = { files, baseUrl: ctx.baseUrl, state };
+      // peace/combat 팔레트 분기 — files가 바뀔 때마다 재계산. 호스트가 sameTheme 비교.
+      ctx.host.setTheme(computeTheme(rctx));
+      const html = renderScene(rctx);
+      if (html === lastHtml) return;
+      const wasAtBottom = isNearBottom();
+      lastHtml = html;
+      Idiomorph.morph(container, html, { morphStyle: "innerHTML", ignoreActiveValue: true });
+      if (wasAtBottom) scrollToBottom("smooth");
+    });
+  }
+
+  // 초기 렌더: 이전 DOM이 없으므로 innerHTML로 paint 후 바닥 고정.
+  const initialCtx: RenderContext = { files, baseUrl: ctx.baseUrl, state };
+  ctx.host.setTheme(computeTheme(initialCtx));
+  lastHtml = renderScene(initialCtx);
+  container.innerHTML = lastHtml;
+  scrollToBottom("auto");
+
+  const unsubState = ctx.host.subscribeState((next) => {
+    state = next;
+    schedule();
+  });
+  const unsubFiles = ctx.host.subscribeFiles((next) => {
+    files = next;
+    schedule();
+  });
+
+  const onClick = (ev: MouseEvent) => {
+    const target = ev.target as Element | null;
+    if (!target) return;
+    const el = target.closest<HTMLElement>("[data-action]");
+    if (!el) return;
+    const type = el.dataset.action;
+    if (type !== "send" && type !== "fill") return;
+    const text = (el.dataset.text ?? el.textContent ?? "").trim();
+    if (!text) return;
+    ev.preventDefault();
+    ctx.host.sendAction({ type, text });
+  };
+  container.addEventListener("click", onClick);
+
+  return {
+    destroy() {
+      unsubState();
+      unsubFiles();
+      container.removeEventListener("click", onClick);
+      container.innerHTML = "";
+    },
+  };
 }

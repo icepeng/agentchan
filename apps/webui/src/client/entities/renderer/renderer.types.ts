@@ -4,25 +4,34 @@ import type { AgentState } from "@/client/entities/agent-state/index.js";
 export type { AgentState, ProjectFile };
 
 /**
- * Renderer contract — shared by AgentPanel UI and template renderer.ts.
+ * 렌더러는 same-origin iframe 안에서 실행된다. 호스트는 iframe 배치·부팅·정리만
+ * 담당하고, DOM/스크롤/모션/리스너는 전부 렌더러가 소유한다.
  *
- * `state`는 pi `agent.state` 네이밍을 그대로 계승. 렌더러는 `state.messages`로
- * 전체 대화 흐름(persisted + in-flight toolResults)을, `state.streamingMessage`로
- * 현재 in-flight assistant message를 본다. tool 진행 여부는
- * `state.pendingToolCalls.has(toolCall.id)`로 판단.
+ * 엔트리는 `renderer/index.ts`에서 `mount(container, ctx)`를 export.
+ * 반환된 handle의 `destroy()`는 프로젝트 전환·에디트 모드 진입·탭 unmount 시 호출된다.
  */
-export interface RenderContext {
+export interface MountContext {
   files: ProjectFile[];
   baseUrl: string;
+  assetsUrl: string;
   state: AgentState;
+  host: RendererHostApi;
+}
+
+export interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+export interface RendererHandle {
+  destroy(): void;
 }
 
 // --- Renderer theme ---
 
-/**
- * 토큰 이름은 agentchan 전역 CSS 변수(`--color-*`)와 1:1로 대응한다.
- * 렌더러 작성자가 토큰을 선언하면 그대로 해당 `--color-*`가 오버라이드된다.
- */
 export interface RendererThemeTokens {
   void?: string;
   base?: string;
@@ -41,14 +50,13 @@ export interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
-/** Output of `resolveThemeVars`, consumed by `<AppShell>`. */
 export interface ResolvedThemeVars {
   vars: Record<string, string>;
   effectiveScheme: "light" | "dark";
   forceScheme: boolean;
 }
 
-// --- Renderer action (bridge from rendered HTML to chat) ---
+// --- Renderer action ---
 
 export type RendererAction =
   | { type: "send"; text: string }

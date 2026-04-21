@@ -1,3 +1,15 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//   novel renderer  ·  prose reader with CSS-only tab navigation
+//
+//   iframe 격리된 렌더러 — mount(container, ctx)로 부팅하고 subscribeFiles로
+//   변화를 받아 Idiomorph로 morph한다. 라디오 체크 상태는 Idiomorph의
+//   ignoreActiveValue가 보존.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Idiomorph } from "./lib/idiomorph.js";
+
+// --- Contract (inline — renderer는 독립 transpile이라 타입 import 불가) -----
+
 interface TextFile {
   type: "text";
   path: string;
@@ -14,6 +26,57 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | BinaryFile;
 
+interface AgentState {
+  messages: ReadonlyArray<unknown>;
+  streamingMessage?: unknown;
+  pendingToolCalls: ReadonlySet<string>;
+  isStreaming: boolean;
+}
+
+interface RendererAction {
+  type: "send" | "fill";
+  text: string;
+}
+
+interface RendererThemeTokens {
+  void?: string;
+  base?: string;
+  surface?: string;
+  elevated?: string;
+  accent?: string;
+  fg?: string;
+  fg2?: string;
+  fg3?: string;
+  edge?: string;
+}
+
+interface RendererTheme {
+  base: RendererThemeTokens;
+  dark?: Partial<RendererThemeTokens>;
+  prefersScheme?: "light" | "dark";
+}
+
+interface RendererHostApi {
+  sendAction(action: RendererAction): void;
+  setTheme(theme: RendererTheme | null): void;
+  subscribeState(cb: (state: AgentState) => void): () => void;
+  subscribeFiles(cb: (files: ProjectFile[]) => void): () => void;
+  readonly version: 1;
+}
+
+interface MountContext {
+  files: ProjectFile[];
+  baseUrl: string;
+  assetsUrl: string;
+  state: AgentState;
+  host: RendererHostApi;
+}
+
+interface RendererHandle {
+  destroy(): void;
+}
+
+// 내부 pure 렌더링 단위. mount가 MountContext에서 뽑아 넘긴다.
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
@@ -322,7 +385,7 @@ const STYLES = `<style>
   }
 </style>`;
 
-export function render(ctx: RenderContext): string {
+function renderNovel(ctx: RenderContext): string {
   const files = ctx.files.filter((f): f is TextFile => f.type === "text");
   if (files.length === 0) {
     return `${STYLES}<div class="rb-empty">아직 출력 파일이 없습니다</div>`;
@@ -431,4 +494,40 @@ export function render(ctx: RenderContext): string {
   `;
 
   return `${STYLES}${html}`;
+}
+
+// ── Mount ───────────────────────────────────────────────────────────────────
+
+export function mount(container: HTMLElement, ctx: MountContext): RendererHandle {
+  let files = ctx.files;
+  let scheduled = false;
+  let lastHtml = "";
+
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      const html = renderNovel({ files, baseUrl: ctx.baseUrl });
+      if (html === lastHtml) return;
+      lastHtml = html;
+      Idiomorph.morph(container, html, { morphStyle: "innerHTML", ignoreActiveValue: true });
+    });
+  }
+
+  // 초기 렌더: 이전 DOM이 없으므로 innerHTML로 paint.
+  lastHtml = renderNovel({ files, baseUrl: ctx.baseUrl });
+  container.innerHTML = lastHtml;
+
+  const unsubFiles = ctx.host.subscribeFiles((next) => {
+    files = next;
+    schedule();
+  });
+
+  return {
+    destroy() {
+      unsubFiles();
+      container.innerHTML = "";
+    },
+  };
 }

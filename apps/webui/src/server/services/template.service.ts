@@ -61,15 +61,17 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
       const copies: Promise<void>[] = [];
       const readmeSrc = join(srcDir, "README.md");
       const readmeWasCopied = existsSync(readmeSrc);
-      for (const file of ["SYSTEM.md", "renderer.ts", "README.md"] as const) {
+      for (const file of ["SYSTEM.md", "SYSTEM.meta.md", "README.md"] as const) {
         const src = join(srcDir, file);
         if (existsSync(src)) {
           copies.push(cp(src, join(destDir, file)));
         }
       }
-      const skillsSrc = join(srcDir, "skills");
-      if (existsSync(skillsSrc)) {
-        copies.push(cp(skillsSrc, join(destDir, "skills"), { recursive: true }));
+      for (const dir of ["renderer", "skills"] as const) {
+        const src = join(srcDir, dir);
+        if (existsSync(src)) {
+          copies.push(cp(src, join(destDir, dir), { recursive: true }));
+        }
       }
       const coverName = await probeCover(srcDir);
       if (coverName) {

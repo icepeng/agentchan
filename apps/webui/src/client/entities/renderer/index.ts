@@ -1,22 +1,26 @@
 export type {
   AgentState,
   ProjectFile,
-  RenderContext,
+  MountContext,
+  RendererHostApi,
+  RendererHandle,
   RendererTheme,
   RendererAction,
+  ResolvedThemeVars,
 } from "./renderer.types.js";
 
 export {
   validateTheme,
   resolveThemeVars,
-  resolveRawTheme,
+  applyThemeVars,
+  sameTheme,
 } from "./projectTheme.js";
 
 export {
-  RendererViewProvider,
-  useRendererViewState,
-  useRendererViewDispatch,
-} from "./RendererViewContext.js";
+  RendererThemeProvider,
+  useRendererThemeState,
+  useRendererThemeDispatch,
+} from "./RendererThemeContext.js";
 
 export {
   RendererActionProvider,
@@ -25,4 +29,5 @@ export {
 } from "./RendererActionContext.js";
 export type { RendererActionState } from "./RendererActionContext.js";
 
-export { useOutput } from "./useOutput.js";
+export { useRendererMount } from "./useRendererMount.js";
+export type { RendererMountSlot } from "./useRendererMount.js";

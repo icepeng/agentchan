@@ -3,7 +3,7 @@ import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
-  useRendererViewState,
+  useRendererThemeState,
   resolveThemeVars,
 } from "@/client/entities/renderer/index.js";
 import { useTheme } from "@/client/features/settings/index.js";
@@ -39,7 +39,7 @@ export function AppShell() {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const project = useProjectSelectionState();
-  const rendererView = useRendererViewState();
+  const rendererTheme = useRendererThemeState();
   const { resolved: userScheme } = useTheme();
   const { t } = useI18n();
 
@@ -66,28 +66,24 @@ export function AppShell() {
     return () => document.removeEventListener("visibilitychange", sync);
   }, [project.activeProjectSlug]);
 
-  // Renderer-owned theme is active only on the project page in chat mode.
-  // Edit mode / Settings / Templates stay neutral on the base Obsidian Teal palette.
+  // Renderer theme은 project 페이지의 chat mode에서만 활성 —
+  // Edit/Settings/Templates에서는 base Obsidian Teal로 복귀.
   const themeActive =
-    rendererView.theme !== null &&
+    rendererTheme.theme !== null &&
     ui.currentPage.page === "main" &&
     ui.viewMode === "chat";
-
   const resolvedTheme =
-    themeActive && rendererView.theme
-      ? resolveThemeVars(rendererView.theme, userScheme)
+    themeActive && rendererTheme.theme
+      ? resolveThemeVars(rendererTheme.theme, userScheme)
       : null;
-
-  const rootStyle = resolvedTheme?.vars;
-  // data-theme는 prefersScheme가 명시된 경우에만 scope-local override.
-  // 이렇게 하면 Settings/Templates에 들어갔을 때 사용자 원래 모드로 자동 복귀한다.
-  const dataThemeOverride =
-    resolvedTheme?.forceScheme ? resolvedTheme.effectiveScheme : undefined;
+  const dataThemeOverride = resolvedTheme?.forceScheme
+    ? resolvedTheme.effectiveScheme
+    : undefined;
 
   return (
     <div
       className="flex h-full bg-void text-fg font-body transition-colors duration-300"
-      style={rootStyle}
+      style={resolvedTheme?.vars}
       data-theme={dataThemeOverride}
     >
       {/* Sidebar expand toggle — visible only when sidebar is collapsed */}

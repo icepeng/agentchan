@@ -5,6 +5,7 @@ import { createSkillRoutes } from "./skills.routes.js";
 
 import { IMAGE_EXTS } from "../paths.js";
 import { readmeResponse } from "../readme.js";
+import { rendererShellHtml } from "../renderer-shell.js";
 
 export function createProjectRoutes() {
   const app = new Hono<AppEnv>();
@@ -114,11 +115,63 @@ export function createProjectRoutes() {
     return c.json({ files });
   });
 
-  app.get("/:slug/renderer.js", async (c) => {
+  // --- Renderer iframe endpoints ---
+  // 호스트는 `<iframe src="/api/projects/:slug/renderer/?token=...">`로 로드.
+  // 더 구체적인 경로가 `:path{.+}` 매칭보다 먼저 오도록 순서에 유의.
+
+  app.get("/:slug/renderer/", async (c) => {
     const slug = c.req.param("slug");
-    const js = await c.get("projectService").transpileRenderer(slug);
-    if (js === null) return c.json({ error: "renderer.ts not found" }, 404);
-    return c.json({ js });
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.text("Project not found", 404);
+    return new Response(rendererShellHtml(slug), {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  });
+
+  app.get("/:slug/renderer/index.js", async (c) => {
+    const slug = c.req.param("slug");
+    const js = await c.get("projectService").transpileRenderer(slug, "index.ts");
+    if (js === null) return c.text("renderer/index.ts not found", 404);
+    return new Response(js, {
+      headers: {
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  });
+
+  // `:path`는 renderer/ 아래 상대 import용. .ts는 transpile, .js/.css는 raw.
+  // safeRendererPath가 renderer/ 밖 접근을 차단.
+  app.get("/:slug/renderer/:path{.+\\.(js|ts|css)$}", async (c) => {
+    const slug = c.req.param("slug");
+    const relPath = c.req.param("path");
+
+    if (relPath.endsWith(".ts")) {
+      const js = await c.get("projectService").transpileRenderer(slug, relPath);
+      if (js === null) return c.text("not found", 404);
+      return new Response(js, {
+        headers: {
+          "Content-Type": "application/javascript; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    const resolved = c.get("projectService").resolveRendererAsset(slug, relPath);
+    if (!resolved) {
+      // index.css 부재는 204로 응답 — shell의 `<link onerror>`가 자동 제거.
+      if (relPath === "index.css") return new Response(null, { status: 204 });
+      return c.text("not found", 404);
+    }
+    const ct = relPath.endsWith(".css")
+      ? "text/css; charset=utf-8"
+      : "application/javascript; charset=utf-8";
+    return new Response(Bun.file(resolved.fullPath), {
+      headers: { "Content-Type": ct, "Cache-Control": "no-store" },
+    });
   });
 
   app.get("/:slug/cover", async (c) => {
