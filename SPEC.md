@@ -168,15 +168,17 @@ interface RenderContext {
   stream: RenderStreamView;   // 항상 present. idle 시 EMPTY_RENDER_STREAM
 }
 
-// 렌더러가 export해야 하는 함수
-export function render(ctx: RenderContext): string;  // HTML 반환
+// 렌더러가 export해야 하는 default
+import { defineRenderer } from "@agentchan/renderer-runtime";
+function render(ctx: RenderContext): string { /* HTML 반환 */ }
+export default defineRenderer(render, { theme? });
 ```
 
 ### 6.2 제약
 
 - 입력은 `RenderContext` 뿐. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출하며 `entities/stream/toRenderStream.ts` 매퍼가 단독 경계
 - 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
-- 외부 모듈 import 불가. 타입은 파일 내에 인라인 선언
+- 허용 import는 `@agentchan/renderer-runtime` 하나뿐. 도메인 타입은 파일 내 인라인 선언
 - 출력은 HTML 문자열 하나
 - 스트리밍 중에는 requestAnimationFrame 주기로 재호출되므로 렌더 비용이 프레임 안에 들어와야 한다 (idiomorph가 DOM diff로 부담을 낮춘다)
 - 스트리밍 구간(`stream.isStreaming` true) 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷이다. 완료 시 full refresh로 1회 재동기화된다

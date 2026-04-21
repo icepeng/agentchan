@@ -5,34 +5,16 @@ import { nanoid } from "nanoid";
 import { Type } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
-import { scanWorkspaceFiles } from "../workspace/scan.js";
 
 const ValidateRendererParams = Type.Object({});
 
-const DESCRIPTION = `Validate the project's renderer.ts by transpiling and executing it with the current project files.
+const DESCRIPTION = `Validate the project's renderer.ts by transpiling and evaluating it.
 
-Returns rendered HTML on success, or a detailed error message with the failure phase (transpile / export / runtime).
-Use this after writing or editing renderer.ts to verify it works before asking the user to check.`;
-
-const MAX_HTML_CHARS = 3000;
-
-// Minimal AgentState-shaped ctx for renderer execution outside a live session.
-// Matches `EMPTY_AGENT_STATE` on the host: empty messages + not streaming.
-const MOCK_STATE = {
-  messages: [],
-  isStreaming: false,
-  pendingToolCalls: new Set<string>(),
-};
-
-const MOCK_ACTIONS = {
-  send() {},
-  fill() {},
-};
+Checks that the file transpiles and exports a mount-contract default. Runtime HTML preview is not possible without a browser DOM; ask the user to verify the rendered panel visually.
+Use this after writing or editing renderer.ts to catch transpile/export errors before asking the user to check.`;
 
 interface RendererModule {
-  render?: (ctx: unknown) => string;
-  mount?: unknown;
-  default?: { render?: (ctx: unknown) => string; mount?: unknown };
+  default?: { mount?: unknown };
 }
 
 export function createValidateRendererTool(
@@ -65,9 +47,6 @@ export function createValidateRendererTool(
         );
       }
 
-      // 3. Scan workspace files
-      const files = await scanWorkspaceFiles(join(projectDir, "files"));
-
       // Rewrite the `@agentchan/renderer-runtime` bare specifier to a
       // `globalThis.__rendererRuntime` destructure — the tmp file can't
       // resolve workspace specifiers, and we avoid a hard package dep so
@@ -81,53 +60,25 @@ export function createValidateRendererTool(
           `const {${spec.replace(/\s+as\s+/g, ": ")}} = globalThis.__rendererRuntime;`,
       );
 
-      try {
-        const runtime = await import(/* @vite-ignore */ "@agentchan/renderer-runtime" as string);
-        (globalThis as unknown as { __rendererRuntime: unknown }).__rendererRuntime = runtime;
-      } catch {
-        // Stand-alone creative-agent: only legacy `render()` exports validate fully.
-      }
+      const runtime = await import(/* @vite-ignore */ "@agentchan/renderer-runtime" as string);
+      (globalThis as unknown as { __rendererRuntime: unknown }).__rendererRuntime = runtime;
 
       const tmpPath = join(tmpdir(), `agentchan-renderer-${nanoid(8)}.mjs`);
       await writeFile(tmpPath, rewritten);
       try {
         const mod = (await import(tmpPath)) as RendererModule;
 
-        // Legacy: a raw `render(ctx)` export. Call directly.
-        const renderFn =
-          typeof mod.render === "function"
-            ? mod.render
-            : typeof (mod.default as { render?: unknown } | undefined)?.render === "function"
-              ? (mod.default as { render: (ctx: unknown) => string }).render
-              : null;
-
-        const ctx = { files, baseUrl: "/api/projects/_validate", state: MOCK_STATE, actions: MOCK_ACTIONS };
-
-        if (renderFn) {
-          const html: string = renderFn(ctx);
-          const preview =
-            html.length > MAX_HTML_CHARS
-              ? html.slice(0, MAX_HTML_CHARS) + `\n...(truncated, ${html.length} chars total)`
-              : html;
-          return textResult(`OK — rendered ${html.length} chars.\n\n${preview}`);
-        }
-
-        // Mount contract: `defineRenderer(...)` wraps the render function and
-        // exposes `{ mount, theme? }` without re-exporting the raw render.
-        // We can't invoke mount without a DOM, so runtime preview is skipped
-        // — the transpile + export check above is still a useful early signal.
-        const hasMount =
-          typeof mod.mount === "function" ||
-          typeof (mod.default as { mount?: unknown } | undefined)?.mount === "function";
-
-        if (hasMount) {
+        // `defineRenderer(...)` exposes `{ mount, theme? }`. We can't invoke
+        // mount without a DOM, so runtime preview is skipped — the transpile
+        // + export check above is still a useful early signal.
+        if (typeof mod.default?.mount !== "function") {
           return textResult(
-            "OK — mount-contract export detected. Runtime HTML preview skipped (mount requires a browser DOM). Ask the user to check the rendered panel.",
+            "Export error: renderer.ts must `export default defineRenderer(render, { theme? })`.",
           );
         }
 
         return textResult(
-          "Export error: renderer.ts must export `render()` or `mount()` (named or default).",
+          "OK — mount-contract export detected. Runtime HTML preview skipped (mount requires a browser DOM). Ask the user to check the rendered panel.",
         );
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e));

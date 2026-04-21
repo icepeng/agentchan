@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef } from "react";
 import * as rendererRuntime from "@agentchan/renderer-runtime";
 import type {
   MountFn,
-  RenderFn,
   RendererTheme,
   ThemeFn,
 } from "@agentchan/renderer-runtime";
@@ -56,34 +55,16 @@ function fetchBaseCss(): Promise<string> {
 }
 
 interface RendererModule {
-  mount?: MountFn;
   default?: { mount?: MountFn; theme?: ThemeFn };
-  render?: RenderFn;
-  theme?: ThemeFn;
 }
 
 function adoptRenderer(mod: RendererModule): AdoptedRenderer {
-  if (typeof mod.mount === "function") {
-    return mod.theme
-      ? { mount: mod.mount, theme: mod.theme }
-      : { mount: mod.mount };
-  }
-  if (mod.default && typeof mod.default.mount === "function") {
-    return mod.default.theme
-      ? { mount: mod.default.mount, theme: mod.default.theme }
-      : { mount: mod.default.mount };
-  }
-  if (typeof mod.render === "function") {
-    const wrapped = rendererRuntime.defineRenderer(
-      mod.render,
-      mod.theme ? { theme: mod.theme } : undefined,
-    );
-    return wrapped.theme
-      ? { mount: wrapped.mount, theme: wrapped.theme }
-      : { mount: wrapped.mount };
+  const def = mod.default;
+  if (def && typeof def.mount === "function") {
+    return def.theme ? { mount: def.mount, theme: def.theme } : { mount: def.mount };
   }
   throw new Error(
-    "renderer.ts must export mount() (default or named) or render()",
+    "renderer.ts must `export default defineRenderer(render, { theme? })`",
   );
 }
 

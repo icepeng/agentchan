@@ -14,13 +14,9 @@
 //           잉크 스탬프 시스템 카드 / 세피아 폴라로이드 감정 삽화 /
 //           컴퍼스 rose 디바이더
 //   · 하단 APPENDIX: PACK MANIFEST(인벤토리) · STANDING CHARTS(퀘스트)
-//
-//   ⚠ legacy contract (Phase 2): 다른 템플릿은 `defineRenderer` mount 계약을
-//     쓰지만 이 파일은 character builder가 인라인 <script> IIFE로
-//     addEventListener를 단다 (라인 ~1715–1830). host의 legacy adapter가
-//     `export function render`를 자동으로 mount contract로 wrap하므로 동작에
-//     영향은 없다. Phase 4 (CSP 엄격 + 선언적 DSL 도입) 시 재작성 예정.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { defineRenderer } from "@agentchan/renderer-runtime";
 
 interface TextFile {
   type: "text";
@@ -91,10 +87,16 @@ interface AgentState {
   readonly errorMessage?: string;
 }
 
+interface RendererActions {
+  send(text: string): void;
+  fill(text: string): void;
+}
+
 interface RenderContext {
   files: ProjectFile[];
   baseUrl: string;
   state: AgentState;
+  actions: RendererActions;
 }
 
 // ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
@@ -4883,7 +4885,7 @@ const STYLES = `<style>
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
+function render(ctx: RenderContext): string {
   const nameMap = buildNameMap(ctx);
   const mode = readWorldMode(ctx);
   const status = readStatusYaml(ctx);
@@ -4946,3 +4948,5 @@ export function render(ctx: RenderContext): string {
       ${pendingCard}
     </div>`;
 }
+
+export default defineRenderer(render);
