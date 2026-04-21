@@ -8,6 +8,7 @@ import {
   switchBranch as switchBranchInTree,
 } from "./tree.js";
 import {
+  CURRENT_SESSION_VERSION,
   type SessionHeader,
   type SessionMode,
   type BranchMarker,
@@ -170,7 +171,7 @@ export function createSessionStorage(projectsDir: string): SessionStorage {
       const now = Date.now();
 
       const header: SessionHeader = {
-        _header: true, createdAt: now, provider, model,
+        _header: true, version: CURRENT_SESSION_VERSION, createdAt: now, provider, model,
         ...(compactedFrom ? { compactedFrom } : {}),
         ...(mode ? { mode } : {}),
       };
