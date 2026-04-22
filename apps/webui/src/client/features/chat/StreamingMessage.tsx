@@ -1,4 +1,4 @@
-import { useAgentState } from "@/client/entities/agent-state/index.js";
+import { useAgentState, selectCurrentTurnBlocks } from "@/client/entities/agent-state/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { BubbleWrap } from "./MessageBubble.js";
@@ -15,10 +15,10 @@ function Sentence({ text, animating }: { text: string; animating: boolean }) {
 }
 
 /**
- * 스트리밍 중 in-flight 어시스턴트 버블. `state.streamingMessage.content`를
- * `MessageContent`로 그대로 그려, 완료 후 `AssistantTurnBubble`이 그리는 순서와
- * 동일한 path를 공유한다 — 이게 "텍스트 위 / 툴 아래" 하드코딩으로 인한 플리커를
- * 제거하는 핵심.
+ * 스트리밍 중 in-flight 어시스턴트 버블. 현재 턴의 완료된 assistant 메시지
+ * content + in-flight streamingMessage.content를 `selectCurrentTurnBlocks`로
+ * 병합해 `MessageContent`로 그린다. 완료 후 `AssistantTurnBubble`이 그리는
+ * 순서와 동일한 path를 공유한다.
  *
  * 마지막 content block이 text인 경우(스트림 끝쪽이 텍스트일 때) 그 부분에만
  * sentence animation을 적용한다. 그 외 블록은 `MessageContent` 통합 경로로.
@@ -28,7 +28,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
   const { t } = useI18n();
 
   const isWide = variant === "wide";
-  const content = state.streamingMessage?.content ?? [];
+  const content = selectCurrentTurnBlocks(state);
   const lastBlock = content.length > 0 ? content[content.length - 1] : null;
   const liveText = lastBlock?.type === "text" ? lastBlock.text : "";
 
@@ -60,7 +60,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
 
   if (!state.isStreaming && !state.streamingMessage) return null;
 
-  const showCursor = lastBlock?.type === "text";
+  const showCursor = lastBlock?.type === "text" && state.isStreaming;
   const head = lastBlock?.type === "text" ? content.slice(0, -1) : content;
 
   return (
