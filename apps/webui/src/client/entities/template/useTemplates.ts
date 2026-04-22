@@ -4,6 +4,7 @@ import { qk } from "@/client/shared/queryKeys.js";
 import {
   saveTemplateOrder as apiSaveOrder,
   saveProjectAsTemplate as apiSaveAsTemplate,
+  setTemplateTrust as apiSetTrust,
 } from "./template.api.js";
 import type { TemplateMeta } from "./template.types.js";
 
@@ -32,5 +33,13 @@ export function useTemplateMutations() {
     return result;
   };
 
-  return { saveOrder, saveAsTemplate };
+  const setTrust = async (slug: string, trusted: boolean) => {
+    await apiSetTrust(slug, trusted);
+    // Cache-only invalidate: callers typically navigate away (project create
+    // path), so the next mount will refetch on its own and we skip an extra
+    // round-trip here.
+    await mutate(qk.templates(), undefined, { revalidate: false });
+  };
+
+  return { saveOrder, saveAsTemplate, setTrust };
 }

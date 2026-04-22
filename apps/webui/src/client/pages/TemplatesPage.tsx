@@ -23,11 +23,13 @@ import { useUIDispatch } from "@/client/entities/ui/index.js";
 import {
   saveTemplateOrder,
   useTemplates,
+  useTemplateMutations,
   useTemplateReadme,
   type TemplateMeta,
 } from "@/client/entities/template/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 import { useProject } from "@/client/features/project/index.js";
+import { TrustTemplateDialog } from "@/client/features/project/TrustTemplateDialog.js";
 import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 import { ReadmeView, type ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import { BASE } from "@/client/shared/api.js";
@@ -43,6 +45,7 @@ interface SortableTemplateItemProps {
   isSelected: boolean;
   onSelect: (slug: string) => void;
   dragHandleLabel: string;
+  externalLabel: string;
 }
 
 function SortableTemplateItem({
@@ -51,6 +54,7 @@ function SortableTemplateItem({
   isSelected,
   onSelect,
   dragHandleLabel,
+  externalLabel,
 }: SortableTemplateItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: tpl.slug,
@@ -64,6 +68,8 @@ function SortableTemplateItem({
     zIndex: isDragging ? 10 : undefined,
   };
 
+  const showExternal = !tpl.trusted;
+
   return (
     <li
       ref={setNodeRef}
@@ -72,6 +78,7 @@ function SortableTemplateItem({
       aria-selected={isSelected}
       data-testid="template-index-item"
       data-slug={tpl.slug}
+      data-trusted={tpl.trusted}
       onClick={() => onSelect(tpl.slug)}
       className={`group relative flex items-baseline gap-3 pl-6 pr-5 py-3 transition-colors animate-fade-slide ${
         isSelected ? "text-accent" : "text-fg-2 hover:text-fg hover:bg-elevated/30"
@@ -100,6 +107,14 @@ function SortableTemplateItem({
         {orderNumber(index)}
       </span>
       <span className="font-display text-sm truncate">{tpl.name}</span>
+      {showExternal && (
+        <span
+          data-testid="template-external-label"
+          className="ml-auto shrink-0 font-mono text-[9px] uppercase tracking-[0.18em] text-fg-4 px-1.5 py-0.5 rounded border border-edge/20"
+        >
+          {externalLabel}
+        </span>
+      )}
     </li>
   );
 }
@@ -108,12 +123,14 @@ export function TemplatesPage() {
   const { t } = useI18n();
   const uiDispatch = useUIDispatch();
   const { createProject } = useProject();
+  const { setTrust } = useTemplateMutations();
   const { mutate } = useSWRConfig();
 
   const { data: templates, isLoading } = useTemplates();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [creating, setCreating] = useState(false);
+  const [trustPrompt, setTrustPrompt] = useState<{ slug: string; name: string } | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-select first template once the list arrives.
@@ -143,20 +160,38 @@ export function TemplatesPage() {
       }
     : null;
 
+  const proceedCreate = async (slug: string, name: string) => {
+    setCreating(true);
+    try {
+      await createProject(name, slug);
+      uiDispatch({ type: "NAVIGATE", route: { page: "main" } });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const handleCreate = async () => {
-    if (!selectedSlug || creating) return;
+    if (!selectedSlug || !selectedTemplate || creating) return;
     const name = nameInput.trim();
     if (!name) {
       nameInputRef.current?.focus();
       return;
     }
-    setCreating(true);
-    try {
-      await createProject(name, selectedSlug);
-      uiDispatch({ type: "NAVIGATE", route: { page: "main" } });
-    } finally {
-      setCreating(false);
+    if (!selectedTemplate.trusted) {
+      setTrustPrompt({ slug: selectedSlug, name: selectedTemplate.name });
+      return;
     }
+    await proceedCreate(selectedSlug, name);
+  };
+
+  const handleTrustConfirm = async () => {
+    if (!trustPrompt) return;
+    // handleCreate gates the modal open behind a non-empty name, and the
+    // modal blocks edits while open — so the trimmed value is always usable.
+    const { slug } = trustPrompt;
+    await setTrust(slug, true);
+    setTrustPrompt(null);
+    await proceedCreate(slug, nameInput.trim());
   };
 
   const handleKeyNav = (e: React.KeyboardEvent) => {
@@ -263,6 +298,7 @@ export function TemplatesPage() {
                       isSelected={tpl.slug === selectedSlug}
                       onSelect={setSelectedSlug}
                       dragHandleLabel={t("templates.dragHandle")}
+                      externalLabel={t("templates.externalLabel")}
                     />
                   ))}
                 </ul>
@@ -337,6 +373,13 @@ export function TemplatesPage() {
           </ScrollArea>
         </div>
       )}
+
+      <TrustTemplateDialog
+        open={trustPrompt !== null}
+        templateName={trustPrompt?.name ?? ""}
+        onCancel={() => setTrustPrompt(null)}
+        onConfirm={handleTrustConfirm}
+      />
     </div>
   );
 }

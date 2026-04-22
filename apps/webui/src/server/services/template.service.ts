@@ -3,6 +3,7 @@ import { cp, mkdir, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { assertSafePathSegment, probeCover } from "../paths.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
+import type { TemplateTrustService } from "./template-trust.service.js";
 
 interface SaveAsTemplateOptions {
   name: string;
@@ -11,7 +12,11 @@ interface SaveAsTemplateOptions {
   overwrite: boolean;
 }
 
-export function createTemplateService(templateRepo: TemplateRepo, projectsDir: string) {
+export function createTemplateService(
+  templateRepo: TemplateRepo,
+  trustService: TemplateTrustService,
+  projectsDir: string,
+) {
   async function copyFilesSelectively(
     srcDir: string,
     destDir: string,
@@ -35,7 +40,13 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
   }
 
   return {
-    async list() { return templateRepo.list(); },
+    async list() {
+      const [templates, userTrusted] = [await templateRepo.list(), trustService.getUserTrusted()];
+      return templates.map((t) => {
+        const builtin = trustService.isBuiltin(t.slug);
+        return { ...t, builtin, trusted: builtin || userTrusted.has(t.slug) };
+      });
+    },
     async getCoverFile(name: string) { return templateRepo.getCoverFile(name); },
     async getReadme(name: string) { return templateRepo.getReadme(name); },
     getSourceDir(name: string) { return templateRepo.getSourceDir(name); },
@@ -89,6 +100,11 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
       if (readmeWasCopied) {
         await templateRepo.ensureTemplateDir(name, { name, description });
       }
+
+      // The user just authored this template from their own project, so
+      // it's implicitly trusted — projects derived from it skip the consent
+      // modal that gates externally-supplied templates.
+      trustService.setTrust(name, true);
 
       return { saved: true };
     },

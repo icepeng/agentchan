@@ -30,6 +30,7 @@ import type { ProjectService } from "./services/project.service.js";
 import type { SessionService } from "./services/session.service.js";
 import type { AgentService } from "./services/agent.service.js";
 import type { TemplateService } from "./services/template.service.js";
+import type { TemplateTrustService } from "./services/template-trust.service.js";
 import type { SkillService } from "./services/skill.service.js";
 import type { UpdateService } from "./services/update.service.js";
 
@@ -40,6 +41,7 @@ export type AppEnv = {
     sessionService: SessionService;
     agentService: AgentService;
     templateService: TemplateService;
+    templateTrustService: TemplateTrustService;
     skillService: SkillService;
     updateService: UpdateService;
   };

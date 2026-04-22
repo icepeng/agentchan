@@ -4,5 +4,6 @@ export {
   fetchTemplateReadme,
   saveProjectAsTemplate,
   saveTemplateOrder,
+  setTemplateTrust,
 } from "./template.api.js";
 export { useTemplates, useTemplateReadme, useTemplateMutations } from "./useTemplates.js";
