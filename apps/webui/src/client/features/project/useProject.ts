@@ -7,18 +7,13 @@ import {
   useProjectMutations,
 } from "@/client/entities/project/index.js";
 import {
-  useAgentStateDispatch,
-} from "@/client/entities/agent-state/index.js";
-import {
-  useRendererViewDispatch,
-} from "@/client/entities/renderer/index.js";
-import {
   useSessionSelectionState,
   useSessionSelectionDispatch,
   selectSessionSelection,
   abortProjectStream,
   type Session,
 } from "@/client/entities/session/index.js";
+import { hydrateState } from "@/client/entities/agent-state/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 import { localStore } from "@/client/shared/storage.js";
 
@@ -27,8 +22,6 @@ export function useProject() {
   const projectSelectionDispatch = useProjectSelectionDispatch();
   const sessionSelectionState = useSessionSelectionState();
   const sessionSelectionDispatch = useSessionSelectionDispatch();
-  const agentDispatch = useAgentStateDispatch();
-  const rendererViewDispatch = useRendererViewDispatch();
   const { mutate } = useSWRConfig();
 
   const { data: projects = [] } = useProjects();
@@ -45,14 +38,8 @@ export function useProject() {
 
   const activateProject = async (slug: string): Promise<Session[]> => {
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug });
-    // Must fire synchronously with slug change: if RenderedView is off-screen
-    // (Templates/Settings) during a project switch, its slug-keyed effect
-    // won't run on return, so the previous project's HTML would briefly
-    // flash. Theme is kept to avoid a two-step palette flicker.
-    rendererViewDispatch({ type: "CLEAR_HTML" });
-    // Single GET: SWR's fetcher runs, result seeds the cache atomically.
-    // Calling `fetchSessions` separately risked a duplicate fetch when
-    // `useSessions(slug)` mounted outside the dedupe window.
+    // iframe RenderedView keys off slug and remounts on change — no host-side
+    // HTML clear needed.
     const sessions = await mutate<Session[]>(qk.sessions(slug));
     return sessions ?? [];
   };
@@ -86,13 +73,18 @@ export function useProject() {
         projectSlug: slug,
         sessionId: rememberedSessionId,
       });
+      void hydrateState(slug, rememberedSessionId);
+    } else {
+      // Fresh project (no remembered session) — still hydrate so the SSE
+      // channel emits a clean snapshot instead of stale state from a prior
+      // session that might have been deleted.
+      void hydrateState(slug, null);
     }
   };
 
   const createProject = async (name: string, fromTemplate?: string) => {
     const project = await createProjectMutation(name, fromTemplate);
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: project.slug });
-    rendererViewDispatch({ type: "CLEAR_HTML" });
     return project;
   };
 
@@ -107,11 +99,11 @@ export function useProject() {
   };
 
   const deleteProject = async (slug: string) => {
-    // Abort any in-flight stream so pi-agent-core cancels the LLM request
-    // and drop the stream+selection slots so stale completion events can't
-    // resurrect them.
+    // Abort any in-flight stream so pi-agent-core cancels the LLM request.
+    // The server's state.service.purge handles the agent-state slot; client
+    // SSE subscription ends naturally when the iframe unmounts or activeSlug
+    // flips away.
     abortProjectStream(slug);
-    agentDispatch({ type: "CLOSE", projectSlug: slug });
     sessionSelectionDispatch({ type: "CLEAR", projectSlug: slug });
 
     await deleteProjectMutation(slug);
@@ -123,7 +115,6 @@ export function useProject() {
         await activateProject(fallback.slug);
       } else {
         projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug: null });
-        rendererViewDispatch({ type: "CLEAR" });
       }
     }
   };

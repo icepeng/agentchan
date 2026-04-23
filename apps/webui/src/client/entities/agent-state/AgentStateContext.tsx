@@ -1,137 +1,184 @@
 import {
   createContext,
   use,
-  useReducer,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
   type ReactNode,
-  type Dispatch,
 } from "react";
-import type { AgentEvent } from "@agentchan/creative-agent";
+import type { AssistantMessage } from "@mariozechner/pi-ai";
 import type { AgentMessage, AgentState } from "./agentState.js";
 import { EMPTY_AGENT_STATE } from "./agentState.js";
+import { useProjectSelectionState } from "@/client/entities/project/index.js";
 
-// Map keyed by projectSlug for agentchan's parallel-stream model.
-// Reducer is a 1:1 port of pi-agent-core `Agent.processEvents`.
+// Wire-format events emitted by the server's state SSE channel. See
+// `apps/webui/src/server/services/state.service.ts`.
+type SnapshotPayload = { state: Omit<AgentState, "pendingToolCalls"> & { pendingToolCalls: string[] } };
+type AppendPayload = { message: AgentMessage };
+type StreamingPayload = { message: AssistantMessage };
+type ToolPendingPayload = { ids: string[] };
+type FillInputPayload = { text: string };
+type ThemeChangedPayload = { theme: unknown };
+type ErrorPayload = { message: string };
+
+export type HostEvent =
+  | { type: "fill_input"; text: string }
+  | { type: "theme_changed"; theme: unknown };
+
+type HostEventListener = (ev: HostEvent) => void;
 
 type AgentStateMap = ReadonlyMap<string, AgentState>;
 
 const EMPTY_MAP: AgentStateMap = new Map();
 
-type Action =
-  | { type: "HYDRATE"; projectSlug: string; messages: ReadonlyArray<AgentMessage> }
-  | { type: "START"; projectSlug: string }
-  | { type: "STOP"; projectSlug: string }
-  | { type: "AGENT_EVENT"; projectSlug: string; event: AgentEvent }
-  | { type: "ERROR"; projectSlug: string; message: string }
-  | { type: "CLOSE"; projectSlug: string };
+// ---------------------------------------------------------------------------
+// Contexts
+// ---------------------------------------------------------------------------
 
-function applyAgentEvent(state: AgentState, ev: AgentEvent): AgentState {
-  switch (ev.type) {
-    case "agent_start":
-      return { ...state, isStreaming: true, streamingMessage: undefined, errorMessage: undefined };
-    case "agent_end":
-      return { ...state, isStreaming: false, streamingMessage: undefined };
-    case "message_start":
-    case "message_update":
-      if (ev.message.role !== "assistant") return state;
-      return { ...state, streamingMessage: ev.message };
-    case "message_end":
-      return {
-        ...state,
+const StateContext = createContext<AgentStateMap>(EMPTY_MAP);
+const HostEventContext = createContext<{
+  subscribe(listener: HostEventListener): () => void;
+}>({
+  subscribe: () => () => {},
+});
+
+// ---------------------------------------------------------------------------
+// Snapshot materialization — pendingToolCalls wire `string[]` -> ReadonlySet
+// ---------------------------------------------------------------------------
+
+function materialize(snapshot: SnapshotPayload["state"]): AgentState {
+  return {
+    messages: snapshot.messages,
+    isStreaming: snapshot.isStreaming,
+    streamingMessage: snapshot.streamingMessage,
+    pendingToolCalls: new Set(snapshot.pendingToolCalls),
+    errorMessage: snapshot.errorMessage,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Provider — opens one EventSource for the active project
+// ---------------------------------------------------------------------------
+
+export function AgentStateProvider({ children }: { children: ReactNode }) {
+  const { activeProjectSlug } = useProjectSelectionState();
+  const [map, setMap] = useState<AgentStateMap>(EMPTY_MAP);
+  const listenersRef = useRef<Set<HostEventListener>>(new Set());
+
+  const emitHostEvent = useCallback((ev: HostEvent) => {
+    for (const listener of listenersRef.current) {
+      try {
+        listener(ev);
+      } catch (err) {
+        console.error("[AgentStateContext] host event listener threw", err);
+      }
+    }
+  }, []);
+
+  const updateSlot = useCallback(
+    (slug: string, mutate: (prev: AgentState) => AgentState) => {
+      setMap((prev) => {
+        const current = prev.get(slug) ?? EMPTY_AGENT_STATE;
+        const next = mutate(current);
+        if (next === current) return prev;
+        const out = new Map(prev);
+        out.set(slug, next);
+        return out;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!activeProjectSlug) return;
+    const slug = activeProjectSlug;
+    const url = `/api/projects/${encodeURIComponent(slug)}/state/stream`;
+    const sse = new EventSource(url);
+
+    sse.addEventListener("snapshot", (e) => {
+      const { state } = JSON.parse((e as MessageEvent<string>).data) as SnapshotPayload;
+      updateSlot(slug, () => materialize(state));
+    });
+    sse.addEventListener("append", (e) => {
+      const { message } = JSON.parse((e as MessageEvent<string>).data) as AppendPayload;
+      updateSlot(slug, (prev) => ({ ...prev, messages: [...prev.messages, message] }));
+    });
+    sse.addEventListener("streaming", (e) => {
+      const { message } = JSON.parse((e as MessageEvent<string>).data) as StreamingPayload;
+      updateSlot(slug, (prev) => ({
+        ...prev,
+        streamingMessage: message,
+        isStreaming: true,
+        errorMessage: undefined,
+      }));
+    });
+    sse.addEventListener("streaming_clear", () => {
+      updateSlot(slug, (prev) => ({
+        ...prev,
         streamingMessage: undefined,
-        messages: [...state.messages, ev.message],
-      };
-    case "tool_execution_start": {
-      const pending = new Set(state.pendingToolCalls);
-      pending.add(ev.toolCallId);
-      return { ...state, pendingToolCalls: pending };
-    }
-    case "tool_execution_end": {
-      const pending = new Set(state.pendingToolCalls);
-      pending.delete(ev.toolCallId);
-      return { ...state, pendingToolCalls: pending };
-    }
-    case "turn_end":
-      return ev.message.role === "assistant" && ev.message.errorMessage
-        ? { ...state, errorMessage: ev.message.errorMessage }
-        : state;
-    default:
-      return state; // tool_execution_update, turn_start
-  }
-}
-
-function getSlot(map: AgentStateMap, slug: string): AgentState {
-  return map.get(slug) ?? EMPTY_AGENT_STATE;
-}
-
-function setSlot(map: AgentStateMap, slug: string, slot: AgentState): AgentStateMap {
-  const next = new Map(map);
-  next.set(slug, slot);
-  return next;
-}
-
-function reducer(map: AgentStateMap, action: Action): AgentStateMap {
-  switch (action.type) {
-    case "HYDRATE": {
-      // 스트리밍 중엔 events 가 권위. HYDRATE 는 idle 세션 스위치 · branch 전환용.
-      if (getSlot(map, action.projectSlug).isStreaming) return map;
-      const slot: AgentState = { ...EMPTY_AGENT_STATE, messages: action.messages };
-      return setSlot(map, action.projectSlug, slot);
-    }
-    case "START": {
-      const current = getSlot(map, action.projectSlug);
-      return setSlot(map, action.projectSlug, {
-        ...current,
+        isStreaming: false,
+      }));
+    });
+    sse.addEventListener("tool_pending_set", (e) => {
+      const { ids } = JSON.parse((e as MessageEvent<string>).data) as ToolPendingPayload;
+      updateSlot(slug, (prev) => ({ ...prev, pendingToolCalls: new Set(ids) }));
+    });
+    sse.addEventListener("agent_start", () => {
+      updateSlot(slug, (prev) => ({
+        ...prev,
         isStreaming: true,
         streamingMessage: undefined,
         errorMessage: undefined,
-      });
-    }
-    case "STOP": {
-      // 비-agent 루프 작업(예: compact)용 락 해제. 정상 스트림은 agent_end 가 담당.
-      const current = getSlot(map, action.projectSlug);
-      return setSlot(map, action.projectSlug, {
-        ...current,
-        isStreaming: false,
-        streamingMessage: undefined,
-      });
-    }
-    case "AGENT_EVENT": {
-      const current = getSlot(map, action.projectSlug);
-      const next = applyAgentEvent(current, action.event);
-      return next === current ? map : setSlot(map, action.projectSlug, next);
-    }
-    case "ERROR": {
-      const current = getSlot(map, action.projectSlug);
-      return setSlot(map, action.projectSlug, {
-        ...current,
-        isStreaming: false,
-        streamingMessage: undefined,
-        errorMessage: action.message,
-      });
-    }
-    case "CLOSE": {
-      if (!map.has(action.projectSlug)) return map;
-      const next = new Map(map);
-      next.delete(action.projectSlug);
-      return next;
-    }
-    default:
-      return map;
-  }
-}
+      }));
+    });
+    sse.addEventListener("error", (e) => {
+      const raw = (e as MessageEvent<string>).data;
+      if (!raw) return;
+      try {
+        const { message } = JSON.parse(raw) as ErrorPayload;
+        updateSlot(slug, (prev) => ({
+          ...prev,
+          isStreaming: false,
+          streamingMessage: undefined,
+          errorMessage: message,
+        }));
+      } catch {
+        /* ignore malformed error payloads from transport-level failures */
+      }
+    });
+    sse.addEventListener("fill_input", (e) => {
+      const { text } = JSON.parse((e as MessageEvent<string>).data) as FillInputPayload;
+      emitHostEvent({ type: "fill_input", text });
+    });
+    sse.addEventListener("theme_changed", (e) => {
+      const { theme } = JSON.parse((e as MessageEvent<string>).data) as ThemeChangedPayload;
+      emitHostEvent({ type: "theme_changed", theme });
+    });
 
-// --- Context ---
+    return () => {
+      sse.close();
+    };
+  }, [activeProjectSlug, updateSlot, emitHostEvent]);
 
-const StateContext = createContext<AgentStateMap>(EMPTY_MAP);
-const DispatchContext = createContext<Dispatch<Action>>(() => {});
+  const hostEventApi = useMemo(
+    () => ({
+      subscribe(listener: HostEventListener) {
+        listenersRef.current.add(listener);
+        return () => {
+          listenersRef.current.delete(listener);
+        };
+      },
+    }),
+    [],
+  );
 
-export function AgentStateProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, EMPTY_MAP);
   return (
-    <StateContext.Provider value={state}>
-      <DispatchContext.Provider value={dispatch}>
+    <StateContext.Provider value={map}>
+      <HostEventContext.Provider value={hostEventApi}>
         {children}
-      </DispatchContext.Provider>
+      </HostEventContext.Provider>
     </StateContext.Provider>
   );
 }
@@ -140,8 +187,19 @@ export function useAgentStateMap(): AgentStateMap {
   return use(StateContext);
 }
 
-export function useAgentStateDispatch(): Dispatch<Action> {
-  return use(DispatchContext);
+/**
+ * Subscribe to host-only SSE events (fill_input, theme_changed). BottomInput
+ * consumes `fill_input`; the theme manager consumes `theme_changed`.
+ */
+export function useHostEventSubscription(
+  listener: HostEventListener,
+): void {
+  const api = use(HostEventContext);
+  const ref = useRef(listener);
+  useEffect(() => {
+    ref.current = listener;
+  });
+  useEffect(() => {
+    return api.subscribe((ev) => ref.current(ev));
+  }, [api]);
 }
-
-export type AgentStateAction = Action;

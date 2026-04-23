@@ -1,0 +1,60 @@
+/*
+ * agentchan design tokens — optional import for sandboxed renderers.
+ *
+ *   <link rel="stylesheet" href="/api/host/tokens.css">
+ *
+ * Exposes the same palette/typography scale the host React app uses, so
+ * renderers that want to stay visually coherent can pick them up without
+ * hard-coding colors. Font families resolve through system fallbacks —
+ * self-hosting is the caller's responsibility if a specific font is needed.
+ */
+
+:root {
+  /* Depth layers — darkest to lightest */
+  --color-void: #050508;
+  --color-base: #0a0a10;
+  --color-surface: #111118;
+  --color-elevated: #1a1a24;
+  --color-raised: #222230;
+
+  /* Accent */
+  --color-accent: #2dd4bf;
+  --color-warm: #fbbf24;
+  --color-danger: #ef4444;
+
+  /* Foreground */
+  --color-fg: #e4e4e7;
+  --color-fg-2: #a1a1aa;
+  --color-fg-3: #8a8a94;
+  --color-fg-4: #6a6a75;
+
+  /* Edge — base color for subtle borders */
+  --color-edge: #ffffff;
+
+  /* Typography (system fallbacks) */
+  --font-family-display: "Pretendard Variable", Syne, system-ui, sans-serif;
+  --font-family-body: "Pretendard Variable", Lexend, system-ui, sans-serif;
+  --font-family-mono: "Fira Code", ui-monospace, monospace;
+}
+
+:root[data-theme="light"],
+[data-theme="light"] {
+  --color-void: #f4f4f8;
+  --color-base: #eaeaf0;
+  --color-surface: #ffffff;
+  --color-elevated: #f0f0f5;
+  --color-raised: #e2e2ea;
+
+  --color-accent: #0d9488;
+  --color-warm: #b45309;
+  --color-danger: #dc2626;
+
+  --color-fg: #1a1a2e;
+  --color-fg-2: #4a4a5e;
+  --color-fg-3: #6e6e82;
+  --color-fg-4: #8a8a9e;
+
+  --color-edge: #1a1a2e;
+
+  color-scheme: light;
+}

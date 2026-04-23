@@ -10,9 +10,10 @@ export { EMPTY_AGENT_STATE } from "./agentState.js";
 export {
   AgentStateProvider,
   useAgentStateMap,
-  useAgentStateDispatch,
-  type AgentStateAction,
+  useHostEventSubscription,
+  type HostEvent,
 } from "./AgentStateContext.js";
+export { hydrateState } from "./stateApi.js";
 
 export { useAgentState } from "./useAgentState.js";
 

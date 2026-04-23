@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import type { AppEnv } from "../types.js";
 import { createSessionRoutes } from "./sessions.routes.js";
 import { createSkillRoutes } from "./skills.routes.js";
@@ -20,6 +21,7 @@ export function createProjectRoutes() {
     if (fromTemplate) {
       try {
         const project = await c.get("projectService").createFromTemplate(name.trim(), fromTemplate);
+        await c.get("projectConfigService").syncProjectConfig(project.slug);
         return c.json(project, 201);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Failed to create from template";
@@ -27,7 +29,9 @@ export function createProjectRoutes() {
       }
     }
 
-    return c.json(await c.get("projectService").create(name.trim()), 201);
+    const project = await c.get("projectService").create(name.trim());
+    await c.get("projectConfigService").syncProjectConfig(project.slug);
+    return c.json(project, 201);
   });
 
   app.put("/:slug", async (c) => {
@@ -52,6 +56,7 @@ export function createProjectRoutes() {
 
     try {
       await c.get("projectService").delete(slug);
+      await c.get("stateService").purge(slug);
       return c.json({ ok: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to delete project";
@@ -114,11 +119,95 @@ export function createProjectRoutes() {
     return c.json({ files });
   });
 
-  app.get("/:slug/renderer.js", async (c) => {
+  // --- Renderer iframe (sandboxed; CSP-restricted) ---
+
+  app.get("/:slug/renderer", (c) => {
+    // Canonical form is `/renderer/` with trailing slash (so relative imports
+    // resolve against the renderer folder). Redirect to preserve that.
+    const slug = c.req.param("slug") ?? "";
+    return c.redirect(`/api/projects/${slug}/renderer/`, 301);
+  });
+
+  app.get("/:slug/renderer/", (c) => serveRendererAsset(c, "index.html"));
+
+  app.get("/:slug/renderer/:path{.+}", (c) => {
+    const relPath = c.req.param("path") ?? "";
+    return serveRendererAsset(c, relPath);
+  });
+
+  async function serveRendererAsset(c: import("hono").Context<AppEnv>, relPath: string) {
+    const slug = c.req.param("slug") ?? "";
+    const asset = await c.get("projectService").loadRendererAsset(slug, relPath);
+    if (!asset) return c.text("Not found", 404);
+
+    const allowedDomains = await c.get("projectService").getAllowedDomains(slug);
+    const headers: Record<string, string> = {
+      "Content-Type": asset.mimeType,
+    };
+    if (relPath === "index.html" || asset.mimeType.startsWith("text/html")) {
+      headers["Content-Security-Policy"] = c
+        .get("projectService")
+        .buildCspHeader(allowedDomains);
+    }
+
+    if (typeof asset.body === "string") {
+      return new Response(asset.body, { headers });
+    }
+    if (asset.body instanceof ReadableStream) {
+      return new Response(asset.body, { headers });
+    }
+    if (!asset.fullPath) return c.text("Not found", 404);
+    return new Response(Bun.file(asset.fullPath), { headers });
+  }
+
+  // --- Files catalog & body ---
+
+  app.get("/:slug/files", async (c) => {
     const slug = c.req.param("slug");
-    const js = await c.get("projectService").transpileRenderer(slug);
-    if (js === null) return c.json({ error: "renderer.ts not found" }, 404);
-    return c.json({ js });
+    const existing = await c.get("projectService").get(slug);
+    if (!existing) return c.json({ error: "Project not found" }, 404);
+
+    return c.json(await c.get("projectService").listFilesCatalog(slug));
+  });
+
+  // --- State SSE stream ---
+
+  app.get("/:slug/state/stream", (c) => {
+    const slug = c.req.param("slug") ?? "";
+    return streamSSE(c, async (stream) => {
+      await c.get("stateService").subscribe(slug, stream);
+      await new Promise<void>((resolve) => {
+        if (c.req.raw.signal.aborted) {
+          resolve();
+          return;
+        }
+        c.req.raw.signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+      c.get("stateService").unsubscribe(slug, stream);
+    });
+  });
+
+  app.post("/:slug/state/hydrate", async (c) => {
+    const slug = c.req.param("slug");
+    const { sessionId } = await c.req
+      .json<{ sessionId: string | null }>()
+      .catch(() => ({ sessionId: null }));
+    // Project is being opened — bring its tsconfig + build-renderer skill up
+    // to date with the current agentchan version before anyone reads them.
+    await c.get("projectConfigService").syncProjectConfig(slug);
+    await c.get("stateService").hydrate(slug, sessionId);
+    return new Response(null, { status: 204 });
+  });
+
+  // --- Action RPC ---
+
+  app.post("/:slug/actions/:name", async (c) => {
+    const slug = c.req.param("slug") ?? "";
+    const name = c.req.param("name") ?? "";
+    const body = await c.req.json().catch(() => ({}));
+    const result = c.get("actionsService").dispatch(slug, name, body);
+    if (result.status === 204) return new Response(null, { status: 204 });
+    return c.json({ error: result.error ?? "Invalid" }, result.status as 400 | 404);
   });
 
   app.get("/:slug/cover", async (c) => {

@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 import type { AppEnv } from "../types.js";
 
 export function createSessionRoutes() {
@@ -50,34 +49,39 @@ export function createSessionRoutes() {
     }
   });
 
-  // Send message (SSE stream)
+  // Send message — fire-and-await. The host streams AgentEvents through the
+  // per-project state SSE channel (`GET /state/stream`); this endpoint just
+  // holds the HTTP connection open so `c.req.raw.signal` can still abort
+  // the underlying LLM call on tab close.
   app.post("/:id/messages", async (c) => {
     const slug = c.req.param("slug")!;
     const sessionId = c.req.param("id");
     const { parentNodeId, text } =
       await c.req.json<{ parentNodeId: string | null; text: string }>();
-    // c.req.raw.signal fires when the underlying HTTP connection drops —
-    // e.g. tab close, navigation, explicit fetch abort. We propagate it so
-    // pi-agent-core can cancel the in-flight LLM request and stop billing.
     const signal = c.req.raw.signal;
-
-    return streamSSE(c, async (stream) => {
-      await c.get("agentService").sendMessage(
-        stream, slug, sessionId, parentNodeId, text, signal,
-      );
-    });
+    try {
+      await c.get("agentService").sendMessage(slug, sessionId, parentNodeId, text, signal);
+      return c.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      c.get("stateService").applyError(slug, message);
+      return c.json({ error: message }, 500);
+    }
   });
 
-  // Regenerate response (SSE stream)
   app.post("/:id/regenerate", async (c) => {
     const slug = c.req.param("slug")!;
     const sessionId = c.req.param("id");
     const { userNodeId } = await c.req.json<{ userNodeId: string }>();
     const signal = c.req.raw.signal;
-
-    return streamSSE(c, async (stream) => {
-      await c.get("agentService").regenerate(stream, slug, sessionId, userNodeId, signal);
-    });
+    try {
+      await c.get("agentService").regenerate(slug, sessionId, userNodeId, signal);
+      return c.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      c.get("stateService").applyError(slug, message);
+      return c.json({ error: message }, 500);
+    }
   });
 
   // Full compact — summarize and continue in new session

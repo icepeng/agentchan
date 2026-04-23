@@ -1,10 +1,12 @@
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import { useHostEventSubscription, type HostEvent } from "@/client/entities/agent-state/index.js";
 import {
-  useRendererViewState,
   resolveThemeVars,
+  validateTheme,
+  type RendererTheme,
 } from "@/client/entities/renderer/index.js";
 import { useTheme } from "@/client/features/settings/index.js";
 import { useI18n } from "@/client/i18n/index.js";
@@ -39,9 +41,31 @@ export function AppShell() {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const project = useProjectSelectionState();
-  const rendererView = useRendererViewState();
   const { resolved: userScheme } = useTheme();
   const { t } = useI18n();
+
+  // Renderer-driven theme override. The iframe POSTs /actions/setTheme, the
+  // server broadcasts `theme_changed` on the state SSE channel, and we track
+  // the latest validated theme here — scoped to the current project page.
+  // Renderer theme is keyed to the active project. Tracking `[slug, theme]`
+  // together lets us drop stale palette when the user switches projects
+  // without firing an effect.
+  const [themeEntry, setThemeEntry] = useState<{
+    slug: string | null;
+    theme: RendererTheme | null;
+  }>({ slug: null, theme: null });
+  const handleHostEvent = useCallback((ev: HostEvent) => {
+    if (ev.type !== "theme_changed") return;
+    setThemeEntry((prev) => ({
+      slug: prev.slug,
+      theme: validateTheme(ev.theme),
+    }));
+  }, []);
+  useHostEventSubscription(handleHostEvent);
+  if (themeEntry.slug !== project.activeProjectSlug) {
+    setThemeEntry({ slug: project.activeProjectSlug, theme: null });
+  }
+  const theme = themeEntry.theme;
 
   // Ctrl+E / Cmd+E to toggle edit mode (main page only)
   useEffect(() => {
@@ -69,13 +93,13 @@ export function AppShell() {
   // Renderer-owned theme is active only on the project page in chat mode.
   // Edit mode / Settings / Templates stay neutral on the base Obsidian Teal palette.
   const themeActive =
-    rendererView.theme !== null &&
+    theme !== null &&
     ui.currentPage.page === "main" &&
     ui.viewMode === "chat";
 
   const resolvedTheme =
-    themeActive && rendererView.theme
-      ? resolveThemeVars(rendererView.theme, userScheme)
+    themeActive && theme
+      ? resolveThemeVars(theme, userScheme)
       : null;
 
   const rootStyle = resolvedTheme?.vars;

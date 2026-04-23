@@ -45,10 +45,6 @@ export function fetchWorkspaceFiles(projectSlug: string): Promise<{ files: Proje
   return json(`/projects/${encodeURIComponent(projectSlug)}/workspace/files`);
 }
 
-export function fetchTranspiledRenderer(projectSlug: string): Promise<{ js: string }> {
-  return json(`/projects/${encodeURIComponent(projectSlug)}/renderer.js`);
-}
-
 export function fetchProjectReadme(slug: string): Promise<ReadmeDoc> {
   return json(`/projects/${encodeURIComponent(slug)}/readme`);
 }

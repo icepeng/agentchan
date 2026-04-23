@@ -1,20 +1,36 @@
-import type {
-  RenderContext,
-  RendererTheme,
-  RendererThemeTokens,
-  ResolvedThemeVars,
-} from "./renderer.types.js";
-
 /**
  * Renderer-owned theme: 렌더러가 프로젝트 페이지 한정으로 전역 CSS custom property를
  * 오버라이드할 수 있도록 하는 계약.
  *
- * - 색상 전용. 폰트는 렌더러 자체 `<style>` 안에서 `font-family`로 직접 지정한다.
+ * - 색상 전용. 폰트는 렌더러 자체 `<style>`에서 직접 지정한다.
  * - `base`만 있으면 단일 모드, `dark`가 있으면 듀얼 모드.
  * - `prefersScheme`이 명시되면 프로젝트 페이지에서만 사용자 Appearance 토글을 강제 오버라이드.
- * - `theme` export는 정적 객체 또는 `(ctx: RenderContext) => RendererTheme` 함수 둘 다 지원.
- *   함수면 매 refresh마다 현재 files를 보고 팔레트를 다르게 반환할 수 있다 (예: 전투/평시 분기).
+ * - 렌더러는 `POST /actions/setTheme` RPC로 이 객체를 보낸다.
  */
+
+export interface RendererThemeTokens {
+  void?: string;
+  base?: string;
+  surface?: string;
+  elevated?: string;
+  accent?: string;
+  fg?: string;
+  fg2?: string;
+  fg3?: string;
+  edge?: string;
+}
+
+export interface RendererTheme {
+  base: RendererThemeTokens;
+  dark?: Partial<RendererThemeTokens>;
+  prefersScheme?: "light" | "dark";
+}
+
+export interface ResolvedThemeVars {
+  vars: Record<string, string>;
+  effectiveScheme: "light" | "dark";
+  forceScheme: boolean;
+}
 
 const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
   void: "--color-void",
@@ -29,22 +45,6 @@ const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
 };
 
 const TOKEN_KEYS = Object.keys(TOKEN_TO_CSS) as (keyof RendererThemeTokens)[];
-
-/**
- * 렌더러 모듈의 `theme` export가 함수면 RenderContext를 넘겨 호출하고,
- * 그 외에는 값을 그대로 통과시킨다. 함수가 throw하면 warn 후 null을 반환.
- *
- * 반환값은 아직 "검증되지 않은 raw"이므로 반드시 `validateTheme`을 거쳐야 한다.
- */
-export function resolveRawTheme(raw: unknown, ctx: RenderContext): unknown {
-  if (typeof raw !== "function") return raw;
-  try {
-    return (raw as (ctx: RenderContext) => unknown)(ctx);
-  } catch (e) {
-    console.warn("[renderer.theme] theme function threw", e);
-    return null;
-  }
-}
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);

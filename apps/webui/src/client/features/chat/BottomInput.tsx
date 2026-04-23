@@ -1,6 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
-import { useActiveUsage } from "@/client/entities/agent-state/index.js";
+import {
+  useActiveUsage,
+  useHostEventSubscription,
+  type HostEvent,
+} from "@/client/entities/agent-state/index.js";
 import { useActiveSessionSelection } from "@/client/entities/session/index.js";
 import {
   notificationPermission,
@@ -10,10 +14,6 @@ import { localStore } from "@/client/shared/storage.js";
 import { useConfig, useCurrentModel, DEFAULT_CONTEXT_WINDOW } from "@/client/entities/config/index.js";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import {
-  useRendererActionState,
-  useRendererActionDispatch,
-} from "@/client/entities/renderer/index.js";
 import { useStreaming } from "./useStreaming.js";
 import { useSession } from "./useSession.js";
 import { useSlashCommands } from "./useSlashCommands.js";
@@ -34,8 +34,6 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const { t } = useI18n();
   const { send, isStreaming } = useStreaming();
   const { create } = useSession();
-  const rendererAction = useRendererActionState();
-  const rendererActionDispatch = useRendererActionDispatch();
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashCommands(text, setText);
@@ -60,26 +58,18 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     textareaRef.current?.focus();
   }, [selection.openSessionId]);
 
-  // Handle renderer actions (send / fill)
-  useEffect(() => {
-    const action = rendererAction.pending;
-    if (!action) return;
-    rendererActionDispatch({ type: "CLEAR" });
-
-    if (action.type === "fill") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- renderer action은 외부 시스템 이벤트 처리
-      setText(action.text);
+  // Fill events originate from renderer POST /actions/fill; the server fans
+  // them out to us as `fill_input` on the state SSE channel. `send` no longer
+  // needs a host path — the server dispatches directly to the agent.
+  const handleHostEvent = useCallback(
+    (ev: HostEvent) => {
+      if (ev.type !== "fill_input") return;
+      setText(ev.text);
       textareaRef.current?.focus();
-    } else if (action.type === "send") {
-      if (!selection.openSessionId) {
-        void create().then((sess) => {
-          if (sess) void send(action.text, sess.id);
-        });
-      } else {
-        void send(action.text);
-      }
-    }
-  }, [rendererAction.pending, rendererActionDispatch, selection.openSessionId, create, send]);
+    },
+    [],
+  );
+  useHostEventSubscription(handleHostEvent);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();

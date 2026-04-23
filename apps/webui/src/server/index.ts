@@ -22,6 +22,9 @@ import { createAgentService } from "./services/agent.service.js";
 import { createTemplateService } from "./services/template.service.js";
 import { createSkillService } from "./services/skill.service.js";
 import { createUpdateService } from "./services/update.service.js";
+import { createStateService } from "./services/state.service.js";
+import { createActionsService } from "./services/actions.service.js";
+import { createProjectConfigService } from "./services/project-config.service.js";
 
 // --- Migrations ---
 import { migrateConversationsToSessions } from "./migrations/rename-conversations-to-sessions.js";
@@ -31,6 +34,7 @@ import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
 import { createTemplateRoutes } from "./routes/template.routes.js";
 import { createUpdateRoutes } from "./routes/update.routes.js";
+import { createHostRoutes } from "./routes/host.routes.js";
 
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
@@ -71,9 +75,21 @@ const agentContext = createAgentContext({
   },
 });
 const sessionService = createSessionService(agentContext);
-const agentService = createAgentService(agentContext, async () => {
+const stateService = createStateService(agentContext);
+const agentService = createAgentService(agentContext, stateService, async () => {
   await configService.ensureOAuthToken(configService.getConfig().provider);
 });
+const actionsService = createActionsService({
+  stateService,
+  triggerSend: async (slug, text) => {
+    const sessionId = stateService.currentSessionId(slug);
+    if (!sessionId) return;
+    const snapshot = await agentContext.storage.loadSnapshot(slug, sessionId);
+    const parentNodeId = snapshot?.session.activeLeafId ?? null;
+    await agentService.sendMessage(slug, sessionId, parentNodeId, text);
+  },
+});
+const projectConfigService = createProjectConfigService(PROJECTS_DIR);
 
 // ===== 3. Bootstrap =====
 await templateRepo.ensureDir();
@@ -100,10 +116,14 @@ app.use("/api/*", async (c, next) => {
   c.set("templateService", templateService);
   c.set("skillService", skillService);
   c.set("updateService", updateService);
+  c.set("stateService", stateService);
+  c.set("actionsService", actionsService);
+  c.set("projectConfigService", projectConfigService);
   await next();
 });
 
 // ===== 5. Routes =====
+app.route("/api/host", createHostRoutes());
 app.route("/api/projects", createProjectRoutes());
 app.route("/api/config", createConfigRoutes());
 app.route("/api/templates", createTemplateRoutes());

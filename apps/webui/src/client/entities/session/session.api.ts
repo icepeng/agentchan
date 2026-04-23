@@ -1,8 +1,5 @@
-import type { AgentEvent } from "@agentchan/creative-agent";
-import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
+import { json, BASE } from "@/client/shared/api.js";
 import type { Session, TreeNode } from "./session.types.js";
-
-export type { AgentEvent };
 
 // --- Sessions ---
 
@@ -61,50 +58,13 @@ export function switchBranch(
   });
 }
 
-// --- SSE Message Stream ---
-
-export interface SSECallbacks {
-  onUserNode: (node: TreeNode) => void;
-  onAgentEvent: (event: AgentEvent) => void;
-  onAssistantNodes: (nodes: TreeNode[]) => void;
-  onDone: () => void;
-  onError: (message: string) => void;
-}
-
-function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): void {
-  try {
-    switch (event) {
-      case "user_node":
-        callbacks.onUserNode(JSON.parse(data));
-        break;
-      case "agent_event":
-        callbacks.onAgentEvent(JSON.parse(data));
-        break;
-      case "assistant_nodes":
-        callbacks.onAssistantNodes(JSON.parse(data));
-        break;
-      case "done":
-        callbacks.onDone();
-        break;
-      case "error": {
-        const parsed = data ? JSON.parse(data) : { message: "Unknown error" };
-        callbacks.onError(parsed.message);
-        break;
-      }
-    }
-  } catch (e) {
-    console.error("SSE parse error:", e, event, data);
-  }
-}
-
 function isAbortError(err: unknown): boolean {
   return err instanceof Error && (err.name === "AbortError" || err.name === "DOMException");
 }
 
-async function postSSE(
+async function postJson(
   url: string,
   body: Record<string, unknown>,
-  callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
   try {
@@ -114,21 +74,20 @@ async function postSSE(
       body: JSON.stringify(body),
       signal,
     });
-
-    if (!res.ok || !res.body) {
+    if (!res.ok) {
       let detail = `HTTP ${res.status}`;
-      try { const b = await res.json(); if (b?.error) detail = b.error; } catch { /* use default */ }
-      callbacks.onError(detail);
-      return;
+      try {
+        const b = await res.json();
+        if (b?.error) detail = b.error;
+      } catch {
+        /* use default */
+      }
+      throw new Error(detail);
     }
-
-    await parseSSEStream(res.body, (event, data) =>
-      handleSSEEvent(event, data, callbacks),
-    );
   } catch (err) {
-    // Aborted fetches are expected on user cancel / project delete — don't surface as error.
+    // Aborted fetches are expected on user cancel / project delete.
     if (isAbortError(err) || signal?.aborted) return;
-    callbacks.onError(err instanceof Error ? err.message : String(err));
+    throw err;
   }
 }
 
@@ -173,13 +132,11 @@ export function sendMessage(
   sessionId: string,
   parentNodeId: string | null,
   text: string,
-  callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  return postSSE(
+  return postJson(
     `${BASE}${projectBase(projectSlug)}/${sessionId}/messages`,
     { parentNodeId, text },
-    callbacks,
     signal,
   );
 }
@@ -188,13 +145,11 @@ export function regenerateResponse(
   projectSlug: string,
   sessionId: string,
   userNodeId: string,
-  callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  return postSSE(
+  return postJson(
     `${BASE}${projectBase(projectSlug)}/${sessionId}/regenerate`,
     { userNodeId },
-    callbacks,
     signal,
   );
 }

@@ -100,22 +100,81 @@ apps/webui/data/
 ```
 
 ## Renderer System
-- Contract: `export function render(ctx: RenderContext): string` — `RenderContext { files: ProjectFile[], baseUrl: string, state: AgentState }`, HTML 반환. `ProjectFile = TextFile | BinaryFile` (TextFile: `path`, `content`, `frontmatter`, `modifiedAt`)
-- 렌더러는 독립 transpile되므로 `RenderContext` 등 타입을 파일 내에 inline 선언 (import 불가)
-- **Server**: TS→JS transpile only (`Bun.Transpiler`). 실행하지 않음 · **Client**: Blob URL로 dynamic import하여 `render(ctx)` 실행 (`entities/renderer/useOutput.ts`). 프로젝트 전환/스트리밍 완료 시 full refresh + 스트리밍 중 rAF 주기로 state-only refresh(`useOutput.refreshState` — 네트워크 fetch 없이 스냅샷 재사용)
-- `ctx.baseUrl`로 프로젝트 에셋 URL 구성 (예: `ctx.baseUrl + "/files/characters/elara-brightwell/assets/avatar"`). `/files/:path` 라우트는 확장자 없는 경로에 대해 이미지 확장자 탐색 폴백 지원
-- Image tokens: `[name:path]` — 렌더러가 frontmatter의 `name` 필드로 캐릭터를 매칭하여 resolve
-- `renderer.ts` 부재 또는 render 실패 시 error HTML 표시
-- **렌더러는 순수 함수** — `(files, state) → HTML`. skills, SYSTEM.md에는 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터, `role: persona`면 사용자 페르소나)
-- **Renderer owns viewport** — `RenderedView`에 외부 padding 없음. 렌더러가 viewport edge-to-edge 소유. 필요한 간격/정렬은 렌더러 내부 `<style>`에서 (예: `.root { max-width: 680px; margin: 0 auto; padding: 24px }`). 풀블리드 배경·그라디언트·헤로 레이아웃 가능
-- **Renderer theme export** — 렌더러가 `export function theme(ctx: RenderContext): { base, dark?, prefersScheme? }`를 선언하면 프로젝트 페이지 한정으로 전역 `--color-*` 오버라이드 (Sidebar/AgentPanel/BottomInput까지 동조). `render`와 동일하게 매 refresh마다 호출되므로 `ctx.files` 기반 동적 테마 가능 (예: three-winds-ledger가 peace/combat 씬에 맞춰 팔레트 전환). 토큰 이름은 CSS 변수와 1:1 (`void/base/surface/elevated/accent/fg/fg2/fg3/edge`). `prefersScheme` 명시 시 사용자 토글 강제 오버라이드 (Settings 이동 시 자동 해제). 색상만, 폰트는 렌더러 내부 `<style>`에서. 검증·병합은 `entities/renderer/projectTheme.ts`의 `validateTheme` / `resolveThemeVars` (하위 호환: 객체 export도 허용되지만 공식 시그니처는 함수)
-- **Renderer Actions** — 렌더러 HTML에 `data-action` + `data-text` 속성으로 인터랙티브 액션 선언. `data-action="send"` (즉시 전송), `data-action="fill"` (입력창에 채우기). `data-text` 생략 시 `textContent` 사용. 빈 텍스트 무시, 스트리밍 중 send 무시. `entities/renderer/RendererActionContext.tsx`가 cross-feature 브릿지
-- **Renderer State** — `ctx.state: AgentState`는 pi `agent.state`(agent/types.ts:221)의 UI subset이고 AgentPanel과 동일한 인터페이스다. idle 시 `EMPTY_AGENT_STATE = { messages:[], isStreaming:false, pendingToolCalls: new Set() }`. 필드:
-  - `messages: AgentMessage[]` — persisted activePath(meta 노드 제외) + 아직 persist되지 않은 in-flight `ToolResultMessage` 합성. `role: "user" | "assistant" | "toolResult"` 기준으로 분기
-  - `streamingMessage?: AssistantMessage` — 현재 in-flight assistant message. pi `AssistantMessageEvent.partial`이 매 이벤트마다 그대로 들어와 단순 replace됨. content는 시간순으로 [text, toolCall, text, ...] 인터리빙 가능
-  - `pendingToolCalls: ReadonlySet<string>` — 실행 시작은 했지만 결과가 도착하지 않은 toolCall id 집합. 결과가 도착하면 `messages`에 toolResult로 합쳐지고 이 set에서 제거됨
-  - tool 결과를 보려면 `state.messages`에서 `role === "toolResult" && toolCallId === id`로 찾는다 — 별도 result 필드 없음. 진행 중 여부는 `state.pendingToolCalls.has(id)`
-- **State refresh 시 files는 snapshot** — rAF 주기 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷(네트워크 fetch 스킵). 파일 실제 변경은 스트리밍 종료 후 도는 full refresh로 1회 동기화
+
+렌더러는 호스트와 분리된 **iframe 안의 독립 웹 앱**이다. 호스트 React 트리는 `<iframe src="/api/projects/{slug}/renderer/">` 한 줄로만 렌더러를 마운트하고, 렌더러는 서버와 HTTP · SSE · POST 로만 소통한다.
+
+### HTTP 인터페이스
+
+| Endpoint | 용도 |
+|---|---|
+| `GET /api/projects/{slug}/renderer/` | `renderer/index.html` — entry. CSP 헤더 부착 |
+| `GET /api/projects/{slug}/renderer/{path}` | `renderer/{path}` — `.ts`는 type-strip 후 `.js`로 응답 |
+| `GET /api/projects/{slug}/files` | 파일 catalog (content+frontmatter, JSON) |
+| `GET /api/projects/{slug}/files/{path}` | 파일 본문 (이미지 확장자 폴백 포함) |
+| `GET /api/projects/{slug}/state/stream` | **단일 SSE 채널** — AgentState 스냅샷 + patch events |
+| `POST /api/projects/{slug}/state/hydrate` | 현재 열린 세션 지정 (snapshot 재방송 + tsconfig/SKILL sync) |
+| `POST /api/projects/{slug}/actions/{send\|fill\|setTheme}` | 렌더러 → 호스트 RPC |
+| `GET /api/host/tokens.css` | 호스트 디자인 토큰 (옵셔널 import) |
+| `GET /api/host/lib/idiomorph.js` | idiomorph ESM (self origin serve) |
+
+### SSE event 종류
+
+| event | 수신자 | 발행 |
+|---|---|---|
+| `snapshot` | iframe + host | 신규 구독 시 1회, hydrate 시 재방송 |
+| `append` | iframe + host | 메시지 완료 |
+| `streaming` | iframe + host | in-flight assistant partial |
+| `streaming_clear` | iframe + host | 스트리밍 종료 |
+| `tool_pending_set` | iframe + host | pendingToolCalls 변경 |
+| `agent_start` | iframe + host | 에이전트 시작 |
+| `error` | iframe + host | 오류 |
+| `fill_input` | host only | POST /actions/fill → BottomInput |
+| `theme_changed` | host only | POST /actions/setTheme → CSS vars |
+
+파일 변경 신호는 별도 채널 없음 — 렌더러가 `streaming_clear` 시 `/files`를 재fetch.
+
+### 권한 / 격리
+
+1. **sandbox**: `<iframe sandbox="allow-scripts">` → null-origin. parent/storage/cookie 차단
+2. **CORS**: `/api/*` 전역 `Access-Control-Allow-Origin: *`
+3. **CSP** (iframe 응답에 동적 부착): `connect-src 'self'` 고정, `script/style/img/font` 는 `_project.json.renderer.allowedDomains`의 도메인과 self 혼합. `'unsafe-inline'` 허용 (sandbox null-origin이 XSS 영향 범위를 iframe 내로 한정)
+
+외부 CDN import 필요 시 `_project.json` 에 `renderer.allowedDomains: ["esm.sh"]` 처럼 선언 — manifest에 권한을 표면화.
+
+### 폴더 구조 & 타입
+
+```
+projects/{slug}/
+├── tsconfig.json    ← 호스트가 state/hydrate 시 idempotent 관리
+└── renderer/
+    ├── index.html   ← <head>·<body> 전체를 렌더러가 소유
+    ├── index.ts     ← 호스트가 type-strip → .js로 응답
+    └── ...          ← CSS, 이미지, 서브 모듈 자유
+```
+
+타입은 `apps/webui/public/types/renderer.d.ts` 단일 source. 프로젝트의 `tsconfig.json paths` 가 이 파일을 상대 경로 (`../../../public/types/renderer.d.ts`) 로 직접 참조 → install/node_modules 0, 소스 갱신 = 모든 프로젝트 즉시 반영. 렌더러 작성자는 `import type { AgentState, ProjectFile, AgentMessage } from "@agentchan/types"`.
+
+### 렌더러 작성 패턴
+
+- DOM morph default: `import { Idiomorph } from "/api/host/lib/idiomorph.js"` + `Idiomorph.morph(root, html, { morphStyle: "innerHTML" })`
+- 파일: `await fetch("/api/projects/${slug}/files")` → `ProjectFile[]`
+- 상태: `new EventSource("/api/projects/${slug}/state/stream")`, 이벤트별 handler로 module-level `state`/`files` 변수 업데이트
+- 액션: `fetch("POST /api/projects/${slug}/actions/{send|fill|setTheme}", { body: JSON.stringify({ text | theme }) })`
+- `state.pendingToolCalls`는 wire format `string[]` — 렌더러는 `.includes(id)` 로 체크
+
+### 서버 권위 모델
+
+`state.service` 가 프로젝트당 snapshot 유지. 새 구독자에게 `snapshot` event 즉시 1회 송신, 이후 pi `AgentEvent` 를 patch event로 broadcast. 호스트 React app의 AgentPanel도 이 SSE 를 구독하여 iframe과 동일한 state를 본다.
+
+`POST /:id/messages` 는 "트리거" 전용으로 200 응답 (SSE 아님) — 이벤트는 모두 state/stream 으로 흐른다.
+
+### host.routes 자원
+
+`tokens.css` 와 `idiomorph.js` 만 self origin 으로 serve. `tokens.css` 는 `@font-face`·원격 폰트 URL 포함 0 — system fallback. `idiomorph.js` 는 build pre-step (`bun run sync:public`)이 `node_modules/idiomorph/dist/idiomorph.esm.js` 를 `apps/webui/public/lib/` 로 복사.
+
+### 렌더러가 *완전 자율*
+
+프레임워크 선택(vanilla+idiomorph default, lit, React, Vue, three.js), CSS 작성 방식, 외부 의존성 가져오는 방식, 폰트 로드 방식. 호스트는 어느 것도 강제하지 않는다 — CSP 경계만.
 
 ## Session Compact
 - `compactSession()`이 `meta: "compact-summary"` 노드 생성 (microCompact: 토큰 예산 retention). 새 세션 이어가기 지시는 SYSTEM.md 책임. agentchan은 pi와 달리 compact 시 새 session 파일을 만들어 `compactedFrom`으로 이전 session 참조 — 세션 간 계승 모델

@@ -4,12 +4,12 @@ import { UIProvider } from "@/client/entities/ui/index.js";
 import { ProjectSelectionProvider } from "@/client/entities/project/index.js";
 import { SessionSelectionProvider } from "@/client/entities/session/index.js";
 import { AgentStateProvider } from "@/client/entities/agent-state/index.js";
-import {
-  RendererViewProvider,
-  RendererActionProvider,
-} from "@/client/entities/renderer/index.js";
 import { EditorProvider } from "@/client/entities/editor/index.js";
 
+/**
+ * ProjectSelectionProvider must sit above AgentStateProvider — the latter
+ * reads `activeProjectSlug` to decide which state/stream SSE to open.
+ */
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <SwrRoot>
@@ -17,13 +17,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <ProjectSelectionProvider>
           <SessionSelectionProvider>
             <AgentStateProvider>
-              <RendererViewProvider>
-                <RendererActionProvider>
-                  <EditorProvider>
-                    {children}
-                  </EditorProvider>
-                </RendererActionProvider>
-              </RendererViewProvider>
+              <EditorProvider>
+                {children}
+              </EditorProvider>
             </AgentStateProvider>
           </SessionSelectionProvider>
         </ProjectSelectionProvider>

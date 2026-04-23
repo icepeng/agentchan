@@ -1,126 +1,74 @@
-import type { SSEStreamingApi } from "hono/streaming";
 import {
   type AgentContext,
   type SessionEvent,
   runPrompt,
   runRegenerate,
 } from "@agentchan/creative-agent";
+import type { StateService } from "./state.service.js";
 
 /**
- * SSE adapter — forwards pi `AgentEvent` raw under the single `agent_event`
- * wire name and keeps agentchan-specific session persistence events
- * (`user_node`, `assistant_nodes`, `error`, `done`) on their own names.
+ * Wires pi SessionEvent stream into `state.service` so every AgentState
+ * mutation lives in one place. The host HTTP endpoint that triggers
+ * send/regenerate is fire-and-triggered — the request body is small and the
+ * response returns once the agent loop finishes (or the client aborts).
  *
- * `prepareRun` is called before each prompt/regenerate. OAuth providers use it
- * to refresh expired tokens into the DB so the sync `resolveAgentConfig` reads
- * fresh credentials.
+ * Tool results and assistant nodes are persisted by pi-agent-core itself via
+ * the `assistant_nodes` event (handled by storage, not state.service).
  */
 export function createAgentService(
   ctx: AgentContext,
+  stateService: StateService,
   prepareRun: () => Promise<void> = async () => {},
 ) {
+  function dispatchEvent(slug: string, ev: SessionEvent): void {
+    switch (ev.type) {
+      case "user_node":
+        stateService.applyUserNode(slug, ev.node);
+        return;
+      case "agent_event":
+        stateService.applyAgentEvent(slug, ev.event);
+        return;
+      case "error":
+        stateService.applyError(slug, ev.message);
+        return;
+      case "assistant_nodes":
+      case "done":
+        return;
+    }
+  }
+
   return {
     async sendMessage(
-      stream: SSEStreamingApi,
       slug: string,
       sessionId: string,
       parentNodeId: string | null,
       text: string,
       signal?: AbortSignal,
-    ) {
+    ): Promise<void> {
       await prepareRun();
-      const queue = createSerialWriter(stream);
-      try {
-        await runPrompt(
-          ctx,
-          { slug, sessionId, parentNodeId, text },
-          (ev) => queue.push(ev),
-          signal,
-        );
-      } finally {
-        await queue.drain();
-      }
+      await runPrompt(
+        ctx,
+        { slug, sessionId, parentNodeId, text },
+        (ev) => dispatchEvent(slug, ev),
+        signal,
+      );
     },
 
     async regenerate(
-      stream: SSEStreamingApi,
       slug: string,
       sessionId: string,
       userNodeId: string,
       signal?: AbortSignal,
-    ) {
+    ): Promise<void> {
       await prepareRun();
-      const queue = createSerialWriter(stream);
-      try {
-        await runRegenerate(
-          ctx,
-          { slug, sessionId, userNodeId },
-          (ev) => queue.push(ev),
-          signal,
-        );
-      } finally {
-        await queue.drain();
-      }
+      await runRegenerate(
+        ctx,
+        { slug, sessionId, userNodeId },
+        (ev) => dispatchEvent(slug, ev),
+        signal,
+      );
     },
   };
 }
 
 export type AgentService = ReturnType<typeof createAgentService>;
-
-// --- Event → SSE serialization ---
-
-/**
- * Session listeners are sync (called from inside Agent's sync subscribe loop).
- * SSE writes are async. We need a serial queue so back-to-back events
- * don't interleave on the wire.
- */
-function createSerialWriter(stream: SSEStreamingApi) {
-  let chain: Promise<void> = Promise.resolve();
-  function push(ev: SessionEvent): void {
-    chain = chain.then(() => writeSessionEvent(stream, ev)).catch((err) => {
-      console.error("[agent.service] SSE write failed", err);
-    });
-  }
-  function drain(): Promise<void> {
-    return chain;
-  }
-  return { push, drain };
-}
-
-async function writeSessionEvent(
-  stream: SSEStreamingApi,
-  ev: SessionEvent,
-): Promise<void> {
-  switch (ev.type) {
-    case "user_node":
-      await stream.writeSSE({ event: "user_node", data: JSON.stringify(ev.node) });
-      return;
-    case "agent_event": {
-      // user role message_start/end 은 `user_node` SSE 로 별도 채널 — 중복 방지
-      const event = ev.event;
-      if (
-        (event.type === "message_start" || event.type === "message_end") &&
-        event.message.role === "user"
-      ) {
-        return;
-      }
-      await stream.writeSSE({ event: "agent_event", data: JSON.stringify(event) });
-      return;
-    }
-    case "assistant_nodes":
-      await stream.writeSSE({
-        event: "assistant_nodes",
-        data: JSON.stringify(ev.nodes),
-      });
-      return;
-    case "error":
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ message: ev.message }),
-      });
-      return;
-    case "done":
-      await stream.writeSSE({ event: "done", data: "" });
-      return;
-  }
-}

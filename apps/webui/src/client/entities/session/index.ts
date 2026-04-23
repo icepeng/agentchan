@@ -28,10 +28,6 @@ export {
   deleteNode, switchBranch, sendMessage, regenerateResponse, compactSession,
   registerAbortController, clearAbortController, abortProjectStream,
 } from "./session.api.js";
-export type {
-  SSECallbacks,
-  AgentEvent,
-} from "./session.api.js";
 
 export { flattenActivePathToMessages } from "./session.selectors.js";
 

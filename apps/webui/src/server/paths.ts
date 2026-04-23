@@ -12,6 +12,14 @@ export const CLIENT_DIR = isDev
   ? join(devWebUIRoot, "dist/client")
   : join(exeDir, "public");
 
+// Source-of-truth static assets the Hono server serves directly (tokens.css,
+// lib/idiomorph.js, types/renderer.d.ts, skills/build-renderer/SKILL.md).
+// In dev these live in the repo next to vite.config.ts; in the exe they are
+// bundled alongside the binary.
+export const PUBLIC_SOURCE_DIR = isDev
+  ? join(devWebUIRoot, "public")
+  : join(exeDir, "public");
+
 export const DATA_DIR = isDev
   ? join(devWebUIRoot, "data")
   : join(exeDir, "data");

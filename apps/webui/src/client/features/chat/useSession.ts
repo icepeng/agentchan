@@ -2,20 +2,17 @@ import { useCallback } from "react";
 import { useSWRConfig } from "swr";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
-  useAgentStateDispatch,
-} from "@/client/entities/agent-state/index.js";
-import {
   useSessionMutations,
   useActiveSessionSelection,
   useSessionSelectionDispatch,
 } from "@/client/entities/session/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
+import { hydrateState } from "@/client/entities/agent-state/stateApi.js";
 
 export function useSession() {
   const projectSelection = useProjectSelectionState();
   const selection = useActiveSessionSelection();
   const sessionSelectionDispatch = useSessionSelectionDispatch();
-  const agentDispatch = useAgentStateDispatch();
   const slug = projectSelection.activeProjectSlug;
   const mutations = useSessionMutations(slug);
   const { mutate } = useSWRConfig();
@@ -33,15 +30,14 @@ export function useSession() {
 
   const load = (id: string) => {
     if (!slug) return;
-    // Flip selection immediately; `useSessionData(slug, id)` auto-fetches
-    // under the new key. Mirrors `useProject.selectProject`, which flips
-    // `activeProjectSlug` before the sessions-list fetch resolves —
-    // subscribers fall back to empty arrays for the single render gap.
     sessionSelectionDispatch({
       type: "SET_ACTIVE_SESSION",
       projectSlug: slug,
       sessionId: id,
     });
+    // Tell state.service which session is current so it re-broadcasts a
+    // fresh snapshot derived from that session's activePath.
+    void hydrateState(slug, id);
   };
 
   const remove = async (id: string) => {
@@ -53,6 +49,7 @@ export function useSession() {
         projectSlug: slug,
         sessionId: null,
       });
+      void hydrateState(slug, null);
     }
   };
 
@@ -79,22 +76,14 @@ export function useSession() {
   const compact = async () => {
     if (!slug || !selection.openSessionId) return;
     const sessionId = selection.openSessionId;
-    agentDispatch({ type: "START", projectSlug: slug });
-    try {
-      const result = await mutations.compact(sessionId);
-      sessionSelectionDispatch({
-        type: "SET_ACTIVE_SESSION",
-        projectSlug: slug,
-        sessionId: result.session.id,
-      });
-      agentDispatch({ type: "STOP", projectSlug: slug });
-    } catch (err) {
-      agentDispatch({
-        type: "ERROR",
-        projectSlug: slug,
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
+    const result = await mutations.compact(sessionId);
+    sessionSelectionDispatch({
+      type: "SET_ACTIVE_SESSION",
+      projectSlug: slug,
+      sessionId: result.session.id,
+    });
+    // Pull the fresh snapshot over the state SSE channel.
+    await hydrateState(slug, result.session.id);
   };
 
   return {
