@@ -25,7 +25,7 @@
     "eslint": "^10.2.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "husky": "^9.1.7",
-    "portless": "^0.10.1",
+    "portless": "^0.10.3",
     "turbo": "^2.9.6",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1"

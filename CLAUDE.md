@@ -147,13 +147,6 @@ apps/webui/data/
 - 스킬의 `scripts/*.ts`는 self-contained — 스킬 간 헬퍼 공통화 금지, 소량 중복 허용
 - 템플릿 skills → 프로젝트 생성 시 복사. catalog은 system prompt에 위치
 
-### System Prompt 합성
-```
-[1] DEFAULT_SYSTEM_PROMPT (하드코딩)
-[2] SYSTEM.md body (원문 그대로) — meta 세션에서는 SYSTEM.meta.md
-[3] Skill catalog (해당 environment의 스킬만; name+description 자동 생성)
-```
-
 ## Meta Session
 창작 컨텍스트와 분리된 프로젝트 구성 작업(renderer.ts 빌드 등) 전용 세션 모드. 창작 대화를 오염시키지 않기 위해 도입.
 - **Session header**: `mode: "creative" | "meta"` 필드. 기존 세션은 creative로 가정
@@ -192,3 +185,14 @@ apps/webui/data/
 - **Version embedding**: 서버의 `update.service.ts`는 GitHub releases API로 1시간 캐시 체크. `package.json`의 version은 **JSON import로 임베드** (dynamic `readFile` 금지 — bun `--compile` 바이너리 호환)
 - Agent 도구 LLM 가이드는 2층: 시스템 프롬프트(`creative-agent/src/agent/orchestrator.ts`)는 선택 규칙("X 대신 Y", 부재 도구 명시), 각 도구의 `description`은 사용법(파라미터/출력 형식). `tools/edit.ts`의 `DESCRIPTION` 상수가 모범
 - **Tree tool**: 세션 시작 시 에이전트가 프로젝트 구조 파악용으로 사용. 과거 `ls` 도구는 제거됨 — `tree`가 한 번의 호출로 전체 디렉토리를 반환해 반복 호출 비용을 줄임
+
+## Browser Automation
+
+Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
+
+Core workflow:
+
+1. `agent-browser open <url>` - Navigate to page
+2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
+3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
+4. Re-snapshot after page changes

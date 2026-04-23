@@ -4,7 +4,7 @@
     "agent-browser": {
       "source": "vercel-labs/agent-browser",
       "sourceType": "github",
-      "computedHash": "9757e62a964103e0b5659ccae7aab3ee893957e2c7f2a9a872851773d06efe7e"
+      "computedHash": "c19a532a3777698b80b35270939a1dc559da451381971b3e1e78174d1ab54863"
     },
     "dogfood": {
       "source": "vercel-labs/agent-browser",
@@ -14,12 +14,12 @@
     "vercel-composition-patterns": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "10eb4ec94577b79ae98c63ce3e7f35f8a6a06436a4011bff083b397de6960eeb"
+      "computedHash": "575757e3e25761c8c562d6e395d29f0b76c98b1273c0bd72d88e6ab1bc9c7d42"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
-      "computedHash": "184db86b99c0c5204247f497605b0e5be9f3b31b4a062a81244668d3ae98f32b"
+      "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
     }
   }
 }
