@@ -61,7 +61,7 @@ export function createTemplateService(templateRepo: TemplateRepo, projectsDir: s
       const copies: Promise<void>[] = [];
       const readmeSrc = join(srcDir, "README.md");
       const readmeWasCopied = existsSync(readmeSrc);
-      for (const file of ["SYSTEM.md", "renderer.ts", "renderer.tsx", "README.md"] as const) {
+      for (const file of ["SYSTEM.md", "renderer.tsx", "README.md"] as const) {
         const src = join(srcDir, file);
         if (existsSync(src)) {
           copies.push(cp(src, join(destDir, file)));

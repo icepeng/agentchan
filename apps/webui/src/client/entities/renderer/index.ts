@@ -27,5 +27,4 @@ export {
 } from "./RendererActionContext.js";
 export type { RendererActionState } from "./RendererActionContext.js";
 
-export { useOutput } from "./useOutput.js";
 export { useRendererModule, type RendererModule } from "./useRendererModule.js";

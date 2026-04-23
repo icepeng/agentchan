@@ -28,10 +28,10 @@
 - **Layout**: Split-pane — left: rendered output, right: agent chat (collapsible), bottom: input
 - **Routing**: State-based via `currentPage` in `entities/ui/UIContext.tsx` (no react-router). Pages: main, templates, settings
 - **ViewMode**: `"chat" | "edit"` — UIContext에서 관리. Edit mode는 AgentPanel 헤더에서 토글
-- **Renderer system**: Per-project `renderer.ts` — server에서 TS→JS transpile, client에서 Blob URL dynamic import로 실행
-- **Templates**: 프로젝트 생성용 프리셋 목록 (`data/library/templates/`). `README.md` frontmatter(name/description) + SYSTEM.md + skills/ + renderer.ts + files/. 사용자 지정 순서는 `_order.json`에 저장 (파일시스템이 진실, order는 힌트)
+- **Renderer system**: Per-project `renderer.tsx` — server에서 TSX→JS transpile(classic JSX), client에서 Blob URL dynamic import로 React 컴포넌트 마운트
+- **Templates**: 프로젝트 생성용 프리셋 목록 (`data/library/templates/`). `README.md` frontmatter(name/description) + SYSTEM.md + skills/ + renderer.tsx + files/. 사용자 지정 순서는 `_order.json`에 저장 (파일시스템이 진실, order는 힌트)
 - **Parallel streaming**: 프로젝트 단위 동시 스트리밍. 런타임 상태는 3개 Context로 분해 — `StreamContext`(projectSlug→stream 슬롯 Map), `SessionSelectionContext`(projectSlug→openSessionId + replyToNodeId Map), `RendererViewContext`(현재 보이는 프로젝트의 html/theme singleton). active 여부는 `ProjectSelectionContext.activeProjectSlug`와 조합해 `useActiveStream` 등의 셀렉터가 결정. 서버는 `c.req.raw.signal`을 Agent.abort()에 연결, 탭 닫기/fetch abort 시 정리. 백그라운드 완료 시 Notification API + 탭 타이틀 배지 + Sidebar unseen 인디케이터 (권한 거부 시 graceful fallback)
-- **Project Settings**: name/notes 편집 모달. SYSTEM.md/skills/renderer.ts 편집은 Edit Mode에서 직접 수행
+- **Project Settings**: name/notes 편집 모달. SYSTEM.md/skills/renderer.tsx 편집은 Edit Mode에서 직접 수행
 - **Cover images**: 프로젝트/템플릿 루트의 `COVER.{webp,png,jpg,...}` 파일 자동 인식. `probeCover()` (in `paths.ts`)가 단일 유틸, `hasCover` 필드는 list API에서 computed (disk 미저장). `GET /api/projects/:slug/cover`, `GET /api/templates/:slug/cover` 엔드포인트 제공
 
 ## Server Layer Architecture (Route → Service → Repository)
@@ -100,22 +100,22 @@ apps/webui/data/
 ```
 
 ## Renderer System
-- Contract: `export function render(ctx: RenderContext): string` — `RenderContext { files: ProjectFile[], baseUrl: string, state: AgentState }`, HTML 반환. `ProjectFile = TextFile | BinaryFile` (TextFile: `path`, `content`, `frontmatter`, `modifiedAt`)
-- 렌더러는 독립 transpile되므로 `RenderContext` 등 타입을 파일 내에 inline 선언 (import 불가)
-- **Server**: TS→JS transpile only (`Bun.Transpiler`). 실행하지 않음 · **Client**: Blob URL로 dynamic import하여 `render(ctx)` 실행 (`entities/renderer/useOutput.ts`). 프로젝트 전환/스트리밍 완료 시 full refresh + 스트리밍 중 rAF 주기로 state-only refresh(`useOutput.refreshState` — 네트워크 fetch 없이 스냅샷 재사용)
-- `ctx.baseUrl`로 프로젝트 에셋 URL 구성 (예: `ctx.baseUrl + "/files/characters/elara-brightwell/assets/avatar"`). `/files/:path` 라우트는 확장자 없는 경로에 대해 이미지 확장자 탐색 폴백 지원
+- Contract: `export default function Renderer(props: RendererProps): ReactElement` in `renderer.tsx`. `RendererProps { state: AgentState, files: ProjectFile[], slug, baseUrl, actions: RendererActions }`. `ProjectFile = TextFile | DataFile | BinaryFile`
+- 렌더러는 독립 transpile되므로 `RendererProps` 등 타입을 파일 내에 inline 선언 (값 export만 공유된다)
+- **Server**: TSX→JS transpile (`Bun.Transpiler`, classic JSX + `__rendererJsx.h`) · **Client**: `entities/renderer/useRendererModule.ts`가 Blob URL로 dynamic import + module 캐싱. Shadow DOM(`RendererShadowHost`) 안에 React 서브트리로 마운트되어, React 재조정이 스트리밍 state 업데이트·이미지 fallback·애니메이션을 전담. `ErrorBoundary`는 slug+js.length를 key로 쓰므로 편집 저장 시 자동 reset
+- **React 브릿지** — Blob URL import는 Vite를 거치지 않으므로 `react/jsx-runtime`도, `import { useState } from "react"`도 로컬로 해석 불가. host가 `jsxRuntimeBridge.ts`에서 `globalThis.__rendererJsx` / `globalThis.__rendererReact`를 publish하고, 서버 transpile이 `import … from "react"` 값 import를 `const { … } = globalThis.__rendererReact`로 재작성한다. 타입 import는 전처리 단계에서 이미 제거됨
+- `props.baseUrl`로 프로젝트 에셋 URL 구성 (예: `props.baseUrl + "/files/characters/elara-brightwell/assets/avatar"`). `/files/:path` 라우트는 확장자 없는 경로에 대해 이미지 확장자 탐색 폴백 지원
 - Image tokens: `[name:path]` — 렌더러가 frontmatter의 `name` 필드로 캐릭터를 매칭하여 resolve
-- `renderer.ts` 부재 또는 render 실패 시 error HTML 표시
-- **렌더러는 순수 함수** — `(files, state) → HTML`. skills, SYSTEM.md에는 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터, `role: persona`면 사용자 페르소나)
+- `renderer.tsx` 부재 또는 default export 누락 시 error boundary 표시
+- **렌더러는 React 컴포넌트** — `(state, files) → JSX`. skills, SYSTEM.md에는 접근 불가. 도메인 모델(ChatLine, ChatGroup 등)은 렌더러 안에서만 존재. duck typing으로 파일 역할 판단 (frontmatter에 `display-name`이 있으면 캐릭터, `role: persona`면 사용자 페르소나)
 - **Renderer owns viewport** — `RenderedView`에 외부 padding 없음. 렌더러가 viewport edge-to-edge 소유. 필요한 간격/정렬은 렌더러 내부 `<style>`에서 (예: `.root { max-width: 680px; margin: 0 auto; padding: 24px }`). 풀블리드 배경·그라디언트·헤로 레이아웃 가능
-- **Renderer theme export** — 렌더러가 `export function theme(ctx: RenderContext): { base, dark?, prefersScheme? }`를 선언하면 프로젝트 페이지 한정으로 전역 `--color-*` 오버라이드 (Sidebar/AgentPanel/BottomInput까지 동조). `render`와 동일하게 매 refresh마다 호출되므로 `ctx.files` 기반 동적 테마 가능 (예: three-winds-ledger가 peace/combat 씬에 맞춰 팔레트 전환). 토큰 이름은 CSS 변수와 1:1 (`void/base/surface/elevated/accent/fg/fg2/fg3/edge`). `prefersScheme` 명시 시 사용자 토글 강제 오버라이드 (Settings 이동 시 자동 해제). 색상만, 폰트는 렌더러 내부 `<style>`에서. 검증·병합은 `entities/renderer/projectTheme.ts`의 `validateTheme` / `resolveThemeVars` (하위 호환: 객체 export도 허용되지만 공식 시그니처는 함수)
-- **Renderer Actions** — 렌더러 HTML에 `data-action` + `data-text` 속성으로 인터랙티브 액션 선언. `data-action="send"` (즉시 전송), `data-action="fill"` (입력창에 채우기). `data-text` 생략 시 `textContent` 사용. 빈 텍스트 무시, 스트리밍 중 send 무시. `entities/renderer/RendererActionContext.tsx`가 cross-feature 브릿지
-- **Renderer State** — `ctx.state: AgentState`는 pi `agent.state`(agent/types.ts:221)의 UI subset이고 AgentPanel과 동일한 인터페이스다. idle 시 `EMPTY_AGENT_STATE = { messages:[], isStreaming:false, pendingToolCalls: new Set() }`. 필드:
+- **Renderer theme export** — 렌더러가 `export function theme(ctx): { base, dark?, prefersScheme? }`를 선언하면 프로젝트 페이지 한정으로 전역 `--color-*` 오버라이드 (Sidebar/AgentPanel/BottomInput까지 동조). `ctx.files` 기반 동적 테마 가능 (예: three-winds-ledger가 peace/combat 씬에 맞춰 팔레트 전환). 토큰 이름은 CSS 변수와 1:1 (`void/base/surface/elevated/accent/fg/fg2/fg3/edge`). `prefersScheme` 명시 시 사용자 토글 강제 오버라이드 (Settings 이동 시 자동 해제). 색상만, 폰트는 렌더러 내부 `<style>`에서. 검증·병합은 `entities/renderer/projectTheme.ts`의 `validateTheme` / `resolveThemeVars` (하위 호환: 객체 export도 허용되지만 공식 시그니처는 함수)
+- **Renderer Actions** — `props.actions.send(text)` / `props.actions.fill(text)`를 JSX 이벤트 핸들러에서 직접 호출. 트림 결과가 빈 문자열이면 무시, 스트리밍 중 send는 host가 무시. `entities/renderer/RendererActionContext.tsx`가 cross-feature 브릿지
+- **Renderer State** — `props.state: AgentState`는 pi `agent.state`(agent/types.ts:221)의 UI subset이고 AgentPanel과 동일한 인터페이스다. idle 시 `EMPTY_AGENT_STATE = { messages:[], isStreaming:false, pendingToolCalls: new Set() }`. 필드:
   - `messages: AgentMessage[]` — persisted activePath(meta 노드 제외) + 아직 persist되지 않은 in-flight `ToolResultMessage` 합성. `role: "user" | "assistant" | "toolResult"` 기준으로 분기
   - `streamingMessage?: AssistantMessage` — 현재 in-flight assistant message. pi `AssistantMessageEvent.partial`이 매 이벤트마다 그대로 들어와 단순 replace됨. content는 시간순으로 [text, toolCall, text, ...] 인터리빙 가능
   - `pendingToolCalls: ReadonlySet<string>` — 실행 시작은 했지만 결과가 도착하지 않은 toolCall id 집합. 결과가 도착하면 `messages`에 toolResult로 합쳐지고 이 set에서 제거됨
   - tool 결과를 보려면 `state.messages`에서 `role === "toolResult" && toolCallId === id`로 찾는다 — 별도 result 필드 없음. 진행 중 여부는 `state.pendingToolCalls.has(id)`
-- **State refresh 시 files는 snapshot** — rAF 주기 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷(네트워크 fetch 스킵). 파일 실제 변경은 스트리밍 종료 후 도는 full refresh로 1회 동기화
 
 ## Session Compact
 - `compactSession()`이 `meta: "compact-summary"` 노드 생성 (microCompact: 토큰 예산 retention). 새 세션 이어가기 지시는 SYSTEM.md 책임. agentchan은 pi와 달리 compact 시 새 session 파일을 만들어 `compactedFrom`으로 이전 session 참조 — 세션 간 계승 모델
@@ -137,7 +137,7 @@ apps/webui/data/
 
 **판단 기준**: 해당 문장을 지워도 LLM 행동이 동일한가? 동일하면 덜어낸다. 제약·엣지케이스(총합 6, 음수 허용, 변동 없으면 write 생략)는 행동을 바꾸므로 남긴다.
 
-### renderer.ts 작성 규칙
+### renderer.tsx 작성 규칙
 
 - 한국어가 들어갈 가능성이 있는 영역에는 절대 monospace 폰트를 사용하지 않는다.
 
@@ -155,13 +155,13 @@ apps/webui/data/
 ```
 
 ## Meta Session
-창작 컨텍스트와 분리된 프로젝트 구성 작업(renderer.ts 빌드 등) 전용 세션 모드. 창작 대화를 오염시키지 않기 위해 도입.
+창작 컨텍스트와 분리된 프로젝트 구성 작업(renderer.tsx 빌드 등) 전용 세션 모드. 창작 대화를 오염시키지 않기 위해 도입.
 - **Session header**: `mode: "creative" | "meta"` 필드. 기존 세션은 creative로 가정
 - **Skill environment**: 스킬 frontmatter `environment: meta | creative` (기본 creative). `orchestrator.ts`가 세션 모드에 맞는 스킬만 catalog에 노출
 - **System prompt**: meta 세션은 `SYSTEM.meta.md` 사용 (없으면 빈 값)
 - **Tools**: meta 세션에만 `validate-renderer` 도구 추가 등록 — transpile/export/runtime 3단계 에러 격리로 렌더러 검증
 - **자동 생성**: creative 세션에서 meta 스킬 슬래시 커맨드(`/build-renderer` 등) 입력 시 클라이언트가 자동으로 meta 세션 생성 + 전환 (`tryExecuteCommand`). SessionTabs에 meta 세션은 ⚙ 아이콘으로 표시
-- **대표 meta 스킬**: `build-renderer` — 모든 템플릿에 배포되는 renderer.ts 생성·수정 워크플로우
+- **대표 meta 스킬**: `build-renderer` — 모든 템플릿에 배포되는 renderer.tsx 생성·수정 워크플로우
 
 ## Example Data
 - `example_data/`가 source of truth(git에 커밋), `apps/webui/data/`는 gitignored 런타임. **내용 변경은 `example_data/`에만** 가한다

@@ -1,8 +1,21 @@
+import type { ReactElement } from "react";
+
+// ── Inline type declarations (renderer transpile 독립) ──────────
+
 interface TextFile {
   type: "text";
   path: string;
   content: string;
   frontmatter: Record<string, unknown> | null;
+  modifiedAt: number;
+}
+
+interface DataFile {
+  type: "data";
+  path: string;
+  content: string;
+  data: unknown;
+  format: "yaml" | "json";
   modifiedAt: number;
 }
 
@@ -12,12 +25,22 @@ interface BinaryFile {
   modifiedAt: number;
 }
 
-type ProjectFile = TextFile | BinaryFile;
+type ProjectFile = TextFile | DataFile | BinaryFile;
 
-// pi-ai content blocks (inline — 렌더러는 별도 transpile되어 import 불가)
-interface TextContent { type: "text"; text: string }
-interface ThinkingContent { type: "thinking"; thinking: string }
-interface ImageContent { type: "image"; data: string; mimeType: string }
+// pi-ai content blocks (inline)
+interface TextContent {
+  type: "text";
+  text: string;
+}
+interface ThinkingContent {
+  type: "thinking";
+  thinking: string;
+}
+interface ImageContent {
+  type: "image";
+  data: string;
+  mimeType: string;
+}
 interface ToolCall {
   type: "toolCall";
   id: string;
@@ -47,7 +70,6 @@ interface ToolResultMessage {
 }
 type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
 
-// pi `AgentState`(agent/types.ts:221) UI subset — AgentPanel과 공유.
 interface AgentState {
   readonly messages: ReadonlyArray<AgentMessage>;
   readonly isStreaming: boolean;
@@ -56,13 +78,7 @@ interface AgentState {
   readonly errorMessage?: string;
 }
 
-interface RenderContext {
-  files: ProjectFile[];
-  baseUrl: string;
-  state: AgentState;
-}
-
-// ── Renderer theme contract (inline — 렌더러는 별도 transpile되어 import 불가) ──
+// ── Renderer theme contract ──────────────────────────────────
 
 interface RendererThemeTokens {
   void?: string;
@@ -82,17 +98,30 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
+// ── Renderer props (React component contract) ────────────────
+
+interface RendererActions {
+  send(text: string): void;
+  fill(text: string): void;
+  setTheme(theme: unknown): void;
+}
+
+interface RendererProps {
+  state: AgentState;
+  files: ProjectFile[];
+  slug: string;
+  baseUrl: string;
+  actions: RendererActions;
+}
+
 // ── Character meta (hardcoded for this template) ────────
-//
-// 경계 ↔ 신뢰 단일 축을 세 NPC가 공유한다.
-// 값이 낮을수록 경계(−5), 높을수록 신뢰(+5). 모든 캐릭터 동일 방향.
 
 interface CharacterMeta {
   name: string;
   color: string;
-  sigil: string; // case-file role, mono tag
-  rolePhrase: string; // one-line profile
-  quirk: string; // signature physical detail for hover
+  sigil: string;
+  rolePhrase: string;
+  quirk: string;
 }
 
 const CHARACTER_META: Record<string, CharacterMeta> = {
@@ -121,31 +150,28 @@ const CHARACTER_META: Record<string, CharacterMeta> = {
 
 const CHARACTER_ORDER = ["iseo", "hangyeol", "minji"];
 
-// 통일된 단일 축: 경계 ↔ 신뢰 (모든 NPC 공유)
 const METRIC_LABEL = "경계↔신뢰";
-const METRIC_POLES: [string, string] = ["경계", "신뢰"]; // [−5, +5]
+const METRIC_POLES: [string, string] = ["경계", "신뢰"];
 const METRIC_DESCRIPTIONS: [string, string, string] = [
   "GUARDED — 적극적 경계",
   "NEUTRAL — 피상적 협력",
   "TRUSTED — 깊은 신뢰",
-]; // [−5, 0, +5]
+];
 
 // ── Renderer-owned theme ─────────────────────
-// 렌더러가 STYLES 안에서 이미 선언한 --ms-* 팔레트를 앱 전역 --color-* 토큰으로 전파한다.
-// 값을 새로 결정하지 않고, 각 --ms-* 역할을 가장 가까운 --color-* 슬롯에 매핑.
-// prefersScheme: "dark"로 프로젝트 페이지에서만 다크 강제 (Settings 이동 시 자동 복귀).
-export function theme(_ctx: RenderContext): RendererTheme {
+
+export function theme(): RendererTheme {
   return {
     base: {
-      void: "#0a0e14", // = --ms-bg
-      base: "#0e1319", // = --ms-panel
-      surface: "#141b25", // = --ms-panel-raised
-      elevated: "#18202c", // = --ms-panel-hover
-      accent: "#d4a574", // = --ms-warm (경계/주의 포인트)
-      fg: "#e6e2d7", // = --ms-ink
-      fg2: "#a6a198", // = --ms-ink-2
-      fg3: "#6f6d67", // = --ms-ink-3
-      edge: "#c8d2e6", // --ms-edge-strong의 base 색 (alpha 제거)
+      void: "#0a0e14",
+      base: "#0e1319",
+      surface: "#141b25",
+      elevated: "#18202c",
+      accent: "#d4a574",
+      fg: "#e6e2d7",
+      fg2: "#a6a198",
+      fg3: "#6f6d67",
+      edge: "#c8d2e6",
     },
     prefersScheme: "dark",
   };
@@ -166,19 +192,12 @@ const CHARACTER_COLORS = [
 
 // ── Helpers ──────────────────────────────────
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 function resolveImageUrl(
-  ctx: RenderContext,
+  baseUrl: string,
   dir: string,
   imageKey: string,
 ): string {
-  return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
+  return `${baseUrl}/files/${dir}/${imageKey}`;
 }
 
 function clampStat(n: number): number {
@@ -197,8 +216,6 @@ function pad2(n: number): string {
   return n.toString().padStart(2, "0");
 }
 
-// 경계↔신뢰 값을 내러티브 상태로 매핑.
-// 모든 캐릭터 동일 방향(+5 = 신뢰 = cool, −5 = 경계 = warm/danger).
 function statusTier(value: number): {
   tier: "positive" | "aligned" | "neutral" | "strained" | "critical";
   tone: "cool" | "warm" | "neutral" | "danger";
@@ -210,7 +227,6 @@ function statusTier(value: number): {
   return { tier: "critical", tone: "danger" };
 }
 
-// METRIC_DESCRIPTIONS에서 대문자 단어만 뽑아 상태 라벨로.
 function statusWord(value: number): string {
   const descIdx = value === 0 ? 1 : value > 0 ? 2 : 0;
   const desc = METRIC_DESCRIPTIONS[descIdx];
@@ -221,7 +237,13 @@ function statusWord(value: number): string {
 // ── Chat Types ──────────────────────────────
 
 interface ChatLine {
-  type: "user" | "character" | "narration" | "divider" | "stat-change" | "image";
+  type:
+    | "user"
+    | "character"
+    | "narration"
+    | "divider"
+    | "stat-change"
+    | "image";
   characterName?: string;
   charDir?: string;
   imageKey?: string;
@@ -229,7 +251,13 @@ interface ChatLine {
 }
 
 interface ChatGroup {
-  type: "user" | "character" | "narration" | "divider" | "stat-change" | "image";
+  type:
+    | "user"
+    | "character"
+    | "narration"
+    | "divider"
+    | "stat-change"
+    | "image";
   characterName?: string;
   charDir?: string;
   imageKey?: string;
@@ -244,9 +272,9 @@ interface NameMapEntry {
   color?: string;
 }
 
-function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
+function buildNameMap(files: ProjectFile[]): Map<string, NameMapEntry> {
   const map = new Map<string, NameMapEntry>();
-  for (const file of ctx.files) {
+  for (const file of files) {
     if (file.type !== "text" || !file.frontmatter) continue;
     const fm = file.frontmatter;
     if (!fm["avatar-image"]) continue;
@@ -281,59 +309,109 @@ function resolveAvatar(
   return { ...line, charDir: entry.dir, imageKey: entry.avatarImage };
 }
 
-// ── Inline formatting ───────────────────────
+// ── Inline formatting (React) ───────────────
+
+function formatInline(text: string): (string | ReactElement)[] {
+  const parts: (string | ReactElement)[] = [];
+  // 1. smart quotes first on the raw text (doesn't conflict with markers)
+  const quoted = text.replace(/"(.+?)"/g, "“$1”");
+  const pattern = /\*\*(.+?)\*\*|\*(.+?)\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = pattern.exec(quoted)) !== null) {
+    if (match.index > cursor) {
+      parts.push(quoted.slice(cursor, match.index));
+    }
+    if (match[1] !== undefined) {
+      parts.push(<strong key={idx++}>{match[1]}</strong>);
+    } else if (match[2] !== undefined) {
+      parts.push(
+        <em key={idx++} className="ms-stage">
+          {match[2]}
+        </em>,
+      );
+    }
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < quoted.length) parts.push(quoted.slice(cursor));
+  return parts;
+}
+
+function joinLinesWithBr(lines: string[]): ReactElement[] {
+  const out: ReactElement[] = [];
+  lines.forEach((line, i) => {
+    out.push(<span key={`l-${i}`}>{formatInline(line)}</span>);
+    if (i < lines.length - 1) out.push(<br key={`br-${i}`} />);
+  });
+  return out;
+}
+
+// ── Evidence figure ─────────────────────────
 
 interface EvidenceCounter {
   n: number;
 }
 
-function renderEvidenceFigure(
-  ctx: RenderContext,
-  nameMap: Map<string, NameMapEntry>,
-  evidence: EvidenceCounter,
-  slug: string,
-  key: string,
-): string {
+function EvidenceFigure(props: {
+  baseUrl: string;
+  nameMap: Map<string, NameMapEntry>;
+  evidence: EvidenceCounter;
+  slug: string;
+  imageKey: string;
+}): ReactElement {
+  const { baseUrl, nameMap, evidence, slug, imageKey } = props;
   const entry = nameMap.get(slug);
   const dir = entry?.dir ?? slug;
-  const url = resolveImageUrl(ctx, dir, key);
+  const url = resolveImageUrl(baseUrl, dir, imageKey);
   evidence.n += 1;
   const evNum = pad3(evidence.n);
   const hh = pad2(22 + Math.floor((evidence.n - 1) / 6));
   const mm = pad2((evidence.n * 7) % 60);
   const ss = pad2((evidence.n * 23) % 60);
   const charName = entry ? (CHARACTER_META[slug]?.name ?? slug) : slug;
-  const emotion = key.replace(/^assets\//, "").replace(/\.[a-z]+$/i, "");
-  const captionEmotion = escapeHtml(emotion.toUpperCase());
-  return `
-      <figure class="ms-evidence" data-ev="${evNum}">
-        <div class="ms-evidence-chrome">
-          <span class="ms-evidence-corner tl"></span>
-          <span class="ms-evidence-corner tr"></span>
-          <span class="ms-evidence-corner bl"></span>
-          <span class="ms-evidence-corner br"></span>
-          <div class="ms-evidence-monitor">
-            <img class="ms-evidence-img" src="${url}" alt="${captionEmotion}" onerror="this.closest('.ms-evidence').style.display='none'" />
-            <span class="ms-evidence-scan"></span>
-            <span class="ms-evidence-rec"><span class="ms-rec-dot"></span>REC · ${hh}:${mm}:${ss}</span>
-            <span class="ms-evidence-id">EV-${evNum}</span>
-          </div>
+  const emotion = imageKey.replace(/^assets\//, "").replace(/\.[a-z]+$/i, "");
+  const captionEmotion = emotion.toUpperCase();
+
+  const onImgError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const fig = (e.currentTarget as HTMLElement).closest(
+      ".ms-evidence",
+    ) as HTMLElement | null;
+    if (fig) fig.style.display = "none";
+  };
+
+  return (
+    <figure className="ms-evidence" data-ev={evNum}>
+      <div className="ms-evidence-chrome">
+        <span className="ms-evidence-corner tl"></span>
+        <span className="ms-evidence-corner tr"></span>
+        <span className="ms-evidence-corner bl"></span>
+        <span className="ms-evidence-corner br"></span>
+        <div className="ms-evidence-monitor">
+          <img
+            className="ms-evidence-img"
+            src={url}
+            alt={captionEmotion}
+            onError={onImgError}
+          />
+          <span className="ms-evidence-scan"></span>
+          <span className="ms-evidence-rec">
+            <span className="ms-rec-dot"></span>REC · {hh}:{mm}:{ss}
+          </span>
+          <span className="ms-evidence-id">EV-{evNum}</span>
         </div>
-        <figcaption class="ms-evidence-caption">
-          <span class="ms-evidence-label">EVIDENCE · ${captionEmotion}</span>
-          <span class="ms-evidence-subject">${escapeHtml(charName)}</span>
-        </figcaption>
-      </figure>`;
+      </div>
+      <figcaption className="ms-evidence-caption">
+        <span className="ms-evidence-label">
+          EVIDENCE · {captionEmotion}
+        </span>
+        <span className="ms-evidence-subject">{charName}</span>
+      </figcaption>
+    </figure>
+  );
 }
 
-function formatInline(text: string): string {
-  return escapeHtml(text)
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/"(.+?)"/g, "\u201c$1\u201d")
-    .replace(/\*(.+?)\*/g, '<em class="ms-stage">$1</em>');
-}
-
-// ── Stat parsing from files/stats.md ─────────
+// ── Stat parsing ────────────────────────────
 
 interface Stats {
   iseo: number;
@@ -341,8 +419,8 @@ interface Stats {
   minji: number;
 }
 
-function parseStats(ctx: RenderContext): Stats {
-  const statsFile = ctx.files.find(
+function parseStats(files: ProjectFile[]): Stats {
+  const statsFile = files.find(
     (f): f is TextFile => f.type === "text" && f.path === "stats.md",
   );
   const fm = statsFile?.frontmatter ?? {};
@@ -365,24 +443,27 @@ function parseStats(ctx: RenderContext): Stats {
 // ── Chat Line Parsing ───────────────────────
 
 const STANDALONE_IMAGE = /^\[([a-z0-9][a-z0-9-]*):(assets\/[^\]]+)\]$/;
-const STAT_CHANGE_LINE = /^\*\s*\u2192\s+(.+?)\s*\*$/; // *→ ... *
+const STAT_CHANGE_LINE = /^\*\s*→\s+(.+?)\s*\*$/;
 
 function parseLine(raw: string): ChatLine | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   if (trimmed === "---") return { type: "divider", text: "" };
 
-  // *→ stat change marker*
   const statMatch = trimmed.match(STAT_CHANGE_LINE);
   if (statMatch) return { type: "stat-change", text: statMatch[1] };
 
   const userMatch = trimmed.match(/^>\s+(.+)$/);
   if (userMatch) return { type: "user", text: userMatch[1] };
 
-  // Emotion illustration — standalone line only.
   const imgMatch = trimmed.match(STANDALONE_IMAGE);
   if (imgMatch)
-    return { type: "image", charDir: imgMatch[1], imageKey: imgMatch[2], text: "" };
+    return {
+      type: "image",
+      charDir: imgMatch[1],
+      imageKey: imgMatch[2],
+      text: "",
+    };
 
   const charMatch = trimmed.match(/^\*\*(.+?)(?:\*\*:|:\*\*)\s*(.*)$/);
   if (charMatch)
@@ -392,7 +473,7 @@ function parseLine(raw: string): ChatLine | null {
       text: charMatch[2],
     };
 
-  const charFallback = trimmed.match(/^([^\s:*][^:]{0,40}):\s*(["*\u201c].*)$/);
+  const charFallback = trimmed.match(/^([^\s:*][^:]{0,40}):\s*(["*“].*)$/);
   if (charFallback)
     return {
       type: "character",
@@ -427,8 +508,7 @@ function groupLines(lines: ChatLine[]): ChatGroup[] {
     if (
       prev &&
       prev.type === line.type &&
-      (line.type !== "character" ||
-        prev.characterName === line.characterName)
+      (line.type !== "character" || prev.characterName === line.characterName)
     ) {
       prev.lines.push(line.text);
     } else {
@@ -448,7 +528,7 @@ interface CharacterInfo {
   color: string;
   sigil: string;
   profileImg: string | null;
-  metaKey: string | null; // key in CHARACTER_META, if matched
+  metaKey: string | null;
 }
 
 interface PersonaInfo {
@@ -462,15 +542,14 @@ function resolveCharacterInfo(
   charDir: string | undefined,
   imageKey: string | undefined,
   displayName: string,
-  ctx: RenderContext,
+  files: ProjectFile[],
+  baseUrl: string,
   nameMap: Map<string, NameMapEntry>,
   fallbackColorMap: Map<string, string>,
 ): CharacterInfo {
   const entry = nameMap.get(displayName);
   const color = entry?.color || fallbackColor(displayName, fallbackColorMap);
 
-  // charDir may come from token `[iseo:...]` as a bare KEY — resolve via nameMap.
-  // Fall back to displayName's entry dir, then to charDir as literal path.
   let resolvedDir: string | undefined;
   if (charDir) {
     const tokenEntry = nameMap.get(charDir);
@@ -479,7 +558,6 @@ function resolveCharacterInfo(
     resolvedDir = entry?.dir;
   }
 
-  // Try to infer meta key from resolvedDir (e.g. "characters/iseo" → "iseo")
   let metaKey: string | null = null;
   if (resolvedDir) {
     const parts = resolvedDir.split("/");
@@ -489,7 +567,7 @@ function resolveCharacterInfo(
 
   let profileImg: string | null = null;
   if (resolvedDir && imageKey) {
-    profileImg = resolveImageUrl(ctx, resolvedDir, imageKey);
+    profileImg = resolveImageUrl(baseUrl, resolvedDir, imageKey);
   }
 
   const sigil = metaKey ? CHARACTER_META[metaKey].sigil : "CIVILIAN · UNK";
@@ -504,10 +582,11 @@ function fallbackColor(name: string, map: Map<string, string>): string {
 }
 
 function resolvePersona(
-  ctx: RenderContext,
+  files: ProjectFile[],
+  baseUrl: string,
   nameMap: Map<string, NameMapEntry>,
 ): PersonaInfo | null {
-  const personaFile = ctx.files.find(
+  const personaFile = files.find(
     (f): f is TextFile =>
       f.type === "text" &&
       f.frontmatter?.role === "persona" &&
@@ -524,13 +603,13 @@ function resolvePersona(
     dir,
     imageKey,
     displayName,
-    ctx,
+    files,
+    baseUrl,
     nameMap,
     isolatedColorMap,
   );
   const color = fm.color ? String(fm.color) : info.color;
 
-  // Sigil: explicit field or derived from `position` (peer/senior/junior/outsider)
   let sigil: string;
   if (fm.sigil) {
     sigil = String(fm.sigil);
@@ -550,45 +629,25 @@ function resolvePersona(
   return { displayName, color, profileImg: info.profileImg, sigil };
 }
 
-// ── Render: Case header (sticky) ─────────────
+// ── Suspect card ─────────────────────────────
 
-function renderCaseHeader(
-  stats: Stats,
-  sectionCount: number,
-  entryCount: number,
-  ctx: RenderContext,
-): string {
-  const today = new Date();
-  const caseNo = `${today.getFullYear().toString().slice(2)}${pad2(today.getMonth() + 1)}${pad2(today.getDate())}`;
-  const suspects = CHARACTER_ORDER.map((key) =>
-    renderSuspectCard(key, stats, ctx),
-  ).join("");
-
-  return `
-    <header class="ms-head">
-      <div class="ms-head-scan"></div>
-      <div class="ms-head-bar">
-        <div class="ms-head-left">
-          <span class="ms-head-stamp">CLASSIFIED</span>
-          <span class="ms-head-case">SENTINEL INCIDENT · #${caseNo}-NTN</span>
-        </div>
-        <div class="ms-head-right">
-          <span class="ms-head-live"><span class="ms-live-dot"></span>LIVE · MONITORED</span>
-          <span class="ms-head-count">S${pad2(sectionCount)} · ${pad4(entryCount)} ENTRIES</span>
-        </div>
-      </div>
-      <div class="ms-suspects">${suspects}</div>
-    </header>`;
+function hideOnError(e: React.SyntheticEvent<HTMLImageElement>) {
+  const img = e.currentTarget;
+  img.style.display = "none";
+  const next = img.nextElementSibling as HTMLElement | null;
+  if (next) next.style.display = "flex";
 }
 
-function renderSuspectCard(
-  key: string,
-  stats: Stats,
-  ctx: RenderContext,
-): string {
-  const meta = CHARACTER_META[key];
-  if (!meta) return "";
-  const value = clampStat(stats[key as keyof Stats]);
+function SuspectCard(props: {
+  cKey: string;
+  stats: Stats;
+  files: ProjectFile[];
+  baseUrl: string;
+}): ReactElement | null {
+  const { cKey, stats, files, baseUrl } = props;
+  const meta = CHARACTER_META[cKey];
+  if (!meta) return null;
+  const value = clampStat(stats[cKey as keyof Stats]);
   const { tone } = statusTier(value);
   const word = statusWord(value);
   const signed = value > 0 ? `+${value}` : `${value}`;
@@ -596,178 +655,318 @@ function renderSuspectCard(
   const fillLeft = Math.min(50, pct);
   const fillWidth = Math.abs(pct - 50);
 
-  // Find avatar image
-  const file = ctx.files.find(
+  const file = files.find(
     (f): f is TextFile =>
       f.type === "text" &&
-      f.frontmatter?.name === key &&
+      f.frontmatter?.name === cKey &&
       !!f.frontmatter?.["avatar-image"],
   );
   let profileSrc: string | null = null;
   if (file) {
     const dir = file.path.substring(0, file.path.lastIndexOf("/"));
     profileSrc = resolveImageUrl(
-      ctx,
+      baseUrl,
       dir,
       String(file.frontmatter!["avatar-image"]),
     );
   }
 
-  const profileHtml = profileSrc
-    ? `<img class="ms-suspect-photo" src="${profileSrc}" alt="${escapeHtml(meta.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ms-suspect-photo-fallback" style="display:none">${meta.name.charAt(0)}</div>`
-    : `<div class="ms-suspect-photo-fallback">${meta.name.charAt(0)}</div>`;
+  const suspectStyle = { ["--c" as any]: meta.color } as React.CSSProperties;
 
-  return `
-    <article class="ms-suspect" data-tone="${tone}" style="--c: ${meta.color}">
-      <div class="ms-suspect-photo-wrap">
-        ${profileHtml}
-        <span class="ms-suspect-id">S-${pad2(CHARACTER_ORDER.indexOf(key) + 1)}</span>
+  return (
+    <article
+      className="ms-suspect"
+      data-tone={tone}
+      style={suspectStyle}
+    >
+      <div className="ms-suspect-photo-wrap">
+        {profileSrc ? (
+          <>
+            <img
+              className="ms-suspect-photo"
+              src={profileSrc}
+              alt={meta.name}
+              onError={hideOnError}
+            />
+            <div
+              className="ms-suspect-photo-fallback"
+              style={{ display: "none" }}
+            >
+              {meta.name.charAt(0)}
+            </div>
+          </>
+        ) : (
+          <div className="ms-suspect-photo-fallback">
+            {meta.name.charAt(0)}
+          </div>
+        )}
+        <span className="ms-suspect-id">
+          S-{pad2(CHARACTER_ORDER.indexOf(cKey) + 1)}
+        </span>
       </div>
-      <div class="ms-suspect-body">
-        <div class="ms-suspect-head">
-          <span class="ms-suspect-name">${escapeHtml(meta.name)}</span>
-          <span class="ms-suspect-status">${escapeHtml(word)}</span>
+      <div className="ms-suspect-body">
+        <div className="ms-suspect-head">
+          <span className="ms-suspect-name">{meta.name}</span>
+          <span className="ms-suspect-status">{word}</span>
         </div>
-        <div class="ms-suspect-role">${escapeHtml(meta.sigil)}</div>
-        <div class="ms-suspect-gauge">
-          <div class="ms-gauge-meta ms-gauge-meta--top">
-            <span class="ms-gauge-value">${signed}</span>
+        <div className="ms-suspect-role">{meta.sigil}</div>
+        <div className="ms-suspect-gauge">
+          <div className="ms-gauge-meta ms-gauge-meta--top">
+            <span className="ms-gauge-value">{signed}</span>
           </div>
-          <div class="ms-gauge-track">
-            <div class="ms-gauge-center"></div>
-            <div class="ms-gauge-fill" style="left:${fillLeft}%;width:${fillWidth}%"></div>
-            <div class="ms-gauge-marker" style="left:${pct}%"></div>
+          <div className="ms-gauge-track">
+            <div className="ms-gauge-center"></div>
+            <div
+              className="ms-gauge-fill"
+              style={{ left: `${fillLeft}%`, width: `${fillWidth}%` }}
+            ></div>
+            <div
+              className="ms-gauge-marker"
+              style={{ left: `${pct}%` }}
+            ></div>
           </div>
-          <div class="ms-gauge-poles">
-            <span class="ms-gauge-pole ms-gauge-pole--neg">${escapeHtml(METRIC_POLES[0])}</span>
-            <span class="ms-gauge-pole ms-gauge-pole--pos">${escapeHtml(METRIC_POLES[1])}</span>
+          <div className="ms-gauge-poles">
+            <span className="ms-gauge-pole ms-gauge-pole--neg">
+              {METRIC_POLES[0]}
+            </span>
+            <span className="ms-gauge-pole ms-gauge-pole--pos">
+              {METRIC_POLES[1]}
+            </span>
           </div>
         </div>
-        <div class="ms-suspect-hover">
-          <div class="ms-suspect-quote">${escapeHtml(meta.rolePhrase)}</div>
-          <div class="ms-suspect-quirk">“${escapeHtml(meta.quirk)}”</div>
+        <div className="ms-suspect-hover">
+          <div className="ms-suspect-quote">{meta.rolePhrase}</div>
+          <div className="ms-suspect-quirk">
+            {"“"}
+            {meta.quirk}
+            {"”"}
+          </div>
         </div>
       </div>
-    </article>`;
+    </article>
+  );
 }
 
-// ── Render: Transcript entries ───────────────
+// ── Case header ─────────────────────────────
 
-function renderCharacterEntry(
-  group: ChatGroup,
-  ctx: RenderContext,
-  nameMap: Map<string, NameMapEntry>,
-  fallbackColorMap: Map<string, string>,
-  seq: number,
-  currentStats: Stats,
-): string {
+function CaseHeader(props: {
+  stats: Stats;
+  sectionCount: number;
+  entryCount: number;
+  files: ProjectFile[];
+  baseUrl: string;
+}): ReactElement {
+  const { stats, sectionCount, entryCount, files, baseUrl } = props;
+  const today = new Date();
+  const caseNo = `${today.getFullYear().toString().slice(2)}${pad2(today.getMonth() + 1)}${pad2(today.getDate())}`;
+
+  return (
+    <header className="ms-head">
+      <div className="ms-head-scan"></div>
+      <div className="ms-head-bar">
+        <div className="ms-head-left">
+          <span className="ms-head-stamp">CLASSIFIED</span>
+          <span className="ms-head-case">
+            SENTINEL INCIDENT · #{caseNo}-NTN
+          </span>
+        </div>
+        <div className="ms-head-right">
+          <span className="ms-head-live">
+            <span className="ms-live-dot"></span>LIVE · MONITORED
+          </span>
+          <span className="ms-head-count">
+            S{pad2(sectionCount)} · {pad4(entryCount)} ENTRIES
+          </span>
+        </div>
+      </div>
+      <div className="ms-suspects">
+        {CHARACTER_ORDER.map((key) => (
+          <SuspectCard
+            key={key}
+            cKey={key}
+            stats={stats}
+            files={files}
+            baseUrl={baseUrl}
+          />
+        ))}
+      </div>
+    </header>
+  );
+}
+
+// ── Character entry ─────────────────────────
+
+function CharacterEntry(props: {
+  group: ChatGroup;
+  files: ProjectFile[];
+  baseUrl: string;
+  nameMap: Map<string, NameMapEntry>;
+  fallbackColorMap: Map<string, string>;
+  seq: number;
+  currentStats: Stats;
+}): ReactElement {
+  const {
+    group,
+    files,
+    baseUrl,
+    nameMap,
+    fallbackColorMap,
+    seq,
+    currentStats,
+  } = props;
   const name = group.characterName!;
   const info = resolveCharacterInfo(
     group.charDir,
     group.imageKey,
     name,
-    ctx,
+    files,
+    baseUrl,
     nameMap,
     fallbackColorMap,
   );
-  const lines = group.lines
-    .map((l) => formatInline(l))
-    .join("<br/>");
 
-  let stateChip = "";
+  let stateChip: ReactElement | null = null;
   if (info.metaKey) {
     const v = currentStats[info.metaKey as keyof Stats];
     const word = v > 0 ? "신뢰" : v < 0 ? "경계" : "중립";
     const magnitude = Math.abs(v);
     const { tone } = statusTier(v);
-    stateChip = `<span class="ms-chip" data-tone="${tone}">${word} ${magnitude}</span>`;
+    stateChip = (
+      <span className="ms-chip" data-tone={tone}>
+        {word} {magnitude}
+      </span>
+    );
   }
 
-  const profileHtml = info.profileImg
-    ? `<img class="ms-entry-photo" src="${info.profileImg}" alt="${escapeHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ms-entry-photo-fallback" style="display:none">${name.charAt(0)}</div>`
-    : `<div class="ms-entry-photo-fallback">${name.charAt(0)}</div>`;
+  const entryStyle = { ["--c" as any]: info.color } as React.CSSProperties;
 
-  return `
-    <article class="ms-entry" style="--c: ${info.color}">
-      <aside class="ms-entry-meta">
-        <span class="ms-seq">#${pad4(seq)}</span>
-        <span class="ms-kind">TRANSCRIPT</span>
+  return (
+    <article className="ms-entry" style={entryStyle}>
+      <aside className="ms-entry-meta">
+        <span className="ms-seq">#{pad4(seq)}</span>
+        <span className="ms-kind">TRANSCRIPT</span>
       </aside>
-      <div class="ms-entry-rail"></div>
-      <div class="ms-entry-body">
-        <header class="ms-entry-head">
-          <div class="ms-entry-photo-wrap">${profileHtml}</div>
-          <div class="ms-entry-id">
-            <span class="ms-entry-name">${escapeHtml(name)}</span>
-            <span class="ms-entry-sigil">${escapeHtml(info.sigil)}</span>
+      <div className="ms-entry-rail"></div>
+      <div className="ms-entry-body">
+        <header className="ms-entry-head">
+          <div className="ms-entry-photo-wrap">
+            {info.profileImg ? (
+              <>
+                <img
+                  className="ms-entry-photo"
+                  src={info.profileImg}
+                  alt={name}
+                  onError={hideOnError}
+                />
+                <div
+                  className="ms-entry-photo-fallback"
+                  style={{ display: "none" }}
+                >
+                  {name.charAt(0)}
+                </div>
+              </>
+            ) : (
+              <div className="ms-entry-photo-fallback">{name.charAt(0)}</div>
+            )}
           </div>
-          ${stateChip}
+          <div className="ms-entry-id">
+            <span className="ms-entry-name">{name}</span>
+            <span className="ms-entry-sigil">{info.sigil}</span>
+          </div>
+          {stateChip}
         </header>
-        <div class="ms-entry-text">${lines}</div>
+        <div className="ms-entry-text">{joinLinesWithBr(group.lines)}</div>
       </div>
-    </article>`;
+    </article>
+  );
 }
 
-function renderUserEntry(
-  lines: string[],
-  persona: PersonaInfo | null,
-  seq: number,
-): string {
-  const body = lines
-    .map((l) => formatInline(l))
-    .join("<br/>");
+// ── User entry ──────────────────────────────
+
+function UserEntry(props: {
+  lines: string[];
+  persona: PersonaInfo | null;
+  seq: number;
+}): ReactElement {
+  const { lines, persona, seq } = props;
   const name = persona?.displayName ?? "INTERVIEWER";
   const color = persona?.color ?? "#d4a574";
   const sigil = persona?.sigil ?? "INTERVIEWER · YOU";
-  const photoHtml = persona?.profileImg
-    ? `<img class="ms-entry-photo" src="${persona.profileImg}" alt="${escapeHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ms-entry-photo-fallback" style="display:none">${name.charAt(0)}</div>`
-    : `<div class="ms-entry-photo-fallback">${name.charAt(0)}</div>`;
+  const entryStyle = { ["--c" as any]: color } as React.CSSProperties;
 
-  return `
-    <article class="ms-entry ms-entry--user" style="--c: ${color}">
-      <aside class="ms-entry-meta">
-        <span class="ms-seq">#${pad4(seq)}</span>
-        <span class="ms-kind">INQUIRY</span>
+  return (
+    <article className="ms-entry ms-entry--user" style={entryStyle}>
+      <aside className="ms-entry-meta">
+        <span className="ms-seq">#{pad4(seq)}</span>
+        <span className="ms-kind">INQUIRY</span>
       </aside>
-      <div class="ms-entry-rail"></div>
-      <div class="ms-entry-body">
-        <header class="ms-entry-head">
-          <div class="ms-entry-photo-wrap">${photoHtml}</div>
-          <div class="ms-entry-id">
-            <span class="ms-entry-name">${escapeHtml(name)}</span>
-            <span class="ms-entry-sigil">${escapeHtml(sigil)}</span>
+      <div className="ms-entry-rail"></div>
+      <div className="ms-entry-body">
+        <header className="ms-entry-head">
+          <div className="ms-entry-photo-wrap">
+            {persona?.profileImg ? (
+              <>
+                <img
+                  className="ms-entry-photo"
+                  src={persona.profileImg}
+                  alt={name}
+                  onError={hideOnError}
+                />
+                <div
+                  className="ms-entry-photo-fallback"
+                  style={{ display: "none" }}
+                >
+                  {name.charAt(0)}
+                </div>
+              </>
+            ) : (
+              <div className="ms-entry-photo-fallback">{name.charAt(0)}</div>
+            )}
+          </div>
+          <div className="ms-entry-id">
+            <span className="ms-entry-name">{name}</span>
+            <span className="ms-entry-sigil">{sigil}</span>
           </div>
         </header>
-        <div class="ms-entry-text">${body}</div>
+        <div className="ms-entry-text">{joinLinesWithBr(lines)}</div>
       </div>
-    </article>`;
+    </article>
+  );
 }
 
-function renderAnalystNote(lines: string[], seq: number): string {
-  const body = lines
-    .map((l) => formatInline(l))
-    .join("<br/>");
-  return `
-    <aside class="ms-note">
-      <div class="ms-note-meta">
-        <span class="ms-seq ms-seq--muted">#${pad4(seq)}</span>
-        <span class="ms-kind ms-kind--note">ANALYST NOTE</span>
+// ── Analyst note ────────────────────────────
+
+function AnalystNote(props: {
+  lines: string[];
+  seq: number;
+}): ReactElement {
+  const { lines, seq } = props;
+  return (
+    <aside className="ms-note">
+      <div className="ms-note-meta">
+        <span className="ms-seq ms-seq--muted">#{pad4(seq)}</span>
+        <span className="ms-kind ms-kind--note">ANALYST NOTE</span>
       </div>
-      <div class="ms-note-text">${body}</div>
-    </aside>`;
+      <div className="ms-note-text">{joinLinesWithBr(lines)}</div>
+    </aside>
+  );
 }
 
-function renderSceneBreak(sectionNum: number): string {
-  const label = `SECTION ${pad2(sectionNum)}`;
-  return `
-    <div class="ms-break" role="separator">
-      <span class="ms-break-rule"></span>
-      <span class="ms-break-label">${label}</span>
-      <span class="ms-break-rule"></span>
-    </div>`;
+// ── Scene break ─────────────────────────────
+
+function SceneBreak(props: { sectionNum: number }): ReactElement {
+  return (
+    <div className="ms-break" role="separator">
+      <span className="ms-break-rule"></span>
+      <span className="ms-break-label">
+        SECTION {pad2(props.sectionNum)}
+      </span>
+      <span className="ms-break-rule"></span>
+    </div>
+  );
 }
 
-// ── Render: ANALYSIS UPDATE (stat-change) ────
+// ── Analysis update ─────────────────────────
 
 interface StatDelta {
   key: string;
@@ -775,19 +974,17 @@ interface StatDelta {
   name: string;
 }
 
-// 단일 축 포맷: "한결 −2" / "이서 +1". 레거시 포맷 "한결 의심 +2"도 허용.
 function parseStatDeltas(text: string): StatDelta[] {
   const parts = text
-    .split(/[\u00b7,]/)
+    .split(/[·,]/)
     .map((s) => s.trim())
     .filter(Boolean);
   const out: StatDelta[] = [];
   for (const p of parts) {
-    // 이름 + (옵션 메트릭 이름) + 델타
-    const m = p.match(/^(\S+)(?:\s+\S+)?\s+([+\-\u2212]\d+)$/);
+    const m = p.match(/^(\S+)(?:\s+\S+)?\s+([+\-−]\d+)$/);
     if (!m) continue;
     const [, name, raw] = m;
-    const delta = parseInt(raw.replace("\u2212", "-"), 10);
+    const delta = parseInt(raw.replace("−", "-"), 10);
     if (isNaN(delta)) continue;
     const key =
       Object.entries(CHARACTER_META).find(([, v]) => v.name === name)?.[0] ??
@@ -797,64 +994,123 @@ function parseStatDeltas(text: string): StatDelta[] {
   return out;
 }
 
-function renderAnalysisUpdate(text: string, seq: number): string {
+function AnalysisUpdate(props: {
+  text: string;
+  seq: number;
+}): ReactElement {
+  const { text, seq } = props;
   const deltas = parseStatDeltas(text);
   if (deltas.length === 0) {
-    return `
-      <div class="ms-update ms-update--plain">
-        <span class="ms-kind ms-kind--update">ANALYSIS UPDATE · #${pad4(seq)}</span>
-        <span class="ms-update-raw">${escapeHtml(text)}</span>
-      </div>`;
+    return (
+      <div className="ms-update ms-update--plain">
+        <span className="ms-kind ms-kind--update">
+          ANALYSIS UPDATE · #{pad4(seq)}
+        </span>
+        <span className="ms-update-raw">{text}</span>
+      </div>
+    );
   }
 
-  const rows = deltas
-    .map((d) => {
-      const meta = CHARACTER_META[d.key];
-      const color = meta?.color ?? "#d4a574";
-      // 신뢰↑ = cool, 경계↑(신뢰↓) = warm. 모든 NPC 동일.
-      const tone = d.delta > 0 ? "cool" : d.delta < 0 ? "warm" : "neutral";
-      const sign = d.delta > 0 ? "+" : "";
-      const abs = Math.min(5, Math.abs(d.delta));
-      const barPct = (abs / 5) * 100;
-      const arrow = d.delta > 0 ? "▲" : d.delta < 0 ? "▼" : "─";
-      return `
-        <div class="ms-delta-row" data-tone="${tone}" style="--c: ${color}">
-          <span class="ms-delta-name">${escapeHtml(d.name)}</span>
-          <span class="ms-delta-metric">${escapeHtml(METRIC_LABEL)}</span>
-          <div class="ms-delta-bar"><div class="ms-delta-fill" style="width:${barPct}%"></div></div>
-          <span class="ms-delta-value">${arrow} ${sign}${d.delta}</span>
-        </div>`;
-    })
-    .join("");
-
-  return `
-    <section class="ms-update">
-      <header class="ms-update-head">
-        <span class="ms-kind ms-kind--update">ANALYSIS UPDATE</span>
-        <span class="ms-seq ms-seq--update">#${pad4(seq)}</span>
+  return (
+    <section className="ms-update">
+      <header className="ms-update-head">
+        <span className="ms-kind ms-kind--update">ANALYSIS UPDATE</span>
+        <span className="ms-seq ms-seq--update">#{pad4(seq)}</span>
       </header>
-      <div class="ms-update-rows">${rows}</div>
-    </section>`;
-}
-
-// ── Empty state ─────────────────────────────
-
-function renderEmptyStandby(): string {
-  return `
-    <div class="ms-standby">
-      <div class="ms-standby-grid"></div>
-      <div class="ms-standby-core">
-        <span class="ms-standby-dot"></span>
-        <div class="ms-standby-label">AWAITING INITIAL CONTACT</div>
-        <div class="ms-standby-sub">0 ENTRIES · STANDBY · 감시 대기</div>
-        <div class="ms-standby-cursor">_</div>
+      <div className="ms-update-rows">
+        {deltas.map((d, i) => {
+          const meta = CHARACTER_META[d.key];
+          const color = meta?.color ?? "#d4a574";
+          const tone = d.delta > 0 ? "cool" : d.delta < 0 ? "warm" : "neutral";
+          const sign = d.delta > 0 ? "+" : "";
+          const abs = Math.min(5, Math.abs(d.delta));
+          const barPct = (abs / 5) * 100;
+          const arrow = d.delta > 0 ? "▲" : d.delta < 0 ? "▼" : "─";
+          const rowStyle = {
+            ["--c" as any]: color,
+          } as React.CSSProperties;
+          return (
+            <div
+              key={i}
+              className="ms-delta-row"
+              data-tone={tone}
+              style={rowStyle}
+            >
+              <span className="ms-delta-name">{d.name}</span>
+              <span className="ms-delta-metric">{METRIC_LABEL}</span>
+              <div className="ms-delta-bar">
+                <div
+                  className="ms-delta-fill"
+                  style={{ width: `${barPct}%` }}
+                ></div>
+              </div>
+              <span className="ms-delta-value">
+                {arrow} {sign}
+                {d.delta}
+              </span>
+            </div>
+          );
+        })}
       </div>
-    </div>`;
+    </section>
+  );
 }
 
-// ── Styles ───────────────────────────────────
+// ── Empty standby ───────────────────────────
 
-const STYLES = `<style>
+function EmptyStandby(): ReactElement {
+  return (
+    <div className="ms-standby">
+      <div className="ms-standby-grid"></div>
+      <div className="ms-standby-core">
+        <span className="ms-standby-dot"></span>
+        <div className="ms-standby-label">AWAITING INITIAL CONTACT</div>
+        <div className="ms-standby-sub">0 ENTRIES · STANDBY · 감시 대기</div>
+        <div className="ms-standby-cursor">_</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Pending strip ───────────────────────────
+
+function activeToolCalls(state: AgentState): ToolCall[] {
+  const content = state.streamingMessage?.content ?? [];
+  return content.filter((b): b is ToolCall => b.type === "toolCall");
+}
+
+function PendingStrip(props: { state: AgentState }): ReactElement {
+  const { state } = props;
+  const active = activeToolCalls(state).find((tc) =>
+    state.pendingToolCalls.has(tc.id),
+  );
+  const detail = active
+    ? `EXEC :: ${active.name.toUpperCase().replace(/_/g, " ")}`
+    : "STREAMING RESPONSE";
+  return (
+    <div
+      id="ms-pending"
+      className="ms-pending-strip"
+      hidden={!state.isStreaming}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="ms-pending-glyph" aria-hidden="true"></span>
+      <span className="ms-pending-label">SCANNING</span>
+      <span className="ms-pending-sep">::</span>
+      <span className="ms-pending-detail">{detail}</span>
+      <span className="ms-pending-dots" aria-hidden="true">
+        <i></i>
+        <i></i>
+        <i></i>
+      </span>
+    </div>
+  );
+}
+
+// ── Styles ──────────────────────────────────
+
+const STYLES = `
   .ms-root {
     --ms-bg: #0a0e14;
     --ms-panel: #0e1319;
@@ -1476,7 +1732,7 @@ const STYLES = `<style>
     background: var(--ms-bg);
   }
 
-  /* ── EVIDENCE PHOTO (결정적 연출) ── */
+  /* ── EVIDENCE PHOTO ── */
   .ms-evidence-wrap {
     display: grid;
     grid-template-columns: 80px 2px 1fr;
@@ -1653,7 +1909,7 @@ const STYLES = `<style>
     50% { opacity: 0; }
   }
 
-  /* ── PENDING STRIP ── ScrollArea viewport 하단(채팅바 바로 위)에 sticky */
+  /* ── PENDING STRIP ── */
   .ms-pending-strip {
     position: sticky;
     bottom: 0;
@@ -1725,77 +1981,61 @@ const STYLES = `<style>
     .ms-entry-text { padding-left: 0; }
     .ms-body { padding: 24px 16px 64px; }
   }
-</style>`;
-
-// ── Pending strip ────────────────────────────
-// 에이전트가 스트리밍 중일 때만 sticky 스트립을 그린다. 도구 실행 중이면
-// 현재 도구 이름을 노출, 그 외는 "STREAMING RESPONSE".
-
-// 현재 in-flight assistant message에서 toolCall 블록만 시간순으로 추출.
-function activeToolCalls(state: AgentState): ToolCall[] {
-  const content = state.streamingMessage?.content ?? [];
-  return content.filter((b): b is ToolCall => b.type === "toolCall");
-}
-
-function renderPendingStrip(state: AgentState): string {
-  // 항상 DOM에 존재시키고 `hidden` 속성으로만 토글 — Idiomorph가 id 기반으로
-  // 매칭하여 element를 유지하므로 ms-body 맨 위에 안정적으로 들어간다.
-  const active = activeToolCalls(state).find((tc) => state.pendingToolCalls.has(tc.id));
-  const detail = active
-    ? `EXEC :: ${active.name.toUpperCase().replace(/_/g, " ")}`
-    : "STREAMING RESPONSE";
-  const hidden = state.isStreaming ? "" : " hidden";
-  return `
-    <div id="ms-pending" class="ms-pending-strip"${hidden} role="status" aria-live="polite">
-      <span class="ms-pending-glyph" aria-hidden="true"></span>
-      <span class="ms-pending-label">SCANNING</span>
-      <span class="ms-pending-sep">::</span>
-      <span class="ms-pending-detail">${escapeHtml(detail)}</span>
-      <span class="ms-pending-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-    </div>`;
-}
+`;
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
-  const nameMap = buildNameMap(ctx);
+export default function Renderer(props: RendererProps): ReactElement {
+  const { state, files, baseUrl } = props;
+  const nameMap = buildNameMap(files);
 
-  const sceneFiles = ctx.files
+  const sceneFiles = files
     .filter(
       (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
     )
     .sort((a, b) => a.path.localeCompare(b.path));
 
-  const stats = parseStats(ctx);
+  const stats = parseStats(files);
   const hasAnyScene =
     sceneFiles.length > 0 &&
     sceneFiles.some((f) => f.content.trim().length > 0);
 
-  const persona = resolvePersona(ctx, nameMap);
+  const persona = resolvePersona(files, baseUrl, nameMap);
   const fallbackColorMap = new Map<string, string>();
   const evidence: EvidenceCounter = { n: 0 };
 
   if (!hasAnyScene) {
-    return `${STYLES}
-      <div class="ms-root">
-        ${renderCaseHeader(stats, 0, 0, ctx)}
-        <div class="ms-body">
-          ${renderEmptyStandby()}
+    return (
+      <div className="ms-root">
+        <style>{STYLES}</style>
+        <CaseHeader
+          stats={stats}
+          sectionCount={0}
+          entryCount={0}
+          files={files}
+          baseUrl={baseUrl}
+        />
+        <div className="ms-body">
+          <EmptyStandby />
         </div>
-        ${renderPendingStrip(ctx.state)}
-      </div>`;
+        <PendingStrip state={state} />
+      </div>
+    );
   }
 
-  // Accumulate body HTML + counts per scene (SECTION = scene file index)
-  const bodyParts: string[] = [];
+  // Accumulate body elements
+  const bodyParts: ReactElement[] = [];
   let seq = 0;
   let entryCount = 0;
   let sectionNum = 0;
+  let partKey = 0;
 
   for (const sceneFile of sceneFiles) {
     sectionNum += 1;
     if (sectionNum > 1) {
-      bodyParts.push(renderSceneBreak(sectionNum));
+      bodyParts.push(
+        <SceneBreak key={`sb-${partKey++}`} sectionNum={sectionNum} />,
+      );
     }
 
     const parsed = sceneFile.content
@@ -1808,32 +2048,70 @@ export function render(ctx: RenderContext): string {
     for (const g of groups) {
       switch (g.type) {
         case "divider":
-          bodyParts.push(renderSceneBreak(sectionNum));
+          bodyParts.push(
+            <SceneBreak key={`sb-${partKey++}`} sectionNum={sectionNum} />,
+          );
           break;
         case "stat-change":
           seq += 1;
-          bodyParts.push(renderAnalysisUpdate(g.lines[0], seq));
+          bodyParts.push(
+            <AnalysisUpdate
+              key={`au-${partKey++}`}
+              text={g.lines[0]}
+              seq={seq}
+            />,
+          );
           break;
         case "character":
           seq += 1;
           entryCount += 1;
           bodyParts.push(
-            renderCharacterEntry(g, ctx, nameMap, fallbackColorMap, seq, stats),
+            <CharacterEntry
+              key={`ce-${partKey++}`}
+              group={g}
+              files={files}
+              baseUrl={baseUrl}
+              nameMap={nameMap}
+              fallbackColorMap={fallbackColorMap}
+              seq={seq}
+              currentStats={stats}
+            />,
           );
           break;
         case "user":
           seq += 1;
           entryCount += 1;
-          bodyParts.push(renderUserEntry(g.lines, persona, seq));
+          bodyParts.push(
+            <UserEntry
+              key={`ue-${partKey++}`}
+              lines={g.lines}
+              persona={persona}
+              seq={seq}
+            />,
+          );
           break;
         case "narration":
           seq += 1;
-          bodyParts.push(renderAnalystNote(g.lines, seq));
+          bodyParts.push(
+            <AnalystNote
+              key={`an-${partKey++}`}
+              lines={g.lines}
+              seq={seq}
+            />,
+          );
           break;
         case "image":
           if (g.charDir && g.imageKey) {
             bodyParts.push(
-              `<div class="ms-evidence-wrap">${renderEvidenceFigure(ctx, nameMap, evidence, g.charDir, g.imageKey)}</div>`,
+              <div key={`ev-${partKey++}`} className="ms-evidence-wrap">
+                <EvidenceFigure
+                  baseUrl={baseUrl}
+                  nameMap={nameMap}
+                  evidence={evidence}
+                  slug={g.charDir}
+                  imageKey={g.imageKey}
+                />
+              </div>,
             );
           }
           break;
@@ -1841,13 +2119,21 @@ export function render(ctx: RenderContext): string {
     }
   }
 
-  return `${STYLES}
-    <div class="ms-root">
-      ${renderCaseHeader(stats, sectionNum, entryCount, ctx)}
-      <div class="ms-body">
-        ${bodyParts.join("\n")}
+  return (
+    <div className="ms-root">
+      <style>{STYLES}</style>
+      <CaseHeader
+        stats={stats}
+        sectionCount={sectionNum}
+        entryCount={entryCount}
+        files={files}
+        baseUrl={baseUrl}
+      />
+      <div className="ms-body">
+        {bodyParts}
         <div data-chat-anchor></div>
       </div>
-      ${renderPendingStrip(ctx.state)}
-    </div>`;
+      <PendingStrip state={state} />
+    </div>
+  );
 }

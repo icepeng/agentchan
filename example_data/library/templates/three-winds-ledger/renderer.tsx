@@ -3,25 +3,9 @@
 //
 //   살레른 항구의 3막 서사 RPG. 평상(양피지) ↔ 전투(촛불·피) 이중 테마.
 //   3분할 그리드: 좌(파티 카드) · 중앙(씬 본문) · 우(탭 — 인벤/퀘스트/관계/로그).
-//
-//   · 평상: Cartographer's Logbook 계승 — 크림 양피지 · 세피아 잉크 · 구리 채식
-//   · 전투: 촛불(일렁임) · 가죽(어두운 갈색) · 피(진홍) — data-mode="combat"
-//   · theme 은 함수 export. world-state.yaml 의 mode 필드를 읽어 평시/전투 팔레트를
-//     선택, 전역 --color-* 를 교체한다 → Sidebar/AgentPanel 까지 톤 일관.
-//
-//   · 렌더러는 순수 함수: files → HTML. scripts가 쓰는 마커를 파싱해 UI 생성.
-//     scene.md multiline: <roll> <beat type="combat" round="N">
-//     scene.md inline:    [STAT] [CHAR:] [item:] [quest:] + [slug:assets/key]
-//     HUD/HP/MP/time/location 은 world-state.yaml + party.yaml 만 읽음 (씬 본문에 status 블록 없음)
-//     next-choices.yaml (데이터 파일): 현 턴의 플레이어 선택지. 렌더러가 씬 아래에 버튼으로 표시.
-//
-//   · 숨김 파일 가드: campaign.yaml / companion-secrets.yaml 및
-//     characters/<slug>/intent.yaml 은 스캔에서 제외. 렌더러가 이 파일들의
-//     내용을 절대 UI에 노출하지 않음.
-//
-//   · Idiomorph가 DOM 을 morph 하므로 index 기반 stable id + radio name 을 유지
-//     해 탭 선택 · details open · 애니메이션이 재렌더 간 보존된다.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import type { CSSProperties, ReactElement, ReactNode } from "react";
 
 // ── Types (inline — renderer는 별도 transpile이라 import 불가) ──
 
@@ -50,7 +34,6 @@ interface BinaryFile {
 
 type ProjectFile = TextFile | DataFile | BinaryFile;
 
-// pi-ai content blocks (inline — 렌더러는 별도 transpile되어 import 불가)
 interface TextContent { type: "text"; text: string }
 interface ThinkingContent { type: "thinking"; thinking: string }
 interface ImageContent { type: "image"; data: string; mimeType: string }
@@ -58,7 +41,7 @@ interface ToolCall {
   type: "toolCall";
   id: string;
   name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
 }
 
 type ToolResultContent = (TextContent | ImageContent)[];
@@ -83,19 +66,12 @@ interface ToolResultMessage {
 }
 type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
 
-// pi `AgentState`(agent/types.ts:221) UI subset — AgentPanel과 공유.
 interface AgentState {
   readonly messages: ReadonlyArray<AgentMessage>;
   readonly isStreaming: boolean;
   readonly streamingMessage?: AssistantMessage;
   readonly pendingToolCalls: ReadonlySet<string>;
   readonly errorMessage?: string;
-}
-
-interface RenderContext {
-  files: ProjectFile[];
-  baseUrl: string;
-  state: AgentState;
 }
 
 // ── Renderer theme contract (인라인 선언) ──
@@ -118,40 +94,48 @@ interface RendererTheme {
   prefersScheme?: "light" | "dark";
 }
 
+interface RendererActions {
+  send(text: string): void;
+  fill(text: string): void;
+  setTheme(theme: unknown): void;
+}
+
+interface RendererProps {
+  state: unknown;
+  files: ProjectFile[];
+  slug: string;
+  baseUrl: string;
+  actions: RendererActions;
+}
+
 // ── Palette (renderer internal) ───────────────
 
-const ILLUMINATED_COPPER = "#b36b2a"; // warn · vigor mid · 브랜딩
-const VERDIGRIS = "#3d7a6d"; // accent · 성공 · anima
-const VERMILION = "#a83225"; // danger · 상태이상 · HP low
-const MANUSCRIPT_VIOLET = "#6a45a0"; // magic 관련
-const MIST_BLUE = "#4a6b8a"; // 차가운 정보 (시간 · 위치)
+const ILLUMINATED_COPPER = "#b36b2a";
+const VERDIGRIS = "#3d7a6d";
+const VERMILION = "#a83225";
+const MANUSCRIPT_VIOLET = "#6a45a0";
+const MIST_BLUE = "#4a6b8a";
 
-// 전투 팔레트 — data-mode="combat" 전용.
-const COMBAT_BASE = "#1a110a"; // 페이지 바탕
-const COMBAT_SURFACE = "#251810"; // 라운드 블록
-const COMBAT_CANDLE = "#d48a1f"; // 촛불 황금
-const COMBAT_BLOOD = "#a02420"; // 피
-const COMBAT_PARCH = "#d8c9a8"; // 촛불 아래 양피지
-const COMBAT_FG2 = "#b8a38a"; // 중간 잉크 (어두운 버전)
-const COMBAT_FG3 = "#8a7658"; // 흐린 잉크
+const COMBAT_BASE = "#1a110a";
+const COMBAT_SURFACE = "#251810";
+const COMBAT_CANDLE = "#d48a1f";
+const COMBAT_BLOOD = "#a02420";
+const COMBAT_PARCH = "#d8c9a8";
+const COMBAT_FG2 = "#b8a38a";
+const COMBAT_FG3 = "#8a7658";
 
-// NPC/PC 각자 잉크 톤. frontmatter color 가 있으면 우선. 없으면 fallback 팔레트.
 const CHARACTER_COLORS = [
-  VERDIGRIS, // verdigris
-  ILLUMINATED_COPPER, // copper
-  MANUSCRIPT_VIOLET, // royal violet
-  "#a83a70", // magenta ink
-  "#4a7a3a", // moss
-  "#c84a28", // vermilion orange
-  MIST_BLUE, // sea navy
-  "#8a3a2d", // iron rust
+  VERDIGRIS,
+  ILLUMINATED_COPPER,
+  MANUSCRIPT_VIOLET,
+  "#a83a70",
+  "#4a7a3a",
+  "#c84a28",
+  MIST_BLUE,
+  "#8a3a2d",
 ];
 
 // ── Theme export ──────────────────────────────
-//
-// 평시: 크림 양피지 + 세피아 잉크. 전투: 가죽 + 촛불.
-// 함수로 내보내 매 refresh 마다 world-state.yaml 의 mode 필드를 보고 팔레트를 교체한다.
-// 덕분에 렌더러 내부뿐 아니라 Sidebar / AgentPanel / BottomInput 까지 같은 톤으로 전환된다.
 
 const PEACE_THEME: RendererTheme = {
   base: {
@@ -183,13 +167,16 @@ const COMBAT_THEME: RendererTheme = {
   prefersScheme: "dark",
 };
 
-export function theme(ctx: RenderContext): RendererTheme {
-  return detectCurrentMode(ctx) === "combat" ? COMBAT_THEME : PEACE_THEME;
+interface ThemeCtx {
+  files: ProjectFile[];
 }
 
-// world-state.yaml 이 단일 source of truth. combat.ts --start/--end 가 mode 필드 갱신.
-function detectCurrentMode(ctx: RenderContext): "peace" | "combat" {
-  const file = ctx.files.find(
+export function theme(ctx: ThemeCtx): RendererTheme {
+  return detectCurrentMode(ctx.files) === "combat" ? COMBAT_THEME : PEACE_THEME;
+}
+
+function detectCurrentMode(files: ProjectFile[]): "peace" | "combat" {
+  const file = files.find(
     (f): f is DataFile => f.type === "data" && f.path === "world-state.yaml",
   );
   if (!file) return "peace";
@@ -199,12 +186,6 @@ function detectCurrentMode(ctx: RenderContext): "peace" | "combat" {
 }
 
 // ── Hidden file guard ─────────────────────────
-//
-// 이 파일들은 LLM 전용. 렌더러는 절대 노출하지 않는다.
-// (SYSTEM.md §12 를 CSS/HTML 레벨에서도 2중 방어.)
-//
-// NPC 의도 파일은 characters/<slug>/intent.yaml 패턴으로 캐릭터마다 존재 —
-// 개별 allowlist 대신 경로 접미사로 일괄 숨김.
 
 const HIDDEN_PATHS = new Set<string>([
   "campaign.yaml",
@@ -219,29 +200,8 @@ function isVisible(file: ProjectFile): boolean {
 
 // ── Helpers ───────────────────────────────────
 
-// hot path: scene 당 수백~수천 번 호출. 단일 정규식 + lookup 으로 4 회 스캔 → 1 회.
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-};
-
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"]/g, (c) => HTML_ESCAPES[c]);
-}
-
-// 본문 텍스트용 — 쿼트는 그대로 두어 스마트 쿼트 치환이 살아남는다.
-function escapeText(text: string): string {
-  return text.replace(/[&<>]/g, (c) => HTML_ESCAPES[c]);
-}
-
-function resolveImageUrl(
-  ctx: RenderContext,
-  dir: string,
-  imageKey: string,
-): string {
-  return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
+function resolveImageUrl(baseUrl: string, dir: string, imageKey: string): string {
+  return `${baseUrl}/files/${dir}/${imageKey}`;
 }
 
 function hashStr(s: string): number {
@@ -261,7 +221,6 @@ function clamp(n: number, lo: number, hi: number): number {
 
 function firstChar(s: string): string {
   if (!s) return "?";
-  // 한글·영문 관계 없이 첫 그래핌 1개.
   const code = s.codePointAt(0);
   if (code === undefined) return "?";
   return String.fromCodePoint(code);
@@ -270,17 +229,17 @@ function firstChar(s: string): string {
 // ── Name map (avatar · color 공통 resolver) ──
 
 interface NameMapEntry {
-  slug: string; // 캐릭터 slug (디렉토리명 + frontmatter name)
-  dir: string; // 캐릭터 디렉토리 (예: "characters/riwu", files/ 하위 기준)
-  displayName: string; // 표시 이름 (display-name 또는 name)
-  avatarImage?: string; // 기본 avatar 이미지 키
-  color?: string; // 기본 color
-  role?: string; // companion | npc | pc | persona
+  slug: string;
+  dir: string;
+  displayName: string;
+  avatarImage?: string;
+  color?: string;
+  role?: string;
 }
 
-function buildCharacterIndex(ctx: RenderContext): Map<string, NameMapEntry> {
+function buildCharacterIndex(files: ProjectFile[]): Map<string, NameMapEntry> {
   const index = new Map<string, NameMapEntry>();
-  for (const file of ctx.files) {
+  for (const file of files) {
     if (file.type !== "text" || !file.frontmatter) continue;
     const fm = file.frontmatter;
     const name = fm.name ? String(fm.name) : undefined;
@@ -300,7 +259,6 @@ function buildCharacterIndex(ctx: RenderContext): Map<string, NameMapEntry> {
       role: fm.role ? String(fm.role) : undefined,
     };
 
-    // slug, displayName, aliases 모두 key 로 사용
     index.set(slug, entry);
     if (displayName && !index.has(displayName)) index.set(displayName, entry);
     if (fm.names) {
@@ -314,8 +272,6 @@ function buildCharacterIndex(ctx: RenderContext): Map<string, NameMapEntry> {
 }
 
 // ── DataFile extractors ───────────────────────
-//
-// .yaml 파일의 `data` 필드에 파싱된 객체가 들어 있다. 안전하게 꺼내 쓴다.
 
 interface HpMp {
   current: number;
@@ -385,7 +341,7 @@ interface InventoryData {
 interface QuestEntry {
   slug: string;
   title: string;
-  status: string; // active | complete | failed | dormant
+  status: string;
   act: number;
   giver?: string | null;
   description?: string;
@@ -416,9 +372,9 @@ interface WorldStateData {
   last_summary?: string;
 }
 
-function findDataFile(ctx: RenderContext, path: string): DataFile | null {
+function findDataFile(files: ProjectFile[], path: string): DataFile | null {
   return (
-    ctx.files.find(
+    files.find(
       (f): f is DataFile => f.type === "data" && f.path === path,
     ) ?? null
   );
@@ -456,8 +412,8 @@ function asStringArray(x: unknown): string[] {
   return asArray(x).map((v) => (typeof v === "string" ? v : String(v)));
 }
 
-function extractPartyData(ctx: RenderContext): PartyData | null {
-  const file = findDataFile(ctx, "party.yaml");
+function extractPartyData(files: ProjectFile[]): PartyData | null {
+  const file = findDataFile(files, "party.yaml");
   if (!file) return null;
   const root = asRecord(file.data);
   if (!root) return null;
@@ -492,8 +448,8 @@ function extractPartyData(ctx: RenderContext): PartyData | null {
   };
 }
 
-function extractStatsData(ctx: RenderContext): StatsData {
-  const file = findDataFile(ctx, "stats.yaml");
+function extractStatsData(files: ProjectFile[]): StatsData {
+  const file = findDataFile(files, "stats.yaml");
   const root = file ? asRecord(file.data) : null;
   const npcsRaw = root ? asRecord(root.npcs) : null;
   const npcs: Record<string, number> = {};
@@ -505,8 +461,8 @@ function extractStatsData(ctx: RenderContext): StatsData {
   return { npcs };
 }
 
-function extractInventoryData(ctx: RenderContext): InventoryData {
-  const file = findDataFile(ctx, "inventory.yaml");
+function extractInventoryData(files: ProjectFile[]): InventoryData {
+  const file = findDataFile(files, "inventory.yaml");
   const root = file ? asRecord(file.data) : null;
   if (!root) {
     return {
@@ -567,8 +523,8 @@ function extractInventoryData(ctx: RenderContext): InventoryData {
   };
 }
 
-function extractQuestsData(ctx: RenderContext): QuestsData {
-  const file = findDataFile(ctx, "quests.yaml");
+function extractQuestsData(files: ProjectFile[]): QuestsData {
+  const file = findDataFile(files, "quests.yaml");
   const root = file ? asRecord(file.data) : null;
   const questsRaw = root ? asRecord(root.quests) : null;
   const parseList = (x: unknown): QuestEntry[] => {
@@ -603,8 +559,8 @@ function extractQuestsData(ctx: RenderContext): QuestsData {
   };
 }
 
-function extractWorldState(ctx: RenderContext): WorldStateData | null {
-  const file = findDataFile(ctx, "world-state.yaml");
+function extractWorldState(files: ProjectFile[]): WorldStateData | null {
+  const file = findDataFile(files, "world-state.yaml");
   if (!file) return null;
   const root = asRecord(file.data);
   if (!root) return null;
@@ -624,11 +580,9 @@ function extractWorldState(ctx: RenderContext): WorldStateData | null {
   };
 }
 
-// ── Location title resolver (frontmatter from locations/*.md) ──
-
-function buildLocationTitles(ctx: RenderContext): Map<string, string> {
+function buildLocationTitles(files: ProjectFile[]): Map<string, string> {
   const map = new Map<string, string>();
-  for (const f of ctx.files) {
+  for (const f of files) {
     if (f.type !== "text") continue;
     if (!f.path.startsWith("locations/")) continue;
     const slug = f.path.replace(/^locations\//, "").replace(/\.md$/, "");
@@ -660,8 +614,8 @@ interface PcData {
   spells: string[];
 }
 
-function extractPcData(ctx: RenderContext): PcData | null {
-  const file = ctx.files.find(
+function extractPcData(files: ProjectFile[]): PcData | null {
+  const file = files.find(
     (f): f is TextFile => f.type === "text" && f.path === "pc.md",
   );
   if (!file || !file.frontmatter) return null;
@@ -684,7 +638,6 @@ function extractPcData(ctx: RenderContext): PcData | null {
 }
 
 // ── Scene parsing ─────────────────────────────
-// scene.md 의 9 종 마커를 상태 머신으로 이벤트 스트림화. 블록 미닫힘은 폐기.
 
 type SceneEvent =
   | { kind: "user"; text: string }
@@ -709,12 +662,11 @@ type SceneEvent =
     }
   | { kind: "combat"; round: number; inner: SceneEvent[] };
 
-// 플레이어 선택지 — next-choices.yaml 에서 로드되는 persistent 블록 (씬 로그 아님).
 interface ChoiceOption {
   label: string;
   action: string;
-  stat: string; // "" 면 배지 표시 안 함
-  dc: number; // 0 이면 DC 배지 표시 안 함
+  stat: string;
+  dc: number;
 }
 
 interface ParseResult {
@@ -722,8 +674,6 @@ interface ParseResult {
 }
 
 const CHAR_LINE_RE = /^\[CHAR:([a-z0-9][a-z0-9_-]*)\]\s*(.*)$/i;
-// 마크다운 볼드 발화자 — `**이름:** "대사"` · `**이름** "대사"` · `**이름**: "대사"`
-// 이름은 character index 의 slug/display_name/alias 와 매칭되어야 char event 로 승격.
 const BOLD_SPEAKER_RE = /^\*\*([^*\n]+?)\*\*\s*:?\s*(.+)$/;
 const IMAGE_TOKEN_RE = /^\[([a-z0-9][a-z0-9_-]*):(assets\/[^\]]+)\]$/i;
 const INLINE_IMAGE_RE = /\[([a-z0-9][a-z0-9_-]*):(assets\/[^\]]+)\]/gi;
@@ -736,10 +686,8 @@ const QUEST_COMPLETE_RE = /^\[quest:([a-z0-9][a-z0-9_-]*)\s+(complete|fail)\]/i;
 const BEAT_COMBAT_OPEN_RE = /^<beat\s+type="combat"(?:\s+round="(\d+)")?>$/i;
 const USER_LINE_RE = /^>\s+(.+)$/;
 
-// next-choices.yaml 추출 — per-turn 플레이어 선택지.
-// LLM 이 매 턴 overwrite. 없으면 빈 배열.
-function extractNextChoices(ctx: RenderContext): ChoiceOption[] {
-  const file = findDataFile(ctx, "next-choices.yaml");
+function extractNextChoices(files: ProjectFile[]): ChoiceOption[] {
+  const file = findDataFile(files, "next-choices.yaml");
   if (!file) return [];
   const root = asRecord(file.data);
   if (!root) return [];
@@ -793,7 +741,6 @@ function parseQuestLine(line: string): SceneEvent | null {
   return null;
 }
 
-// 인라인 라인 (멀티라인 블록 바깥) → SceneEvent
 function parseInlineLine(
   line: string,
   charIndex?: Map<string, NameMapEntry>,
@@ -809,8 +756,6 @@ function parseInlineLine(
   if (charMatch)
     return { kind: "char", slug: charMatch[1], text: charMatch[2] };
 
-  // LLM 의 자연스러운 RP 형식 — `**리우:** "..."` 를 CHAR 와 동치로 승격.
-  // charIndex 에 이름이 있어야만 발화로 인정, 아니면 일반 narration (볼드 포함) 으로 fallback.
   if (charIndex) {
     const boldMatch = trimmed.match(BOLD_SPEAKER_RE);
     if (boldMatch) {
@@ -833,7 +778,6 @@ function parseInlineLine(
   const quest = parseQuestLine(trimmed);
   if (quest) return quest;
 
-  // 기본: narration (환경·행동 서술)
   return { kind: "narration", text: trimmed };
 }
 
@@ -857,7 +801,6 @@ function parseSceneLines(
   let state: BlockState = { kind: "none" };
 
   const flushCombat = (round: number, lines: string[]) => {
-    // combat 내부를 이미 split 된 lines 로 재귀 파싱. join/split 재실행 없음.
     const inner = parseSceneLines(lines, charIndex).events;
     events.push({ kind: "combat", round, inner });
   };
@@ -866,7 +809,6 @@ function parseSceneLines(
     const line = rawLine.replace(/\r$/, "");
     const trimmed = line.trim();
 
-    // 블록 종료 감지 우선.
     if (state.kind === "system") {
       if (/^<\/roll>$/i.test(trimmed)) {
         events.push({ kind: "system", text: state.lines.join("\n").trim() });
@@ -886,7 +828,6 @@ function parseSceneLines(
       continue;
     }
 
-    // 블록 시작 감지.
     if (/^<roll>$/i.test(trimmed)) {
       state = { kind: "system", lines: [] };
       continue;
@@ -898,7 +839,6 @@ function parseSceneLines(
       continue;
     }
 
-    // 인라인 <roll>...</roll> 한 줄 (열고 닫는 태그가 같은 줄에 있을 때).
     const inlineRoll = trimmed.match(/^<roll>(.+?)<\/roll>$/i);
     if (inlineRoll) {
       events.push({ kind: "system", text: inlineRoll[1].trim() });
@@ -909,49 +849,107 @@ function parseSceneLines(
     if (evt) events.push(evt);
   }
 
-  // 미닫힌 블록은 폐기 (불완전한 입력 보호).
   return { events };
 }
 
 // ── Inline text formatting ────────────────────
 //
-// *말·행동*, **강조**, "자연어 쿼트", [slug:assets/key] 를 HTML 로 변환.
+// *말·행동*, **강조**, "자연어 쿼트", [slug:assets/key] 를 ReactNode[] 로 변환.
+// React는 텍스트를 자동 escape하므로 escape 헬퍼 불필요.
 
-function formatInline(
-  text: string,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-): string {
-  let result = escapeText(text);
-  result = result
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/"([^"]+?)"/g, "\u201c$1\u201d")
-    .replace(/\*(.+?)\*/g, '<em class="rpg-action">$1</em>');
-  result = result.replace(INLINE_IMAGE_RE, (_m, slug: string, key: string) => {
-    return renderInlinePolaroid(slug, key, ctx, charIndex);
-  });
-  return result;
+interface InlineCtx {
+  baseUrl: string;
+  charIndex: Map<string, NameMapEntry>;
 }
 
-function renderInlinePolaroid(
-  slug: string,
-  imageKey: string,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-): string {
-  const entry = charIndex.get(slug);
+// 한 줄 내 **bold** · *italic* · "smart quote" 처리.
+// 인라인 이미지 토큰은 이미 바깥에서 split 되어 이 함수로 오지 않는다고 가정.
+function renderInlineSegment(text: string, key: string): ReactNode {
+  // smart quote 치환
+  const quoted = text.replace(/"([^"]+?)"/g, "“$1”");
+  // **bold** · *italic* 분할 (둘 다 동일 탐색)
+  const parts: ReactNode[] = [];
+  const re = /\*\*(.+?)\*\*|\*(.+?)\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = re.exec(quoted)) !== null) {
+    if (match.index > cursor) parts.push(quoted.slice(cursor, match.index));
+    if (match[1] !== undefined) {
+      parts.push(<strong key={`b-${idx++}`}>{match[1]}</strong>);
+    } else if (match[2] !== undefined) {
+      parts.push(
+        <em key={`i-${idx++}`} className="rpg-action">
+          {match[2]}
+        </em>,
+      );
+    }
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < quoted.length) parts.push(quoted.slice(cursor));
+  return <span key={key}>{parts}</span>;
+}
+
+function formatInline(text: string, ctx: InlineCtx): ReactNode[] {
+  // 먼저 inline image 토큰으로 분할 → 각 조각은 텍스트 or polaroid
+  const out: ReactNode[] = [];
+  let cursor = 0;
+  let idx = 0;
+  let m: RegExpExecArray | null;
+  const re = new RegExp(INLINE_IMAGE_RE.source, "gi");
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > cursor) {
+      out.push(
+        renderInlineSegment(text.slice(cursor, m.index), `seg-${idx++}`),
+      );
+    }
+    out.push(
+      <InlinePolaroid
+        key={`img-${idx++}`}
+        slug={m[1]}
+        imageKey={m[2]}
+        ctx={ctx}
+      />,
+    );
+    cursor = m.index + m[0].length;
+  }
+  if (cursor < text.length) {
+    out.push(renderInlineSegment(text.slice(cursor), `seg-${idx++}`));
+  }
+  return out;
+}
+
+function InlinePolaroid(props: {
+  slug: string;
+  imageKey: string;
+  ctx: InlineCtx;
+}): ReactElement {
+  const { slug, imageKey, ctx } = props;
+  const entry = ctx.charIndex.get(slug);
   const dir = entry?.dir ?? `characters/${slug}`;
   const name = entry?.displayName ?? slug;
-  const url = resolveImageUrl(ctx, dir, imageKey);
+  const url = resolveImageUrl(ctx.baseUrl, dir, imageKey);
   const tilt = (hashStr(slug + imageKey) % 5) - 2;
   const tag = `${name} · ${imageKey.replace(/^assets\//, "")}`;
-  return `<figure class="rpg-polaroid" data-tilt="${tilt}">
-      <div class="rpg-polaroid-frame">
-        <img class="rpg-polaroid-img" src="${escapeHtml(url)}" alt="${escapeHtml(tag)}" onerror="this.closest('.rpg-polaroid').style.display='none'" />
-        <div class="rpg-polaroid-gloss"></div>
+  return (
+    <figure className="rpg-polaroid" data-tilt={String(tilt)}>
+      <div className="rpg-polaroid-frame">
+        <img
+          className="rpg-polaroid-img"
+          src={url}
+          alt={tag}
+          onError={(e) => {
+            const fig = (e.currentTarget as HTMLImageElement).closest(
+              ".rpg-polaroid",
+            ) as HTMLElement | null;
+            if (fig) fig.style.display = "none";
+          }}
+        />
+        <div className="rpg-polaroid-gloss" />
       </div>
-      <figcaption class="rpg-polaroid-tag">${escapeText(tag)}</figcaption>
-    </figure>`;
+      <figcaption className="rpg-polaroid-tag">{tag}</figcaption>
+    </figure>
+  );
 }
 
 // ── Character color/portrait resolver ─────────
@@ -964,19 +962,22 @@ function fallbackColor(key: string, map: Map<string, string>): string {
   return c;
 }
 
+interface PortraitViewProps {
+  slug: string;
+  charIndex: Map<string, NameMapEntry>;
+  fallback: Map<string, string>;
+  baseUrl: string;
+  imageKey?: string;
+}
+
 interface ResolvedPortrait {
   displayName: string;
   color: string;
-  portraitHtml: string;
+  element: ReactElement;
 }
 
-function resolvePortrait(
-  slug: string,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-  imageKey?: string,
-): ResolvedPortrait {
+function resolvePortrait(opts: PortraitViewProps): ResolvedPortrait {
+  const { slug, charIndex, fallback, baseUrl, imageKey } = opts;
   const entry = charIndex.get(slug);
   const displayName = entry?.displayName ?? slug;
   const color = entry?.color || fallbackColor(slug, fallback);
@@ -984,121 +985,167 @@ function resolvePortrait(
   const initial = firstChar(displayName);
 
   if (entry && key) {
-    const src = resolveImageUrl(ctx, entry.dir, key);
-    const html = `
-      <div class="rpg-portrait">
-        <div class="rpg-portrait-halo"></div>
-        <img class="rpg-portrait-img" src="${escapeHtml(src)}" alt="${escapeHtml(displayName)}" onerror="this.parentElement.dataset.fallback='1'" />
-        <div class="rpg-portrait-fallback" aria-hidden="true">${escapeText(initial)}</div>
-      </div>`;
-    return { displayName, color, portraitHtml: html };
+    const src = resolveImageUrl(baseUrl, entry.dir, key);
+    return {
+      displayName,
+      color,
+      element: (
+        <div className="rpg-portrait">
+          <div className="rpg-portrait-halo" />
+          <img
+            className="rpg-portrait-img"
+            src={src}
+            alt={displayName}
+            onError={(e) => {
+              const parent = (e.currentTarget as HTMLImageElement)
+                .parentElement as HTMLElement | null;
+              if (parent) parent.dataset.fallback = "1";
+            }}
+          />
+          <div className="rpg-portrait-fallback" aria-hidden="true">
+            {initial}
+          </div>
+        </div>
+      ),
+    };
   }
   return {
     displayName,
     color,
-    portraitHtml: `<div class="rpg-portrait" data-fallback="1">
-        <div class="rpg-portrait-halo"></div>
-        <div class="rpg-portrait-fallback" aria-hidden="true">${escapeText(initial)}</div>
-      </div>`,
+    element: (
+      <div className="rpg-portrait" data-fallback="1">
+        <div className="rpg-portrait-halo" />
+        <div className="rpg-portrait-fallback" aria-hidden="true">
+          {initial}
+        </div>
+      </div>
+    ),
   };
 }
 
 // ── Event renderers ───────────────────────────
 
-function renderUserEcho(text: string, id: string): string {
-  return `
-    <aside id="${id}" class="rpg-whisper">
-      <span class="rpg-whisper-mark" aria-hidden="true">&gt;</span>
-      <span class="rpg-whisper-body">${escapeText(text)}</span>
-    </aside>`;
+interface EventCtx {
+  baseUrl: string;
+  charIndex: Map<string, NameMapEntry>;
+  fallback: Map<string, string>;
+  actions: RendererActions;
 }
 
-function renderCharEvent(
-  slug: string,
-  text: string,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-  id: string,
-): string {
-  const info = resolvePortrait(slug, ctx, charIndex, fallback);
-  const body = formatInline(text, ctx, charIndex);
-  return `
-    <section id="${id}" class="rpg-dialogue" style="--c: ${escapeHtml(info.color)}">
-      <div class="rpg-dialogue-portrait">${info.portraitHtml}</div>
-      <div class="rpg-dialogue-caption">
-        <header class="rpg-nameplate">
-          <span class="rpg-nameplate-mark"></span>
-          <span class="rpg-nameplate-name">${escapeText(info.displayName)}</span>
+function UserEchoView(props: { text: string; id: string }): ReactElement {
+  return (
+    <aside id={props.id} className="rpg-whisper">
+      <span className="rpg-whisper-mark" aria-hidden="true">
+        {">"}
+      </span>
+      <span className="rpg-whisper-body">{props.text}</span>
+    </aside>
+  );
+}
+
+function CharEventView(props: {
+  slug: string;
+  text: string;
+  ctx: EventCtx;
+  id: string;
+}): ReactElement {
+  const { slug, text, ctx, id } = props;
+  const info = resolvePortrait({
+    slug,
+    charIndex: ctx.charIndex,
+    fallback: ctx.fallback,
+    baseUrl: ctx.baseUrl,
+  });
+  const body = formatInline(text, {
+    baseUrl: ctx.baseUrl,
+    charIndex: ctx.charIndex,
+  });
+  const style = { ["--c" as string]: info.color } as CSSProperties;
+  return (
+    <section id={id} className="rpg-dialogue" style={style}>
+      <div className="rpg-dialogue-portrait">{info.element}</div>
+      <div className="rpg-dialogue-caption">
+        <header className="rpg-nameplate">
+          <span className="rpg-nameplate-mark" />
+          <span className="rpg-nameplate-name">{info.displayName}</span>
         </header>
-        <div class="rpg-dialogue-body">${body}</div>
+        <div className="rpg-dialogue-body">{body}</div>
       </div>
-    </section>`;
+    </section>
+  );
 }
 
-function renderNarrationEvent(
-  text: string,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  id: string,
-  isLead: boolean = false,
-): string {
-  // 통째로 *...* 감싸진 문장은 이탤릭 중복을 피하기 위해 벗김.
+function NarrationEventView(props: {
+  text: string;
+  ctx: EventCtx;
+  id: string;
+  isLead: boolean;
+}): ReactElement {
+  const { text, ctx, id, isLead } = props;
   const stripped = text.replace(/^\*(.+)\*$/s, "$1");
   const wasFullItalic = stripped !== text;
-  const inner = formatInline(stripped, ctx, charIndex);
-  // lead narration은 드롭캡이 적용되어 좌측 정렬 + 단일 컬럼. 양옆 rule은 lead에서 숨김.
+  const inner = formatInline(stripped, {
+    baseUrl: ctx.baseUrl,
+    charIndex: ctx.charIndex,
+  });
   const classes = ["rpg-narration"];
   if (wasFullItalic) classes.push("rpg-narration--stage");
   if (isLead) classes.push("rpg-narration--lead");
-  return `
-    <div id="${id}" class="${classes.join(" ")}">
-      <span class="rpg-narration-rule"></span>
-      <span class="rpg-narration-text">${inner}</span>
-      <span class="rpg-narration-rule"></span>
-    </div>`;
+  return (
+    <div id={id} className={classes.join(" ")}>
+      <span className="rpg-narration-rule" />
+      <span className="rpg-narration-text">{inner}</span>
+      <span className="rpg-narration-rule" />
+    </div>
+  );
 }
 
-function renderImageEvent(
-  slug: string,
-  key: string,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  id: string,
-): string {
-  const inner = renderInlinePolaroid(slug, key, ctx, charIndex);
-  return `<div id="${id}" class="rpg-polaroid-solo">${inner}</div>`;
+function ImageEventView(props: {
+  slug: string;
+  imageKey: string;
+  ctx: EventCtx;
+  id: string;
+}): ReactElement {
+  const { slug, imageKey, ctx, id } = props;
+  return (
+    <div id={id} className="rpg-polaroid-solo">
+      <InlinePolaroid
+        slug={slug}
+        imageKey={imageKey}
+        ctx={{ baseUrl: ctx.baseUrl, charIndex: ctx.charIndex }}
+      />
+    </div>
+  );
 }
 
-function renderDividerEvent(id: string): string {
-  // Illuminated codex 사본 풍 디바이더: 가는 rule + 양옆 trefoil(❦) + 중앙 fleur-de-lis(SVG) + 회전 후광
-  return `
-    <div id="${id}" class="rpg-divider" role="separator">
-      <span class="rpg-divider-rule"></span>
-      <span class="rpg-divider-flourish" aria-hidden="true">❦</span>
-      <svg class="rpg-rose" viewBox="0 0 40 40" aria-hidden="true">
-        <g class="rpg-rose-spin">
-          <circle cx="20" cy="20" r="14" fill="none" stroke="currentColor" stroke-width="0.4" opacity="0.25" />
-          <circle cx="20" cy="20" r="10" fill="none" stroke="currentColor" stroke-width="0.3" opacity="0.18" />
+function DividerEventView(props: { id: string }): ReactElement {
+  return (
+    <div id={props.id} className="rpg-divider" role="separator">
+      <span className="rpg-divider-rule" />
+      <span className="rpg-divider-flourish" aria-hidden="true">
+        {"❦"}
+      </span>
+      <svg className="rpg-rose" viewBox="0 0 40 40" aria-hidden="true">
+        <g className="rpg-rose-spin">
+          <circle cx="20" cy="20" r="14" fill="none" stroke="currentColor" strokeWidth="0.4" opacity="0.25" />
+          <circle cx="20" cy="20" r="10" fill="none" stroke="currentColor" strokeWidth="0.3" opacity="0.18" />
         </g>
-        <!-- Fleur-de-lis 중앙 (정적) -->
         <g fill="currentColor">
-          <!-- 가운데 잎 -->
           <path d="M20 6 Q22 11 20 16 Q18 11 20 6 Z" opacity="0.95" />
-          <!-- 좌우 굽은 잎 -->
           <path d="M20 14 Q14 12 12 18 Q14 22 20 18 Z" opacity="0.78" />
           <path d="M20 14 Q26 12 28 18 Q26 22 20 18 Z" opacity="0.78" />
-          <!-- 아래 받침 -->
           <path d="M14 20 Q20 22 26 20 L24 24 L16 24 Z" opacity="0.85" />
           <rect x="13" y="24" width="14" height="1.4" rx="0.4" opacity="0.7" />
-          <!-- 하단 줄기 -->
-          <path d="M20 26 Q19 30 16 33 M20 26 Q21 30 24 33" stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.6" />
+          <path d="M20 26 Q19 30 16 33 M20 26 Q21 30 24 33" stroke="currentColor" strokeWidth="0.8" fill="none" opacity="0.6" />
           <circle cx="20" cy="27" r="0.9" opacity="0.85" />
         </g>
       </svg>
-      <span class="rpg-divider-flourish" aria-hidden="true">❦</span>
-      <span class="rpg-divider-rule"></span>
-    </div>`;
+      <span className="rpg-divider-flourish" aria-hidden="true">
+        {"❦"}
+      </span>
+      <span className="rpg-divider-rule" />
+    </div>
+  );
 }
 
 function statLabel(stat: string): string {
@@ -1116,37 +1163,49 @@ function statLabel(stat: string): string {
   }
 }
 
-// next-choices.yaml 을 씬 아래에 버튼으로 렌더. 빈 배열이면 "" 반환.
-// 씬 이벤트가 아니라 per-turn overwrite 단일 블록 — stream id 불필요.
-function renderNextChoices(options: ChoiceOption[]): string {
-  if (options.length === 0) return "";
-  const rows = options
-    .map(
-      (opt, i) => `
-        <button type="button"
-                class="rpg-check-option"
-                style="--i: ${i}"
-                data-action="fill"
-                data-text="${escapeHtml(opt.action)}">
-          <span class="rpg-check-label">${escapeText(opt.label)}</span>
-          <span class="rpg-check-meta">
-            ${opt.stat ? `<span class="rpg-check-stat">${escapeText(statLabel(opt.stat))}</span>` : ""}
-            ${opt.dc > 0 ? `<span class="rpg-check-dc">DC&nbsp;${opt.dc}</span>` : ""}
-          </span>
-        </button>`,
-    )
-    .join("");
-  return `
-    <div class="rpg-check" role="group" aria-label="이 턴의 선택지">
-      <div class="rpg-check-head">
-        <svg class="rpg-check-ico" viewBox="0 0 14 14" aria-hidden="true">
-          <polygon points="7,1 9,5 13,6 10,9 11,13 7,11 3,13 4,9 1,6 5,5" fill="none" stroke="currentColor" stroke-width="0.9" />
+function NextChoicesView(props: {
+  options: ChoiceOption[];
+  actions: RendererActions;
+}): ReactElement | null {
+  const { options, actions } = props;
+  if (options.length === 0) return null;
+  return (
+    <div className="rpg-check" role="group" aria-label="이 턴의 선택지">
+      <div className="rpg-check-head">
+        <svg className="rpg-check-ico" viewBox="0 0 14 14" aria-hidden="true">
+          <polygon points="7,1 9,5 13,6 10,9 11,13 7,11 3,13 4,9 1,6 5,5" fill="none" stroke="currentColor" strokeWidth="0.9" />
         </svg>
-        <span class="rpg-check-title">이 턴의 선택지</span>
-        <span class="rpg-check-hint">버튼을 누르면 입력창에 채워집니다. 자유 입력도 가능합니다.</span>
+        <span className="rpg-check-title">이 턴의 선택지</span>
+        <span className="rpg-check-hint">
+          버튼을 누르면 입력창에 채워집니다. 자유 입력도 가능합니다.
+        </span>
       </div>
-      <div class="rpg-check-list">${rows}</div>
-    </div>`;
+      <div className="rpg-check-list">
+        {options.map((opt, i) => {
+          const style = { ["--i" as string]: String(i) } as CSSProperties;
+          return (
+            <button
+              key={i}
+              type="button"
+              className="rpg-check-option"
+              style={style}
+              onClick={() => actions.fill(opt.action)}
+            >
+              <span className="rpg-check-label">{opt.label}</span>
+              <span className="rpg-check-meta">
+                {opt.stat ? (
+                  <span className="rpg-check-stat">{statLabel(opt.stat)}</span>
+                ) : null}
+                {opt.dc > 0 ? (
+                  <span className="rpg-check-dc">DC&nbsp;{opt.dc}</span>
+                ) : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function parseSystemRoll(text: string): {
@@ -1156,7 +1215,6 @@ function parseSystemRoll(text: string): {
   dc?: number;
   outcome?: "SUCCESS" | "FAIL";
 } {
-  // 예: "roll: strength 1d20+2 = 16 vs DC 14 → SUCCESS"
   const m = text.match(
     /roll:\s*(\w+)\s+([\d+\-d\s힘민첩통찰화술]+?)\s*=\s*(\d+)\s+vs\s+DC\s+(\d+)\s*[→:\-]*\s*(SUCCESS|FAIL)/i,
   );
@@ -1170,208 +1228,251 @@ function parseSystemRoll(text: string): {
   };
 }
 
-function renderSystemEvent(text: string, id: string): string {
+function SystemEventView(props: { text: string; id: string }): ReactElement {
+  const { text, id } = props;
   const parsed = parseSystemRoll(text);
   if (parsed.outcome) {
-    const glyph = parsed.outcome === "SUCCESS" ? "&#x2713;" : "&#x2717;";
+    const glyph = parsed.outcome === "SUCCESS" ? "✓" : "✗";
     const cls =
       parsed.outcome === "SUCCESS" ? "rpg-system--ok" : "rpg-system--fail";
-    return `
-      <div id="${id}" class="rpg-system ${cls}">
-        <span class="rpg-system-glyph" aria-hidden="true">${glyph}</span>
-        <span class="rpg-system-stat">${escapeText(statLabel(parsed.stat ?? ""))}</span>
-        <span class="rpg-system-formula">${escapeText(parsed.formula ?? "")}</span>
-        <span class="rpg-system-eq">=</span>
-        <span class="rpg-system-total">${parsed.total}</span>
-        <span class="rpg-system-sep">vs</span>
-        <span class="rpg-system-dc">DC ${parsed.dc}</span>
-        <span class="rpg-system-arrow" aria-hidden="true">&rarr;</span>
-        <span class="rpg-system-outcome">${parsed.outcome}</span>
-      </div>`;
+    return (
+      <div id={id} className={`rpg-system ${cls}`}>
+        <span className="rpg-system-glyph" aria-hidden="true">
+          {glyph}
+        </span>
+        <span className="rpg-system-stat">{statLabel(parsed.stat ?? "")}</span>
+        <span className="rpg-system-formula">{parsed.formula ?? ""}</span>
+        <span className="rpg-system-eq">=</span>
+        <span className="rpg-system-total">{parsed.total}</span>
+        <span className="rpg-system-sep">vs</span>
+        <span className="rpg-system-dc">DC {parsed.dc}</span>
+        <span className="rpg-system-arrow" aria-hidden="true">
+          {"→"}
+        </span>
+        <span className="rpg-system-outcome">{parsed.outcome}</span>
+      </div>
+    );
   }
-  // 일반 SYSTEM — 멀티라인 텍스트를 잉크 스탬프 상자로.
-  const body = escapeText(text)
+  const lines = text
     .split(/\n/)
     .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => `<div class="rpg-system-line">${l}</div>`)
-    .join("");
-  return `
-    <div id="${id}" class="rpg-system">
-      <span class="rpg-system-glyph" aria-hidden="true">&#x2726;</span>
-      <div class="rpg-system-body">${body}</div>
-    </div>`;
+    .filter(Boolean);
+  return (
+    <div id={id} className="rpg-system">
+      <span className="rpg-system-glyph" aria-hidden="true">
+        {"✦"}
+      </span>
+      <div className="rpg-system-body">
+        {lines.map((l, i) => (
+          <div key={i} className="rpg-system-line">
+            {l}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function renderStatEvent(
-  event: Extract<SceneEvent, { kind: "stat" }>,
-  id: string,
-  charIndex: Map<string, NameMapEntry>,
-): string {
+function StatEventView(props: {
+  event: Extract<SceneEvent, { kind: "stat" }>;
+  id: string;
+  charIndex: Map<string, NameMapEntry>;
+}): ReactElement {
+  const { event, id, charIndex } = props;
   const entry = charIndex.get(event.npc);
   const name = entry?.displayName ?? event.npc;
   const sign = event.delta > 0 ? "+" : "";
   const dirGlyph =
     event.direction === "rising"
-      ? "&#x2197;"
+      ? "↗"
       : event.direction === "falling"
-        ? "&#x2198;"
-        : "&rarr;";
+        ? "↘"
+        : "→";
   const cls =
     event.delta > 0
       ? "rpg-stat rpg-stat--up"
       : event.delta < 0
         ? "rpg-stat rpg-stat--down"
         : "rpg-stat";
-  return `
-    <div id="${id}" class="${cls}">
-      <span class="rpg-stat-name">${escapeText(name)}</span>
-      <span class="rpg-stat-delta">${sign}${event.delta}</span>
-      <span class="rpg-stat-trigger">${escapeText(event.trigger)}</span>
-      <span class="rpg-stat-arrow" aria-hidden="true">${dirGlyph}</span>
-    </div>`;
+  return (
+    <div id={id} className={cls}>
+      <span className="rpg-stat-name">{name}</span>
+      <span className="rpg-stat-delta">
+        {sign}
+        {event.delta}
+      </span>
+      <span className="rpg-stat-trigger">{event.trigger}</span>
+      <span className="rpg-stat-arrow" aria-hidden="true">
+        {dirGlyph}
+      </span>
+    </div>
+  );
 }
 
-function renderItemEvent(
-  event: Extract<SceneEvent, { kind: "item" }>,
-  id: string,
-): string {
+function ItemEventView(props: {
+  event: Extract<SceneEvent, { kind: "item" }>;
+  id: string;
+}): ReactElement {
+  const { event, id } = props;
   const changeMatch = event.change.match(/^([+-]?\d+)$/);
   const isEquipped = /equipped/i.test(event.change);
   const glyph = isEquipped
-    ? "&#x29bf;"
+    ? "⦿"
     : changeMatch && parseInt(changeMatch[1], 10) > 0
-      ? "&#x2295;"
+      ? "⊕"
       : changeMatch && parseInt(changeMatch[1], 10) < 0
-        ? "&#x2296;"
-        : "&middot;";
+        ? "⊖"
+        : "·";
   const cls =
     changeMatch && parseInt(changeMatch[1], 10) < 0
       ? "rpg-ledger rpg-ledger--spent"
       : "rpg-ledger rpg-ledger--gain";
-  const body = event.text
-    ? `<span class="rpg-ledger-desc">${escapeText(event.text)}</span>`
-    : "";
-  return `
-    <div id="${id}" class="${cls}">
-      <span class="rpg-ledger-glyph" aria-hidden="true">${glyph}</span>
-      <span class="rpg-ledger-kind">item</span>
-      <span class="rpg-ledger-name">${escapeText(event.slug)}</span>
-      <span class="rpg-ledger-change">${escapeText(event.change)}</span>
-      ${body}
-    </div>`;
+  return (
+    <div id={id} className={cls}>
+      <span className="rpg-ledger-glyph" aria-hidden="true">
+        {glyph}
+      </span>
+      <span className="rpg-ledger-kind">item</span>
+      <span className="rpg-ledger-name">{event.slug}</span>
+      <span className="rpg-ledger-change">{event.change}</span>
+      {event.text ? (
+        <span className="rpg-ledger-desc">{event.text}</span>
+      ) : null}
+    </div>
+  );
 }
 
-function renderQuestEvent(
-  event: Extract<SceneEvent, { kind: "quest" }>,
-  id: string,
-): string {
+function QuestEventView(props: {
+  event: Extract<SceneEvent, { kind: "quest" }>;
+  id: string;
+}): ReactElement {
+  const { event, id } = props;
   const glyph =
     event.event === "complete"
-      ? "&#x2726;"
+      ? "✦"
       : event.event === "fail"
-        ? "&#x2717;"
-        : "&#x223D;";
+        ? "✗"
+        : "∽";
   const cls =
     event.event === "complete"
       ? "rpg-ledger rpg-ledger--quest-done"
       : event.event === "fail"
         ? "rpg-ledger rpg-ledger--quest-fail"
         : "rpg-ledger rpg-ledger--quest";
-  const detail = event.step
-    ? `<span class="rpg-ledger-desc">${escapeText(event.step)}</span>`
-    : `<span class="rpg-ledger-desc">${event.event === "complete" ? "완료" : "실패"}</span>`;
-  return `
-    <div id="${id}" class="${cls}">
-      <span class="rpg-ledger-glyph" aria-hidden="true">${glyph}</span>
-      <span class="rpg-ledger-kind">quest</span>
-      <span class="rpg-ledger-name">${escapeText(event.slug)}</span>
-      ${detail}
-    </div>`;
+  return (
+    <div id={id} className={cls}>
+      <span className="rpg-ledger-glyph" aria-hidden="true">
+        {glyph}
+      </span>
+      <span className="rpg-ledger-kind">quest</span>
+      <span className="rpg-ledger-name">{event.slug}</span>
+      <span className="rpg-ledger-desc">
+        {event.step
+          ? event.step
+          : event.event === "complete"
+            ? "완료"
+            : "실패"}
+      </span>
+    </div>
+  );
 }
 
-// 단일 이벤트 → HTML. renderEvents · renderCombatBeat 가 공유.
-// 새 이벤트 종류 추가 시 이 한 곳만 고치면 된다.
-function renderEvent(
-  e: SceneEvent,
-  id: string,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-  isLead: boolean = false,
-): string {
-  switch (e.kind) {
+function EventView(props: {
+  event: SceneEvent;
+  id: string;
+  ctx: EventCtx;
+  isLead?: boolean;
+}): ReactElement {
+  const { event, id, ctx, isLead } = props;
+  switch (event.kind) {
     case "user":
-      return renderUserEcho(e.text, id);
+      return <UserEchoView text={event.text} id={id} />;
     case "char":
-      return renderCharEvent(e.slug, e.text, ctx, charIndex, fallback, id);
+      return <CharEventView slug={event.slug} text={event.text} ctx={ctx} id={id} />;
     case "narration":
-      return renderNarrationEvent(e.text, ctx, charIndex, id, isLead);
+      return (
+        <NarrationEventView
+          text={event.text}
+          ctx={ctx}
+          id={id}
+          isLead={isLead ?? false}
+        />
+      );
     case "image":
-      return renderImageEvent(e.slug, e.key, ctx, charIndex, id);
+      return (
+        <ImageEventView slug={event.slug} imageKey={event.key} ctx={ctx} id={id} />
+      );
     case "system":
-      return renderSystemEvent(e.text, id);
+      return <SystemEventView text={event.text} id={id} />;
     case "stat":
-      return renderStatEvent(e, id, charIndex);
+      return <StatEventView event={event} id={id} charIndex={ctx.charIndex} />;
     case "item":
-      return renderItemEvent(e, id);
+      return <ItemEventView event={event} id={id} />;
     case "quest":
-      return renderQuestEvent(e, id);
+      return <QuestEventView event={event} id={id} />;
     case "divider":
-      return renderDividerEvent(id);
+      return <DividerEventView id={id} />;
     case "combat":
-      return renderCombatBeat(e, ctx, charIndex, fallback, id);
+      return <CombatBeatView event={event} ctx={ctx} id={id} />;
   }
 }
 
-function renderCombatBeat(
-  event: Extract<SceneEvent, { kind: "combat" }>,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-  id: string,
-): string {
-  const innerHtml = event.inner
-    .map((e, i) => renderEvent(e, `${id}-i${i}`, ctx, charIndex, fallback))
-    .join("\n");
-  return `
-    <section id="${id}" class="rpg-round">
-      <header class="rpg-round-head">
-        <span class="rpg-round-label">ROUND</span>
-        <span class="rpg-round-number">${event.round.toString().padStart(2, "0")}</span>
-        <span class="rpg-round-rule"></span>
-        <span class="rpg-round-flicker" aria-hidden="true">
-          <svg viewBox="0 0 12 20" class="rpg-candle">
-            <path d="M6 2 Q7.2 3 6 5 Q4.8 7 6 9" stroke="currentColor" stroke-width="0.8" fill="none" class="rpg-candle-flame" />
+function CombatBeatView(props: {
+  event: Extract<SceneEvent, { kind: "combat" }>;
+  ctx: EventCtx;
+  id: string;
+}): ReactElement {
+  const { event, ctx, id } = props;
+  return (
+    <section id={id} className="rpg-round">
+      <header className="rpg-round-head">
+        <span className="rpg-round-label">ROUND</span>
+        <span className="rpg-round-number">
+          {event.round.toString().padStart(2, "0")}
+        </span>
+        <span className="rpg-round-rule" />
+        <span className="rpg-round-flicker" aria-hidden="true">
+          <svg viewBox="0 0 12 20" className="rpg-candle">
+            <path d="M6 2 Q7.2 3 6 5 Q4.8 7 6 9" stroke="currentColor" strokeWidth="0.8" fill="none" className="rpg-candle-flame" />
             <rect x="4.2" y="9" width="3.6" height="9" rx="0.6" fill="currentColor" opacity="0.7" />
           </svg>
         </span>
       </header>
-      <div class="rpg-round-body">${innerHtml}</div>
-    </section>`;
+      <div className="rpg-round-body">
+        {event.inner.map((e, i) => (
+          <EventView key={i} event={e} id={`${id}-i${i}`} ctx={ctx} />
+        ))}
+      </div>
+    </section>
+  );
 }
 
-function renderEvents(
-  events: SceneEvent[],
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-): string {
-  // Lead 마킹: 첫 narration 또는 divider 직후 첫 narration이 채식 사본 드롭캡 후보.
-  // 한 reel 안에 lead가 너무 많으면 시각 잡음이라 — divider 사이당 1개로 제한.
+function EventsView(props: {
+  events: SceneEvent[];
+  ctx: EventCtx;
+}): ReactElement {
+  const { events, ctx } = props;
+  const nodes: ReactElement[] = [];
   let leadAvailable = true;
-  return events
-    .map((e, i) => {
-      let isLead = false;
-      if (e.kind === "narration" && leadAvailable) {
-        isLead = true;
-        leadAvailable = false;
-      } else if (e.kind === "divider") {
-        leadAvailable = true;
-      }
-      return renderEvent(e, `rpg-e-${i}`, ctx, charIndex, fallback, isLead);
-    })
-    .join("\n");
+  events.forEach((e, i) => {
+    let isLead = false;
+    if (e.kind === "narration" && leadAvailable) {
+      isLead = true;
+      leadAvailable = false;
+    } else if (e.kind === "divider") {
+      leadAvailable = true;
+    }
+    nodes.push(
+      <EventView
+        key={`e-${i}`}
+        event={e}
+        id={`rpg-e-${i}`}
+        ctx={ctx}
+        isLead={isLead}
+      />,
+    );
+  });
+  return <>{nodes}</>;
 }
 
 // ── HUD (top strip) ───────────────────────────
@@ -1389,10 +1490,11 @@ function actRoman(act: number): string {
   }
 }
 
-function renderHud(
-  world: WorldStateData | null,
-  locTitles: Map<string, string>,
-): string {
+function HudView(props: {
+  world: WorldStateData | null;
+  locTitles: Map<string, string>;
+}): ReactElement {
+  const { world, locTitles } = props;
   const act = world?.act ?? 1;
   const time = world?.time ?? "--:--";
   const day = world?.day ?? 1;
@@ -1401,52 +1503,54 @@ function renderHud(
   const weather = world?.weather ?? "";
   const mode = world?.mode ?? "peace";
 
-  // 모드를 단일 글리프로 — wax seal 인장이라 글자는 압축/판독 어려움. ☮ 평화 / ⚔ 전투.
   const modeGlyph = mode === "combat" ? "⚔" : "☮";
   const modeLabel = mode === "combat" ? "전투" : "평화";
 
-  return `
-    <header class="rpg-hud">
-      <div class="rpg-hud-brand">
-        <svg class="rpg-lantern" viewBox="0 0 16 22" aria-hidden="true">
-          <ellipse cx="8" cy="10" rx="5" ry="6" class="rpg-lantern-glow" />
-          <rect x="3.5" y="4" width="9" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="0.6" />
-          <line x1="8" y1="1" x2="8" y2="4" stroke="currentColor" stroke-width="0.6" />
-          <rect x="5.5" y="16" width="5" height="2" fill="none" stroke="currentColor" stroke-width="0.5" />
+  return (
+    <header className="rpg-hud">
+      <div className="rpg-hud-brand">
+        <svg className="rpg-lantern" viewBox="0 0 16 22" aria-hidden="true">
+          <ellipse cx="8" cy="10" rx="5" ry="6" className="rpg-lantern-glow" />
+          <rect x="3.5" y="4" width="9" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="0.6" />
+          <line x1="8" y1="1" x2="8" y2="4" stroke="currentColor" strokeWidth="0.6" />
+          <rect x="5.5" y="16" width="5" height="2" fill="none" stroke="currentColor" strokeWidth="0.5" />
         </svg>
-        <div class="rpg-hud-title-col">
-          <h1 class="rpg-hud-title-ribbon">
-            <span class="rpg-ribbon-tip rpg-ribbon-tip--left" aria-hidden="true"></span>
-            <span class="rpg-hud-title">Three Winds Ledger</span>
-            <span class="rpg-ribbon-tip rpg-ribbon-tip--right" aria-hidden="true"></span>
+        <div className="rpg-hud-title-col">
+          <h1 className="rpg-hud-title-ribbon">
+            <span className="rpg-ribbon-tip rpg-ribbon-tip--left" aria-hidden="true" />
+            <span className="rpg-hud-title">Three Winds Ledger</span>
+            <span className="rpg-ribbon-tip rpg-ribbon-tip--right" aria-hidden="true" />
           </h1>
-          <span class="rpg-hud-sub">살레른 항구 · Salren Harbour</span>
+          <span className="rpg-hud-sub">살레른 항구 · Salren Harbour</span>
         </div>
       </div>
-      <div class="rpg-hud-meta">
-        <div class="rpg-hud-cell">
-          <span class="rpg-hud-label">막</span>
-          <span class="rpg-hud-value rpg-hud-act">${actRoman(act)}</span>
+      <div className="rpg-hud-meta">
+        <div className="rpg-hud-cell">
+          <span className="rpg-hud-label">막</span>
+          <span className="rpg-hud-value rpg-hud-act">{actRoman(act)}</span>
         </div>
-        <div class="rpg-hud-cell">
-          <span class="rpg-hud-label">일</span>
-          <span class="rpg-hud-value">${day}</span>
+        <div className="rpg-hud-cell">
+          <span className="rpg-hud-label">일</span>
+          <span className="rpg-hud-value">{day}</span>
         </div>
-        <div class="rpg-hud-cell rpg-hud-cell--wide">
-          <span class="rpg-hud-label">시</span>
-          <span class="rpg-hud-value rpg-hud-time">${escapeText(time)}</span>
+        <div className="rpg-hud-cell rpg-hud-cell--wide">
+          <span className="rpg-hud-label">시</span>
+          <span className="rpg-hud-value rpg-hud-time">{time}</span>
         </div>
-        <div class="rpg-hud-cell rpg-hud-cell--wide">
-          <span class="rpg-hud-label">위치</span>
-          <span class="rpg-hud-value rpg-hud-bearing">${escapeText(locTitle)}</span>
+        <div className="rpg-hud-cell rpg-hud-cell--wide">
+          <span className="rpg-hud-label">위치</span>
+          <span className="rpg-hud-value rpg-hud-bearing">{locTitle}</span>
         </div>
-        <div class="rpg-hud-cell rpg-hud-cell--mode rpg-hud-cell--${mode}" title="${modeLabel}">
-          <span class="rpg-hud-label">정세</span>
-          <span class="rpg-hud-value" aria-label="${modeLabel}">${modeGlyph}</span>
+        <div className={`rpg-hud-cell rpg-hud-cell--mode rpg-hud-cell--${mode}`} title={modeLabel}>
+          <span className="rpg-hud-label">정세</span>
+          <span className="rpg-hud-value" aria-label={modeLabel}>
+            {modeGlyph}
+          </span>
         </div>
       </div>
-      ${weather ? `<div class="rpg-hud-weather">${escapeText(weather)}</div>` : ""}
-    </header>`;
+      {weather ? <div className="rpg-hud-weather">{weather}</div> : null}
+    </header>
+  );
 }
 
 // ── Party panel (left) ────────────────────────
@@ -1457,38 +1561,58 @@ function hpTone(pct: number): string {
   return VERMILION;
 }
 
-function renderVitalBar(
-  label: string,
-  cur: number,
-  max: number,
-  color: string,
-): string {
+function VitalBar(props: {
+  label: string;
+  cur: number;
+  max: number;
+  color: string;
+}): ReactElement {
+  const { label, cur, max, color } = props;
   const pct = max > 0 ? clamp(cur / max, 0, 1) : 0;
   const filled = (pct * 100).toFixed(1);
   const rest = (100 - Number(filled)).toFixed(1);
-  return `
-    <div class="rpg-vital">
-      <span class="rpg-vital-label">${escapeText(label)}</span>
-      <svg class="rpg-vital-bar" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
-        <line x1="0" y1="3" x2="100" y2="3" class="rpg-vital-track" />
-        <line x1="0" y1="3" x2="100" y2="3" class="rpg-vital-fill" style="stroke:${escapeHtml(color)};stroke-dasharray:${filled} ${rest};" />
+  return (
+    <div className="rpg-vital">
+      <span className="rpg-vital-label">{label}</span>
+      <svg className="rpg-vital-bar" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="0" y1="3" x2="100" y2="3" className="rpg-vital-track" />
+        <line
+          x1="0"
+          y1="3"
+          x2="100"
+          y2="3"
+          className="rpg-vital-fill"
+          style={{ stroke: color, strokeDasharray: `${filled} ${rest}` }}
+        />
       </svg>
-      <span class="rpg-vital-value" style="color:${escapeHtml(color)}">${cur}<span class="rpg-vital-slash">/</span>${max}</span>
-    </div>`;
+      <span className="rpg-vital-value" style={{ color }}>
+        {cur}
+        <span className="rpg-vital-slash">/</span>
+        {max}
+      </span>
+    </div>
+  );
 }
 
-function renderConditions(conditions: string[]): string {
-  if (conditions.length === 0) return "";
-  const chips = conditions
-    .map((c) => `<span class="rpg-condition">${escapeText(c)}</span>`)
-    .join("");
-  return `<div class="rpg-conditions">${chips}</div>`;
+function ConditionsView(props: { conditions: string[] }): ReactElement | null {
+  if (props.conditions.length === 0) return null;
+  return (
+    <div className="rpg-conditions">
+      {props.conditions.map((c, i) => (
+        <span key={i} className="rpg-condition">
+          {c}
+        </span>
+      ))}
+    </div>
+  );
 }
 
-// trust 11 ticks (-5..+5). mode "active" = 현재 값만 강조.
-//                         mode "filled" = 0→trust 방향으로 채움 + 현재 값 강조.
-function renderTrustTicks(trust: number, mode: "active" | "filled"): string {
-  let html = "";
+function TrustTicks(props: {
+  trust: number;
+  mode: "active" | "filled";
+}): ReactElement {
+  const { trust, mode } = props;
+  const ticks: ReactElement[] = [];
   for (let i = 0; i < 11; i++) {
     const val = i - 5;
     const active = val === trust;
@@ -1499,18 +1623,19 @@ function renderTrustTicks(trust: number, mode: "active" | "filled"): string {
     let c = "rpg-trust-tick";
     if (filled) c += " rpg-trust-tick--fill";
     if (active) c += " rpg-trust-tick--active";
-    html += `<span class="${c}" data-v="${val}"></span>`;
+    ticks.push(<span key={i} className={c} data-v={String(val)} />);
   }
-  return html;
+  return <>{ticks}</>;
 }
 
-function renderPcCard(
-  pc: PartyData["pc"] | null,
-  pcData: PcData | null,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-): string {
+function PcCardView(props: {
+  pc: PartyData["pc"] | null;
+  pcData: PcData | null;
+  baseUrl: string;
+  charIndex: Map<string, NameMapEntry>;
+  fallback: Map<string, string>;
+}): ReactElement {
+  const { pc, pcData, baseUrl, charIndex, fallback } = props;
   const name = pc?.name ?? pcData?.displayName ?? "여행자";
   const hp = pc?.hp ?? pcData?.hp ?? { current: 20, max: 20 };
   const mp = pc?.mp ?? pcData?.mp ?? { current: 0, max: 0 };
@@ -1523,13 +1648,22 @@ function renderPcCard(
     charisma: 0,
   };
 
-  const info = resolvePortrait(preset ?? "pc", ctx, charIndex, fallback);
-  const portraitHtml = preset
-    ? info.portraitHtml
-    : `<div class="rpg-portrait" data-fallback="1">
-        <div class="rpg-portrait-halo"></div>
-        <div class="rpg-portrait-fallback" aria-hidden="true">${escapeText(firstChar(name))}</div>
-      </div>`;
+  const info = resolvePortrait({
+    slug: preset ?? "pc",
+    charIndex,
+    fallback,
+    baseUrl,
+  });
+  const portraitEl = preset ? (
+    info.element
+  ) : (
+    <div className="rpg-portrait" data-fallback="1">
+      <div className="rpg-portrait-halo" />
+      <div className="rpg-portrait-fallback" aria-hidden="true">
+        {firstChar(name)}
+      </div>
+    </div>
+  );
   const portraitColor = preset ? info.color : VERDIGRIS;
 
   const presetLabel =
@@ -1544,69 +1678,81 @@ function renderPcCard(
   const hpColor = hpTone(hp.max > 0 ? hp.current / hp.max : 0);
   const mpVisible = mp.max > 0;
 
-  const attrRow = (label: string, val: number) => {
+  const style = { ["--c" as string]: portraitColor } as CSSProperties;
+
+  const attrRow = (label: string, val: number): ReactElement => {
     const sign = val > 0 ? "+" : val < 0 ? "" : "";
     const cls =
       val > 0 ? "rpg-attr--pos" : val < 0 ? "rpg-attr--neg" : "rpg-attr--zero";
-    return `
-      <div class="rpg-attr ${cls}">
-        <span class="rpg-attr-label">${label}</span>
-        <span class="rpg-attr-val">${sign}${val}</span>
-      </div>`;
+    return (
+      <div className={`rpg-attr ${cls}`}>
+        <span className="rpg-attr-label">{label}</span>
+        <span className="rpg-attr-val">
+          {sign}
+          {val}
+        </span>
+      </div>
+    );
   };
 
-  return `
-    <section class="rpg-member rpg-member--pc" style="--c: ${escapeHtml(portraitColor)}">
-      <header class="rpg-member-head">
-        <div class="rpg-member-portrait">${portraitHtml}</div>
-        <div class="rpg-member-id">
-          <div class="rpg-member-role">PC · ${escapeText(presetLabel)}</div>
-          <div class="rpg-member-name">${escapeText(name)}</div>
+  return (
+    <section className="rpg-member rpg-member--pc" style={style}>
+      <header className="rpg-member-head">
+        <div className="rpg-member-portrait">{portraitEl}</div>
+        <div className="rpg-member-id">
+          <div className="rpg-member-role">PC · {presetLabel}</div>
+          <div className="rpg-member-name">{name}</div>
         </div>
       </header>
-      <div class="rpg-vitals">
-        ${renderVitalBar("HP", hp.current, hp.max, hpColor)}
-        ${mpVisible ? renderVitalBar("MP", mp.current, mp.max, MANUSCRIPT_VIOLET) : ""}
+      <div className="rpg-vitals">
+        <VitalBar label="HP" cur={hp.current} max={hp.max} color={hpColor} />
+        {mpVisible ? (
+          <VitalBar label="MP" cur={mp.current} max={mp.max} color={MANUSCRIPT_VIOLET} />
+        ) : null}
       </div>
-      <div class="rpg-attrs">
-        ${attrRow("힘", attrs.strength)}
-        ${attrRow("민첩", attrs.agility)}
-        ${attrRow("통찰", attrs.insight)}
-        ${attrRow("화술", attrs.charisma)}
+      <div className="rpg-attrs">
+        {attrRow("힘", attrs.strength)}
+        {attrRow("민첩", attrs.agility)}
+        {attrRow("통찰", attrs.insight)}
+        {attrRow("화술", attrs.charisma)}
       </div>
-      ${renderConditions(conditions)}
-    </section>`;
+      <ConditionsView conditions={conditions} />
+    </section>
+  );
 }
 
-function renderCompanionCard(
-  slug: string,
-  comp: PartyData["companions"][string],
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-): string {
+function CompanionCardView(props: {
+  slug: string;
+  comp: PartyData["companions"][string];
+  baseUrl: string;
+  charIndex: Map<string, NameMapEntry>;
+  fallback: Map<string, string>;
+}): ReactElement {
+  const { slug, comp, baseUrl, charIndex, fallback } = props;
   if (!comp.in_party) {
-    // 파티 이탈한 동료도 슬롯 자체는 유지 (회색)
     const entry = charIndex.get(slug);
     const name = entry?.displayName ?? slug;
-    return `
-      <section class="rpg-member rpg-member--absent">
-        <header class="rpg-member-head">
-          <div class="rpg-member-portrait">
-            <div class="rpg-portrait" data-fallback="1">
-              <div class="rpg-portrait-fallback" aria-hidden="true">${escapeText(firstChar(name))}</div>
+    return (
+      <section className="rpg-member rpg-member--absent">
+        <header className="rpg-member-head">
+          <div className="rpg-member-portrait">
+            <div className="rpg-portrait" data-fallback="1">
+              <div className="rpg-portrait-fallback" aria-hidden="true">
+                {firstChar(name)}
+              </div>
             </div>
           </div>
-          <div class="rpg-member-id">
-            <div class="rpg-member-role">동료 · 이탈</div>
-            <div class="rpg-member-name">${escapeText(name)}</div>
+          <div className="rpg-member-id">
+            <div className="rpg-member-role">동료 · 이탈</div>
+            <div className="rpg-member-name">{name}</div>
           </div>
         </header>
-        <div class="rpg-member-absent-note">파티를 떠났다</div>
-      </section>`;
+        <div className="rpg-member-absent-note">파티를 떠났다</div>
+      </section>
+    );
   }
 
-  const info = resolvePortrait(slug, ctx, charIndex, fallback);
+  const info = resolvePortrait({ slug, charIndex, fallback, baseUrl });
   const hpColor = hpTone(comp.hp.max > 0 ? comp.hp.current / comp.hp.max : 0);
   const mpVisible = comp.mp.max > 0;
   const trustSigned = comp.trust > 0 ? `+${comp.trust}` : `${comp.trust}`;
@@ -1618,294 +1764,357 @@ function renderCompanionCard(
         : "rpg-trust--zero";
   const apGlyph =
     comp.approval === "rising"
-      ? "&#x2197;"
+      ? "↗"
       : comp.approval === "falling"
-        ? "&#x2198;"
-        : "&rarr;";
+        ? "↘"
+        : "→";
 
-  return `
-    <section class="rpg-member rpg-member--comp" style="--c: ${escapeHtml(info.color)}">
-      <header class="rpg-member-head">
-        <div class="rpg-member-portrait">${info.portraitHtml}</div>
-        <div class="rpg-member-id">
-          <div class="rpg-member-role">동료</div>
-          <div class="rpg-member-name">${escapeText(info.displayName)}</div>
+  const style = { ["--c" as string]: info.color } as CSSProperties;
+
+  return (
+    <section className="rpg-member rpg-member--comp" style={style}>
+      <header className="rpg-member-head">
+        <div className="rpg-member-portrait">{info.element}</div>
+        <div className="rpg-member-id">
+          <div className="rpg-member-role">동료</div>
+          <div className="rpg-member-name">{info.displayName}</div>
         </div>
       </header>
-      <div class="rpg-vitals">
-        ${renderVitalBar("HP", comp.hp.current, comp.hp.max, hpColor)}
-        ${mpVisible ? renderVitalBar("MP", comp.mp.current, comp.mp.max, MANUSCRIPT_VIOLET) : ""}
+      <div className="rpg-vitals">
+        <VitalBar label="HP" cur={comp.hp.current} max={comp.hp.max} color={hpColor} />
+        {mpVisible ? (
+          <VitalBar label="MP" cur={comp.mp.current} max={comp.mp.max} color={MANUSCRIPT_VIOLET} />
+        ) : null}
       </div>
-      <div class="rpg-trust">
-        <span class="rpg-trust-label">TRUST</span>
-        <span class="rpg-trust-track">${renderTrustTicks(comp.trust, "active")}</span>
-        <span class="rpg-trust-value ${trustCls}">${trustSigned}</span>
-        <span class="rpg-trust-arrow" aria-hidden="true">${apGlyph}</span>
+      <div className="rpg-trust">
+        <span className="rpg-trust-label">TRUST</span>
+        <span className="rpg-trust-track">
+          <TrustTicks trust={comp.trust} mode="active" />
+        </span>
+        <span className={`rpg-trust-value ${trustCls}`}>{trustSigned}</span>
+        <span className="rpg-trust-arrow" aria-hidden="true">
+          {apGlyph}
+        </span>
       </div>
-      ${renderConditions(comp.conditions)}
-    </section>`;
+      <ConditionsView conditions={comp.conditions} />
+    </section>
+  );
 }
 
-function renderPartyPanel(
-  party: PartyData | null,
-  pcData: PcData | null,
-  ctx: RenderContext,
-  charIndex: Map<string, NameMapEntry>,
-  fallback: Map<string, string>,
-): string {
-  const pcCard = renderPcCard(
-    party?.pc ?? null,
-    pcData,
-    ctx,
-    charIndex,
-    fallback,
-  );
-  const compCards = party
-    ? Object.entries(party.companions)
-        .map(([slug, comp]) =>
-          renderCompanionCard(slug, comp, ctx, charIndex, fallback),
-        )
-        .join("")
-    : "";
-  return `
-    <aside class="rpg-party-panel" aria-label="파티">
-      <div class="rpg-panel-head">
-        <svg class="rpg-panel-glyph" viewBox="0 0 14 14" aria-hidden="true">
-          <circle cx="5" cy="5" r="2.5" fill="none" stroke="currentColor" stroke-width="0.8" />
-          <circle cx="10" cy="9" r="2" fill="none" stroke="currentColor" stroke-width="0.8" />
-          <path d="M3 13 Q7 10 12 13" fill="none" stroke="currentColor" stroke-width="0.8" />
+function PartyPanelView(props: {
+  party: PartyData | null;
+  pcData: PcData | null;
+  baseUrl: string;
+  charIndex: Map<string, NameMapEntry>;
+  fallback: Map<string, string>;
+}): ReactElement {
+  const { party, pcData, baseUrl, charIndex, fallback } = props;
+  return (
+    <aside className="rpg-party-panel" aria-label="파티">
+      <div className="rpg-panel-head">
+        <svg className="rpg-panel-glyph" viewBox="0 0 14 14" aria-hidden="true">
+          <circle cx="5" cy="5" r="2.5" fill="none" stroke="currentColor" strokeWidth="0.8" />
+          <circle cx="10" cy="9" r="2" fill="none" stroke="currentColor" strokeWidth="0.8" />
+          <path d="M3 13 Q7 10 12 13" fill="none" stroke="currentColor" strokeWidth="0.8" />
         </svg>
-        <span class="rpg-panel-title">PARTY</span>
+        <span className="rpg-panel-title">PARTY</span>
       </div>
-      <div class="rpg-party-list">
-        ${pcCard}
-        ${compCards}
+      <div className="rpg-party-list">
+        <PcCardView
+          pc={party?.pc ?? null}
+          pcData={pcData}
+          baseUrl={baseUrl}
+          charIndex={charIndex}
+          fallback={fallback}
+        />
+        {party
+          ? Object.entries(party.companions).map(([slug, comp]) => (
+              <CompanionCardView
+                key={slug}
+                slug={slug}
+                comp={comp}
+                baseUrl={baseUrl}
+                charIndex={charIndex}
+                fallback={fallback}
+              />
+            ))
+          : null}
       </div>
-    </aside>`;
+    </aside>
+  );
 }
 
 // ── Side panel (right tabs) ───────────────────
-// radio name 은 고정 — Idiomorph 가 checked 속성을 morph 간 보존해 탭 선택 유지.
 
-function renderTabInputs(): string {
-  return `
-    <input type="radio" name="rpg-tab" id="rpg-tab-quest" class="rpg-tab-input" checked>
-    <input type="radio" name="rpg-tab" id="rpg-tab-inv" class="rpg-tab-input">
-    <input type="radio" name="rpg-tab" id="rpg-tab-rel" class="rpg-tab-input">
-    <input type="radio" name="rpg-tab" id="rpg-tab-log" class="rpg-tab-input">`;
-}
-
-function renderTabNav(): string {
-  return `
-    <nav class="rpg-tabs" aria-label="우측 탭">
-      <label for="rpg-tab-quest" class="rpg-tab rpg-tab--quest">
-        <svg viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,1 7.5,4.5 11,5 8.5,7.5 9,11 6,9 3,11 3.5,7.5 1,5 4.5,4.5" fill="none" stroke="currentColor" stroke-width="0.8"/></svg>
-        <span>퀘스트</span>
-      </label>
-      <label for="rpg-tab-inv" class="rpg-tab rpg-tab--inv">
-        <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="3" width="8" height="7" fill="none" stroke="currentColor" stroke-width="0.8"/><path d="M4 3 V2 H8 V3" fill="none" stroke="currentColor" stroke-width="0.8"/></svg>
-        <span>인벤</span>
-      </label>
-      <label for="rpg-tab-rel" class="rpg-tab rpg-tab--rel">
-        <svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="4" cy="5" r="1.8" fill="none" stroke="currentColor" stroke-width="0.8"/><circle cx="8.5" cy="7" r="1.4" fill="none" stroke="currentColor" stroke-width="0.8"/><path d="M3 10 Q6 9 9.5 10" fill="none" stroke="currentColor" stroke-width="0.8"/></svg>
-        <span>관계</span>
-      </label>
-      <label for="rpg-tab-log" class="rpg-tab rpg-tab--log">
-        <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" stroke-width="0.8"/><line x1="3.5" y1="5" x2="8.5" y2="5" stroke="currentColor" stroke-width="0.6"/><line x1="3.5" y1="7" x2="7" y2="7" stroke="currentColor" stroke-width="0.6"/></svg>
-        <span>로그</span>
-      </label>
-    </nav>`;
-}
-
-function renderQuestPane(quests: QuestsData): string {
-  const section = (label: string, list: QuestEntry[]): string => {
-    if (list.length === 0) return "";
-    const rows = list
-      .map((q) => {
-        const statusGlyph =
-          q.status === "complete"
-            ? "&#x2713;"
-            : q.status === "failed"
-              ? "&#x2717;"
-              : q.status === "active"
-                ? "&#x223D;"
-                : "&#x25CB;";
-        const statusCls =
-          q.status === "complete"
-            ? "rpg-quest-status--done"
-            : q.status === "failed"
-              ? "rpg-quest-status--fail"
-              : q.status === "active"
-                ? "rpg-quest-status--active"
-                : "rpg-quest-status--dormant";
-        const step = q.current_step
-          ? `<div class="rpg-quest-step">▸ ${escapeText(q.current_step)}</div>`
-          : "";
-        const steps =
-          q.steps_completed && q.steps_completed.length > 0
-            ? `<ul class="rpg-quest-steps">${q.steps_completed
-                .map((s) => `<li>${escapeText(s)}</li>`)
-                .join("")}</ul>`
-            : "";
-        const desc = q.description
-          ? `<div class="rpg-quest-desc">${escapeText(q.description.trim())}</div>`
-          : "";
-        return `
-          <details class="rpg-quest ${statusCls}">
-            <summary class="rpg-quest-head">
-              <span class="rpg-quest-status" aria-hidden="true">${statusGlyph}</span>
-              <span class="rpg-quest-title">${escapeText(q.title || q.slug)}</span>
-              <span class="rpg-quest-act">Act ${q.act}</span>
-            </summary>
-            <div class="rpg-quest-body">
-              ${step}
-              ${desc}
-              ${steps}
-            </div>
-          </details>`;
-      })
-      .join("");
-    return `
-      <div class="rpg-pane-group">
-        <div class="rpg-pane-group-head">${label}</div>
-        <div class="rpg-pane-group-list">${rows}</div>
-      </div>`;
-  };
-
-  const body = [
-    section("메인", quests.quests.main),
-    section("동료", quests.quests.companion),
-    section("사이드", quests.quests.side),
-  ]
-    .filter(Boolean)
-    .join("");
-
-  if (!body) {
-    return `<div class="rpg-pane rpg-pane--empty">아직 진행 중인 퀘스트가 없습니다.</div>`;
-  }
-  return `<div class="rpg-pane">${body}</div>`;
-}
-
-function renderInventoryPane(inv: InventoryData): string {
-  const goldRow = `
-    <div class="rpg-pane-kv">
-      <span class="rpg-kv-label">금화</span>
-      <span class="rpg-kv-val rpg-gold">${inv.gold} <span class="rpg-gold-unit">크라운</span></span>
-    </div>`;
-
-  const eqRow = (label: string, eq: Equipment | null): string => {
-    const val =
-      eq && (eq.name || eq.slug)
-        ? `<span class="rpg-eq-name">${escapeText(eq.name ?? eq.slug ?? "")}</span>${
-            eq.damage
-              ? `<span class="rpg-eq-meta">${escapeText(eq.damage)}</span>`
-              : ""
-          }${eq.soak !== undefined ? `<span class="rpg-eq-meta">soak ${eq.soak}</span>` : ""}${
-            eq.schools && eq.schools.length > 0
-              ? `<span class="rpg-eq-meta">${eq.schools.map((s) => escapeText(s)).join(" · ")}</span>`
-              : ""
-          }`
-        : `<span class="rpg-eq-empty">—</span>`;
-    return `
-      <div class="rpg-eq-row">
-        <span class="rpg-eq-slot">${label}</span>
-        <span class="rpg-eq-val">${val}</span>
-      </div>`;
-  };
-
-  const eqBlock = `
-    <div class="rpg-pane-group">
-      <div class="rpg-pane-group-head">장비</div>
-      <div class="rpg-eq-list">
-        ${eqRow("무기", inv.equipment.weapon)}
-        ${eqRow("방어구", inv.equipment.armor)}
-        ${eqRow("부속", inv.equipment.accessory)}
+function SidePanelView(props: {
+  stats: StatsData;
+  party: PartyData | null;
+  inventory: InventoryData;
+  quests: QuestsData;
+  world: WorldStateData | null;
+  charIndex: Map<string, NameMapEntry>;
+}): ReactElement {
+  const { stats, party, inventory, quests, world, charIndex } = props;
+  return (
+    <aside className="rpg-side-panel" aria-label="상세 정보">
+      <input type="radio" name="rpg-tab" id="rpg-tab-quest" className="rpg-tab-input" defaultChecked />
+      <input type="radio" name="rpg-tab" id="rpg-tab-inv" className="rpg-tab-input" />
+      <input type="radio" name="rpg-tab" id="rpg-tab-rel" className="rpg-tab-input" />
+      <input type="radio" name="rpg-tab" id="rpg-tab-log" className="rpg-tab-input" />
+      <nav className="rpg-tabs" aria-label="우측 탭">
+        <label htmlFor="rpg-tab-quest" className="rpg-tab rpg-tab--quest">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <polygon points="6,1 7.5,4.5 11,5 8.5,7.5 9,11 6,9 3,11 3.5,7.5 1,5 4.5,4.5" fill="none" stroke="currentColor" strokeWidth="0.8" />
+          </svg>
+          <span>퀘스트</span>
+        </label>
+        <label htmlFor="rpg-tab-inv" className="rpg-tab rpg-tab--inv">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <rect x="2" y="3" width="8" height="7" fill="none" stroke="currentColor" strokeWidth="0.8" />
+            <path d="M4 3 V2 H8 V3" fill="none" stroke="currentColor" strokeWidth="0.8" />
+          </svg>
+          <span>인벤</span>
+        </label>
+        <label htmlFor="rpg-tab-rel" className="rpg-tab rpg-tab--rel">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <circle cx="4" cy="5" r="1.8" fill="none" stroke="currentColor" strokeWidth="0.8" />
+            <circle cx="8.5" cy="7" r="1.4" fill="none" stroke="currentColor" strokeWidth="0.8" />
+            <path d="M3 10 Q6 9 9.5 10" fill="none" stroke="currentColor" strokeWidth="0.8" />
+          </svg>
+          <span>관계</span>
+        </label>
+        <label htmlFor="rpg-tab-log" className="rpg-tab rpg-tab--log">
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <rect x="2" y="2" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="0.8" />
+            <line x1="3.5" y1="5" x2="8.5" y2="5" stroke="currentColor" strokeWidth="0.6" />
+            <line x1="3.5" y1="7" x2="7" y2="7" stroke="currentColor" strokeWidth="0.6" />
+          </svg>
+          <span>로그</span>
+        </label>
+      </nav>
+      <div className="rpg-side-stack">
+        <div className="rpg-side-panel-body rpg-side-panel-body--quest">
+          <QuestPaneView quests={quests} />
+        </div>
+        <div className="rpg-side-panel-body rpg-side-panel-body--inv">
+          <InventoryPaneView inv={inventory} />
+        </div>
+        <div className="rpg-side-panel-body rpg-side-panel-body--rel">
+          <RelationsPaneView stats={stats} party={party} charIndex={charIndex} />
+        </div>
+        <div className="rpg-side-panel-body rpg-side-panel-body--log">
+          <LogPaneView world={world} />
+        </div>
       </div>
-    </div>`;
-
-  const items = inv.items
-    .map((it) => {
-      const qty =
-        it.qty && it.qty > 1
-          ? `<span class="rpg-item-qty">×${it.qty}</span>`
-          : "";
-      const tag = (it.tags ?? [])
-        .slice(0, 1)
-        .map((t) => `<span class="rpg-item-tag">${escapeText(t)}</span>`)
-        .join("");
-      const desc = it.description
-        ? `<span class="rpg-item-desc">${escapeText(it.description)}</span>`
-        : "";
-      return `
-        <li class="rpg-inv-item">
-          <span class="rpg-item-glyph" aria-hidden="true">&middot;</span>
-          <span class="rpg-item-name">${escapeText(it.name || it.slug)}</span>
-          ${qty}
-          ${tag}
-          ${desc}
-        </li>`;
-    })
-    .join("");
-
-  const itemsBlock =
-    inv.items.length > 0
-      ? `
-    <div class="rpg-pane-group">
-      <div class="rpg-pane-group-head">소지품</div>
-      <ul class="rpg-inv-list">${items}</ul>
-    </div>`
-      : "";
-
-  const evidence = inv.evidence
-    .map((e) => {
-      const note = e.notes
-        ? `<span class="rpg-item-desc">${escapeText(e.notes)}</span>`
-        : "";
-      const where = e.acquired_at_scene
-        ? `<span class="rpg-item-tag">${escapeText(e.acquired_at_scene)}</span>`
-        : "";
-      return `
-        <li class="rpg-inv-item rpg-inv-item--evidence" id="evidence-${escapeHtml(e.slug)}">
-          <a class="rpg-item-glyph" href="#evidence-${escapeHtml(e.slug)}-modal" aria-label="단서 펼치기">&#x29BF;</a>
-          <span class="rpg-item-name">${escapeText(e.name || e.slug)}</span>
-          ${where}
-          ${note}
-        </li>`;
-    })
-    .join("");
-
-  const evidenceBlock =
-    inv.evidence.length > 0
-      ? `
-    <div class="rpg-pane-group">
-      <div class="rpg-pane-group-head">단서 · 증거</div>
-      <ul class="rpg-inv-list rpg-inv-list--evidence">${evidence}</ul>
-    </div>`
-      : "";
-
-  return `
-    <div class="rpg-pane">
-      ${goldRow}
-      ${eqBlock}
-      ${itemsBlock}
-      ${evidenceBlock}
-    </div>`;
+    </aside>
+  );
 }
 
-function renderRelationsPane(
-  stats: StatsData,
-  party: PartyData | null,
-  charIndex: Map<string, NameMapEntry>,
-): string {
-  // 리우(동료) 는 party.yaml 의 trust 사용, 나머지 NPC 는 stats.yaml 사용.
+function QuestSection(props: {
+  label: string;
+  list: QuestEntry[];
+}): ReactElement | null {
+  const { label, list } = props;
+  if (list.length === 0) return null;
+  return (
+    <div className="rpg-pane-group">
+      <div className="rpg-pane-group-head">{label}</div>
+      <div className="rpg-pane-group-list">
+        {list.map((q) => {
+          const statusGlyph =
+            q.status === "complete"
+              ? "✓"
+              : q.status === "failed"
+                ? "✗"
+                : q.status === "active"
+                  ? "∽"
+                  : "○";
+          const statusCls =
+            q.status === "complete"
+              ? "rpg-quest-status--done"
+              : q.status === "failed"
+                ? "rpg-quest-status--fail"
+                : q.status === "active"
+                  ? "rpg-quest-status--active"
+                  : "rpg-quest-status--dormant";
+          return (
+            <details key={q.slug} className={`rpg-quest ${statusCls}`}>
+              <summary className="rpg-quest-head">
+                <span className="rpg-quest-status" aria-hidden="true">
+                  {statusGlyph}
+                </span>
+                <span className="rpg-quest-title">{q.title || q.slug}</span>
+                <span className="rpg-quest-act">Act {q.act}</span>
+              </summary>
+              <div className="rpg-quest-body">
+                {q.current_step ? (
+                  <div className="rpg-quest-step">▸ {q.current_step}</div>
+                ) : null}
+                {q.description ? (
+                  <div className="rpg-quest-desc">{q.description.trim()}</div>
+                ) : null}
+                {q.steps_completed && q.steps_completed.length > 0 ? (
+                  <ul className="rpg-quest-steps">
+                    {q.steps_completed.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function QuestPaneView(props: { quests: QuestsData }): ReactElement {
+  const { quests } = props;
+  const sections: ReactElement[] = [];
+  const main = <QuestSection key="main" label="메인" list={quests.quests.main} />;
+  const companion = (
+    <QuestSection key="companion" label="동료" list={quests.quests.companion} />
+  );
+  const side = <QuestSection key="side" label="사이드" list={quests.quests.side} />;
+  if (quests.quests.main.length > 0) sections.push(main);
+  if (quests.quests.companion.length > 0) sections.push(companion);
+  if (quests.quests.side.length > 0) sections.push(side);
+
+  if (sections.length === 0) {
+    return (
+      <div className="rpg-pane rpg-pane--empty">
+        아직 진행 중인 퀘스트가 없습니다.
+      </div>
+    );
+  }
+  return <div className="rpg-pane">{sections}</div>;
+}
+
+function EquipmentRow(props: {
+  label: string;
+  eq: Equipment | null;
+}): ReactElement {
+  const { label, eq } = props;
+  const hasValue = eq && (eq.name || eq.slug);
+  return (
+    <div className="rpg-eq-row">
+      <span className="rpg-eq-slot">{label}</span>
+      <span className="rpg-eq-val">
+        {hasValue && eq ? (
+          <>
+            <span className="rpg-eq-name">{eq.name ?? eq.slug ?? ""}</span>
+            {eq.damage ? (
+              <span className="rpg-eq-meta">{eq.damage}</span>
+            ) : null}
+            {eq.soak !== undefined ? (
+              <span className="rpg-eq-meta">soak {eq.soak}</span>
+            ) : null}
+            {eq.schools && eq.schools.length > 0 ? (
+              <span className="rpg-eq-meta">{eq.schools.join(" · ")}</span>
+            ) : null}
+          </>
+        ) : (
+          <span className="rpg-eq-empty">—</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function InventoryPaneView(props: { inv: InventoryData }): ReactElement {
+  const { inv } = props;
+  return (
+    <div className="rpg-pane">
+      <div className="rpg-pane-kv">
+        <span className="rpg-kv-label">금화</span>
+        <span className="rpg-kv-val rpg-gold">
+          {inv.gold} <span className="rpg-gold-unit">크라운</span>
+        </span>
+      </div>
+      <div className="rpg-pane-group">
+        <div className="rpg-pane-group-head">장비</div>
+        <div className="rpg-eq-list">
+          <EquipmentRow label="무기" eq={inv.equipment.weapon} />
+          <EquipmentRow label="방어구" eq={inv.equipment.armor} />
+          <EquipmentRow label="부속" eq={inv.equipment.accessory} />
+        </div>
+      </div>
+      {inv.items.length > 0 ? (
+        <div className="rpg-pane-group">
+          <div className="rpg-pane-group-head">소지품</div>
+          <ul className="rpg-inv-list">
+            {inv.items.map((it) => (
+              <li key={it.slug} className="rpg-inv-item">
+                <span className="rpg-item-glyph" aria-hidden="true">
+                  ·
+                </span>
+                <span className="rpg-item-name">{it.name || it.slug}</span>
+                {it.qty && it.qty > 1 ? (
+                  <span className="rpg-item-qty">×{it.qty}</span>
+                ) : null}
+                {(it.tags ?? []).slice(0, 1).map((t) => (
+                  <span key={t} className="rpg-item-tag">
+                    {t}
+                  </span>
+                ))}
+                {it.description ? (
+                  <span className="rpg-item-desc">{it.description}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {inv.evidence.length > 0 ? (
+        <div className="rpg-pane-group">
+          <div className="rpg-pane-group-head">단서 · 증거</div>
+          <ul className="rpg-inv-list rpg-inv-list--evidence">
+            {inv.evidence.map((e) => (
+              <li
+                key={e.slug}
+                className="rpg-inv-item rpg-inv-item--evidence"
+                id={`evidence-${e.slug}`}
+              >
+                <a
+                  className="rpg-item-glyph"
+                  href={`#evidence-${e.slug}-modal`}
+                  aria-label="단서 펼치기"
+                >
+                  ⦿
+                </a>
+                <span className="rpg-item-name">{e.name || e.slug}</span>
+                {e.acquired_at_scene ? (
+                  <span className="rpg-item-tag">{e.acquired_at_scene}</span>
+                ) : null}
+                {e.notes ? (
+                  <span className="rpg-item-desc">{e.notes}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+interface RelationRow {
+  slug: string;
+  name: string;
+  trust: number;
+  approval?: "rising" | "falling" | "steady";
+  isCompanion: boolean;
+}
+
+function RelationsPaneView(props: {
+  stats: StatsData;
+  party: PartyData | null;
+  charIndex: Map<string, NameMapEntry>;
+}): ReactElement {
+  const { stats, party, charIndex } = props;
   const riwu = party?.companions.riwu;
-  const rows: Array<{
-    slug: string;
-    name: string;
-    trust: number;
-    approval?: "rising" | "falling" | "steady";
-    isCompanion: boolean;
-  }> = [];
+  const rows: RelationRow[] = [];
 
   if (riwu) {
     const entry = charIndex.get("riwu");
@@ -1928,62 +2137,89 @@ function renderRelationsPane(
   }
 
   if (rows.length === 0) {
-    return `<div class="rpg-pane rpg-pane--empty">아직 알려진 인물이 없습니다.</div>`;
+    return (
+      <div className="rpg-pane rpg-pane--empty">
+        아직 알려진 인물이 없습니다.
+      </div>
+    );
   }
 
-  // trust 기준 내림차순 정렬 — 관심도 높은 인물 먼저.
   rows.sort((a, b) => {
     if (a.isCompanion && !b.isCompanion) return -1;
     if (!a.isCompanion && b.isCompanion) return 1;
     return b.trust - a.trust;
   });
 
-  const items = rows
-    .map((r) => {
-      const cls =
-        r.trust > 0
-          ? "rpg-rel--pos"
-          : r.trust < 0
-            ? "rpg-rel--neg"
-            : "rpg-rel--neutral";
-      const sign = r.trust > 0 ? `+${r.trust}` : `${r.trust}`;
-      const arrow =
-        r.approval === "rising"
-          ? "&#x2197;"
-          : r.approval === "falling"
-            ? "&#x2198;"
-            : r.approval === "steady"
-              ? "&rarr;"
-              : "";
-      return `
-        <li class="rpg-rel ${cls}">
-          <div class="rpg-rel-name">
-            ${r.isCompanion ? `<span class="rpg-rel-badge">동료</span>` : ""}
-            ${escapeText(r.name)}
-          </div>
-          <div class="rpg-rel-meter">${renderTrustTicks(r.trust, "filled")}</div>
-          <div class="rpg-rel-val">
-            <span class="rpg-rel-num">${sign}</span>
-            ${arrow ? `<span class="rpg-rel-arrow" aria-hidden="true">${arrow}</span>` : ""}
-          </div>
-        </li>`;
-    })
-    .join("");
-
-  return `
-    <div class="rpg-pane">
-      <ul class="rpg-rel-list">${items}</ul>
-      <div class="rpg-rel-legend">
-        <span class="rpg-rel-legend-item"><span class="rpg-rel-swatch rpg-rel-swatch--neg"></span>적의 (-5)</span>
-        <span class="rpg-rel-legend-item"><span class="rpg-rel-swatch rpg-rel-swatch--neutral"></span>중립 (0)</span>
-        <span class="rpg-rel-legend-item"><span class="rpg-rel-swatch rpg-rel-swatch--pos"></span>동맹 (+5)</span>
+  return (
+    <div className="rpg-pane">
+      <ul className="rpg-rel-list">
+        {rows.map((r) => {
+          const cls =
+            r.trust > 0
+              ? "rpg-rel--pos"
+              : r.trust < 0
+                ? "rpg-rel--neg"
+                : "rpg-rel--neutral";
+          const sign = r.trust > 0 ? `+${r.trust}` : `${r.trust}`;
+          const arrow =
+            r.approval === "rising"
+              ? "↗"
+              : r.approval === "falling"
+                ? "↘"
+                : r.approval === "steady"
+                  ? "→"
+                  : "";
+          return (
+            <li key={r.slug} className={`rpg-rel ${cls}`}>
+              <div className="rpg-rel-name">
+                {r.isCompanion ? (
+                  <span className="rpg-rel-badge">동료</span>
+                ) : null}
+                {r.name}
+              </div>
+              <div className="rpg-rel-meter">
+                <TrustTicks trust={r.trust} mode="filled" />
+              </div>
+              <div className="rpg-rel-val">
+                <span className="rpg-rel-num">{sign}</span>
+                {arrow ? (
+                  <span className="rpg-rel-arrow" aria-hidden="true">
+                    {arrow}
+                  </span>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="rpg-rel-legend">
+        <span className="rpg-rel-legend-item">
+          <span className="rpg-rel-swatch rpg-rel-swatch--neg" />
+          적의 (-5)
+        </span>
+        <span className="rpg-rel-legend-item">
+          <span className="rpg-rel-swatch rpg-rel-swatch--neutral" />
+          중립 (0)
+        </span>
+        <span className="rpg-rel-legend-item">
+          <span className="rpg-rel-swatch rpg-rel-swatch--pos" />
+          동맹 (+5)
+        </span>
       </div>
-    </div>`;
+    </div>
+  );
 }
 
-function renderLogPane(world: WorldStateData | null): string {
+function LogPaneView(props: {
+  world: WorldStateData | null;
+}): ReactElement {
+  const { world } = props;
   if (!world) {
-    return `<div class="rpg-pane rpg-pane--empty">아직 세계의 시계가 시작되지 않았습니다.</div>`;
+    return (
+      <div className="rpg-pane rpg-pane--empty">
+        아직 세계의 시계가 시작되지 않았습니다.
+      </div>
+    );
   }
   const partyStatusLabel =
     world.party_status === "in_combat"
@@ -1993,71 +2229,55 @@ function renderLogPane(world: WorldStateData | null): string {
         : world.party_status === "traveling"
           ? "이동 중"
           : "준비";
-  return `
-    <div class="rpg-pane">
-      <div class="rpg-pane-group">
-        <div class="rpg-pane-group-head">현재 상황</div>
-        <div class="rpg-log-grid">
-          <div class="rpg-log-cell"><span class="rpg-log-label">막</span><span class="rpg-log-val">Act ${actRoman(world.act)}</span></div>
-          <div class="rpg-log-cell"><span class="rpg-log-label">씬</span><span class="rpg-log-val">${escapeText(world.current_scene || "—")}</span></div>
-          <div class="rpg-log-cell"><span class="rpg-log-label">누적</span><span class="rpg-log-val">${world.scene_count}회</span></div>
-          <div class="rpg-log-cell"><span class="rpg-log-label">일차</span><span class="rpg-log-val">${world.day}일째</span></div>
-          <div class="rpg-log-cell"><span class="rpg-log-label">시각</span><span class="rpg-log-val">${escapeText(world.time)}</span></div>
-          <div class="rpg-log-cell"><span class="rpg-log-label">상태</span><span class="rpg-log-val">${partyStatusLabel}</span></div>
+  return (
+    <div className="rpg-pane">
+      <div className="rpg-pane-group">
+        <div className="rpg-pane-group-head">현재 상황</div>
+        <div className="rpg-log-grid">
+          <div className="rpg-log-cell">
+            <span className="rpg-log-label">막</span>
+            <span className="rpg-log-val">Act {actRoman(world.act)}</span>
+          </div>
+          <div className="rpg-log-cell">
+            <span className="rpg-log-label">씬</span>
+            <span className="rpg-log-val">{world.current_scene || "—"}</span>
+          </div>
+          <div className="rpg-log-cell">
+            <span className="rpg-log-label">누적</span>
+            <span className="rpg-log-val">{world.scene_count}회</span>
+          </div>
+          <div className="rpg-log-cell">
+            <span className="rpg-log-label">일차</span>
+            <span className="rpg-log-val">{world.day}일째</span>
+          </div>
+          <div className="rpg-log-cell">
+            <span className="rpg-log-label">시각</span>
+            <span className="rpg-log-val">{world.time}</span>
+          </div>
+          <div className="rpg-log-cell">
+            <span className="rpg-log-label">상태</span>
+            <span className="rpg-log-val">{partyStatusLabel}</span>
+          </div>
         </div>
       </div>
-      ${
-        world.weather
-          ? `
-        <div class="rpg-pane-group">
-          <div class="rpg-pane-group-head">날씨</div>
-          <div class="rpg-log-weather">${escapeText(world.weather)}</div>
-        </div>`
-          : ""
-      }
-      ${
-        world.last_summary
-          ? `
-        <div class="rpg-pane-group">
-          <div class="rpg-pane-group-head">지난 이야기</div>
-          <div class="rpg-log-summary">${escapeText(world.last_summary.trim())}</div>
-        </div>`
-          : ""
-      }
-    </div>`;
-}
-
-function renderSidePanel(
-  stats: StatsData,
-  party: PartyData | null,
-  inventory: InventoryData,
-  quests: QuestsData,
-  world: WorldStateData | null,
-  charIndex: Map<string, NameMapEntry>,
-): string {
-  return `
-    <aside class="rpg-side-panel" aria-label="상세 정보">
-      ${renderTabInputs()}
-      ${renderTabNav()}
-      <div class="rpg-side-stack">
-        <div class="rpg-side-panel-body rpg-side-panel-body--quest">${renderQuestPane(quests)}</div>
-        <div class="rpg-side-panel-body rpg-side-panel-body--inv">${renderInventoryPane(inventory)}</div>
-        <div class="rpg-side-panel-body rpg-side-panel-body--rel">${renderRelationsPane(stats, party, charIndex)}</div>
-        <div class="rpg-side-panel-body rpg-side-panel-body--log">${renderLogPane(world)}</div>
-      </div>
-    </aside>`;
+      {world.weather ? (
+        <div className="rpg-pane-group">
+          <div className="rpg-pane-group-head">날씨</div>
+          <div className="rpg-log-weather">{world.weather}</div>
+        </div>
+      ) : null}
+      {world.last_summary ? (
+        <div className="rpg-pane-group">
+          <div className="rpg-pane-group-head">지난 이야기</div>
+          <div className="rpg-log-summary">{world.last_summary.trim()}</div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 // ── Empty state (no scene yet) ────────────────
 
-// 첫 입력이 막막하지 않도록 하는 seed들. SYSTEM.md §2 + start-scene 스킬의 규약:
-// preset=null 인 상태에서는 GM 이 프리셋 선택 UI 부터 띄우고, 그 전에는 서사 진행 금지.
-// 따라서 needsPreset=true 의 seed 는 "행동 서사" 가 아니라 **중립적인 시작 트리거** 여야 한다.
-// (행동 서사를 넣으면 유저는 "내가 서사를 시작해야 하나?" 하고 헷갈리고,
-//  GM 은 "프리셋 선택 전 서사 진행 금지" 와 충돌한다.)
-//
-// needsPreset=false 는 프리셋은 있으나 씬이 비어 있는 드문 상태 (수동으로 scenes/ 비움 등).
-// SYSTEM.md §13 의 이어가기 규칙대로 "짧은 분위기 리프레셔" 를 유도하는 중립 트리거.
 const EMPTY_SEEDS_FIRST: ReadonlyArray<{ label: string; action: string }> = [
   { label: "시작", action: "시작" },
   { label: "준비됐어, 시작하자", action: "준비됐어, 시작하자." },
@@ -2069,60 +2289,156 @@ const EMPTY_SEEDS_CONTINUE: ReadonlyArray<{ label: string; action: string }> = [
   { label: "지금 분위기부터 잡아 줘", action: "지금 분위기부터 짧게 잡아 줘." },
 ];
 
-function renderEmptySeeds(needsPreset: boolean): string {
+function EmptySeedsView(props: {
+  needsPreset: boolean;
+  actions: RendererActions;
+}): ReactElement {
+  const { needsPreset, actions } = props;
   const seeds = needsPreset ? EMPTY_SEEDS_FIRST : EMPTY_SEEDS_CONTINUE;
   const title = needsPreset ? "이렇게 시작해 보세요" : "이렇게 이어가 보세요";
-  const rows = seeds
-    .map(
-      (s, i) => `
-        <button type="button"
-                class="rpg-seed-option"
-                style="--i: ${i}"
-                data-action="fill"
-                data-text="${escapeHtml(s.action)}">
-          <span class="rpg-seed-mark" aria-hidden="true">&#x276F;</span>
-          <span class="rpg-seed-label">${escapeText(s.label)}</span>
-        </button>`,
-    )
-    .join("");
-  return `
-      <div class="rpg-seed" role="group" aria-label="${escapeText(title)}">
-        <div class="rpg-seed-head">
-          <span class="rpg-seed-title">${escapeText(title)}</span>
-          <span class="rpg-seed-hint">누르면 입력창에 채워집니다. 그대로 보내거나 고쳐 써도 됩니다.</span>
-        </div>
-        <div class="rpg-seed-list">${rows}</div>
-      </div>`;
+  return (
+    <div className="rpg-seed" role="group" aria-label={title}>
+      <div className="rpg-seed-head">
+        <span className="rpg-seed-title">{title}</span>
+        <span className="rpg-seed-hint">
+          누르면 입력창에 채워집니다. 그대로 보내거나 고쳐 써도 됩니다.
+        </span>
+      </div>
+      <div className="rpg-seed-list">
+        {seeds.map((s, i) => {
+          const style = { ["--i" as string]: String(i) } as CSSProperties;
+          return (
+            <button
+              key={i}
+              type="button"
+              className="rpg-seed-option"
+              style={style}
+              onClick={() => actions.fill(s.action)}
+            >
+              <span className="rpg-seed-mark" aria-hidden="true">
+                ❯
+              </span>
+              <span className="rpg-seed-label">{s.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
-function renderEmptyReel(pcData: PcData | null): string {
+function EmptyReelView(props: {
+  pcData: PcData | null;
+  actions: RendererActions;
+}): ReactElement {
+  const { pcData, actions } = props;
   const needsPreset = !pcData || pcData.preset === null;
-  return `
-    <div class="rpg-empty">
-      <svg class="rpg-empty-ico" viewBox="0 0 40 60" aria-hidden="true">
-        <path d="M20 2 Q8 14 8 28 Q8 42 20 54 Q32 42 32 28 Q32 14 20 2 Z" fill="none" stroke="currentColor" stroke-width="0.9" />
-        <circle cx="20" cy="26" r="3.5" class="rpg-empty-eye" />
-        <line x1="20" y1="30" x2="20" y2="40" stroke="currentColor" stroke-width="0.8" opacity="0.45" />
+  return (
+    <div className="rpg-empty">
+      <svg className="rpg-empty-ico" viewBox="0 0 40 60" aria-hidden="true">
+        <path
+          d="M20 2 Q8 14 8 28 Q8 42 20 54 Q32 42 32 28 Q32 14 20 2 Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.9"
+        />
+        <circle cx="20" cy="26" r="3.5" className="rpg-empty-eye" />
+        <line x1="20" y1="30" x2="20" y2="40" stroke="currentColor" strokeWidth="0.8" opacity="0.45" />
       </svg>
-      <h2 class="rpg-empty-title">Three Winds await.</h2>
-      <p class="rpg-empty-sub">
-        ${
-          needsPreset
-            ? "첫 메시지를 보내면 GM 이 세 명의 프리셋(전사 · 도적 · 학자) 중 하나를 고르게 합니다."
-            : "이어갈 준비가 되어 있습니다. 씬을 시작하는 문장을 보내세요."
-        }
+      <h2 className="rpg-empty-title">Three Winds await.</h2>
+      <p className="rpg-empty-sub">
+        {needsPreset
+          ? "첫 메시지를 보내면 GM 이 세 명의 프리셋(전사 · 도적 · 학자) 중 하나를 고르게 합니다."
+          : "이어갈 준비가 되어 있습니다. 씬을 시작하는 문장을 보내세요."}
       </p>
-      ${renderEmptySeeds(needsPreset)}
-      <div class="rpg-empty-hint">
-        <span class="rpg-empty-hint-mark">&#x2605;</span>
+      <EmptySeedsView needsPreset={needsPreset} actions={actions} />
+      <div className="rpg-empty-hint">
+        <span className="rpg-empty-hint-mark">★</span>
         플레이어의 대사와 행동만 씁니다. <strong>수치와 판정은 GM 이 자동 처리</strong>합니다.
       </div>
-    </div>`;
+    </div>
+  );
+}
+
+// ── Pending card ──────────────────────────────
+
+const TOOL_LABELS: Record<string, string> = {
+  read: "고문서를 펼친다",
+  write: "새 페이지에 기록한다",
+  append: "두루마리에 덧붙인다",
+  edit: "양피지를 고쳐 쓴다",
+  grep: "단서를 추적한다",
+  tree: "성채의 지도를 살핀다",
+  script: "주문을 외운다",
+  activate_skill: "비법서를 펼친다",
+  "validate-renderer": "룬의 균형을 살핀다",
+};
+
+function toolLabelFor(name: string): string {
+  return TOOL_LABELS[name] ?? "비의를 엮는다";
+}
+
+function activeToolCalls(state: AgentState): ToolCall[] {
+  const content = state.streamingMessage?.content ?? [];
+  return content.filter((b): b is ToolCall => b.type === "toolCall");
+}
+
+function findToolResult(
+  state: AgentState,
+  toolCallId: string,
+): ToolResultMessage | null {
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    const m = state.messages[i];
+    if (m && m.role === "toolResult" && m.toolCallId === toolCallId) return m;
+  }
+  return null;
+}
+
+function streamingText(state: AgentState): string {
+  return (state.streamingMessage?.content ?? [])
+    .filter((b): b is TextContent => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
+function PendingCardView(props: {
+  state: AgentState;
+  mode: "peace" | "combat";
+}): ReactElement {
+  const { state, mode } = props;
+  const tools = activeToolCalls(state);
+  const inFlight = tools.find((tc) => !findToolResult(state, tc.id));
+  const latest = inFlight ?? tools[tools.length - 1];
+  const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
+  const raw = streamingText(state).trim();
+  const clipped = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;
+  const toolLabel = latest ? toolLabelFor(latest.name) : "";
+  return (
+    <aside
+      id="rpg-pending"
+      className="rpg-pending"
+      data-mode={mode}
+      hidden={!state.isStreaming}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="rpg-pending-head">
+        <span className="rpg-pending-glyph" aria-hidden="true" />
+        <span>{label}</span>
+        <span className="rpg-pending-tool" hidden={!toolLabel}>
+          · {toolLabel}
+        </span>
+      </div>
+      <p className="rpg-pending-preview" hidden={!clipped}>
+        {clipped}
+      </p>
+    </aside>
+  );
 }
 
 // ── Styles ────────────────────────────────────
 
-const STYLES = `<style>
+const STYLES = `
   /* ═════════════════════════════════════════════════════════════
      Web font (Cormorant Garamond) — 르네상스 garalde, 사본 분위기.
      첫 로드 시 ~1초 FOUT 후 안정. 한글은 Pretendard 폴백.
@@ -4358,105 +4674,52 @@ const STYLES = `<style>
     0%, 100% { opacity: 0.5; transform: scale(0.85); }
     50%      { opacity: 1;   transform: scale(1.15); }
   }
-</style>`;
+`;
 
-// ── Pending card ──────────────────────────────
-// 스트리밍 중 stage 바닥(채팅바 위)에 고정되는 양피지 카드.
-// 평상/전투 data-mode를 상속하여 팔레트가 자동 전환된다.
+// ── Main renderer ─────────────────────────────
 
-// 원시 tool 이름 대신 RPG 톤 문구로 노출 — 렌더러는 tc.name만 보므로 단순 lookup.
-// activate_skill은 어떤 skill인지 args가 노출되지 않아 단일 문구로 묶는다.
-const TOOL_LABELS: Record<string, string> = {
-  read: "고문서를 펼친다",
-  write: "새 페이지에 기록한다",
-  append: "두루마리에 덧붙인다",
-  edit: "양피지를 고쳐 쓴다",
-  grep: "단서를 추적한다",
-  tree: "성채의 지도를 살핀다",
-  script: "주문을 외운다",
-  activate_skill: "비법서를 펼친다",
-  "validate-renderer": "룬의 균형을 살핀다",
+type MaybeAgentState = Partial<AgentState> | null | undefined;
+
+const EMPTY_STATE: AgentState = {
+  messages: [],
+  isStreaming: false,
+  pendingToolCalls: new Set<string>(),
 };
 
-function toolLabelFor(name: string): string {
-  return TOOL_LABELS[name] ?? "비의를 엮는다";
-}
-
-// 현재 in-flight assistant message에서 toolCall 블록만 시간순으로 추출.
-function activeToolCalls(state: AgentState): ToolCall[] {
-  const content = state.streamingMessage?.content ?? [];
-  return content.filter((b): b is ToolCall => b.type === "toolCall");
-}
-
-// 가장 최근에 도착한 ToolResultMessage를 messages에서 찾는다.
-function findToolResult(
-  state: AgentState,
-  toolCallId: string,
-): ToolResultMessage | null {
-  for (let i = state.messages.length - 1; i >= 0; i--) {
-    const m = state.messages[i];
-    if (m && m.role === "toolResult" && m.toolCallId === toolCallId) return m;
-  }
-  return null;
-}
-
-// 현재 in-flight assistant message의 모든 text 블록을 시간순으로 이어붙인다.
-function streamingText(state: AgentState): string {
-  return (state.streamingMessage?.content ?? [])
-    .filter((b): b is TextContent => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-}
-
-function renderPendingCard(
-  state: AgentState,
-  mode: "peace" | "combat",
-): string {
-  // 항상 DOM에 유지하고 hidden으로만 토글 — Idiomorph가 id 기반으로 매칭한다.
-  // 진행 중인 도구를 우선, 없으면 가장 최근 엔트리(완료 포함)를 노출해 turn 내 flashing 제거.
-  // streamingMessage.content는 turn 끝까지 누적되므로 "직전 tool" 참조가 안전.
-  const tools = activeToolCalls(state);
-  const inFlight = tools.find((tc) => !findToolResult(state, tc.id));
-  const latest = inFlight ?? tools[tools.length - 1];
-  const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
-  const raw = streamingText(state).trim();
-  const clipped = raw.length > 160 ? raw.slice(0, 160) + "…" : raw;
-  const toolLabel = latest ? toolLabelFor(latest.name) : "";
-  const hidden = state.isStreaming ? "" : " hidden";
-  return `
-    <aside id="rpg-pending" class="rpg-pending" data-mode="${mode}"${hidden} role="status" aria-live="polite">
-      <div class="rpg-pending-head">
-        <span class="rpg-pending-glyph" aria-hidden="true"></span>
-        <span>${escapeHtml(label)}</span>
-        <span class="rpg-pending-tool"${toolLabel ? "" : " hidden"}>· ${escapeHtml(toolLabel)}</span>
-      </div>
-      <p class="rpg-pending-preview"${clipped ? "" : " hidden"}>${escapeHtml(clipped)}</p>
-    </aside>`;
-}
-
-// ── Main render function ──────────────────────
-
-export function render(ctx: RenderContext): string {
-  // 숨김 파일은 애초에 스캔에서 제외 — 렌더러 전체가 이 필터된 뷰만 본다.
-  const visibleCtx: RenderContext = {
-    files: ctx.files.filter(isVisible),
-    baseUrl: ctx.baseUrl,
-    state: ctx.state,
+function normalizeState(raw: unknown): AgentState {
+  if (!raw || typeof raw !== "object") return EMPTY_STATE;
+  const s = raw as MaybeAgentState;
+  return {
+    messages: Array.isArray(s?.messages) ? s!.messages : [],
+    isStreaming: Boolean(s?.isStreaming),
+    streamingMessage: s?.streamingMessage,
+    pendingToolCalls:
+      s?.pendingToolCalls instanceof Set
+        ? s.pendingToolCalls
+        : new Set<string>(),
+    errorMessage: s?.errorMessage,
   };
+}
 
-  const charIndex = buildCharacterIndex(visibleCtx);
+export default function Renderer(props: RendererProps): ReactElement {
+  const { files, baseUrl, actions } = props;
+  const state = normalizeState(props.state);
+
+  // 숨김 파일은 애초에 스캔에서 제외.
+  const visible = files.filter(isVisible);
+
+  const charIndex = buildCharacterIndex(visible);
   const fallback = new Map<string, string>();
-  const locTitles = buildLocationTitles(visibleCtx);
+  const locTitles = buildLocationTitles(visible);
 
-  const party = extractPartyData(visibleCtx);
-  const stats = extractStatsData(visibleCtx);
-  const inventory = extractInventoryData(visibleCtx);
-  const quests = extractQuestsData(visibleCtx);
-  const world = extractWorldState(visibleCtx);
-  const pcData = extractPcData(visibleCtx);
+  const party = extractPartyData(visible);
+  const stats = extractStatsData(visible);
+  const inventory = extractInventoryData(visible);
+  const quests = extractQuestsData(visible);
+  const world = extractWorldState(visible);
+  const pcData = extractPcData(visible);
 
-  // 씬 콘텐츠 — scenes/*.md 전체 합침 (path 오름차순, 최신이 맨 뒤).
-  const sceneFiles = visibleCtx.files.filter(
+  const sceneFiles = visible.filter(
     (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
   );
   const sceneRaw = sceneFiles
@@ -4467,43 +4730,43 @@ export function render(ctx: RenderContext): string {
   const parsed = parseSceneContent(sceneRaw, charIndex);
   const mode = world?.mode ?? "peace";
 
-  const hud = renderHud(world, locTitles);
-  const partyPanel = renderPartyPanel(
-    party,
-    pcData,
-    visibleCtx,
-    charIndex,
-    fallback,
-  );
-  const sidePanel = renderSidePanel(
-    stats,
-    party,
-    inventory,
-    quests,
-    world,
-    charIndex,
-  );
+  const eventCtx: EventCtx = { baseUrl, charIndex, fallback, actions };
+  const choices = extractNextChoices(visible);
 
-  const choices = extractNextChoices(visibleCtx);
-  const reelEvents =
-    parsed.events.length === 0
-      ? renderEmptyReel(pcData)
-      : renderEvents(parsed.events, visibleCtx, charIndex, fallback);
-  const choicesBlock = renderNextChoices(choices);
-
-  return `${STYLES}
-    <div class="rpg-stage" data-mode="${mode}">
-      ${hud}
-      <div class="rpg-grid">
-        ${partyPanel}
-        <main class="rpg-reel" data-log="${stampCode(sceneRaw || "empty")}">
-          <div class="rpg-reel-filigree" aria-hidden="true"></div>
-          ${reelEvents}
-          ${choicesBlock}
-          <div data-chat-anchor></div>
-        </main>
-        ${sidePanel}
+  return (
+    <>
+      <style>{STYLES}</style>
+      <div className="rpg-stage" data-mode={mode}>
+        <HudView world={world} locTitles={locTitles} />
+        <div className="rpg-grid">
+          <PartyPanelView
+            party={party}
+            pcData={pcData}
+            baseUrl={baseUrl}
+            charIndex={charIndex}
+            fallback={fallback}
+          />
+          <main className="rpg-reel" data-log={stampCode(sceneRaw || "empty")}>
+            <div className="rpg-reel-filigree" aria-hidden="true" />
+            {parsed.events.length === 0 ? (
+              <EmptyReelView pcData={pcData} actions={actions} />
+            ) : (
+              <EventsView events={parsed.events} ctx={eventCtx} />
+            )}
+            <NextChoicesView options={choices} actions={actions} />
+            <div data-chat-anchor />
+          </main>
+          <SidePanelView
+            stats={stats}
+            party={party}
+            inventory={inventory}
+            quests={quests}
+            world={world}
+            charIndex={charIndex}
+          />
+        </div>
+        <PendingCardView state={state} mode={mode} />
       </div>
-      ${renderPendingCard(ctx.state, mode)}
-    </div>`;
+    </>
+  );
 }

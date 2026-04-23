@@ -3,6 +3,17 @@ import { dirname, join } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 
+// Blob URL imports in the browser can't resolve "react", so we rewrite value
+// imports to destructure from the `__rendererReact` global that the host
+// publishes via `jsxRuntimeBridge.ts`. Type imports are already erased by
+// the transpiler, so only value imports survive to this point.
+function rewriteReactImports(js: string): string {
+  return js.replace(
+    /import\s*\{([^}]*)\}\s*from\s*["']react["'];?/g,
+    (_, names: string) => `const {${names}} = globalThis.__rendererReact;`,
+  );
+}
+
 export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
   // Classic-mode JSX transform targeting a globally-exposed factory. The
   // compiled module is imported via a Blob URL, so it cannot resolve the
@@ -66,12 +77,11 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
     },
 
     async transpileRenderer(slug: string): Promise<string | null> {
-      const tsxPath = join(projectsDir, slug, "renderer.tsx");
-      const tsPath = join(projectsDir, slug, "renderer.ts");
-      const rendererPath = existsSync(tsxPath) ? tsxPath : existsSync(tsPath) ? tsPath : null;
-      if (!rendererPath) return null;
+      const rendererPath = join(projectsDir, slug, "renderer.tsx");
+      if (!existsSync(rendererPath)) return null;
       const source = await Bun.file(rendererPath).text();
-      return transpiler.transformSync(source);
+      const js = transpiler.transformSync(source);
+      return rewriteReactImports(js);
     },
 
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {
