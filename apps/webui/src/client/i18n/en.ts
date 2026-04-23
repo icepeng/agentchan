@@ -106,6 +106,12 @@ export const translations = {
   "settings.projectSystem": "Project system prompt",
   "settings.noSystemYet": "No SYSTEM.md yet",
 
+  // Renderer
+  "renderer.error.title": "Renderer error",
+  "renderer.error.hint": "Fix the renderer in Edit mode, then reopen this project.",
+  "renderer.notFound": "This project has no renderer file",
+  "renderer.loading": "Loading renderer...",
+
   // Templates page
   "templates.title": "Templates",
   "templates.label": "THE LIBRARY",

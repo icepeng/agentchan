@@ -7,6 +7,7 @@ import {
   useProjectSelectionState,
   fetchWorkspaceFiles,
   fetchTranspiledRenderer,
+  projectBaseUrl,
 } from "@/client/entities/project/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import { validateTheme, resolveRawTheme } from "./projectTheme.js";
@@ -95,7 +96,7 @@ export function useOutput() {
       const { renderFn, rawTheme } = await compileRenderer(rendererResult.js);
       const context: RenderContext = {
         files: filesResult.files,
-        baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
+        baseUrl: projectBaseUrl(slug),
         state: EMPTY_AGENT_STATE,
       };
       const html = renderFn(context);
@@ -124,7 +125,7 @@ export function useOutput() {
     try {
       const context: RenderContext = {
         files: snap.files,
-        baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
+        baseUrl: projectBaseUrl(slug),
         state: stateRef.current,
       };
       const html = snap.renderFn(context);

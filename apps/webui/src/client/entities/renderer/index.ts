@@ -2,8 +2,10 @@ export type {
   AgentState,
   ProjectFile,
   RenderContext,
-  RendererTheme,
+  RendererActions,
   RendererAction,
+  RendererProps,
+  RendererTheme,
 } from "./renderer.types.js";
 
 export {
@@ -26,3 +28,4 @@ export {
 export type { RendererActionState } from "./RendererActionContext.js";
 
 export { useOutput } from "./useOutput.js";
+export { useRendererModule, type RendererModule } from "./useRendererModule.js";

@@ -108,6 +108,12 @@ export const translations: Record<TranslationKey, string> = {
   "settings.projectSystem": "프로젝트 시스템 프롬프트",
   "settings.noSystemYet": "SYSTEM.md가 아직 없습니다",
 
+  // Renderer
+  "renderer.error.title": "렌더러 에러",
+  "renderer.error.hint": "Edit 모드에서 renderer를 수정한 뒤 프로젝트를 다시 열어주세요.",
+  "renderer.notFound": "이 프로젝트에 renderer 파일이 없습니다",
+  "renderer.loading": "렌더러 로딩 중...",
+
   // Templates page
   "templates.title": "템플릿",
   "templates.label": "THE LIBRARY",

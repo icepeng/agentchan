@@ -4,7 +4,20 @@ import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 
 export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
+  // Classic-mode JSX transform targeting a globally-exposed factory. The
+  // compiled module is imported via a Blob URL, so it cannot resolve the
+  // automatic-runtime `react/jsx-runtime` import — instead the host binds
+  // `globalThis.__rendererJsx = { h: React.createElement, Fragment: React.Fragment }`.
+  const transpiler = new Bun.Transpiler({
+    loader: "tsx",
+    tsconfig: {
+      compilerOptions: {
+        jsx: "react",
+        jsxFactory: "__rendererJsx.h",
+        jsxFragmentFactory: "__rendererJsx.Fragment",
+      },
+    },
+  });
 
   return {
     async list() { return projectRepo.list(); },
@@ -53,8 +66,10 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
     },
 
     async transpileRenderer(slug: string): Promise<string | null> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      if (!existsSync(rendererPath)) return null;
+      const tsxPath = join(projectsDir, slug, "renderer.tsx");
+      const tsPath = join(projectsDir, slug, "renderer.ts");
+      const rendererPath = existsSync(tsxPath) ? tsxPath : existsSync(tsPath) ? tsPath : null;
+      if (!rendererPath) return null;
       const source = await Bun.file(rendererPath).text();
       return transpiler.transformSync(source);
     },

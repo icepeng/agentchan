@@ -14,9 +14,11 @@ interface RendererViewState {
 }
 
 // CLEAR_HTML keeps the last theme to avoid a two-step palette flash on switch;
-// CLEAR drops both (used when there's no active project).
+// CLEAR drops both (used when there's no active project). SET_THEME lets the
+// component path update palette without touching the legacy-only html slot.
 type RendererViewAction =
   | { type: "SET_OUTPUT"; html: string; theme: RendererTheme | null }
+  | { type: "SET_THEME"; theme: RendererTheme | null }
   | { type: "CLEAR_HTML" }
   | { type: "CLEAR" };
 
@@ -24,6 +26,8 @@ function reducer(state: RendererViewState, action: RendererViewAction): Renderer
   switch (action.type) {
     case "SET_OUTPUT":
       return { html: action.html, theme: action.theme };
+    case "SET_THEME":
+      return { ...state, theme: action.theme };
     case "CLEAR_HTML":
       return { ...state, html: "" };
     case "CLEAR":

@@ -53,3 +53,24 @@ export interface ResolvedThemeVars {
 export type RendererAction =
   | { type: "send"; text: string }
   | { type: "fill"; text: string };
+
+// --- React component renderer contract (renderer.tsx) ---
+
+/**
+ * `renderer.tsx`의 default export가 받는 props. LLM이 작성할 때 혼동을 줄이려고
+ * 파일 내부에 inline으로 재선언하는 것을 권장한다 — transpile 독립성 + 학습
+ * 편의. 호스트가 주입하는 값과 1:1 대응한다.
+ */
+export interface RendererActions {
+  send(text: string): void;
+  fill(text: string): void;
+  setTheme(theme: RendererTheme | null): void;
+}
+
+export interface RendererProps {
+  state: AgentState;
+  files: ProjectFile[];
+  slug: string;
+  baseUrl: string;
+  actions: RendererActions;
+}

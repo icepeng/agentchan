@@ -41,6 +41,11 @@ export function duplicateProject(sourceSlug: string, name: string): Promise<Proj
 
 // --- Client-side Rendering ---
 
+/** Base path for all per-project API endpoints and renderer asset URLs. */
+export function projectBaseUrl(projectSlug: string): string {
+  return `/api/projects/${encodeURIComponent(projectSlug)}`;
+}
+
 export function fetchWorkspaceFiles(projectSlug: string): Promise<{ files: ProjectFile[] }> {
   return json(`/projects/${encodeURIComponent(projectSlug)}/workspace/files`);
 }

@@ -117,7 +117,7 @@ export function createProjectRoutes() {
   app.get("/:slug/renderer.js", async (c) => {
     const slug = c.req.param("slug");
     const js = await c.get("projectService").transpileRenderer(slug);
-    if (js === null) return c.json({ error: "renderer.ts not found" }, 404);
+    if (js === null) return c.json({ error: "renderer not found" }, 404);
     return c.json({ js });
   });
 
