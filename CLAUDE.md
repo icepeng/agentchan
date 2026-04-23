@@ -80,7 +80,7 @@ apps/webui/data/
 │           ├── COVER.*         # (선택) COVER.{webp,png,jpg,...} 자동 탐지
 │           ├── SYSTEM.md
 │           ├── SYSTEM.meta.md  # (선택) meta 세션용
-│           ├── renderer.ts
+│           ├── renderer.tsx
 │           ├── skills/         # environment: creative | meta 혼재 가능
 │           └── files/
 └── projects/
@@ -90,7 +90,7 @@ apps/webui/data/
         ├── SYSTEM.md
         ├── SYSTEM.meta.md      # (선택)
         ├── sessions/           # {sessionId}.jsonl — 헤더 라인 + message tree nodes
-        ├── renderer.ts
+        ├── renderer.tsx
         ├── skills/
         └── files/              # 에이전트 작업 공간 (렌더러 입력)
             ├── characters/

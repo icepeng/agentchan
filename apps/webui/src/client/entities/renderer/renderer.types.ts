@@ -4,7 +4,7 @@ import type { AgentState } from "@/client/entities/agent-state/index.js";
 export type { AgentState, ProjectFile };
 
 /**
- * Renderer contract — shared by AgentPanel UI and template renderer.ts.
+ * Context passed to the optional `theme(ctx)` export in `renderer.tsx`.
  *
  * `state`는 pi `agent.state` 네이밍을 그대로 계승. 렌더러는 `state.messages`로
  * 전체 대화 흐름(persisted + in-flight toolResults)을, `state.streamingMessage`로
@@ -48,7 +48,7 @@ export interface ResolvedThemeVars {
   forceScheme: boolean;
 }
 
-// --- Renderer action (bridge from rendered HTML to chat) ---
+// --- Renderer action (bridge from renderer onClick to chat) ---
 
 export type RendererAction =
   | { type: "send"; text: string }

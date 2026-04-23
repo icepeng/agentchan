@@ -44,7 +44,7 @@ project/
 │       ├── assets/
 │       └── references/
 ├── sessions/              # 내부: 세션 데이터 (JSONL)
-├── renderer.ts            # 렌더링 함수
+├── renderer.tsx           # 렌더링 React 컴포넌트
 └── files/                 # 워크스페이스: 에이전트의 작업 공간
     ├── characters/
     │   └── elara-brightwell/
@@ -60,7 +60,7 @@ project/
 ### 2.1 경계 규칙
 
 - `files/` 안 = 사용자 콘텐츠. 디렉토리 이름, 파일 이름, 구조 — 전부 프로젝트 작성자가 결정
-- `files/` 밖 = 시스템 인프라. `SYSTEM.md`, `skills/`, `sessions/`, `_project.json`, `renderer.ts`
+- `files/` 밖 = 시스템 인프라. `SYSTEM.md`, `skills/`, `sessions/`, `_project.json`, `renderer.tsx`
 - `files/` 내부에 시스템이 예약한 이름이나 구조는 없다
 
 ---
@@ -139,47 +139,43 @@ interface BinaryFile {
 
 ### 5.2 구조 자유
 
-`files/` 내부에 시스템이 강제하는 구조는 없다. `characters/`, `scenes/`, `chapters/`, `world/` — 프로젝트 작성자가 SYSTEM.md (모델용)와 renderer.ts (UI용)에서 관습을 정의한다.
+`files/` 내부에 시스템이 강제하는 구조는 없다. `characters/`, `scenes/`, `chapters/`, `world/` — 프로젝트 작성자가 SYSTEM.md (모델용)와 renderer.tsx (UI용)에서 관습을 정의한다.
 
 ---
 
-## 6. Renderer (`renderer.ts`)
+## 6. Renderer (`renderer.tsx`)
 
 ### 6.1 계약
 
-```typescript
-interface RenderToolCallView {
-  id: string;
-  name: string;
-  // 선형 phase markers 둘 (false→true 단조 증가) + 완료 sentinel:
-  argsComplete: boolean;             // 입력 JSON 스트리밍 완료
-  executionStarted: boolean;         // 도구 실행 시작
-  result?: { isError: boolean };     // 완료 시 채워짐. 완료 체크는 `!!tc.result`
-}
-interface RenderStreamView {
-  isStreaming: boolean;                        // idle이면 false
-  text: string;                                // 현재 assistant 턴의 누적 텍스트 (델타 아님)
-  toolCalls: ReadonlyArray<RenderToolCallView>;
+```tsx
+interface RendererActions {
+  send(text: string): void;                   // 즉시 전송. 스트리밍 중 no-op
+  fill(text: string): void;                   // 입력창 prefill
+  setTheme(theme: unknown): void;             // 임시 stub
 }
 
-interface RenderContext {
-  files: ProjectFile[];       // files/ 전체 스캔 결과
-  baseUrl: string;            // 에셋 URL prefix
-  stream: RenderStreamView;   // 항상 present. idle 시 EMPTY_RENDER_STREAM
+interface RendererProps {
+  state: AgentState;                          // pi agent.state의 UI subset
+  files: ProjectFile[];                       // files/ 전체 스캔 결과
+  slug: string;                               // 활성 프로젝트 slug
+  baseUrl: string;                            // 에셋 URL prefix
+  actions: RendererActions;
 }
 
-// 렌더러가 export해야 하는 함수
-export function render(ctx: RenderContext): string;  // HTML 반환
+// 렌더러가 export해야 하는 값
+export default function Renderer(props: RendererProps): ReactElement;
+// 선택: 프로젝트 페이지 한정 CSS 변수 오버라이드
+export function theme?(ctx: { files: ProjectFile[] }): RendererTheme;
 ```
 
 ### 6.2 제약
 
-- 입력은 `RenderContext` 뿐. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출하며 `entities/stream/toRenderStream.ts` 매퍼가 단독 경계
-- 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
-- 외부 모듈 import 불가. 타입은 파일 내에 인라인 선언
-- 출력은 HTML 문자열 하나
-- 스트리밍 중에는 requestAnimationFrame 주기로 재호출되므로 렌더 비용이 프레임 안에 들어와야 한다 (idiomorph가 DOM diff로 부담을 낮춘다)
-- 스트리밍 구간(`stream.isStreaming` true) 동안 `ctx.files`는 스트리밍 시작 시점의 스냅샷이다. 완료 시 full refresh로 1회 재동기화된다
+- 입력은 `RendererProps` 뿐. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 pi `AgentState`와 동일한 `{messages, streamingMessage?, pendingToolCalls, isStreaming}` view
+- 단일 .tsx 파일. 서버에서 classic JSX로 transpile, 클라이언트에서 Blob URL import로 실행
+- 외부 모듈 import 불가. 예외는 React 타입(`import type`)과 React hook(`import { useState } from "react"`) — 값 import는 호스트가 `globalThis.__rendererReact`로 브릿지
+- 출력은 React 엘리먼트 트리. host가 Shadow DOM 안에서 마운트하고 재조정을 전담
+- 인터랙션은 JSX 이벤트 핸들러 + `props.actions.send|fill` 직접 호출
+- 스트리밍 구간(`state.isStreaming` true) 동안 `props.files`는 스트리밍 시작 시점의 스냅샷이다. 완료 시 full refresh로 1회 재동기화된다
 
 ### 6.3 도출 특성
 
@@ -241,17 +237,17 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 - (W3→W4) frontmatter는 렌더러 프로토콜 — 시스템은 YAML을 파싱해서 넘길 뿐
 - (W1) 명확한 경계 — `files/` 안 = 사용자 콘텐츠, 밖 = 시스템 인프라
 
-### 8.2 Renderer (`renderer.ts`)
+### 8.2 Renderer (`renderer.tsx`)
 
 **제약:**
-- R1. 입력은 `RenderContext { files, baseUrl, stream }` 뿐이다 (`stream`은 항상 present — idle 시 `EMPTY_RENDER_STREAM`)
-- R2. 출력은 `render(ctx): string` — HTML 문자열 하나
-- R3. 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
-- R4. 외부 모듈 import 불가
-- R5. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출. 내부 `StreamSlot`과의 경계는 `entities/stream/toRenderStream.ts` 매퍼 단독
+- R1. 입력은 `RendererProps { state, files, slug, baseUrl, actions }` 뿐이다. `state`는 pi `AgentState`의 UI subset — idle 시 `EMPTY_AGENT_STATE`
+- R2. 출력은 React 엘리먼트 트리. host가 Shadow DOM 안에서 마운트
+- R3. 단일 .tsx 파일. 서버에서 classic JSX로 transpile, 클라이언트에서 Blob URL import로 실행
+- R4. 외부 모듈 import 불가. 예외는 React 타입/hook — 값 import는 호스트가 `globalThis.__rendererReact`로 브릿지
+- R5. sessions, skills, SYSTEM.md에 접근 불가. 채팅과의 인터랙션은 `actions.send|fill`만 허용
 
 **도출 특성:**
-- (R1+R2) 순수 함수 — `files → HTML`
+- (R1+R2) 순수 컴포넌트 — `props → JSX`. 부작용은 React hook 안으로 한정
 - (R1+R5) 렌더러가 도메인 모델을 소유 — 시스템은 "캐릭터"를 모른다
 - (R1+W3) duck typing으로 파일 해석 — frontmatter 필드로 파일 역할을 판단
 - (R4) 이식성 — 복사만으로 공유 가능
@@ -316,11 +312,11 @@ export function render(ctx: RenderContext): string;  // HTML 반환
 
 **새 프로젝트 타입 = 코드 변경 0**
 - (W2) workspace에 시스템 예약 구조 없음 + (R1) 렌더러는 files만 받음 + (S1) SYSTEM.md는 plain markdown
-- → SYSTEM.md와 renderer.ts만 쓰면 새로운 프로젝트 타입을 시스템 코드 수정 없이 만들 수 있다
+- → SYSTEM.md와 renderer.tsx만 쓰면 새로운 프로젝트 타입을 시스템 코드 수정 없이 만들 수 있다
 
 **에이전트↔렌더러 간 파일 계약**
 - (A4) 에이전트는 파일로만 세계와 상호작용 + (R1) 렌더러는 파일만 받음
-- → 에이전트와 렌더러가 직접 통신하지 않는다. `files/`가 유일한 매개. SYSTEM.md(에이전트 행동)와 renderer.ts(UI 해석)가 같은 관습에 동의하기만 하면 된다
+- → 에이전트와 렌더러가 직접 통신하지 않는다. `files/`가 유일한 매개. SYSTEM.md(에이전트 행동)와 renderer.tsx(UI 해석)가 같은 관습에 동의하기만 하면 된다
 
 **compaction이 깨뜨리는 것의 범위가 명확**
 - (S4) SYSTEM.md는 안전 + (K4) 스킬 body는 요약될 수 있음 + (V4) 저장소는 append-only

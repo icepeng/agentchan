@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 export interface FixtureOptions {
   /**
    * Copy the entire template directory (README.md + SYSTEM.md + files/ +
-   * skills/ + renderer.ts). This mirrors the production "New project from
+   * skills/ + renderer.tsx). This mirrors the production "New project from
    * template" flow and is the preferred way to stand up a realistic fixture.
    * Mutually complementary with `skillNames` / `systemMd` (which override
    * after the copy).
@@ -84,7 +84,7 @@ export async function createFixture(options: FixtureOptions): Promise<Fixture> {
       options.template,
     );
     // cp recursively copies the entire template — README.md, SYSTEM.md,
-    // renderer.ts, files/, skills/ — all in one shot. This mirrors the
+    // renderer.tsx, files/, skills/ — all in one shot. This mirrors the
     // production "New project from template" flow.
     await cp(templateSrc, projectDir, { recursive: true });
   } else {

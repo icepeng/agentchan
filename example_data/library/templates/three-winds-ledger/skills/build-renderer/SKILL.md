@@ -1,32 +1,35 @@
 ---
 name: build-renderer
-description: "프로젝트의 files/ 구조를 분석하여 renderer.ts를 자동 생성하거나 수정한다."
+description: "프로젝트의 files/ 구조를 분석하여 renderer.tsx를 자동 생성하거나 수정한다."
 environment: meta
 metadata:
   author: agentchan
-  version: "1.0"
+  version: "2.0"
 ---
 
-프로젝트의 files/ 구조와 파일 내용을 분석하여 맞춤형 renderer.ts를 작성한다.
+프로젝트의 files/ 구조와 파일 내용을 분석하여 맞춤형 renderer.tsx를 작성한다.
 
 ## 워크플로우
 
-1. renderer.ts를 read로 읽고 이해한 후 진행. 없으면 신규 생성
+1. renderer.tsx를 read로 읽고 이해한 후 진행. 없으면 신규 생성
 2. SYSTEM.md를 읽어 프로젝트의 목적과 출력 형식을 파악
 3. 출력 파일이 있으면 우선으로 읽어 콘텐츠 구조를 이해. 필요하다면 나머지 파일도 읽음
-4. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다. 기존 renderer.ts 수정 시: 전면 재작성 vs 부분 수정 여부를 사용자에게 확인한다.
-5. 사용자가 답변하면, 아래 기법들을 참고하여 renderer.ts를 작성 혹은 편집
-6. validate-renderer 도구로 transpile + 실행 검증. 실패 시 에러를 분석하고 자동 수정 후 재검증
+4. 프로젝트 구조를 설명하고 사용자에게 원하는 스타일을 물어본다. 기존 renderer.tsx 수정 시: 전면 재작성 vs 부분 수정 여부를 사용자에게 확인한다.
+5. 사용자가 답변하면, 아래 기법들을 참고하여 renderer.tsx를 작성 혹은 편집
+6. validate-renderer 도구로 transpile + default export 검증. 실패 시 에러를 분석하고 자동 수정 후 재검증
 7. 사용자에게 좌측 패널의 시각 결과 확인 요청
 
 ## 계약
 
-renderer.ts는 외부 import 없이 단일 파일로 작성한다. 모든 타입을 파일 상단에 인라인 선언한다.
+renderer.tsx는 단일 파일로 작성한다. React 타입만 `import type { ReactElement, ReactNode }`로 가져오고, hook 사용이 필요하면 `import { useState } from "react"`처럼 값 import 가능 (host가 브릿지 처리). 나머지 타입은 파일 상단에 인라인 선언한다.
 
-```typescript
+```tsx
+import type { ReactElement } from "react";
+
 interface TextFile { type: "text"; path: string; content: string; frontmatter: Record<string, unknown> | null; modifiedAt: number; }
+interface DataFile { type: "data"; path: string; content: string; data: unknown; format: "yaml" | "json"; modifiedAt: number; }
 interface BinaryFile { type: "binary"; path: string; modifiedAt: number; }
-type ProjectFile = TextFile | BinaryFile;
+type ProjectFile = TextFile | DataFile | BinaryFile;
 
 // pi-ai 메시지 블록 (canonical shape)
 interface TextContent { type: "text"; text: string }
@@ -49,14 +52,23 @@ interface AgentState {
   readonly errorMessage?: string;
 }
 
-interface RenderContext {
-  files: ProjectFile[];
-  baseUrl: string;
-  state: AgentState;
+interface RendererActions {
+  send(text: string): void;                  // 즉시 전송 (스트리밍 중이면 무시)
+  fill(text: string): void;                  // 입력창 채움
+  setTheme(theme: unknown): void;            // stub, 호출해도 무방
 }
 
-export function render(ctx: RenderContext): string {
-  // ctx.files에서 콘텐츠를 읽고, ctx.baseUrl로 에셋 URL을 구성하여 HTML 문자열 반환
+interface RendererProps {
+  state: AgentState;
+  files: ProjectFile[];
+  slug: string;
+  baseUrl: string;
+  actions: RendererActions;
+}
+
+export default function Renderer(props: RendererProps): ReactElement {
+  // props.files에서 콘텐츠를 읽고, props.baseUrl로 에셋 URL을 구성하여 JSX 반환
+  return <div>...</div>;
 }
 ```
 
@@ -88,52 +100,93 @@ export function render(ctx: RenderContext): string {
 모션:
 - hover 상태에 시각 피드백 (hover/active/focus가 rest보다 두드러지게)
 - transition은 속성 명시 (transition: all 금지). transform/opacity 위주 (compositor-friendly)
-- 하나의 잘 조율된 효과가 산발적인 마이크로인터랙션보다 효과적
 
 콘텐츠 대응:
 - 긴 텍스트에 truncate/break-words. flex 자식에 min-w-0
 - 빈 상태에 안내 메시지. 짧은/평균/긴 입력 모두 대응
-- 이미지에 명시적 width/height (CLS 방지), onerror 처리
+- 이미지에 명시적 width/height (CLS 방지), `onError` 핸들러로 fallback
 
 ## 스타일링 규칙
 
 CSS 변수 (덮어쓰기 금지): `--color-fg`, `--color-fg-2`, `--color-fg-3`, `--color-fg-4` (텍스트), `--color-accent` (강조), `--color-edge` (테두리), `--color-elevated` (카드 배경), `--font-family-display` (제목 Syne), `--font-family-mono` (코드 Fira Code).
-이미지 URL: `${ctx.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
-렌더러는 자체 `<style>` 포함 필수. 사용자 콘텐츠에 escapeHtml 필수. document/window 등 DOM API 사용 금지.
+이미지 URL: `${props.baseUrl}/files/${경로}` (확장자 없이도 서버가 탐색).
+렌더러는 자체 `<style>{STYLES}</style>` 포함 필수. 렌더러는 Shadow DOM 안에서 실행되므로 host CSS와 충돌하지 않는다.
+한국어가 들어갈 가능성이 있는 영역에는 monospace 폰트를 사용하지 않는다.
 
 ## 참고 기법
 
 아래는 기존 렌더러에서 사용된 기법들이다. 프로젝트에 맞게 자유롭게 조합하거나 새로운 접근을 설계한다.
 
-### escapeHtml과 기본 마크다운
+### 인라인 스타일과 STYLES 상수
 
-```typescript
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+```tsx
+const STYLES = `
+  .rt-root { max-width: 720px; margin: 0 auto; padding: 24px; color: var(--color-fg); }
+  .rt-body { white-space: pre-wrap; line-height: 1.625; font-size: 14px; }
+  .rt-sep { margin: 24px 0; border: none; border-top: 1px solid var(--color-edge); }
+`;
+
+export default function Renderer(props: RendererProps): ReactElement {
+  return (
+    <div className="rt-root">
+      <style>{STYLES}</style>
+      {/* ... */}
+    </div>
+  );
 }
+```
 
-function renderBasicMarkdown(text: string): string {
-  return escapeHtml(text)
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/^---$/gm, "<hr />")
-    .replace(/\n/g, "<br />");
+### 기본 마크다운을 JSX로
+
+React는 문자열을 자동 escape하므로 수동 escape는 불필요. `**bold**`/`*italic*`은 `(string | ReactElement)[]` 반환으로 처리한다.
+
+```tsx
+function renderInline(line: string): (string | ReactElement)[] {
+  const parts: (string | ReactElement)[] = [];
+  const pattern = /\*\*(.+?)\*\*|\*(.+?)\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = pattern.exec(line)) !== null) {
+    if (match.index > cursor) parts.push(line.slice(cursor, match.index));
+    if (match[1] !== undefined) parts.push(<strong key={idx++}>{match[1]}</strong>);
+    else if (match[2] !== undefined) parts.push(<em key={idx++}>{match[2]}</em>);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < line.length) parts.push(line.slice(cursor));
+  return parts;
 }
 ```
 
-### 이미지 URL 구성
+### 이미지 URL 구성 + onError fallback
 
-```typescript
-function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
-  return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
+```tsx
+function resolveImageUrl(baseUrl: string, dir: string, imageKey: string): string {
+  return `${baseUrl}/files/${dir}/${imageKey}`;
 }
+
+// 이미지 실패 시 wrapper 전체 숨김 — React onError 핸들러로 처리
+<img
+  src={resolveImageUrl(props.baseUrl, dir, key)}
+  alt={key}
+  onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+/>
 ```
+
+### Renderer Actions (버튼/선택지)
+
+```tsx
+<button onClick={() => props.actions.fill("선택지 텍스트")}>선택지</button>
+<button onClick={() => props.actions.send("즉시 전송")}>전송</button>
+```
+
+`data-action`/`data-text` 위임은 더 이상 없다. onClick을 직접 바인딩한다.
 
 ### 스트리밍 상태 헬퍼
 
 `state`는 한 곳에서 모든 진행 정보를 노출한다. 자주 쓰이는 추출 패턴:
 
-```typescript
+```tsx
 // 현재 in-flight assistant message의 toolCall 블록 (시간순)
 function activeToolCalls(state: AgentState): ToolCall[] {
   return (state.streamingMessage?.content ?? [])
@@ -162,7 +215,7 @@ function streamingText(state: AgentState): string {
 
 줄 단위 파싱으로 대화, 사용자 입력, 나레이션 등을 구분한다.
 
-```typescript
+```tsx
 interface ChatLine {
   type: "user" | "character" | "narration" | "divider";
   characterName?: string;
@@ -181,18 +234,18 @@ function parseLine(raw: string): ChatLine | null {
 }
 ```
 
-동일 타입/캐릭터의 연속 라인을 그룹으로 묶으면 하나의 말풍선으로 렌더링할 수 있다.
+동일 타입/캐릭터의 연속 라인을 그룹으로 묶으면 하나의 말풍선 컴포넌트로 렌더링할 수 있다.
 
 ### frontmatter 기반 캐릭터 매핑
 
 frontmatter의 avatar-image, names(쉼표 구분), display-name, color 필드로 캐릭터를 식별하고 아바타 이미지를 resolve한다.
 
-```typescript
+```tsx
 interface NameMapEntry { dir: string; avatarImage: string; color?: string; }
 
-function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
+function buildNameMap(files: ProjectFile[]): Map<string, NameMapEntry> {
   const map = new Map<string, NameMapEntry>();
-  for (const file of ctx.files) {
+  for (const file of files) {
     if (file.type !== "text" || !file.frontmatter) continue;
     const fm = file.frontmatter;
     if (!fm["avatar-image"]) continue;
@@ -210,48 +263,95 @@ function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
 
 ### 인라인 감정 삽화
 
-텍스트 안의 `[name:image-key]` 토큰을 감지하여 삽화 이미지로 치환한다. nameMap으로 캐릭터 디렉토리를 resolve한다.
+텍스트 안의 `[name:image-key]` 토큰을 감지하여 삽화 이미지로 치환한다.
 
-```typescript
+```tsx
 const INLINE_IMAGE = /\[([a-z0-9][a-z0-9-]*):([^\]]+)\]/g;
 
 function formatInline(
-  text: string, ctx: RenderContext, nameMap: Map<string, NameMapEntry>,
-): string {
-  let html = escapeHtml(text);
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.+?)\*/g, '<em class="action">$1</em>');
-  html = html.replace(INLINE_IMAGE, (_m, name, key) => {
+  text: string, baseUrl: string, nameMap: Map<string, NameMapEntry>,
+): (string | ReactElement)[] {
+  const out: (string | ReactElement)[] = [];
+  let cursor = 0;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = INLINE_IMAGE.exec(text)) !== null) {
+    if (m.index > cursor) out.push(text.slice(cursor, m.index));
+    const [, name, key] = m;
     const entry = nameMap.get(name);
     const dir = entry?.dir ?? name;
-    const url = resolveImageUrl(ctx, dir, key);
-    return `<div class="illustration"><img src="${url}" alt="${key}" onerror="this.parentElement.style.display='none'" /></div>`;
-  });
-  return html;
+    out.push(
+      <span key={idx++} className="illustration" style={{ display: "block" }}>
+        <img
+          src={`${baseUrl}/files/${dir}/${key}`}
+          alt={key}
+          onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+        />
+      </span>,
+    );
+    cursor = m.index + m[0].length;
+  }
+  if (cursor < text.length) out.push(text.slice(cursor));
+  return out;
 }
 ```
 
 입력: `*미소를 짓는다* [elara:smile] "반갑습니다"` → italic + 삽화 이미지 + 텍스트
 
-### 마크다운 렌더링
+### 마크다운 블록 렌더링
 
-heading, blockquote, list 등을 변환하고 단락을 분리한다.
+heading, blockquote, list 등을 union 타입으로 토큰화한 뒤 JSX로 매핑한다.
 
-```typescript
-function renderMarkdown(text: string): string {
-  let html = escapeHtml(text);
-  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
-  html = html.replace(/^###\s+(.*)$/gm, "<h3>$1</h3>");
-  html = html.replace(/^##\s+(.*)$/gm, "<h2>$1</h2>");
-  html = html.replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
-  html = html.replace(/^---$/gm, "<hr/>");
-  html = html.replace(/^&gt;\s*(.*)$/gm, "<blockquote>$1</blockquote>");
-  html = html.replace(/^-\s+(.*)$/gm, "<li>$1</li>");
-  const blocks = html.split(/\n\n+/).map(b => b.trim()).filter(Boolean);
-  return blocks.map(block => {
-    if (/^<h[1-6]>|^<hr|^<ul|^<li|^<blockquote/.test(block)) return block;
-    return `<p>${block.replace(/\n/g, "<br/>")}</p>`;
-  }).join("\n");
+```tsx
+type Block =
+  | { kind: "h1"; text: string }
+  | { kind: "h2"; text: string }
+  | { kind: "paragraph"; lines: string[] }
+  | { kind: "hr" };
+
+function parseMarkdown(text: string): Block[] {
+  // 줄 단위 tokenizer — 구현 생략
+  return [];
+}
+
+function renderBlocks(blocks: Block[]): ReactElement[] {
+  return blocks.map((b, i) => {
+    switch (b.kind) {
+      case "h1": return <h1 key={i}>{b.text}</h1>;
+      case "h2": return <h2 key={i}>{b.text}</h2>;
+      case "hr": return <hr key={i} />;
+      case "paragraph":
+        return (
+          <p key={i}>
+            {b.lines.map((line, j) => (
+              <span key={j}>{renderInline(line)}{j < b.lines.length - 1 ? <br /> : null}</span>
+            ))}
+          </p>
+        );
+    }
+  });
+}
+```
+
+### 테마 export (선택)
+
+프로젝트 페이지 한정으로 `--color-*` 전역 팔레트를 오버라이드하고 싶으면 `theme` 함수를 export한다. `files` 기반 동적 테마 가능.
+
+```tsx
+export function theme(ctx: { files: ProjectFile[] }) {
+  return {
+    base: {
+      void: "#0a0e0d",
+      base: "#0f1514",
+      surface: "#141c1b",
+      elevated: "#1a2322",
+      accent: "#2dd4bf",
+      fg: "#e6f0ee",
+      fg2: "#a3b8b4",
+      fg3: "#6b7f7b",
+      edge: "#2a3735",
+    },
+    prefersScheme: "dark" as const,
+  };
 }
 ```
