@@ -115,7 +115,8 @@ function injectCss(root: ShadowRoot, css: readonly string[]): void {
 function appendMountNode(root: ShadowRoot): HTMLDivElement {
   const mount = document.createElement("div");
   mount.setAttribute("data-renderer-mount", "");
-  mount.className = "h-full min-h-full";
+  mount.style.height = "100%";
+  mount.style.minHeight = "100%";
   root.append(mount);
   return mount;
 }
@@ -152,6 +153,7 @@ export function RenderedView() {
   const moduleRef = useRef<RendererModule | null>(null);
   const reactRootRef = useRef<Root | null>(null);
   const reactMountRef = useRef<HTMLDivElement | null>(null);
+  const transitionRootRef = useRef<Root | null>(null);
   const stateRef = useRef(state);
   const prevSlugRef = useRef<string | null>(project.activeProjectSlug);
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -185,7 +187,12 @@ export function RenderedView() {
           backShadowRootRef.current ??
           backHost.attachShadow({ mode: "open" });
         backShadowRootRef.current = backRoot;
-        backRoot.innerHTML = frontRoot.innerHTML;
+        transitionRootRef.current?.unmount();
+        transitionRootRef.current = reactRootRef.current;
+        backRoot.replaceChildren(...Array.from(frontRoot.childNodes));
+        reactRootRef.current = null;
+        reactMountRef.current = null;
+        moduleRef.current = null;
         const scrollTop = viewport?.scrollTop ?? 0;
         backHost.style.transform =
           scrollTop > 0 ? `translateY(-${scrollTop}px)` : "";
@@ -351,6 +358,8 @@ export function RenderedView() {
     const timer = setTimeout(() => {
       const backRoot = backShadowRootRef.current;
       const backHost = backHostRef.current;
+      transitionRootRef.current?.unmount();
+      transitionRootRef.current = null;
       if (backRoot) backRoot.innerHTML = "";
       if (backHost) backHost.style.transform = "";
       cleanupTimerRef.current = null;
