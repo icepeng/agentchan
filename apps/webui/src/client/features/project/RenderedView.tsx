@@ -348,16 +348,6 @@ export function RenderedView() {
     return () => clearTimeout(timer);
   }, [phase, exitingLayer]);
 
-  useEffect(() => {
-    if (state.isStreaming) return;
-    const root = shadowRootRefs.current[activeLayerRef.current];
-    if (!root) return;
-    const anchor = root.querySelector("[data-chat-anchor]");
-    if (anchor) {
-      anchor.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [rendererView.snapshot, state.isStreaming]);
-
   const error = rendererView.error;
   const exitingOpacityClass =
     phase === "capture"

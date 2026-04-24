@@ -2147,7 +2147,6 @@ function RendererContent(props: RendererContentProps): ReactElement {
                 persona={persona}
               />
               <NextChoices options={choices} stats={stats} onFill={actions.fill} />
-              <div data-chat-anchor />
             </div>
             {(() => {
               const hasAppendix =

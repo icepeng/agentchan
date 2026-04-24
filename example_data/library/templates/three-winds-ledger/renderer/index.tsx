@@ -2469,7 +2469,6 @@ function RendererContent(props: RendererContentProps): ReactElement {
               <EventsView events={parsed.events} ctx={eventCtx} />
             )}
             <NextChoicesView options={choices} actions={actions} />
-            <div data-chat-anchor />
           </main>
           <SidePanelView
             stats={stats}

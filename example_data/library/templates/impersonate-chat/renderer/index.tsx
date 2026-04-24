@@ -537,7 +537,6 @@ function RendererContent({ files, baseUrl }: RendererContentProps): ReactElement
               return <DividerBlock key={groupKey} />;
           }
         })}
-        <div data-chat-anchor></div>
       </div>
     </>
   );

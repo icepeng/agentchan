@@ -545,7 +545,6 @@ function RendererContent({ files, baseUrl, actions }: RendererContentProps): Rea
       <div className="cr-reel">
         {showEmpty ? <EmptyState /> : renderBeats(beats, stage, actions)}
       </div>
-      <div data-chat-anchor />
     </div>
   );
 }

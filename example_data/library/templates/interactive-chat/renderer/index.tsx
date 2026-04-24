@@ -564,7 +564,6 @@ function RendererContent({ files, baseUrl, actions }: RendererContentProps): Rea
           }
         })}
         <ChoicesBlock choices={choices} onSend={(t) => actions.send(t)} />
-        <div data-chat-anchor></div>
       </div>
     </>
   );

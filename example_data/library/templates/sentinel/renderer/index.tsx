@@ -1231,7 +1231,6 @@ function RendererContent(props: RendererContentProps): ReactElement {
       />
       <div className="ms-body">
         {bodyParts}
-        <div data-chat-anchor></div>
       </div>
       <PendingStrip state={state} />
     </div>
