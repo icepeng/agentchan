@@ -3,7 +3,7 @@ import { Agentchan } from "agentchan:renderer/v1";
 import "./index.css";
 import type { ReactElement } from "react";
 
-// ── Inline type declarations (renderer transpile 독립) ──────────
+// ── Local renderer data shapes ──────────
 
 type ProjectFile = Agentchan.ProjectFile;
 type TextFile = Agentchan.TextFile;
@@ -54,6 +54,7 @@ interface ToolResultMessage {
   isError: boolean;
 }
 type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
+type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 // ── Renderer theme contract ──────────────────────────────────
 
@@ -1029,8 +1030,26 @@ function EmptyStandby(): ReactElement {
 
 // ── Pending strip ───────────────────────────
 
+function currentTurnAssistantBlocks(state: AgentState): AssistantContentBlock[] {
+  let start = 0;
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    if (state.messages[i]?.role === "user") {
+      start = i + 1;
+      break;
+    }
+  }
+
+  const blocks: AssistantContentBlock[] = [];
+  for (let i = start; i < state.messages.length; i++) {
+    const message = state.messages[i];
+    if (message?.role === "assistant") blocks.push(...message.content);
+  }
+  if (state.streamingMessage) blocks.push(...state.streamingMessage.content);
+  return blocks;
+}
+
 function activeToolCalls(state: AgentState): ToolCall[] {
-  const content = state.streamingMessage?.content ?? [];
+  const content = currentTurnAssistantBlocks(state);
   return content.filter((b): b is ToolCall => b.type === "toolCall");
 }
 

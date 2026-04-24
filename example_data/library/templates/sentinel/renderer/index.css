@@ -815,6 +815,9 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+.ms-pending-strip[hidden] {
+  display: none;
+}
 .ms-pending-glyph {
   width: 8px;
   height: 8px;

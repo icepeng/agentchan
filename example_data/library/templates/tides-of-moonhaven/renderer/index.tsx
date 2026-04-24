@@ -8,9 +8,9 @@ import "./index.css";
 //   화면은 게임 UI가 아니라 크림 양피지 위에 손으로 기록되는 로그북이다.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 
-// ── Inline types (렌더러는 별도 transpile → import 불가) ──────────────────────
+// ── Local renderer data shapes ──────────────────────
 
 type ProjectFile = Agentchan.ProjectFile;
 type TextFile = Agentchan.TextFile;
@@ -49,6 +49,7 @@ interface ToolResultMessage {
   isError: boolean;
 }
 type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
+type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 type RendererTheme = Agentchan.RendererTheme;
 
@@ -1676,8 +1677,28 @@ function RitualCanvas({
   );
 }
 
+const DICE_SETTLED_HOLD_MS = 1800;
+
+function currentTurnAssistantBlocks(state: AgentState): AssistantContentBlock[] {
+  let start = 0;
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    if (state.messages[i]?.role === "user") {
+      start = i + 1;
+      break;
+    }
+  }
+
+  const blocks: AssistantContentBlock[] = [];
+  for (let i = start; i < state.messages.length; i++) {
+    const message = state.messages[i];
+    if (message?.role === "assistant") blocks.push(...message.content);
+  }
+  if (state.streamingMessage) blocks.push(...state.streamingMessage.content);
+  return blocks;
+}
+
 function activeToolCalls(state: AgentState): ToolCall[] {
-  const content = state.streamingMessage?.content ?? [];
+  const content = currentTurnAssistantBlocks(state);
   return content.filter((b): b is ToolCall => b.type === "toolCall");
 }
 
@@ -1703,6 +1724,9 @@ function SealChain({
   return (
     <div className="lg-ritual-chain" aria-hidden="true">
       {visible.map((tc, i) => {
+        if (state.pendingToolCalls.includes(tc.id)) {
+          return <span key={i} className="lg-seal lg-seal--live" title={tc.name} aria-hidden="true" />;
+        }
         const result = findToolResult(state, tc.id);
         if (!result) {
           return <span key={i} className="lg-seal lg-seal--live" title={tc.name} aria-hidden="true" />;
@@ -1715,6 +1739,17 @@ function SealChain({
   );
 }
 
+function latestSettledScript(
+  state: AgentState,
+  toolCalls: ReadonlyArray<ToolCall>,
+): ToolCall | null {
+  for (let i = toolCalls.length - 1; i >= 0; i--) {
+    const tc = toolCalls[i];
+    if (tc?.name === "script" && findToolResult(state, tc.id)) return tc;
+  }
+  return null;
+}
+
 function PendingCard({
   state,
   mode,
@@ -1722,10 +1757,55 @@ function PendingCard({
   state: AgentState;
   mode: "peace" | "combat";
 }): ReactElement {
+  const [heldScriptId, setHeldScriptId] = useState<string | null>(null);
+  const seenSettledScriptRef = useRef<string | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tools = activeToolCalls(state);
+  const pendingIds = new Set(state.pendingToolCalls);
   const latest = tools.length > 0 ? tools[tools.length - 1] : undefined;
-  const inFlight = tools.find((tc) => !findToolResult(state, tc.id));
-  const focus = inFlight ?? latest;
+  const inFlight =
+    tools.find((tc) => pendingIds.has(tc.id)) ??
+    tools.find((tc) => !findToolResult(state, tc.id));
+  const desiredFocus = inFlight ?? latest;
+  const settledScript = latestSettledScript(state, tools);
+
+  useEffect(() => {
+    if (!state.isStreaming) {
+      seenSettledScriptRef.current = null;
+      setHeldScriptId(null);
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      return;
+    }
+
+    const id = settledScript?.id ?? null;
+    if (!id || seenSettledScriptRef.current === id) return;
+
+    seenSettledScriptRef.current = id;
+    setHeldScriptId(id);
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(() => {
+      setHeldScriptId((current) => (current === id ? null : current));
+      holdTimerRef.current = null;
+    }, DICE_SETTLED_HOLD_MS);
+  }, [state.isStreaming, settledScript?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, []);
+
+  const heldScript =
+    heldScriptId != null
+      ? tools.find((tc) => tc.id === heldScriptId && tc.name === "script" && findToolResult(state, tc.id))
+      : undefined;
+  const focus =
+    heldScript && desiredFocus?.id !== heldScript.id && desiredFocus?.name !== "script"
+      ? heldScript
+      : desiredFocus;
   const toolKey = focus?.name ?? "thinking";
   const focusResult = focus ? findToolResult(state, focus.id) : null;
   const stateAttr = focus ? (focusResult ? "settled" : "busy") : "thinking";
