@@ -1618,10 +1618,7 @@
   gap: 1px;
   line-height: 1.15;
 }
-.lg-customs-stamp-line { display: none; }
-.lg-customs-stamp [data-stamp-pending] { display: block; }
-.lg-customs-total[data-state="ok"] + .lg-customs-stamp [data-stamp-pending] { display: none; }
-.lg-customs-total[data-state="ok"] + .lg-customs-stamp [data-stamp-approved] { display: block; }
+.lg-customs-stamp-line { display: block; }
 
 /* Signature */
 .lg-customs-sig {
