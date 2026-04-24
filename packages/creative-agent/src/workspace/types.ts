@@ -4,6 +4,7 @@ export interface TextFile {
   content: string;
   frontmatter: Record<string, unknown> | null;
   modifiedAt: number;
+  digest: string;
 }
 
 export interface DataFile {
@@ -13,12 +14,14 @@ export interface DataFile {
   data: unknown;
   format: "yaml" | "json";
   modifiedAt: number;
+  digest: string;
 }
 
 export interface BinaryFile {
   type: "binary";
   path: string;
   modifiedAt: number;
+  digest: string;
 }
 
 export type ProjectFile = TextFile | DataFile | BinaryFile;

@@ -1,28 +1,51 @@
-import type { ProjectFile } from "@agentchan/creative-agent";
-import type { AgentState } from "@/client/entities/agent-state/index.js";
+import type {
+  BinaryFile,
+  DataFile,
+  ProjectFile,
+  TextFile,
+} from "@agentchan/creative-agent";
+import type {
+  AgentMessage,
+  AssistantMessage,
+} from "@/client/entities/agent-state/index.js";
 
-export type { AgentState, ProjectFile };
+export type { BinaryFile, DataFile, ProjectFile, TextFile };
 
-/**
- * Renderer contract — shared by AgentPanel UI and template renderer.ts.
- *
- * `state`는 pi `agent.state` 네이밍을 그대로 계승. 렌더러는 `state.messages`로
- * 전체 대화 흐름(persisted + in-flight toolResults)을, `state.streamingMessage`로
- * 현재 in-flight assistant message를 본다. tool 진행 여부는
- * `state.pendingToolCalls.has(toolCall.id)`로 판단.
- */
-export interface RenderContext {
-  files: ProjectFile[];
+export interface RendererAgentState {
+  readonly messages: ReadonlyArray<AgentMessage>;
+  readonly isStreaming: boolean;
+  readonly streamingMessage?: AssistantMessage;
+  readonly pendingToolCalls: readonly string[];
+  readonly errorMessage?: string;
+}
+
+/** Renderer snapshot shared by AgentPanel UI and Renderer V1 modules. */
+export interface RendererSnapshot {
+  slug: string;
   baseUrl: string;
-  state: AgentState;
+  files: readonly ProjectFile[];
+  state: RendererAgentState;
+}
+
+export type RenderContext = RendererSnapshot;
+
+export interface RendererActions {
+  send(text: string): void | Promise<void>;
+  fill(text: string): void | Promise<void>;
+}
+
+export interface RendererBundle {
+  js: string;
+  css: string[];
+}
+
+export interface RendererProps {
+  snapshot: RendererSnapshot;
+  actions: RendererActions;
 }
 
 // --- Renderer theme ---
 
-/**
- * 토큰 이름은 agentchan 전역 CSS 변수(`--color-*`)와 1:1로 대응한다.
- * 렌더러 작성자가 토큰을 선언하면 그대로 해당 `--color-*`가 오버라이드된다.
- */
 export interface RendererThemeTokens {
   void?: string;
   base?: string;
@@ -48,7 +71,7 @@ export interface ResolvedThemeVars {
   forceScheme: boolean;
 }
 
-// --- Renderer action (bridge from rendered HTML to chat) ---
+// --- Renderer action ---
 
 export type RendererAction =
   | { type: "send"; text: string }

@@ -1,66 +1,144 @@
-import { useEffect, useRef, useState } from "react";
-import { Idiomorph } from "idiomorph";
+import * as React from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+import { jsxDEV } from "react/jsx-dev-runtime";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
 import {
-  useOutput,
+  useRendererOutput,
   useRendererViewState,
-  useRendererActionDispatch,
+  useRendererViewDispatch,
+  useRendererCommandDispatch,
+  validateTheme,
+} from "@/client/entities/renderer/index.js";
+import type {
+  RendererActions,
+  RendererProps,
+  RendererSnapshot,
+  RendererTheme,
 } from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 
-type TransitionPhase = "idle" | "capture" | "fading";
+const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 
-// Must stay in sync with the Tailwind `duration-300` class on the back layer.
-const FADE_DURATION_MS = 300;
+type RendererComponent = React.ComponentType<RendererProps>;
+
+interface RendererModule {
+  default: RendererComponent;
+  theme?: (snapshot: RendererSnapshot) => RendererTheme | null;
+}
+
+interface RendererShellProps {
+  Component: RendererComponent;
+  actions: RendererActions;
+  getSnapshot: () => RendererSnapshot;
+  subscribe: (listener: () => void) => () => void;
+}
+
+function installRendererRuntime(): void {
+  (globalThis as typeof globalThis & {
+    __AGENTCHAN_RENDERER_V1__?: unknown;
+  }).__AGENTCHAN_RENDERER_V1__ = {
+    React,
+    createRoot,
+    useSyncExternalStore,
+    Fragment,
+    jsx,
+    jsxs,
+    jsxDEV,
+  };
+}
+
+function RendererShell({
+  Component,
+  actions,
+  getSnapshot,
+  subscribe,
+}: RendererShellProps) {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return <Component snapshot={snapshot} actions={actions} />;
+}
+
+function isRendererComponent(value: unknown): value is RendererComponent {
+  return typeof value === "function";
+}
+
+function isThemeFunction(
+  value: unknown,
+): value is (snapshot: RendererSnapshot) => RendererTheme | null {
+  return value === undefined || typeof value === "function";
+}
+
+function importRendererModule(js: string): Promise<RendererModule> {
+  const blob = new Blob([js], { type: "application/javascript" });
+  const url = URL.createObjectURL(blob);
+  return import(/* @vite-ignore */ url)
+    .then((mod: { default?: unknown; theme?: unknown }) => {
+      if (!isRendererComponent(mod.default)) {
+        throw new Error(
+          "Renderer default export must be a React component function.",
+        );
+      }
+      if (!isThemeFunction(mod.theme)) {
+        throw new Error("Renderer theme export must be a function when provided.");
+      }
+      return { default: mod.default, theme: mod.theme };
+    })
+    .finally(() => URL.revokeObjectURL(url));
+}
+
+function clearShadowRoot(root: ShadowRoot): void {
+  while (root.firstChild) root.firstChild.remove();
+}
+
+function injectCss(root: ShadowRoot, css: readonly string[]): void {
+  for (const text of css) {
+    const style = document.createElement("style");
+    style.textContent = text;
+    root.append(style);
+  }
+}
 
 export function RenderedView() {
   const project = useProjectSelectionState();
   const rendererView = useRendererViewState();
+  const rendererViewDispatch = useRendererViewDispatch();
   const state = useAgentState();
-  const { refresh, refreshState } = useOutput();
-  const actionDispatch = useRendererActionDispatch();
+  const { refresh, refreshState } = useRendererOutput();
+  const commandDispatch = useRendererCommandDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
-  const frontRef = useRef<HTMLDivElement>(null);
-  const backRef = useRef<HTMLDivElement>(null);
-  const prevSlugRef = useRef<string | null>(project.activeProjectSlug);
-  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [phase, setPhase] = useState<TransitionPhase>("idle");
-
-  // Mirror the latest AgentState into a ref so the rAF tick reads it without
-  // re-running the effect on every delta. Identity changes whenever the
-  // reducer produces a new slot object — that's the cue to refreshState.
+  const hostElementRef = useRef<HTMLDivElement>(null);
+  const shadowRootRef = useRef<ShadowRoot | null>(null);
+  const snapshotRef = useRef<RendererSnapshot | null>(rendererView.snapshot);
+  const listenersRef = useRef(new Set<() => void>());
+  const moduleRef = useRef<RendererModule | null>(null);
+  const reactRootRef = useRef<Root | null>(null);
   const stateRef = useRef(state);
+
   useEffect(() => {
     stateRef.current = state;
   });
 
-  // Snapshot the current renderer DOM into the back layer so it can cross-fade
-  // out while the new project's renderer loads. Must stay declared above the
-  // morph effect below so snapshot runs before morph overwrites `frontEl`.
-  // Clearing any in-flight cleanup timer here prevents a rapid A→B→C switch
-  // from letting B's fading cleanup clobber C's fresh snapshot.
   useEffect(() => {
-    const newSlug = project.activeProjectSlug;
-    if (prevSlugRef.current !== null && prevSlugRef.current !== newSlug) {
-      const frontEl = frontRef.current;
-      const backEl = backRef.current;
-      const viewport = containerRef.current;
-      if (frontEl && backEl && frontEl.innerHTML) {
-        if (cleanupTimerRef.current !== null) {
-          clearTimeout(cleanupTimerRef.current);
-          cleanupTimerRef.current = null;
-        }
-        backEl.innerHTML = frontEl.innerHTML;
-        const scrollTop = viewport?.scrollTop ?? 0;
-        backEl.style.transform =
-          scrollTop > 0 ? `translateY(-${scrollTop}px)` : "";
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- snapshot DOM과 phase가 같은 커밋에 묶여야 overlay가 먼저 paint됨
-        setPhase("capture");
-      }
-    }
-    prevSlugRef.current = newSlug;
+    const hostElement = hostElementRef.current;
+    if (!hostElement || shadowRootRef.current) return;
+    shadowRootRef.current = hostElement.attachShadow({ mode: "open" });
+  }, []);
+
+  useEffect(() => {
     void refresh();
+  }, [project.activeProjectSlug, refresh]);
+
+  useEffect(() => {
+    const handleFilesChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ slug?: string }>).detail;
+      if (detail?.slug === project.activeProjectSlug) {
+        void refresh();
+      }
+    };
+    window.addEventListener(PROJECT_FILES_CHANGED, handleFilesChanged);
+    return () => window.removeEventListener(PROJECT_FILES_CHANGED, handleFilesChanged);
   }, [project.activeProjectSlug, refresh]);
 
   useEffect(() => {
@@ -69,9 +147,6 @@ export function RenderedView() {
     }
   }, [state.isStreaming, project.activeProjectSlug, refresh]);
 
-  // rAF-coalesced stream re-render. `useOutput` reads the latest AgentState
-  // via ref each call, so the tick just compares state identity to skip
-  // refreshState when nothing has changed — avoiding 60fps CPU burn.
   useEffect(() => {
     if (!state.isStreaming) return;
     let raf = 0;
@@ -89,110 +164,117 @@ export function RenderedView() {
   }, [state.isStreaming, refreshState]);
 
   useEffect(() => {
-    const el = frontRef.current;
-    if (!el) return;
-    if (!rendererView.html) return;
-    Idiomorph.morph(el, rendererView.html, {
-      morphStyle: "innerHTML",
-      ignoreActiveValue: true,
-    });
-    // innerHTML로 들어간 <script>는 브라우저가 실행하지 않으므로 새 노드로 교체해
-    // 강제 실행. 인라인 script는 dataset 가드로 중복 등록을 막아야 한다.
-    if (rendererView.html.indexOf("<script") === -1) return;
-    el.querySelectorAll("script").forEach((oldScript) => {
-      const newScript = document.createElement("script");
-      for (const attr of Array.from(oldScript.attributes)) {
-        newScript.setAttribute(attr.name, attr.value);
-      }
-      newScript.textContent = oldScript.textContent;
-      oldScript.replaceWith(newScript);
-    });
-  }, [rendererView.html]);
+    const snapshot = rendererView.snapshot;
+    snapshotRef.current = snapshot;
+    for (const listener of listenersRef.current) listener();
 
-  // Two rAFs: the first lets the `capture` className paint, the second lets
-  // the browser register the fading transition class before opacity flips —
-  // otherwise capture→fading is coalesced and the transition is skipped.
+    const mod = moduleRef.current;
+    if (!mod || !snapshot) return;
+    try {
+      rendererViewDispatch({
+        type: "SET_THEME",
+        theme: validateTheme(mod.theme?.(snapshot) ?? null),
+      });
+    } catch (error) {
+      console.warn("[renderer.theme] theme function threw", error);
+      rendererViewDispatch({ type: "SET_THEME", theme: null });
+    }
+  }, [rendererView.snapshot, rendererViewDispatch]);
+
   useEffect(() => {
-    if (phase !== "capture") return;
-    if (!rendererView.html) return;
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setPhase("fading"));
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
+    const root = shadowRootRef.current;
+    const bundle = rendererView.bundle;
+    if (!root || !bundle) return;
+
+    let cancelled = false;
+    reactRootRef.current?.unmount();
+    reactRootRef.current = null;
+    moduleRef.current = null;
+    clearShadowRoot(root);
+    injectCss(root, bundle.css);
+    installRendererRuntime();
+
+    const actions: RendererActions = {
+      send(text) {
+        commandDispatch({ type: "SET_ACTION", action: { type: "send", text } });
+      },
+      fill(text) {
+        commandDispatch({ type: "SET_ACTION", action: { type: "fill", text } });
+      },
     };
-  }, [phase, rendererView.html]);
 
-  useEffect(() => {
-    if (phase !== "fading") return;
-    const timer = setTimeout(() => {
-      const backEl = backRef.current;
-      if (backEl) {
-        backEl.innerHTML = "";
-        backEl.style.transform = "";
-      }
-      cleanupTimerRef.current = null;
-      setPhase("idle");
-    }, FADE_DURATION_MS);
-    cleanupTimerRef.current = timer;
-    return () => clearTimeout(timer);
-  }, [phase]);
+    const getSnapshot = () => {
+      const snapshot = snapshotRef.current;
+      if (!snapshot) throw new Error("Renderer snapshot is not ready.");
+      return snapshot;
+    };
+    const subscribe = (listener: () => void) => {
+      listenersRef.current.add(listener);
+      return () => listenersRef.current.delete(listener);
+    };
 
-  // 스트리밍 중 pending UI가 매 rAF마다 anchor를 다시 잡으면서 스크롤을 끌어내리므로,
-  // 스트리밍이 끝난 직후 한 번만 바닥으로 이동시킨다. isStreaming이 true→false로 바뀌는
-  // 전이에서 effect가 재실행되며 최종 결과로 스크롤된다.
+    void importRendererModule(bundle.js)
+      .then((mod) => {
+        if (cancelled) return;
+        moduleRef.current = mod;
+        const reactRoot = createRoot(root);
+        reactRootRef.current = reactRoot;
+        reactRoot.render(
+          <RendererShell
+            Component={mod.default}
+            actions={actions}
+            getSnapshot={getSnapshot}
+            subscribe={subscribe}
+          />,
+        );
+        const snapshot = snapshotRef.current;
+        rendererViewDispatch({
+          type: "SET_THEME",
+          theme: snapshot ? validateTheme(mod.theme?.(snapshot) ?? null) : null,
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        rendererViewDispatch({ type: "SET_ERROR", error: message });
+      });
+
+    return () => {
+      cancelled = true;
+      reactRootRef.current?.unmount();
+      reactRootRef.current = null;
+      moduleRef.current = null;
+      clearShadowRoot(root);
+    };
+  }, [rendererView.bundle, commandDispatch, rendererViewDispatch]);
+
   useEffect(() => {
     if (state.isStreaming) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const anchor = el.querySelector("[data-chat-anchor]");
+    const root = shadowRootRef.current;
+    if (!root) return;
+    const anchor = root.querySelector("[data-chat-anchor]");
     if (anchor) {
       anchor.scrollIntoView({ behavior: "smooth" });
     }
-  }, [rendererView.html, state.isStreaming]);
+  }, [rendererView.snapshot, state.isStreaming]);
 
-  useEffect(() => {
-    const el = frontRef.current;
-    if (!el) return;
-    const handleClick = (e: MouseEvent) => {
-      const target = (e.target as HTMLElement).closest<HTMLElement>(
-        "[data-action]",
-      );
-      if (!target) return;
-      const action = target.dataset.action;
-      const text = target.dataset.text ?? target.textContent?.trim() ?? "";
-      if (!text) return;
-      e.preventDefault();
-      if (action === "send" || action === "fill") {
-        actionDispatch({
-          type: "SET_ACTION",
-          action: { type: action, text },
-        });
-      }
-    };
-    el.addEventListener("click", handleClick);
-    return () => el.removeEventListener("click", handleClick);
-  }, [actionDispatch]);
-
-  const backOpacityClass =
-    phase === "capture"
-      ? "opacity-100 transition-none"
-      : phase === "fading"
-        ? "opacity-0 transition-opacity duration-300 ease-out motion-reduce:duration-0"
-        : "opacity-0 transition-none";
+  const error = rendererView.error;
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0">
       <ScrollArea ref={containerRef} className="flex-1">
-        <div ref={frontRef} className="h-full min-h-full" />
+        <div
+          ref={hostElementRef}
+          data-renderer-host
+          className="h-full min-h-full"
+        />
+        {error ? (
+          <div className="p-4 text-sm text-danger font-mono whitespace-pre-wrap">
+            <p>Renderer error:</p>
+            <pre className="mt-2 text-xs whitespace-pre-wrap">{error}</pre>
+          </div>
+        ) : null}
       </ScrollArea>
-      <div
-        ref={backRef}
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 overflow-hidden ${backOpacityClass}`}
-      />
     </div>
   );
 }

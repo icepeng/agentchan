@@ -1,22 +1,20 @@
-interface TextFile {
-  type: "text";
-  path: string;
-  content: string;
-  frontmatter: Record<string, unknown> | null;
-  modifiedAt: number;
-}
+/** @jsxImportSource agentchan:renderer/v1 */
+import { Agentchan } from "agentchan:renderer/v1";
+import type { ReactElement } from "react";
 
-interface BinaryFile {
-  type: "binary";
-  path: string;
-  modifiedAt: number;
-}
+type ProjectFile = Agentchan.ProjectFile;
+type TextFile = Agentchan.TextFile;
+type DataFile = Agentchan.DataFile;
+type BinaryFile = Agentchan.BinaryFile;
+type AgentState = Agentchan.RendererAgentState;
+type RendererActions = Agentchan.RendererActions;
 
-type ProjectFile = TextFile | BinaryFile;
-
-interface RenderContext {
+interface RendererContentProps {
+  state: AgentState;
   files: ProjectFile[];
+  slug: string;
   baseUrl: string;
+  actions: RendererActions;
 }
 
 // ── Palette ──────────────────────────────────
@@ -34,16 +32,8 @@ const CHARACTER_COLORS = [
 
 // ── Helpers ──────────────────────────────────
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function resolveImageUrl(ctx: RenderContext, dir: string, imageKey: string): string {
-  return `${ctx.baseUrl}/files/${dir}/${imageKey}`;
+function resolveImageUrl(baseUrl: string, dir: string, imageKey: string): string {
+  return `${baseUrl}/files/${dir}/${imageKey}`;
 }
 
 // ── Types ────────────────────────────────────
@@ -72,9 +62,9 @@ interface NameMapEntry {
   color?: string;
 }
 
-function buildNameMap(ctx: RenderContext): Map<string, NameMapEntry> {
+function buildNameMap(files: ProjectFile[]): Map<string, NameMapEntry> {
   const map = new Map<string, NameMapEntry>();
-  for (const file of ctx.files) {
+  for (const file of files) {
     if (file.type !== "text" || !file.frontmatter) continue;
     const fm = file.frontmatter;
     if (!fm["avatar-image"]) continue;
@@ -112,21 +102,67 @@ const INLINE_IMAGE = /\[([a-z0-9][a-z0-9-]*):([^\]]+)\]/g;
 
 function formatInline(
   text: string,
-  ctx: RenderContext,
+  baseUrl: string,
   nameMap: Map<string, NameMapEntry>,
-): string {
-  let result = escapeHtml(text);
-  result = result
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/"(.+?)"/g, "\u201c$1\u201d")
-    .replace(/\*(.+?)\*/g, '<em class="cr-action">$1</em>');
-  result = result.replace(INLINE_IMAGE, (_m, name, key) => {
-    const entry = nameMap.get(name);
-    const dir = entry?.dir ?? name;
-    const url = resolveImageUrl(ctx, dir, key);
-    return `<div class="cr-illustration"><img class="cr-illustration-img" src="${url}" alt="${key}" onerror="this.parentElement.style.display='none'" /></div>`;
+): (string | ReactElement)[] {
+  // Replace smart quotes first (plain string transform)
+  const quoted = text.replace(/"(.+?)"/g, "“$1”");
+
+  // Tokenize: inline image, **bold**, *italic*
+  const tokenRe = /\[([a-z0-9][a-z0-9-]*):([^\]]+)\]|\*\*(.+?)\*\*|\*(.+?)\*/g;
+  const out: (string | ReactElement)[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  // Reset lastIndex since we reuse patterns
+  INLINE_IMAGE.lastIndex = 0;
+  while ((match = tokenRe.exec(quoted)) !== null) {
+    if (match.index > cursor) out.push(quoted.slice(cursor, match.index));
+    if (match[1] !== undefined && match[2] !== undefined) {
+      const name = match[1];
+      const key = match[2];
+      const entry = nameMap.get(name);
+      const dir = entry?.dir ?? name;
+      const url = resolveImageUrl(baseUrl, dir, key);
+      out.push(
+        <div key={`img-${idx++}`} className="cr-illustration">
+          <img
+            className="cr-illustration-img"
+            src={url}
+            alt={key}
+            onError={(e) => {
+              const parent = (e.currentTarget as HTMLImageElement).parentElement;
+              if (parent) parent.style.display = "none";
+            }}
+          />
+        </div>,
+      );
+    } else if (match[3] !== undefined) {
+      out.push(<strong key={`b-${idx++}`}>{match[3]}</strong>);
+    } else if (match[4] !== undefined) {
+      out.push(
+        <em key={`i-${idx++}`} className="cr-action">
+          {match[4]}
+        </em>,
+      );
+    }
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < quoted.length) out.push(quoted.slice(cursor));
+  return out;
+}
+
+function joinWithBreaks(
+  lines: string[],
+  baseUrl: string,
+  nameMap: Map<string, NameMapEntry>,
+): ReactElement[] {
+  const out: ReactElement[] = [];
+  lines.forEach((line, i) => {
+    out.push(<span key={`l-${i}`}>{formatInline(line, baseUrl, nameMap)}</span>);
+    if (i < lines.length - 1) out.push(<br key={`br-${i}`} />);
   });
-  return result;
+  return out;
 }
 
 // ── Choices parsing ─────────────────────────
@@ -177,7 +213,7 @@ function parseLine(raw: string): ChatLine | null {
       text: charMatch[2],
     };
 
-  const charFallback = rest.match(/^([^\s:][^:]{0,40}):\s*(["*\u201c].*)$/);
+  const charFallback = rest.match(/^([^\s:][^:]{0,40}):\s*(["*“].*)$/);
   if (charFallback)
     return {
       type: "character",
@@ -201,7 +237,6 @@ function groupLines(lines: ChatLine[]): ChatGroup[] {
     if (
       prev &&
       prev.type === line.type &&
-      line.type !== "divider" &&
       (line.type !== "character" ||
         (prev.characterName === line.characterName && prev.imageKey === line.imageKey))
     ) {
@@ -221,20 +256,52 @@ function groupLines(lines: ChatLine[]): ChatGroup[] {
 
 interface CharacterInfo {
   color: string;
-  avatarHtml: string;
+  avatar: ReactElement;
 }
 
 interface PersonaInfo {
   displayName: string;
   color: string;
-  avatarHtml: string;
+  avatar: ReactElement;
+}
+
+function Avatar({
+  src,
+  alt,
+  initial,
+}: {
+  src?: string;
+  alt: string;
+  initial: string;
+}): ReactElement {
+  if (src) {
+    return (
+      <>
+        <img
+          className="cr-avatar-img"
+          src={src}
+          alt={alt}
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = "none";
+            const next = img.nextElementSibling as HTMLElement | null;
+            if (next) next.style.display = "flex";
+          }}
+        />
+        <div className="cr-avatar" style={{ display: "none" }}>
+          {initial}
+        </div>
+      </>
+    );
+  }
+  return <div className="cr-avatar">{initial}</div>;
 }
 
 function resolveCharacterInfo(
   charDir: string | undefined,
   imageKey: string | undefined,
   displayName: string,
-  ctx: RenderContext,
+  baseUrl: string,
   nameMap: Map<string, NameMapEntry>,
   fallbackColorMap: Map<string, string>,
 ): CharacterInfo {
@@ -243,15 +310,12 @@ function resolveCharacterInfo(
   const initial = displayName.charAt(0).toUpperCase();
 
   const resolvedDir = charDir ?? entry?.dir;
-  if (resolvedDir && imageKey) {
-    const src = resolveImageUrl(ctx, resolvedDir, imageKey);
-    const avatarHtml = `<img class="cr-avatar-img" src="${src}" alt="${escapeHtml(displayName)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="cr-avatar" style="display:none">${initial}</div>`;
-    return { color, avatarHtml };
-  }
+  const src =
+    resolvedDir && imageKey ? resolveImageUrl(baseUrl, resolvedDir, imageKey) : undefined;
 
   return {
     color,
-    avatarHtml: `<div class="cr-avatar">${initial}</div>`,
+    avatar: <Avatar src={src} alt={displayName} initial={initial} />,
   };
 }
 
@@ -263,10 +327,11 @@ function fallbackColor(name: string, map: Map<string, string>): string {
 }
 
 function resolvePersona(
-  ctx: RenderContext,
+  files: ProjectFile[],
+  baseUrl: string,
   nameMap: Map<string, NameMapEntry>,
 ): PersonaInfo | null {
-  const personaFile = ctx.files.find(
+  const personaFile = files.find(
     (f): f is TextFile =>
       f.type === "text" &&
       f.frontmatter?.role === "persona" &&
@@ -279,109 +344,148 @@ function resolvePersona(
   const dir = personaFile.path.substring(0, personaFile.path.lastIndexOf("/"));
   const imageKey = fm["avatar-image"] ? String(fm["avatar-image"]) : undefined;
   const isolatedColorMap = new Map<string, string>();
-  const info = resolveCharacterInfo(dir, imageKey, displayName, ctx, nameMap, isolatedColorMap);
+  const info = resolveCharacterInfo(dir, imageKey, displayName, baseUrl, nameMap, isolatedColorMap);
   const color = fm.color ? String(fm.color) : info.color;
 
-  return { displayName, color, avatarHtml: info.avatarHtml };
+  return { displayName, color, avatar: info.avatar };
 }
 
 // ── Render blocks ────────────────────────────
 
-function renderCharacter(
-  group: ChatGroup,
-  ctx: RenderContext,
-  nameMap: Map<string, NameMapEntry>,
-  fallbackColorMap: Map<string, string>,
-): string {
+function CharacterBlock({
+  group,
+  baseUrl,
+  nameMap,
+  fallbackColorMap,
+}: {
+  group: ChatGroup;
+  baseUrl: string;
+  nameMap: Map<string, NameMapEntry>;
+  fallbackColorMap: Map<string, string>;
+}): ReactElement {
   const name = group.characterName!;
-  const info = resolveCharacterInfo(group.charDir, group.imageKey, name, ctx, nameMap, fallbackColorMap);
-  const content = group.lines.map((l) => formatInline(l, ctx, nameMap)).join("<br/>");
-
-  return `
-    <div class="cr-char" style="--c: ${info.color}">
-      <div class="cr-halo"></div>
-      <div class="cr-char-body">
-        ${info.avatarHtml}
-        <div class="cr-char-content">
-          <div class="cr-name">${escapeHtml(name)}</div>
-          <div class="cr-bubble">${content}</div>
+  const info = resolveCharacterInfo(
+    group.charDir,
+    group.imageKey,
+    name,
+    baseUrl,
+    nameMap,
+    fallbackColorMap,
+  );
+  return (
+    <div className="cr-char" style={{ ["--c" as string]: info.color }}>
+      <div className="cr-halo"></div>
+      <div className="cr-char-body">
+        {info.avatar}
+        <div className="cr-char-content">
+          <div className="cr-name">{name}</div>
+          <div className="cr-bubble">{joinWithBreaks(group.lines, baseUrl, nameMap)}</div>
         </div>
       </div>
-    </div>`;
+    </div>
+  );
 }
 
-function renderUser(
-  lines: string[],
-  ctx: RenderContext,
-  nameMap: Map<string, NameMapEntry>,
-  persona: PersonaInfo | null,
-): string {
-  const content = lines.map((l) => formatInline(l, ctx, nameMap)).join("<br/>");
-
+function UserBlock({
+  lines,
+  baseUrl,
+  nameMap,
+  persona,
+}: {
+  lines: string[];
+  baseUrl: string;
+  nameMap: Map<string, NameMapEntry>;
+  persona: PersonaInfo | null;
+}): ReactElement {
   if (persona) {
-    return `
-    <div class="cr-char" style="--c: ${persona.color}">
-      <div class="cr-halo"></div>
-      <div class="cr-char-body">
-        ${persona.avatarHtml}
-        <div class="cr-char-content">
-          <div class="cr-name">${escapeHtml(persona.displayName)}</div>
-          <div class="cr-bubble">${content}</div>
+    return (
+      <div className="cr-char" style={{ ["--c" as string]: persona.color }}>
+        <div className="cr-halo"></div>
+        <div className="cr-char-body">
+          {persona.avatar}
+          <div className="cr-char-content">
+            <div className="cr-name">{persona.displayName}</div>
+            <div className="cr-bubble">{joinWithBreaks(lines, baseUrl, nameMap)}</div>
+          </div>
         </div>
       </div>
-    </div>`;
+    );
   }
 
-  return `
-    <div class="cr-char cr-char--anon" style="--c: var(--color-accent)">
-      <div class="cr-char-body">
-        <div class="cr-char-content">
-          <div class="cr-bubble">${content}</div>
+  return (
+    <div className="cr-char cr-char--anon" style={{ ["--c" as string]: "var(--color-accent)" }}>
+      <div className="cr-char-body">
+        <div className="cr-char-content">
+          <div className="cr-bubble">{joinWithBreaks(lines, baseUrl, nameMap)}</div>
         </div>
       </div>
-    </div>`;
+    </div>
+  );
 }
 
-function renderNarration(lines: string[], ctx: RenderContext, nameMap: Map<string, NameMapEntry>): string {
-  const content = lines.map((l) => formatInline(l, ctx, nameMap)).join("<br/>");
-  return `
-    <div class="cr-narr">
-      <div class="cr-narr-text">${content}</div>
-    </div>`;
+function NarrationBlock({
+  lines,
+  baseUrl,
+  nameMap,
+}: {
+  lines: string[];
+  baseUrl: string;
+  nameMap: Map<string, NameMapEntry>;
+}): ReactElement {
+  return (
+    <div className="cr-narr">
+      <div className="cr-narr-text">{joinWithBreaks(lines, baseUrl, nameMap)}</div>
+    </div>
+  );
 }
 
-function renderDivider(): string {
-  return `
-    <div class="cr-div">
-      <span class="cr-dot"></span>
-      <span class="cr-dot"></span>
-      <span class="cr-dot"></span>
-    </div>`;
+function DividerBlock(): ReactElement {
+  return (
+    <div className="cr-div">
+      <span className="cr-dot"></span>
+      <span className="cr-dot"></span>
+      <span className="cr-dot"></span>
+    </div>
+  );
 }
 
-function renderChoices(choices: string[]): string {
-  if (choices.length === 0) return "";
-  const buttons = choices
-    .map((c) => `<button class="cr-choice-btn" data-action="send" data-text="${escapeHtml(c)}">${escapeHtml(c)}</button>`)
-    .join("\n        ");
-  return `
-      <div class="cr-choices">
-        ${buttons}
-      </div>`;
+function ChoicesBlock({
+  choices,
+  onSend,
+}: {
+  choices: string[];
+  onSend: (text: string) => void;
+}): ReactElement | null {
+  if (choices.length === 0) return null;
+  return (
+    <div className="cr-choices">
+      {choices.map((c, i) => (
+        <button
+          key={`${i}-${c}`}
+          type="button"
+          className="cr-choice-btn"
+          onClick={() => onSend(c)}
+        >
+          {c}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-function renderEmpty(): string {
-  return `
-    <div class="cr-empty">
-      <div class="cr-empty-rule"></div>
-      <div class="cr-empty-text">모험이 기다리고 있습니다</div>
-      <div class="cr-empty-rule"></div>
-    </div>`;
+function EmptyBlock(): ReactElement {
+  return (
+    <div className="cr-empty">
+      <div className="cr-empty-rule"></div>
+      <div className="cr-empty-text">모험이 기다리고 있습니다</div>
+      <div className="cr-empty-rule"></div>
+    </div>
+  );
 }
 
 // ── Styles ───────────────────────────────────
 
-const STYLES = `<style>
+const STYLES = `
   .cr-action { font-style: normal; }
   .cr-char { position: relative; margin-bottom: 32px; padding: 2px 0; }
   .cr-halo { position: absolute; left: -40px; top: 50%; transform: translateY(-50%); width: 220px; height: 120px; border-radius: 50%; background: radial-gradient(ellipse, var(--c) 0%, transparent 70%); opacity: 0.05; pointer-events: none; transition: opacity 0.5s ease; z-index: 0; }
@@ -412,17 +516,25 @@ const STYLES = `<style>
   .cr-choice-btn { width: 100%; padding: 10px 16px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--color-accent) 12%, transparent); background: color-mix(in srgb, var(--color-accent) 3%, transparent); color: var(--color-accent); font-family: var(--font-family-body); font-size: 13.5px; line-height: 1.5; text-align: left; cursor: pointer; transition: all 0.15s ease; }
   .cr-choice-btn:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); border-color: color-mix(in srgb, var(--color-accent) 25%, transparent); }
   .cr-choice-btn:active { transform: scale(0.98); }
-</style>`;
+`;
 
 // ── Main renderer ────────────────────────────
 
-export function render(ctx: RenderContext): string {
-  const nameMap = buildNameMap(ctx);
+function RendererContent({ files, baseUrl, actions }: RendererContentProps): ReactElement {
+  const nameMap = buildNameMap(files);
 
-  const sceneFiles = ctx.files.filter(
+  const sceneFiles = files.filter(
     (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
   );
-  if (sceneFiles.length === 0) return STYLES + renderEmpty();
+
+  if (sceneFiles.length === 0) {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <EmptyBlock />
+      </>
+    );
+  }
 
   const allContent = sceneFiles
     .sort((a, b) => a.path.localeCompare(b.path))
@@ -432,7 +544,7 @@ export function render(ctx: RenderContext): string {
   const { cleaned, choices } = extractChoices(allContent);
 
   const fallbackColorMap = new Map<string, string>();
-  const persona = resolvePersona(ctx, nameMap);
+  const persona = resolvePersona(files, baseUrl, nameMap);
 
   const parsed = cleaned
     .split("\n")
@@ -441,27 +553,67 @@ export function render(ctx: RenderContext): string {
     .map((l) => resolveAvatar(l, nameMap));
   const groups = groupLines(parsed);
 
-  if (groups.length === 0) return STYLES + renderEmpty();
+  if (groups.length === 0) {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <EmptyBlock />
+      </>
+    );
+  }
 
-  const rendered = groups
-    .map((g) => {
-      switch (g.type) {
-        case "user":
-          return renderUser(g.lines, ctx, nameMap, persona);
-        case "character":
-          return renderCharacter(g, ctx, nameMap, fallbackColorMap);
-        case "narration":
-          return renderNarration(g.lines, ctx, nameMap);
-        case "divider":
-          return renderDivider();
-      }
-    })
-    .join("\n");
+  return (
+    <>
+      <style>{STYLES}</style>
+      <div className="cr-root">
+        {groups.map((g, i) => {
+          const key = `g-${i}`;
+          switch (g.type) {
+            case "user":
+              return (
+                <UserBlock
+                  key={key}
+                  lines={g.lines}
+                  baseUrl={baseUrl}
+                  nameMap={nameMap}
+                  persona={persona}
+                />
+              );
+            case "character":
+              return (
+                <CharacterBlock
+                  key={key}
+                  group={g}
+                  baseUrl={baseUrl}
+                  nameMap={nameMap}
+                  fallbackColorMap={fallbackColorMap}
+                />
+              );
+            case "narration":
+              return (
+                <NarrationBlock key={key} lines={g.lines} baseUrl={baseUrl} nameMap={nameMap} />
+              );
+            case "divider":
+              return <DividerBlock key={key} />;
+          }
+        })}
+        <ChoicesBlock choices={choices} onSend={(t) => actions.send(t)} />
+        <div data-chat-anchor></div>
+      </div>
+    </>
+  );
+}
 
-  return `${STYLES}
-    <div class="cr-root">
-      ${rendered}
-      ${renderChoices(choices)}
-      <div data-chat-anchor></div>
-    </div>`;
+
+
+export default function Renderer({ snapshot, actions }: Agentchan.RendererProps): ReactElement {
+  return (
+    <RendererContent
+      files={[...snapshot.files]}
+      baseUrl={snapshot.baseUrl}
+      slug={snapshot.slug}
+      state={snapshot.state}
+      actions={actions}
+    />
+  );
 }

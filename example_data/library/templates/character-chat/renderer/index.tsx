@@ -1,3 +1,5 @@
+/** @jsxImportSource agentchan:renderer/v1 */
+import { Agentchan } from "agentchan:renderer/v1";
 // ─────────────────────────────────────────────────────────────────────────────
 //   character-chat renderer  ·  "The Chamber Theatre"
 //
@@ -10,29 +12,24 @@
 //   · 사용자(> ...)는 객석에서 들려오는 우측 마진의 속삭임.
 //   · 씬 말미에 `[choice] ...` 라인이 있으면 밀랍 봉인 칩으로 렌더.
 //
-//   렌더러는 pure `(files) => HTML` — 세션/스킬 상태에 접근하지 않는다.
-//   Idiomorph가 DOM을 morph하므로 CSS 애니메이션은 재렌더 간에 지속된다.
+//   렌더러는 pure `(files) => ReactElement` — 세션/스킬 상태에 접근하지 않는다.
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface TextFile {
-  type: "text";
-  path: string;
-  content: string;
-  frontmatter: Record<string, unknown> | null;
-  modifiedAt: number;
-}
+import type { ReactElement, ReactNode } from "react";
 
-interface BinaryFile {
-  type: "binary";
-  path: string;
-  modifiedAt: number;
-}
+type ProjectFile = Agentchan.ProjectFile;
+type TextFile = Agentchan.TextFile;
+type DataFile = Agentchan.DataFile;
+type BinaryFile = Agentchan.BinaryFile;
+type AgentState = Agentchan.RendererAgentState;
+type RendererActions = Agentchan.RendererActions;
 
-type ProjectFile = TextFile | BinaryFile;
-
-interface RenderContext {
+interface RendererContentProps {
+  state: AgentState;
   files: ProjectFile[];
+  slug: string;
   baseUrl: string;
+  actions: RendererActions;
 }
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -60,18 +57,18 @@ interface CharacterEntry {
 }
 
 interface Stage {
-  ctx: RenderContext;
+  baseUrl: string;
   byName: Map<string, CharacterEntry>;
   sideByName: Map<string, "left" | "right">;
   persona: CharacterEntry | null;
 }
 
-function buildStage(ctx: RenderContext): Stage {
+function buildStage(files: ProjectFile[], baseUrl: string): Stage {
   const byName = new Map<string, CharacterEntry>();
   let persona: CharacterEntry | null = null;
   let fallbackIdx = 0;
 
-  for (const file of ctx.files) {
+  for (const file of files) {
     if (file.type !== "text" || !file.frontmatter) continue;
     const fm = file.frontmatter;
     const isPersona = fm.role === "persona";
@@ -110,7 +107,7 @@ function buildStage(ctx: RenderContext): Stage {
     register(fm.name);
   }
 
-  return { ctx, byName, sideByName: new Map(), persona };
+  return { baseUrl, byName, sideByName: new Map(), persona };
 }
 
 function sideFor(stage: Stage, name: string): "left" | "right" {
@@ -123,8 +120,7 @@ function sideFor(stage: Stage, name: string): "left" | "right" {
 
 // ── Parsing ──────────────────────────────────────────────────────────────────
 //
-//   Beat = 파싱된 장면의 한 단위. Idiomorph가 안정적으로 diff할 수 있도록
-//   렌더 결과는 beat별로 독립 엘리먼트를 갖는다.
+//   Beat = 파싱된 장면의 한 단위. 렌더 결과는 beat별로 독립 엘리먼트를 갖는다.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -259,158 +255,242 @@ function trimStaleChoices(beats: Beat[]): Beat[] {
 
 // ── Inline formatting ────────────────────────────────────────────────────────
 
-// `"`는 어트리뷰트에서만 위험 — 텍스트 본문에서는 보존해야 스마트 쿼트 변환이 동작한다.
-function escape(s: string, { attr = false }: { attr?: boolean } = {}): string {
-  const base = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return attr ? base.replace(/"/g, "&quot;") : base;
+function formatInline(text: string): (string | ReactElement)[] {
+  // smart quotes "..." → “...”
+  const quoted = text.replace(/"([^"\n]+)"/g, "“$1”");
+
+  const parts: (string | ReactElement)[] = [];
+  const pattern = /\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let idx = 0;
+  while ((match = pattern.exec(quoted)) !== null) {
+    if (match.index > cursor) parts.push(quoted.slice(cursor, match.index));
+    if (match[1] !== undefined) {
+      parts.push(<strong key={`s-${idx++}`}>{match[1]}</strong>);
+    } else if (match[2] !== undefined) {
+      parts.push(
+        <em key={`i-${idx++}`} className="cr-action">
+          {match[2]}
+        </em>,
+      );
+    }
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < quoted.length) parts.push(quoted.slice(cursor));
+  return parts;
 }
 
-function formatInline(text: string): string {
-  let out = text.replace(/"([^"\n]+)"/g, "\u201c$1\u201d");
-  out = escape(out);
-  out = out.replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>");
-  out = out.replace(/\*([^*\n]+?)\*/g, '<em class="cr-action">$1</em>');
-  return out;
+// 여러 라인을 soft-break로 join — React fragment로 각 라인 사이에 <span>을 삽입
+function renderLinesWithBreaks(lines: string[]): ReactNode {
+  const nodes: ReactNode[] = [];
+  lines.forEach((line, i) => {
+    if (i > 0) nodes.push(<span key={`br-${i}`} className="cr-soft-break" />);
+    nodes.push(<span key={`ln-${i}`}>{formatInline(line)}</span>);
+  });
+  return nodes;
 }
 
 // ── Portrait ─────────────────────────────────────────────────────────────────
 
-function portraitUrl(ctx: RenderContext, dir: string, key: string): string {
-  return `${ctx.baseUrl}/files/${dir}/${key}`;
+function portraitUrl(baseUrl: string, dir: string, key: string): string {
+  return `${baseUrl}/files/${dir}/${key}`;
 }
 
-function renderPortrait(
-  stage: Stage,
-  name: string,
-  emotion: string | null,
-): string {
+function Portrait({
+  stage,
+  name,
+  emotion,
+}: {
+  stage: Stage;
+  name: string;
+  emotion: string | null;
+}): ReactElement {
   const entry = stage.byName.get(name);
   const displayName = entry?.displayName ?? name;
   const initial = displayName.charAt(0).toUpperCase();
   const key = emotion ?? entry?.avatar ?? "";
   if (!entry || !key) {
-    return `<div class="cr-silhouette" aria-label="${escape(displayName, { attr: true })}"><span>${escape(initial)}</span></div>`;
+    return (
+      <div className="cr-silhouette" aria-label={displayName}>
+        <span>{initial}</span>
+      </div>
+    );
   }
-  const src = portraitUrl(stage.ctx, entry.dir, key);
+  const src = portraitUrl(stage.baseUrl, entry.dir, key);
   const id = `${entry.slug}-${emotion ?? "rest"}`;
-  return `
-    <figure class="cr-portrait" data-portrait="${escape(id, { attr: true })}">
-      <div class="cr-portrait-halo"></div>
-      <img class="cr-portrait-img" src="${escape(src, { attr: true })}" alt="${escape(displayName, { attr: true })}" onerror="this.closest('.cr-portrait').dataset.fallback='1'" />
-      <div class="cr-portrait-fallback" aria-hidden="true"><span>${escape(initial)}</span></div>
-      <div class="cr-portrait-gloss"></div>
-      <div class="cr-portrait-vignette"></div>
-    </figure>`;
+  return (
+    <figure className="cr-portrait" data-portrait={id}>
+      <div className="cr-portrait-halo" />
+      <img
+        className="cr-portrait-img"
+        src={src}
+        alt={displayName}
+        onError={(e) => {
+          const fig = (e.currentTarget as HTMLImageElement).closest(".cr-portrait");
+          if (fig instanceof HTMLElement) fig.dataset.fallback = "1";
+        }}
+      />
+      <div className="cr-portrait-fallback" aria-hidden="true">
+        <span>{initial}</span>
+      </div>
+      <div className="cr-portrait-gloss" />
+      <div className="cr-portrait-vignette" />
+    </figure>
+  );
 }
 
 // ── Beat renderers ───────────────────────────────────────────────────────────
 
-function renderPresence(
-  stage: Stage,
-  beat: Extract<Beat, { kind: "presence" }>,
-  id: string,
-): string {
+function PresenceBeat({
+  stage,
+  beat,
+  id,
+}: {
+  stage: Stage;
+  beat: Extract<Beat, { kind: "presence" }>;
+  id: string;
+}): ReactElement {
   const entry = stage.byName.get(beat.name);
   const displayName = entry?.displayName ?? beat.name;
   const color = entry?.color ?? "var(--color-accent)";
-  const portrait = renderPortrait(stage, beat.name, beat.emotion);
 
-  const body = beat.lines.length
-    ? beat.lines.map(formatInline).join('<span class="cr-soft-break"></span>')
-    : "";
-
-  return `
-    <section id="${id}" class="cr-presence cr-presence--${beat.side}" style="--c: ${escape(color, { attr: true })}">
-      <div class="cr-presence-portrait">${portrait}</div>
-      <div class="cr-presence-caption">
-        <div class="cr-nameplate">
-          <span class="cr-nameplate-mark"></span>
-          <span class="cr-nameplate-text">${escape(displayName)}</span>
-          <span class="cr-nameplate-mark"></span>
-        </div>
-        ${body ? `<div class="cr-caption-body">${body}</div>` : ""}
+  return (
+    <section
+      id={id}
+      className={`cr-presence cr-presence--${beat.side}`}
+      style={{ ["--c" as string]: color }}
+    >
+      <div className="cr-presence-portrait">
+        <Portrait stage={stage} name={beat.name} emotion={beat.emotion} />
       </div>
-    </section>`;
+      <div className="cr-presence-caption">
+        <div className="cr-nameplate">
+          <span className="cr-nameplate-mark" />
+          <span className="cr-nameplate-text">{displayName}</span>
+          <span className="cr-nameplate-mark" />
+        </div>
+        {beat.lines.length > 0 ? (
+          <div className="cr-caption-body">{renderLinesWithBreaks(beat.lines)}</div>
+        ) : null}
+      </div>
+    </section>
+  );
 }
 
-function renderWhisper(
-  stage: Stage,
-  beat: Extract<Beat, { kind: "whisper" }>,
-  id: string,
-): string {
+function WhisperBeat({
+  stage,
+  beat,
+  id,
+}: {
+  stage: Stage;
+  beat: Extract<Beat, { kind: "whisper" }>;
+  id: string;
+}): ReactElement {
   const label = stage.persona?.displayName ?? "";
-  const content = beat.lines
-    .map(formatInline)
-    .join('<span class="cr-soft-break"></span>');
-  return `
-    <aside id="${id}" class="cr-whisper">
-      <span class="cr-whisper-text">${content}</span>
-      ${label ? `<span class="cr-whisper-label">${escape(label)}</span>` : ""}
-    </aside>`;
+  return (
+    <aside id={id} className="cr-whisper">
+      <span className="cr-whisper-text">{renderLinesWithBreaks(beat.lines)}</span>
+      {label ? <span className="cr-whisper-label">{label}</span> : null}
+    </aside>
+  );
 }
 
-function renderDirection(
-  beat: Extract<Beat, { kind: "direction" }>,
-  id: string,
-): string {
+function DirectionBeat({
+  beat,
+  id,
+}: {
+  beat: Extract<Beat, { kind: "direction" }>;
+  id: string;
+}): ReactElement {
   // 전체를 감싼 별표는 벗겨낸다 — 이미 무대 지시문으로 취급
   let t = beat.text;
   const m = t.match(/^\*(.+)\*$/);
   if (m) t = m[1];
-  return `
-    <div id="${id}" class="cr-direction">
-      <span class="cr-direction-rule"></span>
-      <span class="cr-direction-text">${formatInline(t)}</span>
-      <span class="cr-direction-rule"></span>
-    </div>`;
+  return (
+    <div id={id} className="cr-direction">
+      <span className="cr-direction-rule" />
+      <span className="cr-direction-text">{formatInline(t)}</span>
+      <span className="cr-direction-rule" />
+    </div>
+  );
 }
 
-function renderDivider(id: string): string {
-  return `
-    <div id="${id}" class="cr-divider" role="separator">
-      <svg class="cr-ripple" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true">
-        <path class="cr-ripple-path" d="M 0 20 Q 25 10, 50 20 T 100 20 T 150 20 T 200 20" />
-        <path class="cr-ripple-path cr-ripple-path--echo" d="M 200 20 Q 225 30, 250 20 T 300 20 T 350 20 T 400 20" />
+function DividerBeat({ id }: { id: string }): ReactElement {
+  return (
+    <div id={id} className="cr-divider" role="separator">
+      <svg
+        className="cr-ripple"
+        viewBox="0 0 400 40"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path
+          className="cr-ripple-path"
+          d="M 0 20 Q 25 10, 50 20 T 100 20 T 150 20 T 200 20"
+        />
+        <path
+          className="cr-ripple-path cr-ripple-path--echo"
+          d="M 200 20 Q 225 30, 250 20 T 300 20 T 350 20 T 400 20"
+        />
       </svg>
-      <span class="cr-divider-glyph" aria-hidden="true">✦</span>
-    </div>`;
+      <span className="cr-divider-glyph" aria-hidden="true">
+        ✦
+      </span>
+    </div>
+  );
 }
 
-function renderChoiceBar(
-  chips: Extract<Beat, { kind: "choice" }>[],
-  id: string,
-): string {
-  const buttons = chips
-    .map(
-      (c) => `
-      <button type="button" class="cr-choice" data-action="fill" data-text="${escape(c.text, { attr: true })}">
-        <span class="cr-choice-seal" aria-hidden="true"></span>
-        <span class="cr-choice-text">${escape(c.text)}</span>
-      </button>`,
-    )
-    .join("");
-  return `<div id="${id}" class="cr-choice-bar">${buttons}</div>`;
+function ChoiceBar({
+  chips,
+  id,
+  actions,
+}: {
+  chips: Extract<Beat, { kind: "choice" }>[];
+  id: string;
+  actions: RendererActions;
+}): ReactElement {
+  return (
+    <div id={id} className="cr-choice-bar">
+      {chips.map((c, i) => (
+        <button
+          key={`c-${i}`}
+          type="button"
+          className="cr-choice"
+          onClick={() => actions.fill(c.text)}
+        >
+          <span className="cr-choice-seal" aria-hidden="true" />
+          <span className="cr-choice-text">{c.text}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
-function renderEmpty(): string {
-  return `
-    <div class="cr-empty">
-      <div class="cr-empty-rule"></div>
-      <div class="cr-empty-candle" aria-hidden="true">
-        <span class="cr-empty-flame"></span>
-        <span class="cr-empty-stem"></span>
+function EmptyState(): ReactElement {
+  return (
+    <div className="cr-empty">
+      <div className="cr-empty-rule" />
+      <div className="cr-empty-candle" aria-hidden="true">
+        <span className="cr-empty-flame" />
+        <span className="cr-empty-stem" />
       </div>
-      <div class="cr-empty-title">무대가 기다리고 있습니다</div>
-      <div class="cr-empty-sub">첫 장면이 기록되면 이 방이 깨어납니다</div>
-      <div class="cr-empty-rule"></div>
-    </div>`;
+      <div className="cr-empty-title">무대가 기다리고 있습니다</div>
+      <div className="cr-empty-sub">첫 장면이 기록되면 이 방이 깨어납니다</div>
+      <div className="cr-empty-rule" />
+    </div>
+  );
 }
 
-function renderBeats(beats: Beat[], stage: Stage): string {
-  // 각 beat에 index 기반 stable id를 부여하여 Idiomorph가 재렌더 사이에 DOM을 보존하고,
+function renderBeats(
+  beats: Beat[],
+  stage: Stage,
+  actions: RendererActions,
+): ReactElement[] {
+  // 각 beat에 index 기반 stable id를 부여하여 재렌더 사이에 DOM을 보존하고,
   // 포트레이트 halo / candle flicker / ripple 같은 CSS 애니메이션이 리셋되지 않게 한다.
   // 씬 파일은 append-only이므로 기존 beat의 인덱스는 렌더 간에 고정된다.
-  const out: string[] = [];
+  const out: ReactElement[] = [];
   let i = 0;
   while (i < beats.length) {
     const b = beats[i];
@@ -421,31 +501,31 @@ function renderBeats(beats: Beat[], stage: Stage): string {
         chips.push(beats[i] as Extract<Beat, { kind: "choice" }>);
         i++;
       }
-      out.push(renderChoiceBar(chips, id));
+      out.push(<ChoiceBar key={id} chips={chips} id={id} actions={actions} />);
       continue;
     }
     switch (b.kind) {
       case "presence":
-        out.push(renderPresence(stage, b, id));
+        out.push(<PresenceBeat key={id} stage={stage} beat={b} id={id} />);
         break;
       case "whisper":
-        out.push(renderWhisper(stage, b, id));
+        out.push(<WhisperBeat key={id} stage={stage} beat={b} id={id} />);
         break;
       case "direction":
-        out.push(renderDirection(b, id));
+        out.push(<DirectionBeat key={id} beat={b} id={id} />);
         break;
       case "divider":
-        out.push(renderDivider(id));
+        out.push(<DividerBeat key={id} id={id} />);
         break;
     }
     i++;
   }
-  return out.join("\n");
+  return out;
 }
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
-const STYLES = `<style>
+const STYLES = `
   /* ─── Stage frame ─────────────────────────────────────────────── */
   .cr-stage {
     position: relative;
@@ -840,32 +920,42 @@ const STYLES = `<style>
     .cr-portrait { max-width: 180px; }
     .cr-whisper  { max-width: 82%; font-size: 15px; }
   }
-</style>`;
+`;
 
 // ── Main renderer ────────────────────────────────────────────────────────────
 
-export function render(ctx: RenderContext): string {
-  const stage = buildStage(ctx);
+function RendererContent({ files, baseUrl, actions }: RendererContentProps): ReactElement {
+  const stage = buildStage(files, baseUrl);
 
-  const sceneFiles = ctx.files.filter(
-    (f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"),
+  const sceneFiles = files
+    .filter((f): f is TextFile => f.type === "text" && f.path.startsWith("scenes/"))
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const sceneText = sceneFiles.map((f) => f.content).join("\n\n---\n\n");
+
+  const beats = sceneText.trim() ? parseScene(sceneText, stage) : [];
+  const showEmpty = beats.length === 0;
+
+  return (
+    <div className="cr-stage">
+      <style>{STYLES}</style>
+      <div className="cr-reel">
+        {showEmpty ? <EmptyState /> : renderBeats(beats, stage, actions)}
+      </div>
+      <div data-chat-anchor />
+    </div>
   );
-  const sceneText = sceneFiles
-    .sort((a, b) => a.path.localeCompare(b.path))
-    .map((f) => f.content)
-    .join("\n\n---\n\n");
-
-  const body = sceneText.trim() ? renderBody(sceneText, stage) : renderEmpty();
-
-  return `${STYLES}
-    <div class="cr-stage">
-      <div class="cr-reel">${body}</div>
-      <div data-chat-anchor></div>
-    </div>`;
 }
 
-function renderBody(sceneText: string, stage: Stage): string {
-  const beats = parseScene(sceneText, stage);
-  if (beats.length === 0) return renderEmpty();
-  return renderBeats(beats, stage);
+
+
+export default function Renderer({ snapshot, actions }: Agentchan.RendererProps): ReactElement {
+  return (
+    <RendererContent
+      files={[...snapshot.files]}
+      baseUrl={snapshot.baseUrl}
+      slug={snapshot.slug}
+      state={snapshot.state}
+      actions={actions}
+    />
+  );
 }

@@ -1,7 +1,11 @@
 export type {
-  AgentState,
   ProjectFile,
   RenderContext,
+  RendererAgentState,
+  RendererActions,
+  RendererBundle,
+  RendererProps,
+  RendererSnapshot,
   RendererTheme,
   RendererAction,
 } from "./renderer.types.js";
@@ -19,10 +23,10 @@ export {
 } from "./RendererViewContext.js";
 
 export {
-  RendererActionProvider,
-  useRendererActionState,
-  useRendererActionDispatch,
-} from "./RendererActionContext.js";
-export type { RendererActionState } from "./RendererActionContext.js";
+  RendererCommandProvider,
+  useRendererCommandState,
+  useRendererCommandDispatch,
+} from "./RendererCommandContext.js";
+export type { RendererCommandState } from "./RendererCommandContext.js";
 
-export { useOutput } from "./useOutput.js";
+export { useRendererOutput } from "./useRendererOutput.js";

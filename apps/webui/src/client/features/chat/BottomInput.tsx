@@ -11,8 +11,8 @@ import { useConfig, useCurrentModel, DEFAULT_CONTEXT_WINDOW } from "@/client/ent
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import {
-  useRendererActionState,
-  useRendererActionDispatch,
+  useRendererCommandState,
+  useRendererCommandDispatch,
 } from "@/client/entities/renderer/index.js";
 import { useStreaming } from "./useStreaming.js";
 import { useSession } from "./useSession.js";
@@ -34,8 +34,8 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const { t } = useI18n();
   const { send, isStreaming } = useStreaming();
   const { create } = useSession();
-  const rendererAction = useRendererActionState();
-  const rendererActionDispatch = useRendererActionDispatch();
+  const rendererCommand = useRendererCommandState();
+  const rendererCommandDispatch = useRendererCommandDispatch();
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashCommands(text, setText);
@@ -60,11 +60,11 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     textareaRef.current?.focus();
   }, [selection.openSessionId]);
 
-  // Handle renderer actions (send / fill)
+  // Handle renderer commands (send / fill)
   useEffect(() => {
-    const action = rendererAction.pending;
+    const action = rendererCommand.pending;
     if (!action) return;
-    rendererActionDispatch({ type: "CLEAR" });
+    rendererCommandDispatch({ type: "CLEAR" });
 
     if (action.type === "fill") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- renderer action은 외부 시스템 이벤트 처리
@@ -79,7 +79,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
         void send(action.text);
       }
     }
-  }, [rendererAction.pending, rendererActionDispatch, selection.openSessionId, create, send]);
+  }, [rendererCommand.pending, rendererCommandDispatch, selection.openSessionId, create, send]);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();

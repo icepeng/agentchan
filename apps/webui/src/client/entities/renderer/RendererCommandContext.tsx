@@ -9,22 +9,22 @@ import type { RendererAction } from "./renderer.types.js";
 
 // --- State ---
 
-export interface RendererActionState {
+export interface RendererCommandState {
   pending: RendererAction | null;
 }
 
 // --- Dispatch Actions ---
 
-type RendererActionDispatchAction =
+type RendererCommandDispatchAction =
   | { type: "SET_ACTION"; action: RendererAction }
   | { type: "CLEAR" };
 
 // --- Reducer ---
 
 function reducer(
-  state: RendererActionState,
-  action: RendererActionDispatchAction,
-): RendererActionState {
+  state: RendererCommandState,
+  action: RendererCommandDispatchAction,
+): RendererCommandState {
   switch (action.type) {
     case "SET_ACTION":
       return { pending: action.action };
@@ -37,14 +37,14 @@ function reducer(
 
 // --- Context ---
 
-const initialState: RendererActionState = { pending: null };
+const initialState: RendererCommandState = { pending: null };
 
-const StateContext = createContext<RendererActionState>(initialState);
-const DispatchContext = createContext<Dispatch<RendererActionDispatchAction>>(
+const StateContext = createContext<RendererCommandState>(initialState);
+const DispatchContext = createContext<Dispatch<RendererCommandDispatchAction>>(
   () => {},
 );
 
-export function RendererActionProvider({ children }: { children: ReactNode }) {
+export function RendererCommandProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   return (
     <StateContext.Provider value={state}>
@@ -55,10 +55,10 @@ export function RendererActionProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useRendererActionState() {
+export function useRendererCommandState() {
   return use(StateContext);
 }
 
-export function useRendererActionDispatch() {
+export function useRendererCommandDispatch() {
   return use(DispatchContext);
 }

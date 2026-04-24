@@ -92,14 +92,29 @@ Client code follows the existing feature-sliced layering:
 
 ## Renderer rules
 
-- Per-project `renderer.ts` exports `render(ctx: RenderContext): string`.
-- Renderer files are transpiled independently. Inline the minimal types they
-  need; do not import app types.
-- Renderers are pure functions of `files` and `state`.
+- Renderer architecture decisions live in
+  `docs/adr/0001-renderer-primary-surface-react-contract.md`. Follow that ADR
+  when it conflicts with older renderer drafts or in-progress implementation.
+- Per-project renderers use the React primary-surface contract and live at
+  `renderer/index.tsx`.
+- Renderers default-export a React component receiving
+  `Agentchan.RendererProps`. Optional project theme is a named
+  `theme(snapshot)` export.
+- Renderers import the V1 helper with
+  `import { Agentchan } from "agentchan:renderer/v1"` for types and
+  `Agentchan.fileUrl()`. Do not add `Agentchan.vanilla()` or public
+  `mount(host)` authoring to committed templates without a later ADR.
+- Renderer imports are limited to relative imports inside `renderer/`, CSS
+  imports in that graph, and `agentchan:renderer/v1`. Vendored browser
+  libraries must live under `renderer/`.
+- Renderers receive a snapshot containing `slug`, `baseUrl`, `files`, and
+  `state`. Use `actions.send()` and `actions.fill()` for host commands.
+- Use `Agentchan.fileUrl(snapshot, fileOrPath)` for project file URLs when
+  practical; file `digest` values are opaque cache keys.
 - Renderers own the viewport. `RenderedView` does not add outer padding, so
-  spacing and layout belong inside the renderer's HTML/CSS.
-- If a renderer exports `theme(ctx)`, it may override project page color tokens
-  only. Fonts and detailed layout stay inside renderer CSS.
+  spacing and layout belong inside the renderer CSS/markup.
+- Renderer `theme(snapshot)` may override project page color tokens only. Fonts
+  and detailed layout stay inside renderer CSS.
 - Do not use monospace fonts for areas that may contain Korean text.
 
 ## Data rules
@@ -108,7 +123,7 @@ Client code follows the existing feature-sliced layering:
 - `apps/webui/data/` is runtime data and is gitignored.
 - Edit templates and sample content in `example_data/`, then copy to runtime data
   only when needed with `bash scripts/copy-example-data.sh --force`.
-- Existing projects snapshot their own `SYSTEM.md`, `skills/`, and `renderer.ts`
+- Existing projects snapshot their own `SYSTEM.md`, `skills/`, and `renderer/`
   at creation time. Template changes do not affect existing projects.
 
 ## LLM instruction files

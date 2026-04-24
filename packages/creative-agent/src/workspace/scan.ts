@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
+import { createHash } from "node:crypto";
 import { parse as parseYaml } from "yaml";
 import { parseFrontmatter } from "./frontmatter.js";
 import type { ProjectFile } from "./types.js";
@@ -23,6 +24,10 @@ function isDataFile(filePath: string): boolean {
 
 function isHidden(name: string): boolean {
   return name.startsWith(".");
+}
+
+function digestContent(content: string | Uint8Array): string {
+  return createHash("sha256").update(content).digest("hex");
 }
 
 /**
@@ -75,6 +80,7 @@ export async function scanWorkspaceFiles(
               data: parsed.value,
               format,
               modifiedAt: fileStat.mtimeMs,
+              digest: digestContent(raw),
             });
           } else {
             // Parse failure — fall back to TextFile so callers still see content
@@ -84,6 +90,7 @@ export async function scanWorkspaceFiles(
               content: raw,
               frontmatter: null,
               modifiedAt: fileStat.mtimeMs,
+              digest: digestContent(raw),
             });
           }
         } else if (isTextFile(fullPath)) {
@@ -106,13 +113,18 @@ export async function scanWorkspaceFiles(
             content,
             frontmatter,
             modifiedAt: fileStat.mtimeMs,
+            digest: digestContent(raw),
           });
         } else {
-          const fileStat = await stat(fullPath);
+          const [bytes, fileStat] = await Promise.all([
+            readFile(fullPath),
+            stat(fullPath),
+          ]);
           files.push({
             type: "binary",
             path: relativePath,
             modifiedAt: fileStat.mtimeMs,
+            digest: digestContent(bytes),
           });
         }
       } catch {

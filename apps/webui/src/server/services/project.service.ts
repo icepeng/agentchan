@@ -1,11 +1,9 @@
-import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
+import { buildRendererBundle } from "./renderer-builder.js";
 
 export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
-
   return {
     async list() { return projectRepo.list(); },
     async getCoverFile(slug: string) { return projectRepo.getCoverFile(slug); },
@@ -52,11 +50,8 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
       return projectRepo.createProjectDir(slug, dirPath);
     },
 
-    async transpileRenderer(slug: string): Promise<string | null> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      if (!existsSync(rendererPath)) return null;
-      const source = await Bun.file(rendererPath).text();
-      return transpiler.transformSync(source);
+    async buildRenderer(slug: string) {
+      return buildRendererBundle(join(projectsDir, slug));
     },
 
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {
