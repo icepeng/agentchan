@@ -5,9 +5,10 @@
   "type": "module",
   "sideEffects": ["**/*.css"],
   "scripts": {
-    "dev": "portless run --name agentchan bun scripts/dev.ts",
-    "dev:server": "bun --watch src/server/index.ts",
-    "dev:client": "vite",
+    "dev": "portless run --name agentchan turbo run dev:server dev:client --filter=@agentchan/webui --env-mode=loose",
+    "dev:local": "turbo run dev:server dev:client --filter=@agentchan/webui --env-mode=loose",
+    "dev:server": "cd ../.. && bun apps/webui/scripts/kill-dev-port.ts server && bun --hot apps/webui/scripts/dev-server.ts",
+    "dev:client": "bun scripts/kill-dev-port.ts client && vite",
     "build": "vite build",
     "start": "bun run src/server/index.ts",
     "build:exe": "bun run scripts/build-exe.ts",
