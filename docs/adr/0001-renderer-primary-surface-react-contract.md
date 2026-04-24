@@ -6,16 +6,14 @@ Date: 2026-04-25
 ## Context
 
 The renderer is the main screen users spend time with, not a secondary extension
-panel. Earlier Renderer V1 drafts treated the renderer as a generic module with
-`mount(host)`, `Agentchan.react()`, and `Agentchan.vanilla()` authoring paths.
-That made the runtime flexible, but pushed lifecycle complexity into template
-code.
+panel. Earlier Renderer V1 drafts explored a generic renderer module contract
+where templates owned lifecycle details. That would have made the runtime
+flexible, but pushed lifecycle complexity into template code.
 
 The current templates exposed the problem: HTML-string renderers relied on DOM
-morphing, inline script workarounds, and listener cleanup rules. Removing that
-pipeline made authoring harder instead of simpler. Keeping a generic public
-mount contract would optimize for hypothetical framework diversity over the
-product's primary surface quality.
+morphing, inline script workarounds, and listener cleanup rules. Keeping a
+generic lifecycle contract would optimize for hypothetical framework diversity
+over the product's primary surface quality.
 
 Other products usually avoid this middle ground: they either expose a restricted
 declarative UI, choose one framework/component model, or use a full iframe or
@@ -49,17 +47,17 @@ The public renderer surface is:
 - type helpers from `agentchan:renderer/v1`
 - relative imports and CSS imports inside `renderer/`
 
-Host `mount`, `unmount`, snapshot subscription, ShadowRoot, iframe, Blob import,
-and message transport are runtime implementation details. They should not be
-part of the renderer authoring API.
+Host lifecycle, snapshot subscription, ShadowRoot, iframe, Blob import, and
+message transport are runtime implementation details. They should not be part
+of the renderer authoring API.
 
 ## Consequences
 
 Future renderer work should preserve these properties:
 
-- Templates should be converted to React components instead of adding HTML-string
-  adapters such as `Agentchan.idiomorph()`.
-- Do not add `Agentchan.vanilla()` or public `mount(host)` to committed template
+- Templates should be converted to React components instead of adding adapter
+  authoring paths around HTML strings or template-owned lifecycle hooks.
+- Do not add generic renderer-module authoring paths to committed template
   instructions unless a later ADR changes this decision.
 - Do not reintroduce inline `<script>` output, host-side script re-execution, or
   renderer HTML string morphing as a primary authoring path.
@@ -69,8 +67,8 @@ Future renderer work should preserve these properties:
   asynchronous-safe, file access go through `Agentchan.fileUrl`, and renderer
   code independent from host DOM globals.
 
-Runtime code may still use an internal module shape with mount/unmount to load
-and dispose the React renderer. That shape is not a public template contract.
+Runtime code may still use lifecycle functions internally to load and dispose
+the React renderer. That shape is not a public template contract.
 
 ## Reconsider When
 

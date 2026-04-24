@@ -59,7 +59,7 @@ export function useProject() {
 
   const selectProject = async (slug: string) => {
     // No-op if already active. Otherwise SET_ACTIVE_PROJECT would re-fire
-    // and clear renderedHtml, but the slug-keyed useEffect in RenderedView
+    // and clear the renderer, but the slug-keyed useEffect in RenderedView
     // wouldn't re-run (primitive equality), leaving the renderer blank.
     if (projectSelection.activeProjectSlug === slug) return;
 

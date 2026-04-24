@@ -158,9 +158,9 @@ Active rules:
 - Renderer code imports `Agentchan` from `agentchan:renderer/v1` for types and
   `Agentchan.fileUrl()`, and may import `react`, relative renderer modules, and
   CSS in that graph.
-- Renderer code must not export public `mount(host)` functions or adapter-built
-  modules. Mount/unmount, ShadowRoot, Blob import, subscription, and any future
-  iframe isolation belong to the host runtime.
+- Renderer code must not expose host lifecycle or adapter-built modules.
+  ShadowRoot, Blob import, subscription, and any future iframe isolation belong
+  to the host runtime.
 - Renderer-visible state is serializable. In particular,
   `snapshot.state.pendingToolCalls` is a string array, not a `Set`.
 
@@ -209,14 +209,14 @@ Active rules:
 ### 8.2 Renderer (`renderer/`)
 
 **제약:**
-- R1. 입력은 `RenderContext { files, baseUrl, stream }` 뿐이다 (`stream`은 항상 present — idle 시 `EMPTY_RENDER_STREAM`)
-- R2. Output is a React renderer: default-export a component receiving Agentchan.RendererProps
-- R3. 단일 .ts 파일. 서버에서 transpile, 클라이언트에서 Blob URL import로 실행
-- R4. 외부 모듈 import 불가
-- R5. sessions, skills, SYSTEM.md에 접근 불가. 에이전트 상태는 `stream`으로 한정된 view(isStreaming/text/toolCalls)만 노출. 내부 `StreamSlot`과의 경계는 `entities/stream/toRenderStream.ts` 매퍼 단독
+- R1. 입력은 `Agentchan.RendererProps`의 `snapshot`과 `actions`뿐이다.
+- R2. Output is a React renderer: default-export a component receiving `Agentchan.RendererProps`.
+- R3. 엔트리포인트는 `renderer/index.tsx`이고, CSS와 상대 모듈 import는 `renderer/` graph 안에 둔다.
+- R4. 허용 bare import는 `agentchan:renderer/v1`과 `react`뿐이다.
+- R5. sessions, skills, SYSTEM.md에 접근하지 않는다. 에이전트 상태는 serializable `snapshot.state` view로만 노출한다.
 
 **도출 특성:**
-- (R1+R2) 순수 함수 — `files → HTML`
+- (R1+R2) React surface — `snapshot + actions → component tree`
 - (R1+R5) 렌더러가 도메인 모델을 소유 — 시스템은 "캐릭터"를 모른다
 - (R1+W3) duck typing으로 파일 해석 — frontmatter 필드로 파일 역할을 판단
 - (R4) 이식성 — 복사만으로 공유 가능
@@ -329,7 +329,7 @@ Active rules:
 Phase 1: 핵심 구조 전환
   - SYSTEM.md 파싱 + system prompt 주입
   - files/ 디렉토리 도입 + ProjectFile 스캔
-  - RenderContext 변경 (outputFiles+skills → files)
+  - RendererSnapshot 도입
   - always-active 개념 제거
   - example_data 마이그레이션
 

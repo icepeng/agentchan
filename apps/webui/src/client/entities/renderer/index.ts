@@ -1,6 +1,5 @@
 export type {
   ProjectFile,
-  RenderContext,
   RendererAgentState,
   RendererActions,
   RendererBundle,
@@ -13,7 +12,6 @@ export type {
 export {
   validateTheme,
   resolveThemeVars,
-  resolveRawTheme,
 } from "./projectTheme.js";
 
 export {

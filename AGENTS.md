@@ -102,8 +102,8 @@ Client code follows the existing feature-sliced layering:
   `theme(snapshot)` export.
 - Renderers import the V1 helper with
   `import { Agentchan } from "agentchan:renderer/v1"` for types and
-  `Agentchan.fileUrl()`. Do not add `Agentchan.vanilla()` or public
-  `mount(host)` authoring to committed templates without a later ADR.
+  `Agentchan.fileUrl()`. Do not add generic renderer-module authoring paths to
+  committed templates without a later ADR.
 - Renderer imports are limited to relative imports inside `renderer/`, CSS
   imports in that graph, and `agentchan:renderer/v1`. Vendored browser
   libraries must live under `renderer/`.

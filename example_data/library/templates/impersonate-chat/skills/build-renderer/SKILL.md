@@ -47,8 +47,7 @@ export function theme(snapshot: Agentchan.RendererSnapshot): Agentchan.RendererT
 Rules:
 
 - The only entrypoint is `renderer/index.tsx`.
-- Default export a React component. Do not export `Agentchan.react()`,
-  `Agentchan.vanilla()`, or a public `mount(host)` function.
+- Default export a React component.
 - CSS must be part of the renderer graph, usually `import "./index.css"`.
 - Relative imports must stay inside `renderer/`.
 - External browser libraries must be vendored under `renderer/`.

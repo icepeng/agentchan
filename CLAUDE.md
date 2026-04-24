@@ -146,7 +146,7 @@ apps/webui/data/
 - **Session header**: `mode: "creative" | "meta"` 필드. 기존 세션은 creative로 가정
 - **Skill environment**: 스킬 frontmatter `environment: meta | creative` (기본 creative). `orchestrator.ts`가 세션 모드에 맞는 스킬만 catalog에 노출
 - **System prompt**: meta 세션은 `SYSTEM.meta.md` 사용 (없으면 빈 값)
-- **Tools**: meta 세션에만 `validate-renderer` 도구 추가 등록 — entrypoint/policy/build/export/mount/theme 단계 에러 격리로 렌더러 검증
+- **Tools**: meta 세션에만 `validate-renderer` 도구 추가 등록 — entrypoint/policy/build/export/runtime/theme 단계 에러 격리로 렌더러 검증
 - **자동 생성**: creative 세션에서 meta 스킬 슬래시 커맨드(`/build-renderer` 등) 입력 시 클라이언트가 자동으로 meta 세션 생성 + 전환 (`tryExecuteCommand`). SessionTabs에 meta 세션은 ⚙ 아이콘으로 표시
 - **대표 meta 스킬**: `build-renderer` — 모든 템플릿에 배포되는 renderer/ 생성·수정 워크플로우
 

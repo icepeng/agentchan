@@ -10,7 +10,7 @@ import "./index.css";
 
 import type { CSSProperties, ReactElement, ReactNode } from "react";
 
-// ── Types (inline — renderer는 별도 transpile이라 import 불가) ──
+// ── Local renderer data shapes ──
 
 type ProjectFile = Agentchan.ProjectFile;
 type TextFile = Agentchan.TextFile;

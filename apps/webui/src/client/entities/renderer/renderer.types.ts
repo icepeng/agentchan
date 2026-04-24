@@ -27,8 +27,6 @@ export interface RendererSnapshot {
   state: RendererAgentState;
 }
 
-export type RenderContext = RendererSnapshot;
-
 export interface RendererActions {
   send(text: string): void | Promise<void>;
   fill(text: string): void | Promise<void>;
