@@ -108,7 +108,7 @@ Client code follows the existing feature-sliced layering:
   imports in that graph, and `agentchan:renderer/v1`. Vendored browser
   libraries must live under `renderer/`.
 - Renderers receive a snapshot containing `slug`, `baseUrl`, `files`, and
-  `state`. Use `actions.send()` and `actions.fill()` for host commands.
+  `state`. Use `actions.send()` and `actions.fill()` for host actions.
 - Use `Agentchan.fileUrl(snapshot, fileOrPath)` for project file URLs when
   practical; file `digest` values are opaque cache keys.
 - Renderers own the viewport. `RenderedView` does not add outer padding, so

@@ -1,5 +1,6 @@
 /** @jsxImportSource agentchan:renderer/v1 */
 import { Agentchan } from "agentchan:renderer/v1";
+import "./index.css";
 import type { ReactElement, ReactNode } from "react";
 
 type ProjectFile = Agentchan.ProjectFile;
@@ -185,225 +186,6 @@ function renderMarkdown(text: string, keyPrefix: string): ReactElement[] {
   });
 }
 
-const STYLES = `
-  .rb-layout {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
-  }
-
-  /* ── Tab System ── */
-  .rb-tab-radio {
-    display: none;
-  }
-  .rb-tabs-header {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 24px;
-    margin-bottom: 32px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 10%, transparent);
-    padding: 0 8px;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: var(--color-void);
-  }
-  .rb-tab-label {
-    padding: 12px 4px;
-    cursor: pointer;
-    color: var(--color-fg-3);
-    font-family: var(--font-family-display);
-    font-weight: 600;
-    font-size: 15px;
-    border-bottom: 2px solid transparent;
-    transition: color 0.2s ease, border-color 0.2s ease;
-    margin-bottom: -1px;
-    user-select: none;
-    white-space: nowrap;
-  }
-  .rb-tab-label:hover {
-    color: var(--color-fg);
-  }
-
-  #tab-novel:checked ~ .rb-tabs-header label[for="tab-novel"],
-  #tab-outline:checked ~ .rb-tabs-header label[for="tab-outline"],
-  #tab-world:checked ~ .rb-tabs-header label[for="tab-world"],
-  #tab-chars:checked ~ .rb-tabs-header label[for="tab-chars"] {
-    color: var(--color-accent);
-    border-bottom-color: var(--color-accent);
-  }
-
-  /* ── Tab Content Visibility ── */
-  .rb-tab-content {
-    display: none;
-    animation: rb-fadeIn 0.3s ease;
-  }
-  @keyframes rb-fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  #tab-novel:checked ~ .rb-content-novel { display: block; }
-  #tab-outline:checked ~ .rb-content-outline { display: block; }
-  #tab-world:checked ~ .rb-content-world { display: block; }
-  #tab-chars:checked ~ .rb-content-chars { display: block; }
-
-  /* ── Empty State ── */
-  .rb-empty {
-    color: var(--color-fg-4);
-    font-size: 14px;
-    font-family: var(--font-family-mono);
-    text-align: center;
-    padding: 48px 0;
-  }
-
-  /* ── Prose Area (Novel, Outline, World) ── */
-  .rb-prose {
-    max-width: 680px;
-    margin: 0 auto;
-    line-height: 1.8;
-    font-size: 15px;
-    color: var(--color-fg);
-    font-family: var(--font-family-body);
-    padding-bottom: 64px;
-  }
-  .rb-prose h1 {
-    font-size: 1.5em;
-    font-family: var(--font-family-display);
-    font-weight: 700;
-    color: var(--color-fg);
-    margin: 48px 0 20px;
-  }
-  .rb-prose h2 {
-    font-size: 1.25em;
-    font-family: var(--font-family-display);
-    font-weight: 700;
-    color: var(--color-fg);
-    margin: 40px 0 16px;
-  }
-  .rb-prose h3 {
-    font-size: 1.125em;
-    font-family: var(--font-family-display);
-    font-weight: 600;
-    color: var(--color-fg);
-    margin: 32px 0 12px;
-  }
-  .rb-prose hr {
-    margin: 40px 0;
-    text-align: center;
-    border: none;
-    color: var(--color-fg-4);
-    font-size: 1.125em;
-    letter-spacing: 0.5em;
-  }
-  .rb-prose hr::after {
-    content: "***";
-  }
-  .rb-prose blockquote {
-    border-left: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 3%, transparent);
-    padding: 16px 20px;
-    margin: 24px 0;
-    color: var(--color-fg-2);
-    border-radius: 0 8px 8px 0;
-    font-size: 0.95em;
-  }
-  .rb-prose p {
-    margin-bottom: 16px;
-  }
-  .rb-prose ul {
-    margin-bottom: 16px;
-    padding-left: 24px;
-    color: var(--color-fg-2);
-  }
-  .rb-prose li {
-    margin-bottom: 6px;
-  }
-  .rb-prose strong {
-    font-weight: 600;
-    color: var(--color-fg);
-  }
-  .rb-prose em {
-    color: var(--color-fg-2);
-  }
-  .rb-file-separator {
-    height: 1px;
-    background: color-mix(in srgb, var(--color-edge) 8%, transparent);
-    margin: 64px auto;
-    width: 60%;
-  }
-
-  /* ── Characters Cards Area ── */
-  .rb-chars {
-    max-width: 760px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-    padding-bottom: 64px;
-  }
-  .rb-char-card {
-    background: var(--color-surface);
-    border: 1px solid color-mix(in srgb, var(--color-edge) 10%, transparent);
-    border-radius: 12px;
-    padding: 32px;
-    font-family: var(--font-family-body);
-  }
-  .rb-char-card h1 {
-    font-family: var(--font-family-display);
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--color-accent);
-    margin: 0 0 16px 0;
-    padding-bottom: 16px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent);
-  }
-  .rb-char-card h2 {
-    font-family: var(--font-family-display);
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--color-fg);
-    margin: 24px 0 12px 0;
-  }
-  .rb-char-card h3 {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-fg);
-    margin: 16px 0 8px 0;
-  }
-  .rb-char-card p {
-    font-size: 14px;
-    color: var(--color-fg-2);
-    line-height: 1.6;
-    margin-bottom: 12px;
-  }
-  .rb-char-card ul {
-    font-size: 14px;
-    color: var(--color-fg-2);
-    line-height: 1.6;
-    margin: 0 0 16px 0;
-    padding-left: 20px;
-  }
-  .rb-char-card li {
-    margin-bottom: 6px;
-  }
-  .rb-char-card strong {
-    color: var(--color-fg);
-    font-weight: 600;
-  }
-  .rb-char-card hr {
-    border: none;
-    border-top: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent);
-    margin: 24px 0;
-  }
-  .rb-char-card blockquote {
-    border-left: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-    padding-left: 16px;
-    margin: 16px 0;
-    color: var(--color-fg-2);
-    font-style: italic;
-    font-size: 14px;
-  }
-`;
 
 function ProseSection({
   files,
@@ -435,7 +217,6 @@ function RendererContent({ files }: RendererContentProps): ReactElement {
   if (textFiles.length === 0) {
     return (
       <>
-        <style>{STYLES}</style>
         <div className="rb-empty">아직 출력 파일이 없습니다</div>
       </>
     );
@@ -470,7 +251,6 @@ function RendererContent({ files }: RendererContentProps): ReactElement {
 
   return (
     <>
-      <style>{STYLES}</style>
       <div className="rb-layout">
         {/* Hidden CSS-only tab states */}
         <input

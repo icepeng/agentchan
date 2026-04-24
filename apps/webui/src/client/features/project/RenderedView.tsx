@@ -9,7 +9,7 @@ import {
   useRendererOutput,
   useRendererViewState,
   useRendererViewDispatch,
-  useRendererCommandDispatch,
+  useRendererActionDispatch,
   validateTheme,
 } from "@/client/entities/renderer/index.js";
 import type {
@@ -106,7 +106,7 @@ export function RenderedView() {
   const rendererViewDispatch = useRendererViewDispatch();
   const state = useAgentState();
   const { refresh, refreshState } = useRendererOutput();
-  const commandDispatch = useRendererCommandDispatch();
+  const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
   const hostElementRef = useRef<HTMLDivElement>(null);
   const shadowRootRef = useRef<ShadowRoot | null>(null);
@@ -196,10 +196,10 @@ export function RenderedView() {
 
     const actions: RendererActions = {
       send(text) {
-        commandDispatch({ type: "SET_ACTION", action: { type: "send", text } });
+        actionDispatch({ type: "SET_ACTION", action: { type: "send", text } });
       },
       fill(text) {
-        commandDispatch({ type: "SET_ACTION", action: { type: "fill", text } });
+        actionDispatch({ type: "SET_ACTION", action: { type: "fill", text } });
       },
     };
 
@@ -246,7 +246,7 @@ export function RenderedView() {
       moduleRef.current = null;
       clearShadowRoot(root);
     };
-  }, [rendererView.bundle, commandDispatch, rendererViewDispatch]);
+  }, [rendererView.bundle, actionDispatch, rendererViewDispatch]);
 
   useEffect(() => {
     if (state.isStreaming) return;

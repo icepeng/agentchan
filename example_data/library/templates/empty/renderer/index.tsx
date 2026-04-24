@@ -1,5 +1,6 @@
 /** @jsxImportSource agentchan:renderer/v1 */
 import { Agentchan } from "agentchan:renderer/v1";
+import "./index.css";
 import type { ReactElement } from "react";
 
 type ProjectFile = Agentchan.ProjectFile;
@@ -69,14 +70,6 @@ function renderInline(line: string): (string | ReactElement)[] {
   return parts;
 }
 
-const STYLES = `
-  .dr-empty { color: var(--color-fg-3); font-size: 14px; font-family: var(--font-family-mono); text-align: center; padding: 48px 0; }
-  .dr-sep { margin: 32px 0; border: none; border-top: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent); }
-  .dr-hr { margin: 24px 0; border: none; border-top: 1px solid color-mix(in srgb, var(--color-edge) 8%, transparent); }
-  .dr-path { font-size: 11px; font-family: var(--font-family-mono); color: var(--color-fg-3); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .dr-body { white-space: pre-wrap; word-break: break-word; line-height: 1.625; font-size: 14px; color: var(--color-fg); }
-  .dr-root { max-width: 720px; margin: 0 auto; padding: 24px; }
-`;
 
 function RendererContent({ files }: RendererContentProps): ReactElement {
   const contentFiles = files
@@ -86,7 +79,6 @@ function RendererContent({ files }: RendererContentProps): ReactElement {
   if (contentFiles.length === 0) {
     return (
       <div className="dr-root">
-        <style>{STYLES}</style>
         <div className="dr-empty">아직 출력 파일이 없습니다</div>
       </div>
     );
@@ -94,7 +86,6 @@ function RendererContent({ files }: RendererContentProps): ReactElement {
 
   return (
     <div className="dr-root">
-      <style>{STYLES}</style>
       {contentFiles.map((file, i) => (
         <section key={file.path}>
           {i > 0 ? <hr className="dr-sep" /> : null}

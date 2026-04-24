@@ -57,12 +57,12 @@ entities/         ← 도메인 모델 + 상태(Context) + API (project, session
                     · project:     `ProjectSelectionContext`(activeProjectSlug)
                     · session:     디스크 엔티티 (JSONL 1개 = 1 session). 트리/노드/API + `SessionSelectionContext`(projectSlug→openSessionId + replyToNodeId)
                     · agent-state: `AgentStateContext` — projectSlug→`AgentState` Map. pi AgentState와 동일 인터페이스로 reducer가 `AgentEvent`를 처리
-                    · renderer:    `RendererViewContext`(활성 프로젝트의 bundle/snapshot/theme) + `RendererCommandContext`(actions.send/fill 브릿지) + projectTheme 검증/병합 유틸
+                    · renderer:    `RendererViewContext`(활성 프로젝트의 bundle/snapshot/theme) + `RendererActionContext`(actions.send/fill 브릿지) + projectTheme 검증/병합 유틸
 shared/           ← 순수 UI 컴포넌트 + 유틸리티 (context 접근 금지)
 i18n/             ← 다국어 사전 + Context (en.ts/ko.ts + LanguagePreference). `t(key)` 훅으로 사용
 ```
 - **의존 규칙**: 하향만 (app→pages→features→entities→shared). 모듈 경계는 `index.ts`, 외부에서 내부 파일 직접 import 금지
-- **import**: 모듈 간 `@/client/...` 절대 경로, 모듈 내 `./` 상대 경로. Entity별 독립 Context (ProjectSelection, SessionSelection, AgentState, RendererView, RendererCommand, Config, Skill, Editor, UI)
+- **import**: 모듈 간 `@/client/...` 절대 경로, 모듈 내 `./` 상대 경로. Entity별 독립 Context (ProjectSelection, SessionSelection, AgentState, RendererView, RendererAction, Config, Skill, Editor, UI)
 - **`@agentchan/creative-agent`는 client에서 `import type`만**. runtime value 섞이면 Vite dev가 barrel 체인의 node API stub으로 앱 전체 붕괴(dev는 tree-shake 안 함). 공유 상수는 서버 DTO로 내려보낸다
 - **Cross-domain 오케스트레이션**: features/ 훅에서 담당 (예: `useProject.activateProject`가 SET_ACTIVE_PROJECT + RendererView CLEAR_RENDERER를 동기 dispatch해 off-screen 전환 후 stale 렌더러 출력 회귀 방지; `useProject.deleteProject`가 agentState CLOSE + session CLEAR + rendererView CLEAR까지 묶어 수행)
 - **i18n**: 모든 사용자 노출 텍스트는 `t("key")` 사용. 키 추가 시 `i18n/en.ts`와 `i18n/ko.ts` 동시 갱신
@@ -109,7 +109,7 @@ apps/webui/data/
 - Renderers use only snapshot and host actions. They must not access skills, SYSTEM.md, sessions, host DOM, `window.parent`, `window.top`, `document.body`, `document.documentElement`, browser storage, URLs, npm packages other than `react`, or `node:*`.
 - Renderer owns viewport: `RenderedView` adds no outer padding. Spacing and layout belong inside renderer CSS/markup.
 - Renderer theme: named `theme(snapshot)` may override project page color tokens only. Token names mirror CSS variables: `void/base/surface/elevated/accent/fg/fg2/fg3/edge`. Fonts and detailed layout stay inside renderer CSS. Validation/merge is in `entities/renderer/projectTheme.ts`.
-- Renderer actions: `actions.send(text)` and `actions.fill(text)` are the only host commands. Use React event handlers, not host DOM delegation.
+- Renderer actions: `actions.send(text)` and `actions.fill(text)` are the only host actions. Use React event handlers, not host DOM delegation.
 - Streaming updates re-render through React. Preserve animation/state continuity with stable component types, stable keys, local state, and effects.
 ## Session Compact
 - `compactSession()`이 `meta: "compact-summary"` 노드 생성 (microCompact: 토큰 예산 retention). 새 세션 이어가기 지시는 SYSTEM.md 책임. agentchan은 pi와 달리 compact 시 새 session 파일을 만들어 `compactedFrom`으로 이전 session 참조 — 세션 간 계승 모델

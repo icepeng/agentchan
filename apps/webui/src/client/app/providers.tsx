@@ -6,7 +6,7 @@ import { SessionSelectionProvider } from "@/client/entities/session/index.js";
 import { AgentStateProvider } from "@/client/entities/agent-state/index.js";
 import {
   RendererViewProvider,
-  RendererCommandProvider,
+  RendererActionProvider,
 } from "@/client/entities/renderer/index.js";
 import { EditorProvider } from "@/client/entities/editor/index.js";
 
@@ -18,11 +18,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <SessionSelectionProvider>
             <AgentStateProvider>
               <RendererViewProvider>
-                <RendererCommandProvider>
+                <RendererActionProvider>
                   <EditorProvider>
                     {children}
                   </EditorProvider>
-                </RendererCommandProvider>
+                </RendererActionProvider>
               </RendererViewProvider>
             </AgentStateProvider>
           </SessionSelectionProvider>

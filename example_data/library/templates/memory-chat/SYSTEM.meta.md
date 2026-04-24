@@ -14,7 +14,7 @@ Renderer rules:
 - Use only relative imports inside `renderer/`, CSS imports in that graph,
   `agentchan:renderer/v1`, and `react` for hooks/types.
 - Use `snapshot.files`, `snapshot.state`, and `snapshot.baseUrl` as renderer
-  inputs. Use `actions.fill(text)` and `actions.send(text)` for host commands.
+  inputs. Use `actions.fill(text)` and `actions.send(text)` for host actions.
 - Use `Agentchan.fileUrl(snapshot, file)` for assets under `files/` when
   practical.
 - Do not import host app modules, npm packages other than `react`, URLs,

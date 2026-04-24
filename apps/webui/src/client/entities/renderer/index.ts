@@ -23,10 +23,10 @@ export {
 } from "./RendererViewContext.js";
 
 export {
-  RendererCommandProvider,
-  useRendererCommandState,
-  useRendererCommandDispatch,
-} from "./RendererCommandContext.js";
-export type { RendererCommandState } from "./RendererCommandContext.js";
+  RendererActionProvider,
+  useRendererActionState,
+  useRendererActionDispatch,
+} from "./RendererActionContext.js";
+export type { RendererActionState } from "./RendererActionContext.js";
 
 export { useRendererOutput } from "./useRendererOutput.js";

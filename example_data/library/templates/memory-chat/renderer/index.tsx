@@ -1,5 +1,6 @@
 /** @jsxImportSource agentchan:renderer/v1 */
 import { Agentchan } from "agentchan:renderer/v1";
+import "./index.css";
 import type { ReactElement } from "react";
 
 type ProjectFile = Agentchan.ProjectFile;
@@ -468,34 +469,6 @@ function EmptyBlock(): ReactElement {
 
 // ── Styles ───────────────────────────────────
 
-const STYLES = `
-  .cr-action { font-style: normal; }
-  .cr-char { position: relative; margin-bottom: 32px; padding: 2px 0; }
-  .cr-halo { position: absolute; left: -40px; top: 50%; transform: translateY(-50%); width: 220px; height: 120px; border-radius: 50%; background: radial-gradient(ellipse, var(--c) 0%, transparent 70%); opacity: 0.05; pointer-events: none; transition: opacity 0.5s ease; z-index: 0; }
-  .cr-char:hover .cr-halo { opacity: 0.1; }
-  .cr-char-body { display: flex; align-items: flex-start; gap: 12px; position: relative; z-index: 1; }
-  .cr-avatar-img { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; object-fit: cover; box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 15%, transparent); transition: box-shadow 0.3s ease; margin-top: 2px; }
-  .cr-char:hover .cr-avatar-img { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent); }
-  .cr-avatar { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; background: color-mix(in srgb, var(--c) 10%, transparent); color: var(--c); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 15%, transparent); transition: box-shadow 0.3s ease; margin-top: 2px; }
-  .cr-char:hover .cr-avatar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent); }
-  .cr-char-content { max-width: 85%; min-width: 0; }
-  .cr-name { font-family: var(--font-family-display); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c); opacity: 0.8; margin-bottom: 4px; transition: opacity 0.2s ease; }
-  .cr-char:hover .cr-name { opacity: 1; }
-  .cr-bubble { padding: 8px 12px; border-radius: 8px; background: transparent; border: none; font-size: 16px; line-height: 1.8; color: var(--color-fg); transition: background 0.3s ease; }
-  .cr-char:hover .cr-bubble { background: color-mix(in srgb, var(--c) 3%, transparent); }
-  .cr-char--anon .cr-bubble { padding-left: 0; }
-  .cr-narr { margin-bottom: 32px; padding: 0 12px; }
-  .cr-narr-text { font-size: 15px; color: var(--color-fg-2); line-height: 1.8; }
-  .cr-div { display: flex; align-items: center; justify-content: center; margin: 56px 0; gap: 7px; color: var(--color-fg-4); }
-  .cr-dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
-  .cr-dot:nth-child(2) { opacity: 0.35; }
-  .cr-illustration { display: block; margin: 12px 0; text-align: center; }
-  .cr-illustration-img { max-width: 100%; max-height: 360px; border-radius: 8px; object-fit: contain; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
-  .cr-root { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100%; justify-content: flex-end; padding-bottom: 16px; }
-  .cr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; opacity: 0.3; }
-  .cr-empty-rule { width: 28px; height: 1px; background: var(--color-fg-4); }
-  .cr-empty-text { font-family: var(--font-family-display); font-size: 12px; color: var(--color-fg-3); letter-spacing: 0.08em; }
-`;
 
 // ── Main renderer ────────────────────────────
 
@@ -509,7 +482,6 @@ function RendererContent({ files, baseUrl }: RendererContentProps): ReactElement
   if (sceneFiles.length === 0) {
     return (
       <div className="cr-root">
-        <style>{STYLES}</style>
         <EmptyBlock />
       </div>
     );
@@ -530,7 +502,6 @@ function RendererContent({ files, baseUrl }: RendererContentProps): ReactElement
   if (groups.length === 0) {
     return (
       <div className="cr-root">
-        <style>{STYLES}</style>
         <EmptyBlock />
       </div>
     );
@@ -538,7 +509,6 @@ function RendererContent({ files, baseUrl }: RendererContentProps): ReactElement
 
   return (
     <div className="cr-root">
-      <style>{STYLES}</style>
       {groups.map((g, i) => {
         const keyPrefix = `g${i}`;
         switch (g.type) {

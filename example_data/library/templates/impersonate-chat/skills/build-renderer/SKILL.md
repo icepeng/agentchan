@@ -95,4 +95,4 @@ Each file has `path`, `modifiedAt`, and `digest`. Text files have
 - Prefer a focused, content-aware interface over a generic dashboard.
 - Use stable keys such as `${file.path}:${file.digest}` when rendering files.
 - Keep actions explicit. Use `actions.fill()` or `actions.send()` only for real
-  host commands.
+  host actions.
