@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import {
+  CURRENT_SESSION_VERSION,
   parseSessionFile,
   buildTreeMap,
   deriveSession,
@@ -28,6 +29,14 @@ function makeTreeNode(
 }
 
 const HEADER_LINE = JSON.stringify({
+  _header: true,
+  version: CURRENT_SESSION_VERSION,
+  createdAt: 1000,
+  provider: "google",
+  model: "gemini-test",
+});
+
+const LEGACY_HEADER_LINE = JSON.stringify({
   _header: true,
   createdAt: 1000,
   provider: "google",
@@ -132,6 +141,18 @@ describe("parseSessionFile", () => {
     expect(result.nodes[0].activeChildId).toBeUndefined();
   });
 
+  test("parses version field from current header", () => {
+    const content = buildJSONL(HEADER_LINE);
+    const result = parseSessionFile(content);
+    expect(result.header!.version).toBe(CURRENT_SESSION_VERSION);
+  });
+
+  test("legacy header without version field falls back to v1", () => {
+    const content = buildJSONL(LEGACY_HEADER_LINE);
+    const result = parseSessionFile(content);
+    expect(result.header!.version).toBe(1);
+  });
+
   test("header with compactedFrom and mode", () => {
     const header = JSON.stringify({
       _header: true,
@@ -204,6 +225,7 @@ describe("deriveSession", () => {
     const tree = buildTreeMap(nodes);
     const session = deriveSession("sess-1", {
       _header: true,
+      version: CURRENT_SESSION_VERSION,
       createdAt: 1000,
       provider: "google",
       model: "gemini-test",
@@ -240,7 +262,7 @@ describe("deriveSession", () => {
     ];
     const tree = buildTreeMap(nodes);
     const session = deriveSession("s", {
-      _header: true, createdAt: 1000, provider: "old-provider", model: "old-model",
+      _header: true, version: CURRENT_SESSION_VERSION, createdAt: 1000, provider: "old-provider", model: "old-model",
     }, nodes, tree);
 
     expect(session.provider).toBe("google");
@@ -251,7 +273,7 @@ describe("deriveSession", () => {
     const nodes: TreeNode[] = [makeTreeNode("n1", null, "user", "hello")];
     const tree = buildTreeMap(nodes);
     const session = deriveSession("s", {
-      _header: true, createdAt: 1000, provider: "google", model: "gemini-test",
+      _header: true, version: CURRENT_SESSION_VERSION, createdAt: 1000, provider: "google", model: "gemini-test",
     }, nodes, tree);
 
     expect(session.provider).toBe("google");
@@ -269,7 +291,7 @@ describe("deriveSession", () => {
 
   test("compactedFrom and mode propagated from header", () => {
     const session = deriveSession("s", {
-      _header: true, createdAt: 1000, provider: "g", model: "m",
+      _header: true, version: CURRENT_SESSION_VERSION, createdAt: 1000, provider: "g", model: "m",
       compactedFrom: "old-id", mode: "meta",
     }, []);
     expect(session.compactedFrom).toBe("old-id");

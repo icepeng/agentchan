@@ -13,8 +13,12 @@ import { computeActivePath, generateTitle } from "./tree.js";
 
 export type SessionMode = "creative" | "meta";
 
+/** Session file format version. Bump when on-disk shape changes. */
+export const CURRENT_SESSION_VERSION = 1;
+
 export interface SessionHeader {
   _header: true;
+  version: number;
   createdAt: number;
   provider: string;
   model: string;
@@ -50,7 +54,8 @@ export function parseSessionFile(content: string): ParsedSession {
     const first = JSON.parse(firstLine!);
     if (first._header) {
       headerLine = firstLine!;
-      header = first as SessionHeader;
+      // Pre-versioning files match the v1 shape; never bump this with CURRENT_SESSION_VERSION.
+      header = { version: 1, ...first } as SessionHeader;
       startIdx = 1;
     }
   } catch { /* not valid JSON — treat all as nodes */ }
