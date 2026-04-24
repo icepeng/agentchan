@@ -15,9 +15,6 @@
   align-items: start;
   box-sizing: border-box;
 }
-.lg-body--empty {
-  align-items: stretch;
-}
 .lg-reel {
   width: 100%;
   max-width: 760px;
@@ -29,6 +26,10 @@
   gap: 28px;
   box-sizing: border-box;
   min-width: 0;
+}
+.lg-reel--customs {
+  max-width: none;
+  padding: 28px 0 32px;
 }
 .lg-side {
   width: 100%;

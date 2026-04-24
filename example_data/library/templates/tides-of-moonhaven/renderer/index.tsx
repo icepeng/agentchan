@@ -2133,7 +2133,7 @@ function RendererContent(props: RendererContentProps): ReactElement {
         <LogHeader status={status} entryCode={entryCode} />
         <PassageBar persona={persona} />
         {isEmpty ? (
-          <div className="lg-body lg-body--empty">
+          <div className="lg-reel lg-reel--customs">
             <CharacterBuilder onSend={actions.send} />
           </div>
         ) : (

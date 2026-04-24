@@ -22,6 +22,7 @@ import { ScrollArea } from "@/client/shared/ui/index.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 type TransitionPhase = "idle" | "capture" | "fading";
+type RendererLayer = 0 | 1;
 
 const FADE_DURATION_MS = 300;
 
@@ -91,17 +92,8 @@ function importRendererModule(js: string): Promise<RendererModule> {
     .finally(() => URL.revokeObjectURL(url));
 }
 
-function clearShadowRoot(root: ShadowRoot, preserve?: Node | null): void {
-  for (const child of Array.from(root.childNodes)) {
-    if (preserve && child === preserve) continue;
-    if (
-      child instanceof HTMLElement &&
-      child.hasAttribute("data-renderer-disposing")
-    ) {
-      continue;
-    }
-    child.remove();
-  }
+function clearShadowRoot(root: ShadowRoot): void {
+  while (root.firstChild) root.firstChild.remove();
 }
 
 function injectCss(root: ShadowRoot, css: readonly string[]): void {
@@ -121,21 +113,6 @@ function appendMountNode(root: ShadowRoot): HTMLDivElement {
   return mount;
 }
 
-function deferUnmount(root: Root | null, mount: HTMLDivElement | null): void {
-  if (!root) {
-    mount?.remove();
-    return;
-  }
-  if (mount) {
-    mount.hidden = true;
-    mount.setAttribute("data-renderer-disposing", "");
-  }
-  setTimeout(() => {
-    root.unmount();
-    mount?.remove();
-  }, 0);
-}
-
 export function RenderedView() {
   const project = useProjectSelectionState();
   const rendererView = useRendererViewState();
@@ -144,60 +121,73 @@ export function RenderedView() {
   const { refresh, refreshState } = useRendererOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
-  const hostElementRef = useRef<HTMLDivElement>(null);
-  const backHostRef = useRef<HTMLDivElement>(null);
-  const shadowRootRef = useRef<ShadowRoot | null>(null);
-  const backShadowRootRef = useRef<ShadowRoot | null>(null);
-  const snapshotRef = useRef<RendererSnapshot | null>(rendererView.snapshot);
-  const listenersRef = useRef(new Set<() => void>());
-  const moduleRef = useRef<RendererModule | null>(null);
-  const reactRootRef = useRef<Root | null>(null);
-  const reactMountRef = useRef<HTMLDivElement | null>(null);
-  const transitionRootRef = useRef<Root | null>(null);
+  const hostElementRefs = useRef<[HTMLDivElement | null, HTMLDivElement | null]>([null, null]);
+  const shadowRootRefs = useRef<[ShadowRoot | null, ShadowRoot | null]>([null, null]);
+  const layerSnapshotsRef = useRef<[RendererSnapshot | null, RendererSnapshot | null]>([
+    rendererView.snapshot,
+    null,
+  ]);
+  const layerListenersRef = useRef<[Set<() => void>, Set<() => void>]>([
+    new Set(),
+    new Set(),
+  ]);
+  const moduleRefs = useRef<[RendererModule | null, RendererModule | null]>([null, null]);
+  const reactRootRefs = useRef<[Root | null, Root | null]>([null, null]);
+  const reactMountRefs = useRef<[HTMLDivElement | null, HTMLDivElement | null]>([null, null]);
   const stateRef = useRef(state);
   const prevSlugRef = useRef<string | null>(project.activeProjectSlug);
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frontPaintKeyRef = useRef(0);
+  const activeLayerRef = useRef<RendererLayer>(0);
   const [phase, setPhase] = useState<TransitionPhase>("idle");
+  const [activeLayer, setActiveLayer] = useState<RendererLayer>(0);
+  const [exitingLayer, setExitingLayer] = useState<RendererLayer | null>(null);
   const [frontPaintKey, setFrontPaintKey] = useState(0);
   const [capturePaintKey, setCapturePaintKey] = useState(0);
+  activeLayerRef.current = activeLayer;
 
   useEffect(() => {
     stateRef.current = state;
   });
 
   useEffect(() => {
-    const hostElement = hostElementRef.current;
-    if (!hostElement || shadowRootRef.current) return;
-    shadowRootRef.current = hostElement.attachShadow({ mode: "open" });
+    for (const layer of [0, 1] as const) {
+      const hostElement = hostElementRefs.current[layer];
+      if (!hostElement || shadowRootRefs.current[layer]) continue;
+      shadowRootRefs.current[layer] = hostElement.attachShadow({ mode: "open" });
+    }
   }, []);
+
+  const clearLayer = (layer: RendererLayer) => {
+    reactRootRefs.current[layer]?.unmount();
+    reactRootRefs.current[layer] = null;
+    reactMountRefs.current[layer] = null;
+    moduleRefs.current[layer] = null;
+    layerSnapshotsRef.current[layer] = null;
+    const root = shadowRootRefs.current[layer];
+    if (root) clearShadowRoot(root);
+  };
 
   useLayoutEffect(() => {
     const newSlug = project.activeProjectSlug;
     if (prevSlugRef.current !== null && prevSlugRef.current !== newSlug) {
-      const frontRoot = shadowRootRef.current;
-      const backHost = backHostRef.current;
-      const viewport = containerRef.current;
-      if (frontRoot && backHost && frontRoot.childNodes.length > 0) {
+      const currentLayer = activeLayerRef.current;
+      const nextLayer: RendererLayer = currentLayer === 0 ? 1 : 0;
+      const currentRoot = shadowRootRefs.current[currentLayer];
+      if (currentRoot && currentRoot.childNodes.length > 0) {
         if (cleanupTimerRef.current !== null) {
           clearTimeout(cleanupTimerRef.current);
           cleanupTimerRef.current = null;
         }
-        const backRoot =
-          backShadowRootRef.current ??
-          backHost.attachShadow({ mode: "open" });
-        backShadowRootRef.current = backRoot;
-        transitionRootRef.current?.unmount();
-        transitionRootRef.current = reactRootRef.current;
-        backRoot.replaceChildren(...Array.from(frontRoot.childNodes));
-        reactRootRef.current = null;
-        reactMountRef.current = null;
-        moduleRef.current = null;
-        const scrollTop = viewport?.scrollTop ?? 0;
-        backHost.style.transform =
-          scrollTop > 0 ? `translateY(-${scrollTop}px)` : "";
+        clearLayer(nextLayer);
+        activeLayerRef.current = nextLayer;
+        setActiveLayer(nextLayer);
+        setExitingLayer(currentLayer);
         setCapturePaintKey(frontPaintKeyRef.current);
         setPhase("capture");
+      } else {
+        activeLayerRef.current = nextLayer;
+        setActiveLayer(nextLayer);
       }
     }
     prevSlugRef.current = newSlug;
@@ -239,12 +229,13 @@ export function RenderedView() {
 
   useEffect(() => {
     const snapshot = rendererView.snapshot;
-    snapshotRef.current = snapshot;
+    const layer = activeLayerRef.current;
+    layerSnapshotsRef.current[layer] = snapshot;
     if (snapshot) {
-      for (const listener of listenersRef.current) listener();
+      for (const listener of layerListenersRef.current[layer]) listener();
     }
 
-    const mod = moduleRef.current;
+    const mod = moduleRefs.current[layer];
     if (!mod || !snapshot) return;
     try {
       rendererViewDispatch({
@@ -258,21 +249,17 @@ export function RenderedView() {
   }, [rendererView.snapshot, rendererViewDispatch]);
 
   useEffect(() => {
-    const root = shadowRootRef.current;
+    const layer = activeLayerRef.current;
+    const root = shadowRootRefs.current[layer];
     const bundle = rendererView.bundle;
     if (!root || !bundle) return;
 
     let cancelled = false;
-    const previousRoot = reactRootRef.current;
-    const previousMount = reactMountRef.current;
-    deferUnmount(previousRoot, previousMount);
-    reactRootRef.current = null;
-    reactMountRef.current = null;
-    moduleRef.current = null;
-    clearShadowRoot(root, previousMount);
+    clearLayer(layer);
+    layerSnapshotsRef.current[layer] = rendererView.snapshot;
     injectCss(root, bundle.css);
     const mount = appendMountNode(root);
-    reactMountRef.current = mount;
+    reactMountRefs.current[layer] = mount;
     installRendererRuntime();
 
     const actions: RendererActions = {
@@ -285,23 +272,23 @@ export function RenderedView() {
     };
 
     const getSnapshot = () => {
-      const snapshot = snapshotRef.current;
+      const snapshot = layerSnapshotsRef.current[layer];
       if (!snapshot) throw new Error("Renderer snapshot is not ready.");
       return snapshot;
     };
     const subscribe = (listener: () => void) => {
-      listenersRef.current.add(listener);
-      return () => listenersRef.current.delete(listener);
+      layerListenersRef.current[layer].add(listener);
+      return () => layerListenersRef.current[layer].delete(listener);
     };
 
     void importRendererModule(bundle.js)
       .then((mod) => {
         if (cancelled) return;
-        moduleRef.current = mod;
-        const mount = reactMountRef.current;
+        moduleRefs.current[layer] = mod;
+        const mount = reactMountRefs.current[layer];
         if (!mount) return;
         const reactRoot = createRoot(mount);
-        reactRootRef.current = reactRoot;
+        reactRootRefs.current[layer] = reactRoot;
         reactRoot.render(
           <RendererShell
             Component={mod.default}
@@ -317,7 +304,7 @@ export function RenderedView() {
             return next;
           });
         });
-        const snapshot = snapshotRef.current;
+        const snapshot = layerSnapshotsRef.current[layer];
         rendererViewDispatch({
           type: "SET_THEME",
           theme: snapshot ? validateTheme(mod.theme?.(snapshot) ?? null) : null,
@@ -331,13 +318,9 @@ export function RenderedView() {
 
     return () => {
       cancelled = true;
-      const currentRoot = reactRootRef.current;
-      const currentMount = reactMountRef.current;
-      deferUnmount(currentRoot, currentMount);
-      reactRootRef.current = null;
-      reactMountRef.current = null;
-      moduleRef.current = null;
-      clearShadowRoot(root, currentMount);
+      if (activeLayerRef.current === layer) {
+        clearLayer(layer);
+      }
     };
   }, [rendererView.bundle, actionDispatch, rendererViewDispatch]);
 
@@ -356,22 +339,18 @@ export function RenderedView() {
   useEffect(() => {
     if (phase !== "fading") return;
     const timer = setTimeout(() => {
-      const backRoot = backShadowRootRef.current;
-      const backHost = backHostRef.current;
-      transitionRootRef.current?.unmount();
-      transitionRootRef.current = null;
-      if (backRoot) backRoot.innerHTML = "";
-      if (backHost) backHost.style.transform = "";
+      if (exitingLayer !== null) clearLayer(exitingLayer);
+      setExitingLayer(null);
       cleanupTimerRef.current = null;
       setPhase("idle");
     }, FADE_DURATION_MS);
     cleanupTimerRef.current = timer;
     return () => clearTimeout(timer);
-  }, [phase]);
+  }, [phase, exitingLayer]);
 
   useEffect(() => {
     if (state.isStreaming) return;
-    const root = shadowRootRef.current;
+    const root = shadowRootRefs.current[activeLayerRef.current];
     if (!root) return;
     const anchor = root.querySelector("[data-chat-anchor]");
     if (anchor) {
@@ -380,21 +359,39 @@ export function RenderedView() {
   }, [rendererView.snapshot, state.isStreaming]);
 
   const error = rendererView.error;
-  const backOpacityClass =
+  const exitingOpacityClass =
     phase === "capture"
       ? "opacity-100 transition-none"
       : phase === "fading"
         ? "opacity-0 transition-opacity duration-300 ease-out motion-reduce:duration-0"
         : "opacity-0 transition-none";
 
+  const layerClass = (layer: RendererLayer) => {
+    if (layer === activeLayer) {
+      return "relative z-10 h-full min-h-full";
+    }
+    if (layer === exitingLayer) {
+      return `pointer-events-none absolute left-0 right-0 top-0 z-20 ${exitingOpacityClass}`;
+    }
+    return "hidden";
+  };
+
   return (
     <div className="relative flex-1 flex flex-col min-h-0">
       <ScrollArea ref={containerRef} className="flex-1">
-        <div
-          ref={hostElementRef}
-          data-renderer-host
-          className="h-full min-h-full"
-        />
+        <div className="relative h-full min-h-full">
+          {[0, 1].map((layer) => (
+            <div
+              key={layer}
+              ref={(element) => {
+                hostElementRefs.current[layer] = element;
+              }}
+              data-renderer-host
+              data-renderer-layer={layer}
+              className={layerClass(layer as RendererLayer)}
+            />
+          ))}
+        </div>
         {error ? (
           <div className="p-4 text-sm text-danger font-mono whitespace-pre-wrap">
             <p>Renderer error:</p>
@@ -402,11 +399,6 @@ export function RenderedView() {
           </div>
         ) : null}
       </ScrollArea>
-      <div
-        ref={backHostRef}
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 overflow-hidden ${backOpacityClass}`}
-      />
     </div>
   );
 }
