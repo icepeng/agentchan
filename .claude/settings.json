@@ -1,17 +1,5 @@
 {
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "sleep 1",
-            "statusMessage": "Letting TS language server catch up to prevent stale diagnostics"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "",
@@ -24,16 +12,12 @@
       }
     ]
   },
-  "env": {
-    "ENABLE_LSP_TOOL": "1"
-  },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "explanatory-output-style@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true,
     "claude-code-setup@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true,
     "playground@claude-plugins-official": true
   }
 }
