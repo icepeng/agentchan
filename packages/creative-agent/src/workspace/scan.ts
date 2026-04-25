@@ -2,6 +2,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { createHash } from "node:crypto";
+import type { Stats } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { parseFrontmatter } from "./frontmatter.js";
 import type { ProjectFile } from "./types.js";
@@ -30,6 +31,10 @@ function digestContent(content: string | Uint8Array): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
+function digestStat(fileStat: Stats): string {
+  return `stat:${fileStat.size}:${fileStat.mtimeMs}`;
+}
+
 /**
  * Recursively scan a workspace directory and produce a `ProjectFile[]`.
  *
@@ -37,7 +42,7 @@ function digestContent(content: string | Uint8Array): string {
  *   `.md` files, parsed `frontmatter`.
  * - Data files (`.yaml`, `.yml`, `.json`) include both `content` (original)
  *   and `data` (parsed object). Parse failures fall back to `TextFile`.
- * - Binary files include only `path` and `modifiedAt`.
+ * - Binary files include only `path`, `modifiedAt`, and a metadata digest.
  * - Dotfiles/dotdirs are skipped.
  *
  * Paths are relative to `baseDir`, using forward slashes.
@@ -116,15 +121,12 @@ export async function scanWorkspaceFiles(
             digest: digestContent(raw),
           });
         } else {
-          const [bytes, fileStat] = await Promise.all([
-            readFile(fullPath),
-            stat(fullPath),
-          ]);
+          const fileStat = await stat(fullPath);
           files.push({
             type: "binary",
             path: relativePath,
             modifiedAt: fileStat.mtimeMs,
-            digest: digestContent(bytes),
+            digest: digestStat(fileStat),
           });
         }
       } catch {
