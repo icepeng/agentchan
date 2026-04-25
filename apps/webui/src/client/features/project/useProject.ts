@@ -45,10 +45,8 @@ export function useProject() {
 
   const activateProject = async (slug: string): Promise<Session[]> => {
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug });
-    // Must fire synchronously with slug change: if RenderedView is off-screen
-    // (Templates/Settings) during a project switch, its slug-keyed effect
-    // won't run on return, so the previous project's HTML would briefly
-    // flash. Theme is kept to avoid a two-step palette flicker.
+    // Clears stale output/error state, while the mounted renderer stays visible
+    // until RenderedView's host state machine completes fade-out.
     rendererViewDispatch({ type: "CLEAR_RENDERER" });
     // Single GET: SWR's fetcher runs, result seeds the cache atomically.
     // Calling `fetchSessions` separately risked a duplicate fetch when

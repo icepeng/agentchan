@@ -66,27 +66,35 @@ export function useRendererOutput() {
   const currentState = toRendererAgentState(agentState);
   const stateRef = useRef(currentState);
   const loadedRef = useRef<LoadedRenderer | null>(null);
+  const refreshGenerationRef = useRef(0);
 
   useLayoutEffect(() => {
+    if (activeProjectSlugRef.current !== activeProjectSlug) {
+      loadedRef.current = null;
+    }
     activeProjectSlugRef.current = activeProjectSlug;
     stateRef.current = currentState;
   });
 
-  const isStillActive = useCallback(
-    (slug: string) => activeProjectSlugRef.current === slug,
+  const isStillCurrentRefresh = useCallback(
+    (slug: string, generation: number) =>
+      activeProjectSlugRef.current === slug &&
+      refreshGenerationRef.current === generation,
     [],
   );
 
   const refresh = useCallback(async () => {
     const slug = activeProjectSlug;
     if (!slug) return;
+    const generation = refreshGenerationRef.current + 1;
+    refreshGenerationRef.current = generation;
 
     try {
       const [bundle, filesResult] = await Promise.all([
         fetchRendererBundle(slug),
         fetchWorkspaceFiles(slug),
       ]);
-      if (!isStillActive(slug)) return;
+      if (!isStillCurrentRefresh(slug, generation)) return;
       const previousFiles =
         loadedRef.current?.slug === slug ? loadedRef.current.snapshot.files : undefined;
       const files = reuseStableFiles(previousFiles, filesResult.files);
@@ -105,7 +113,7 @@ export function useRendererOutput() {
         rendererViewDispatch({ type: "SET_RENDERER", bundle, snapshot });
       }
     } catch (error: unknown) {
-      if (!isStillActive(slug)) return;
+      if (!isStillCurrentRefresh(slug, generation)) return;
       loadedRef.current = null;
       const message = errorMessage(error);
       if (message.includes("404")) {
@@ -117,7 +125,7 @@ export function useRendererOutput() {
         rendererViewDispatch({ type: "SET_ERROR", error: message });
       }
     }
-  }, [activeProjectSlug, isStillActive, rendererViewDispatch]);
+  }, [activeProjectSlug, isStillCurrentRefresh, rendererViewDispatch]);
 
   const refreshState = useCallback(() => {
     const slug = activeProjectSlug;
