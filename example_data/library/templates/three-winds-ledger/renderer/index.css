@@ -2175,6 +2175,9 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+.rpg-pending[hidden] {
+  display: none;
+}
 .rpg-pending[data-mode="combat"] {
   border-top-color: color-mix(in srgb, var(--rpg-wax) 60%, transparent);
   background:

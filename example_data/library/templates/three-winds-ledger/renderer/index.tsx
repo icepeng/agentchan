@@ -50,6 +50,7 @@ interface ToolResultMessage {
   isError: boolean;
 }
 type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
+type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 // ── Renderer theme contract (인라인 선언) ──
 
@@ -2333,8 +2334,26 @@ function toolLabelFor(name: string): string {
   return TOOL_LABELS[name] ?? "비의를 엮는다";
 }
 
+function currentTurnAssistantBlocks(state: AgentState): AssistantContentBlock[] {
+  let start = 0;
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    if (state.messages[i]?.role === "user") {
+      start = i + 1;
+      break;
+    }
+  }
+
+  const blocks: AssistantContentBlock[] = [];
+  for (let i = start; i < state.messages.length; i++) {
+    const message = state.messages[i];
+    if (message?.role === "assistant") blocks.push(...message.content);
+  }
+  if (state.streamingMessage) blocks.push(...state.streamingMessage.content);
+  return blocks;
+}
+
 function activeToolCalls(state: AgentState): ToolCall[] {
-  const content = state.streamingMessage?.content ?? [];
+  const content = currentTurnAssistantBlocks(state);
   return content.filter((b): b is ToolCall => b.type === "toolCall");
 }
 
@@ -2350,7 +2369,7 @@ function findToolResult(
 }
 
 function streamingText(state: AgentState): string {
-  return (state.streamingMessage?.content ?? [])
+  return currentTurnAssistantBlocks(state)
     .filter((b): b is TextContent => b.type === "text")
     .map((b) => b.text)
     .join("");
@@ -2362,7 +2381,10 @@ function PendingCardView(props: {
 }): ReactElement {
   const { state, mode } = props;
   const tools = activeToolCalls(state);
-  const inFlight = tools.find((tc) => !findToolResult(state, tc.id));
+  const pendingIds = new Set(state.pendingToolCalls);
+  const inFlight =
+    tools.find((tc) => pendingIds.has(tc.id)) ??
+    tools.find((tc) => !findToolResult(state, tc.id));
   const latest = inFlight ?? tools[tools.length - 1];
   const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
   const raw = streamingText(state).trim();
