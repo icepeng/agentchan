@@ -2,16 +2,20 @@
 import { Agentchan } from "agentchan:renderer/v1";
 import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
-//   character-chat renderer  ·  "The Chamber Theatre"
+//   character-chat renderer  ·  RP chat surface
 //
-//   챗이 아니라 촛불 켜진 방에서 펼쳐지는 한 장면이다.
+//   딥 네이비 배경 위의 RP 채팅. 캐릭터는 좌측 둥근사각 아바타(고정 avatar
+//   이미지) + 이름 + 발화로 배치되고, 같은 화자가 연속이면 아바타 자리는
+//   비워진다. 행동(*...*)은 인라인 italic이 아니라 좌측 액센트 막대를 가진
+//   블록 레벨 indent-bar로 렌더되어 한국어에서도 자연스럽다. 사용자(> ...)는
+//   우측 정렬에 우측 teal hairline. 씬 전환(---)은 ripple + 글리프, 선택
+//   칩(`[choice]`)은 미니멀 사각형 + dot.
 //
-//   · 캐릭터는 말풍선이 아니라 감정 포트레이트로 무대를 점유한다.
-//   · 대사는 letterpress 자막 플레이트. 이름은 명판처럼 small-caps.
-//   · 내레이션은 hairline rule 사이의 무대 지시문.
-//   · 씬 전환(---)은 달빛 물결(moonwash) 리플 + 랜턴 글리프.
-//   · 사용자(> ...)는 객석에서 들려오는 우측 마진의 속삭임.
-//   · 씬 말미에 `[choice] ...` 라인이 있으면 밀랍 봉인 칩으로 렌더.
+//   `[slug:assets/key]` 토큰(단독 줄)은 본문 중간에 삽입되는 강조 일러스트
+//   카드로 렌더된다 — 아바타 표정을 바꾸지 않는다.
+//
+//   `theme()`은 host에 navy/teal 컬러 팔레트를 알려 cr-stage 외부 chrome도
+//   같은 톤으로 흐르게 한다.
 //
 //   렌더러는 pure `(files) => ReactElement` — 세션/스킬 상태에 접근하지 않는다.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,6 +28,7 @@ type DataFile = Agentchan.DataFile;
 type BinaryFile = Agentchan.BinaryFile;
 type AgentState = Agentchan.RendererAgentState;
 type RendererActions = Agentchan.RendererActions;
+type RendererTheme = Agentchan.RendererTheme;
 
 interface RendererContentProps {
   state: AgentState;
@@ -33,17 +38,34 @@ interface RendererContentProps {
   actions: RendererActions;
 }
 
+// ── Theme ────────────────────────────────────────────────────────────────────
+
+const RP_THEME: RendererTheme = {
+  base: {
+    void: "#070b15",
+    base: "#0e1626",
+    surface: "#15203a",
+    elevated: "#1d2740",
+    accent: "#3da89a",
+    fg: "#d8e4f0",
+    fg2: "#9aa9bf",
+    fg3: "#6a7790",
+    edge: "#1d2740",
+  },
+  prefersScheme: "dark",
+};
+
 // ── Palette ──────────────────────────────────────────────────────────────────
 
 const FALLBACK_COLORS = [
-  "#2dd4bf",
-  "#fbbf24",
-  "#a78bfa",
-  "#f472b6",
-  "#34d399",
-  "#fb923c",
-  "#38bdf8",
-  "#f87171",
+  "#5eead4",
+  "#fde68a",
+  "#c4b5fd",
+  "#fbcfe8",
+  "#86efac",
+  "#fdba74",
+  "#7dd3fc",
+  "#fca5a5",
 ];
 
 // ── Stage: 캐릭터·페르소나 인덱스 + 블로킹 ───────────────────────────────────
@@ -60,12 +82,14 @@ interface CharacterEntry {
 interface Stage {
   baseUrl: string;
   byName: Map<string, CharacterEntry>;
+  bySlug: Map<string, CharacterEntry>;
   sideByName: Map<string, "left" | "right">;
   persona: CharacterEntry | null;
 }
 
 function buildStage(files: ProjectFile[], baseUrl: string): Stage {
   const byName = new Map<string, CharacterEntry>();
+  const bySlug = new Map<string, CharacterEntry>();
   let persona: CharacterEntry | null = null;
   let fallbackIdx = 0;
 
@@ -94,6 +118,7 @@ function buildStage(files: ProjectFile[], baseUrl: string): Stage {
       role: isPersona ? "persona" : "character",
     };
 
+    bySlug.set(slug, entry);
     if (entry.role === "persona" && !persona) persona = entry;
 
     const register = (raw: unknown) => {
@@ -108,7 +133,7 @@ function buildStage(files: ProjectFile[], baseUrl: string): Stage {
     register(fm.name);
   }
 
-  return { baseUrl, byName, sideByName: new Map(), persona };
+  return { baseUrl, byName, bySlug, sideByName: new Map(), persona };
 }
 
 function sideFor(stage: Stage, name: string): "left" | "right" {
@@ -122,6 +147,7 @@ function sideFor(stage: Stage, name: string): "left" | "right" {
 // ── Parsing ──────────────────────────────────────────────────────────────────
 //
 //   Beat = 파싱된 장면의 한 단위. 렌더 결과는 beat별로 독립 엘리먼트를 갖는다.
+//   `[slug:assets/key]` 단독 줄은 illustration beat로 본문 흐름에 삽입된다.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -129,10 +155,10 @@ type Beat =
   | {
       kind: "presence";
       name: string;
-      emotion: string | null;
       lines: string[];
       side: "left" | "right";
     }
+  | { kind: "illustration"; slug: string; key: string }
   | { kind: "whisper"; lines: string[] }
   | { kind: "direction"; text: string }
   | { kind: "divider" }
@@ -142,15 +168,13 @@ const RE_DIVIDER = /^---+$/;
 const RE_USER = /^>\s+(.+)$/;
 // `[choice:...]` 같은 legacy suffix는 허용하되 무시한다 — 모든 choice는 fill 모드.
 const RE_CHOICE = /^\[choice(?::[a-z]+)?\]\s+(.+)$/;
-const RE_EMOTION_LINE = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s*$/;
-const RE_EMOTION_INLINE = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s+/;
+const RE_ILLUSTRATION_LINE = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s*$/;
+const RE_ILLUSTRATION_INLINE = /^\[([a-z0-9][a-z0-9-]*):([^\]]+)\]\s+/;
 // `**Name:**` (콜론이 bold 내부) 와 `**Name**:` (콜론이 bold 외부) 양쪽 지원
 const RE_SPEAKER = /^\*\*([^*\n]+?)(?::\*\*|\*\*:)\s*(.*)$/;
 
 function parseScene(text: string, stage: Stage): Beat[] {
   const beats: Beat[] = [];
-  // Emotion 토큰은 빈 줄을 건너뛰어 다음 presence 라인에 바인딩된다.
-  let pendingEmotion: { slug: string; key: string } | null = null;
 
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
@@ -158,7 +182,6 @@ function parseScene(text: string, stage: Stage): Beat[] {
 
     if (RE_DIVIDER.test(line)) {
       beats.push({ kind: "divider" });
-      pendingEmotion = null;
       continue;
     }
 
@@ -176,18 +199,18 @@ function parseScene(text: string, stage: Stage): Beat[] {
       continue;
     }
 
-    const mEmotion = line.match(RE_EMOTION_LINE);
-    if (mEmotion) {
-      pendingEmotion = { slug: mEmotion[1], key: mEmotion[2] };
+    // 단독 `[slug:assets/key]` 줄 — 본문에 삽입되는 일러스트
+    const mIllust = line.match(RE_ILLUSTRATION_LINE);
+    if (mIllust) {
+      beats.push({ kind: "illustration", slug: mIllust[1], key: mIllust[2] });
       continue;
     }
 
-    // Legacy 지원: `[slug:key] **Name:** "..."` 형식도 같은 턴의 포트레이트로 해석
+    // Legacy 지원: `[slug:key] **Name:** "..."` — 일러스트를 먼저 떼고 화자 라인은 별도 처리
     let speakerLine = line;
-    let inlineEmotion: { slug: string; key: string } | null = null;
-    const mInline = line.match(RE_EMOTION_INLINE);
+    const mInline = line.match(RE_ILLUSTRATION_INLINE);
     if (mInline) {
-      inlineEmotion = { slug: mInline[1], key: mInline[2] };
+      beats.push({ kind: "illustration", slug: mInline[1], key: mInline[2] });
       speakerLine = line.slice(mInline[0].length);
     }
 
@@ -195,31 +218,15 @@ function parseScene(text: string, stage: Stage): Beat[] {
     if (mSpeaker) {
       const name = mSpeaker[1].trim();
       const body = mSpeaker[2].trim();
-      const entry = stage.byName.get(name);
       const side = sideFor(stage, name);
 
-      let emotion: string | null = null;
-      if (inlineEmotion && matchesSlug(inlineEmotion.slug, entry)) {
-        emotion = inlineEmotion.key;
-      } else if (pendingEmotion && matchesSlug(pendingEmotion.slug, entry)) {
-        emotion = pendingEmotion.key;
-      }
-      pendingEmotion = null;
-
       const prev = beats[beats.length - 1];
-      if (
-        prev?.kind === "presence" &&
-        prev.name === name &&
-        emotion === null &&
-        body
-      ) {
+      if (prev?.kind === "presence" && prev.name === name && body) {
         prev.lines.push(body);
       } else {
-        // 본문이 비어도 감정 교체만을 위한 포트레이트 턴을 허용한다
         beats.push({
           kind: "presence",
           name,
-          emotion,
           lines: body ? [body] : [],
           side,
         });
@@ -228,16 +235,10 @@ function parseScene(text: string, stage: Stage): Beat[] {
     }
 
     // 그 외는 모두 내레이션 — stage direction으로 렌더.
-    // pendingEmotion은 유지: 내레이션이 끼어도 다음 matching presence까지 이어간다.
     beats.push({ kind: "direction", text: line });
   }
 
   return trimStaleChoices(beats);
-}
-
-function matchesSlug(slug: string, entry: CharacterEntry | undefined): boolean {
-  if (!entry) return false;
-  return entry.slug === slug;
 }
 
 // 지난 턴에 배치된 오래된 [choice] 라인은 무시하고, 현재 씬 말미의 choice
@@ -255,74 +256,84 @@ function trimStaleChoices(beats: Beat[]): Beat[] {
 }
 
 // ── Inline formatting ────────────────────────────────────────────────────────
+//
+//   formatInline은 한 라인의 inline 부분(따옴표·plain·bold)만 처리한다.
+//   행동 토큰(*...*)은 splitLineSegments에서 미리 떼어내 block-level
+//   `cr-action-block`으로 따로 렌더하므로 여기엔 도달하지 않는다.
+//   italic 마크업은 한국어 폰트와 어울리지 않아 사용하지 않는다.
+//
+// ─────────────────────────────────────────────────────────────────────────────
 
 function formatInline(text: string): (string | ReactElement)[] {
   // smart quotes "..." → “...”
   const quoted = text.replace(/"([^"\n]+)"/g, "“$1”");
 
   const parts: (string | ReactElement)[] = [];
-  const pattern = /\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*/g;
+  const pattern = /\*\*([^*\n]+?)\*\*/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
   let idx = 0;
   while ((match = pattern.exec(quoted)) !== null) {
     if (match.index > cursor) parts.push(quoted.slice(cursor, match.index));
-    if (match[1] !== undefined) {
-      parts.push(<strong key={`s-${idx++}`}>{match[1]}</strong>);
-    } else if (match[2] !== undefined) {
-      parts.push(
-        <em key={`i-${idx++}`} className="cr-action">
-          {match[2]}
-        </em>,
-      );
-    }
+    parts.push(<strong key={`s-${idx++}`}>{match[1]}</strong>);
     cursor = match.index + match[0].length;
   }
   if (cursor < quoted.length) parts.push(quoted.slice(cursor));
   return parts;
 }
 
-// 여러 라인을 soft-break로 join — React fragment로 각 라인 사이에 <span>을 삽입
-function renderLinesWithBreaks(lines: string[]): ReactNode {
-  const nodes: ReactNode[] = [];
-  lines.forEach((line, i) => {
-    if (i > 0) nodes.push(<span key={`br-${i}`} className="cr-soft-break" />);
-    nodes.push(<span key={`ln-${i}`}>{formatInline(line)}</span>);
-  });
-  return nodes;
+type LineSegment =
+  | { kind: "inline"; parts: (string | ReactElement)[] }
+  | { kind: "action"; text: string };
+
+// 한 라인 안의 `*action*` 토큰을 block-level segment로 떼어내고,
+// 나머지는 inline 텍스트(따옴표/bold 포함)로 보존한다.
+function splitLineSegments(line: string): LineSegment[] {
+  const segs: LineSegment[] = [];
+  const pattern = /\*([^*\n]+?)\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(line)) !== null) {
+    if (match.index > cursor) {
+      const inline = line.slice(cursor, match.index).trim();
+      if (inline) segs.push({ kind: "inline", parts: formatInline(inline) });
+    }
+    segs.push({ kind: "action", text: match[1].trim() });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < line.length) {
+    const inline = line.slice(cursor).trim();
+    if (inline) segs.push({ kind: "inline", parts: formatInline(inline) });
+  }
+  return segs;
 }
 
 // ── Portrait ─────────────────────────────────────────────────────────────────
 
-function portraitUrl(baseUrl: string, dir: string, key: string): string {
+function characterImageUrl(baseUrl: string, dir: string, key: string): string {
   return `${baseUrl}/files/${dir}/${key}`;
 }
 
 function Portrait({
   stage,
   name,
-  emotion,
 }: {
   stage: Stage;
   name: string;
-  emotion: string | null;
 }): ReactElement {
   const entry = stage.byName.get(name);
   const displayName = entry?.displayName ?? name;
-  const initial = displayName.charAt(0).toUpperCase();
-  const key = emotion ?? entry?.avatar ?? "";
+  const key = entry?.avatar ?? "";
   if (!entry || !key) {
     return (
       <div className="cr-silhouette" aria-label={displayName}>
-        <span>{initial}</span>
+        <span>?</span>
       </div>
     );
   }
-  const src = portraitUrl(stage.baseUrl, entry.dir, key);
-  const id = `${entry.slug}-${emotion ?? "rest"}`;
+  const src = characterImageUrl(stage.baseUrl, entry.dir, key);
   return (
-    <figure className="cr-portrait" data-portrait={id}>
-      <div className="cr-portrait-halo" />
+    <figure className="cr-portrait" data-portrait={entry.slug}>
       <img
         className="cr-portrait-img"
         src={src}
@@ -333,10 +344,8 @@ function Portrait({
         }}
       />
       <div className="cr-portrait-fallback" aria-hidden="true">
-        <span>{initial}</span>
+        <span>?</span>
       </div>
-      <div className="cr-portrait-gloss" />
-      <div className="cr-portrait-vignette" />
     </figure>
   );
 }
@@ -347,10 +356,12 @@ function PresenceBeat({
   stage,
   beat,
   id,
+  collapsed,
 }: {
   stage: Stage;
   beat: Extract<Beat, { kind: "presence" }>;
   id: string;
+  collapsed: boolean;
 }): ReactElement {
   const entry = stage.byName.get(beat.name);
   const displayName = entry?.displayName ?? beat.name;
@@ -359,23 +370,112 @@ function PresenceBeat({
   return (
     <section
       id={id}
-      className={`cr-presence cr-presence--${beat.side}`}
+      className="cr-presence"
+      data-collapsed={collapsed ? "1" : "0"}
       style={{ ["--c" as string]: color }}
     >
       <div className="cr-presence-portrait">
-        <Portrait stage={stage} name={beat.name} emotion={beat.emotion} />
+        <Portrait stage={stage} name={beat.name} />
       </div>
       <div className="cr-presence-caption">
-        <div className="cr-nameplate">
-          <span className="cr-nameplate-mark" />
-          <span className="cr-nameplate-text">{displayName}</span>
-          <span className="cr-nameplate-mark" />
-        </div>
+        {!collapsed ? (
+          <div className="cr-nameplate">
+            <span className="cr-nameplate-mark" />
+            <span className="cr-nameplate-text">{displayName}</span>
+          </div>
+        ) : null}
         {beat.lines.length > 0 ? (
-          <div className="cr-caption-body">{renderLinesWithBreaks(beat.lines)}</div>
+          <div className="cr-caption-body">{renderCaptionLines(beat.lines)}</div>
         ) : null}
       </div>
     </section>
+  );
+}
+
+// 라인 배열을 block(action) / inline 흐름으로 변환한다.
+// 인접한 inline 부분은 한 줄로 묶어 가독성을 살리고, action 토큰은 사이에
+// 끼어들어 block-level indent bar를 형성한다.
+function renderCaptionLines(lines: string[]): ReactNode {
+  const out: ReactNode[] = [];
+  let pending: ReactNode[] = [];
+  let lineIdx = 0;
+  let segIdx = 0;
+
+  const flushInline = () => {
+    if (pending.length === 0) return;
+    out.push(
+      <div className="cr-caption-line" key={`l-${lineIdx++}`}>
+        {pending}
+      </div>,
+    );
+    pending = [];
+  };
+
+  for (const line of lines) {
+    const segs = splitLineSegments(line);
+    if (segs.length === 0) continue;
+    let appendedInline = false;
+    for (const seg of segs) {
+      if (seg.kind === "action") {
+        flushInline();
+        out.push(
+          <span className="cr-action-block" key={`a-${segIdx++}`}>
+            {seg.text}
+          </span>,
+        );
+      } else {
+        if (appendedInline) pending.push(" ");
+        pending.push(
+          <span key={`s-${segIdx++}`}>{seg.parts}</span>,
+        );
+        appendedInline = true;
+      }
+    }
+    flushInline();
+  }
+  flushInline();
+  return out;
+}
+
+function IllustrationBeat({
+  stage,
+  beat,
+  id,
+}: {
+  stage: Stage;
+  beat: Extract<Beat, { kind: "illustration" }>;
+  id: string;
+}): ReactElement | null {
+  const entry = stage.bySlug.get(beat.slug);
+  const dir = entry?.dir ?? `characters/${beat.slug}`;
+  const src = characterImageUrl(stage.baseUrl, dir, beat.key);
+  const color = entry?.color ?? "var(--color-accent)";
+  const displayName = entry?.displayName ?? beat.slug;
+  const keyName = beat.key.replace(/^assets\//, "");
+  return (
+    <figure
+      id={id}
+      className="cr-illustration"
+      style={{ ["--c" as string]: color }}
+    >
+      <div className="cr-illustration-frame">
+        <img
+          className="cr-illustration-img"
+          src={src}
+          alt={`${displayName} — ${keyName}`}
+          onError={(e) => {
+            const fig = (e.currentTarget as HTMLImageElement).closest(".cr-illustration");
+            if (fig instanceof HTMLElement) fig.dataset.fallback = "1";
+          }}
+        />
+        <div className="cr-illustration-glow" aria-hidden="true" />
+      </div>
+      <figcaption className="cr-illustration-caption">
+        <span className="cr-illustration-name">{displayName}</span>
+        <span className="cr-illustration-dot">·</span>
+        <span className="cr-illustration-key">{keyName}</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -388,11 +488,16 @@ function WhisperBeat({
   beat: Extract<Beat, { kind: "whisper" }>;
   id: string;
 }): ReactElement {
-  const label = stage.persona?.displayName ?? "";
+  const label = stage.persona?.displayName ?? "you";
+  const nodes: ReactNode[] = [];
+  beat.lines.forEach((line, i) => {
+    if (i > 0) nodes.push(<span key={`br-${i}`} className="cr-soft-break" />);
+    nodes.push(<span key={`ln-${i}`}>{formatInline(line)}</span>);
+  });
   return (
     <aside id={id} className="cr-whisper">
-      <span className="cr-whisper-text">{renderLinesWithBreaks(beat.lines)}</span>
-      {label ? <span className="cr-whisper-label">{label}</span> : null}
+      <span className="cr-whisper-text">{nodes}</span>
+      <span className="cr-whisper-label">{label}</span>
     </aside>
   );
 }
@@ -468,7 +573,45 @@ function ChoiceBar({
   );
 }
 
-function EmptyState(): ReactElement {
+// 한글 마지막 음절의 종성 유무로 "와"/"과" 결정. 한글 외 글자는 "과"로 fallback.
+function joinWaGwa(name: string): string {
+  const last = name.charCodeAt(name.length - 1);
+  if (last >= 0xac00 && last <= 0xd7a3) {
+    const jong = (last - 0xac00) % 28;
+    return name + (jong === 0 ? "와" : "과");
+  }
+  return name + "과";
+}
+
+function generateStarters(stage: Stage): string[] {
+  const characters: CharacterEntry[] = [];
+  const seen = new Set<string>();
+  for (const entry of stage.bySlug.values()) {
+    if (entry.role !== "character") continue;
+    if (seen.has(entry.slug)) continue;
+    seen.add(entry.slug);
+    characters.push(entry);
+  }
+
+  const starters: string[] = [];
+  for (const c of characters.slice(0, 3)) {
+    starters.push(`${joinWaGwa(c.displayName)} 처음 만나는 장면으로 시작해줘`);
+  }
+  if (characters.length === 0) {
+    starters.push("새 캐릭터를 만들어 첫 장면을 시작해줘");
+  }
+  starters.push("이 세계에서 새로운 장면을 시작해줘");
+  return starters;
+}
+
+function EmptyState({
+  stage,
+  actions,
+}: {
+  stage: Stage;
+  actions: RendererActions;
+}): ReactElement {
+  const starters = generateStarters(stage);
   return (
     <div className="cr-empty">
       <div className="cr-empty-rule" />
@@ -477,7 +620,22 @@ function EmptyState(): ReactElement {
         <span className="cr-empty-stem" />
       </div>
       <div className="cr-empty-title">무대가 기다리고 있습니다</div>
-      <div className="cr-empty-sub">첫 장면이 기록되면 이 방이 깨어납니다</div>
+      <div className="cr-empty-sub">막막하다면, 아래 한 줄을 골라 시작하세요</div>
+      {starters.length > 0 ? (
+        <div className="cr-empty-starters">
+          {starters.map((s, i) => (
+            <button
+              key={`st-${i}`}
+              type="button"
+              className="cr-choice"
+              onClick={() => actions.fill(s)}
+            >
+              <span className="cr-choice-seal" aria-hidden="true" />
+              <span className="cr-choice-text">{s}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="cr-empty-rule" />
     </div>
   );
@@ -489,10 +647,11 @@ function renderBeats(
   actions: RendererActions,
 ): ReactElement[] {
   // 각 beat에 index 기반 stable id를 부여하여 재렌더 사이에 DOM을 보존하고,
-  // 포트레이트 halo / candle flicker / ripple 같은 CSS 애니메이션이 리셋되지 않게 한다.
+  // ripple / candle flicker 같은 CSS 애니메이션이 리셋되지 않게 한다.
   // 씬 파일은 append-only이므로 기존 beat의 인덱스는 렌더 간에 고정된다.
   const out: ReactElement[] = [];
   let i = 0;
+  let lastSpeaker: string | null = null;
   while (i < beats.length) {
     const b = beats[i];
     const id = `cr-b-${i}`;
@@ -506,26 +665,41 @@ function renderBeats(
       continue;
     }
     switch (b.kind) {
-      case "presence":
-        out.push(<PresenceBeat key={id} stage={stage} beat={b} id={id} />);
+      case "presence": {
+        const collapsed = lastSpeaker === b.name;
+        out.push(
+          <PresenceBeat
+            key={id}
+            stage={stage}
+            beat={b}
+            id={id}
+            collapsed={collapsed}
+          />,
+        );
+        lastSpeaker = b.name;
+        break;
+      }
+      case "illustration":
+        out.push(<IllustrationBeat key={id} stage={stage} beat={b} id={id} />);
+        // 일러스트는 발화 흐름을 끊지 않으므로 lastSpeaker 유지
         break;
       case "whisper":
         out.push(<WhisperBeat key={id} stage={stage} beat={b} id={id} />);
+        lastSpeaker = null;
         break;
       case "direction":
         out.push(<DirectionBeat key={id} beat={b} id={id} />);
+        lastSpeaker = null;
         break;
       case "divider":
         out.push(<DividerBeat key={id} id={id} />);
+        lastSpeaker = null;
         break;
     }
     i++;
   }
   return out;
 }
-
-// ── Styles ───────────────────────────────────────────────────────────────────
-
 
 // ── Main renderer ────────────────────────────────────────────────────────────
 
@@ -543,13 +717,15 @@ function RendererContent({ files, baseUrl, actions }: RendererContentProps): Rea
   return (
     <div className="cr-stage">
       <div className="cr-reel">
-        {showEmpty ? <EmptyState /> : renderBeats(beats, stage, actions)}
+        {showEmpty ? (
+          <EmptyState stage={stage} actions={actions} />
+        ) : (
+          renderBeats(beats, stage, actions)
+        )}
       </div>
     </div>
   );
 }
-
-
 
 export default function Renderer({ snapshot, actions }: Agentchan.RendererProps): ReactElement {
   return (
@@ -561,4 +737,8 @@ export default function Renderer({ snapshot, actions }: Agentchan.RendererProps)
       actions={actions}
     />
   );
+}
+
+export function theme(_snapshot: Agentchan.RendererSnapshot): RendererTheme {
+  return RP_THEME;
 }

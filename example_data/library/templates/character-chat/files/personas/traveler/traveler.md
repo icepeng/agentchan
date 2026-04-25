@@ -1,7 +1,7 @@
 ---
 role: persona
 name: traveler
-display-name: Traveler
+display-name: 여행자
 color: "#60a5fa"
 names: "여행자, Traveler, 나그네"
 ---
