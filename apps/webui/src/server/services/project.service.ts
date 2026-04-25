@@ -14,11 +14,17 @@ export function createProjectService(
     async list() { return projectRepo.list(); },
     async getCoverFile(slug: string) { return projectRepo.getCoverFile(slug); },
     async get(slug: string) { return projectRepo.get(slug); },
+    exists(slug: string) { return projectRepo.exists(slug); },
     async create(name: string) { return projectRepo.create(name); },
     async update(slug: string, updates: { name?: string; notes?: string }) {
+      if (!projectRepo.exists(slug)) return null;
       return projectRepo.update(slug, updates);
     },
-    async delete(slug: string) { return projectRepo.delete(slug); },
+    async delete(slug: string) {
+      if (!projectRepo.exists(slug)) return false;
+      await projectRepo.delete(slug);
+      return true;
+    },
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
     async createFromTemplate(name: string, templateName: string) {
       if (!trustService.isTrusted(templateName)) {
@@ -28,11 +34,18 @@ export function createProjectService(
       return projectRepo.createFromSource(name, templateDir);
     },
     async scanWorkspaceFiles(slug: string) {
+      if (!projectRepo.exists(slug)) return null;
       return projectRepo.scanWorkspaceFiles(slug);
     },
 
     async scanProjectTree(slug: string) {
+      if (!projectRepo.exists(slug)) return null;
       return projectRepo.scanProjectTree(slug);
+    },
+
+    async getReadme(slug: string) {
+      if (!projectRepo.exists(slug)) return null;
+      return (await projectRepo.readProjectFile(slug, "README.md")) ?? "";
     },
 
     async readProjectFile(slug: string, filePath: string) {
@@ -40,34 +53,44 @@ export function createProjectService(
     },
 
     async writeProjectFile(slug: string, filePath: string, content: string) {
+      if (!projectRepo.exists(slug)) return false;
       return projectRepo.writeProjectFile(slug, filePath, content);
     },
 
     async deleteProjectFile(slug: string, filePath: string) {
-      return projectRepo.deleteProjectFile(slug, filePath);
+      if (!projectRepo.exists(slug)) return false;
+      await projectRepo.deleteProjectFile(slug, filePath);
+      return true;
     },
 
     async deleteProjectDir(slug: string, dirPath: string) {
-      return projectRepo.deleteProjectDir(slug, dirPath);
+      if (!projectRepo.exists(slug)) return false;
+      await projectRepo.deleteProjectDir(slug, dirPath);
+      return true;
     },
 
     async renameProjectEntry(slug: string, fromPath: string, toPath: string) {
-      return projectRepo.renameProjectEntry(slug, fromPath, toPath);
+      if (!projectRepo.exists(slug)) return false;
+      await projectRepo.renameProjectEntry(slug, fromPath, toPath);
+      return true;
     },
 
     async createProjectDir(slug: string, dirPath: string) {
-      return projectRepo.createProjectDir(slug, dirPath);
+      if (!projectRepo.exists(slug)) return false;
+      await projectRepo.createProjectDir(slug, dirPath);
+      return true;
     },
 
     async buildRenderer(slug: string) {
       return buildRendererBundle(join(projectsDir, slug));
     },
 
-    serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {
-      return projectRepo.resolveProjectFile(slug, `files/${filePath}`);
+    async serveWorkspaceFile(slug: string, filePath: string) {
+      return projectRepo.getWorkspaceFile(slug, filePath);
     },
 
-    revealFileInExplorer(slug: string, filePath: string): void {
+    revealFileInExplorer(slug: string, filePath: string): boolean {
+      if (!projectRepo.exists(slug)) return false;
       const resolved = projectRepo.resolveProjectFile(slug, filePath);
       if (!resolved) throw new Error(`Invalid path: ${filePath}`);
 
@@ -79,6 +102,7 @@ export function createProjectService(
             ? ["open", "-R", fullPath]
             : ["xdg-open", dirname(fullPath)];
       Bun.spawn(cmd, { stdio: ["ignore", "ignore", "ignore"] });
+      return true;
     },
   };
 }

@@ -3,13 +3,18 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { slugify, scanWorkspaceFiles, type ProjectFile } from "@agentchan/creative-agent";
 import type { Project, ProjectMeta } from "../types.js";
-import { probeCover } from "../paths.js";
+import { IMAGE_EXTS, probeCover } from "../paths.js";
 
 export interface TreeEntry {
   path: string;
   type: "file" | "dir";
   modifiedAt?: number;
 }
+
+export type WorkspaceFileResult =
+  | { status: "found"; file: ReturnType<typeof Bun.file>; cacheControl?: string }
+  | { status: "invalid-path" }
+  | { status: "not-found" };
 
 const HIDDEN_ROOTS = new Set(["_project.json", "sessions"]);
 
@@ -92,6 +97,10 @@ export function createProjectRepo(projectsDir: string) {
       if (!existsSync(metaPath)) return null;
       const meta = JSON.parse(await readFile(metaPath, "utf-8")) as ProjectMeta;
       return { ...meta, slug };
+    },
+
+    exists(slug: string): boolean {
+      return existsSync(projectMetaPath(slug));
     },
 
     async create(name: string): Promise<Project> {
@@ -194,6 +203,27 @@ export function createProjectRepo(projectsDir: string) {
       if (HIDDEN_ROOTS.has(topSegment)) return null;
 
       return { fullPath };
+    },
+
+    async getWorkspaceFile(slug: string, filePath: string): Promise<WorkspaceFileResult> {
+      const resolved = this.resolveProjectFile(slug, `files/${filePath}`);
+      if (!resolved) return { status: "invalid-path" };
+
+      const file = Bun.file(resolved.fullPath);
+      if (await file.exists()) return { status: "found", file };
+
+      for (const ext of IMAGE_EXTS) {
+        const fallback = Bun.file(`${resolved.fullPath}.${ext}`);
+        if (await fallback.exists()) {
+          return {
+            status: "found",
+            file: fallback,
+            cacheControl: "public, max-age=3600",
+          };
+        }
+      }
+
+      return { status: "not-found" };
     },
 
     async readProjectFile(slug: string, filePath: string): Promise<string | null> {
