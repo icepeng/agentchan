@@ -19,7 +19,7 @@ const SKILLS = [
   "agent-browser",
   "character-images",
   "cover-image",
-  "implement",
+  "interview",
   "playtest",
   "portless",
   "update-deps",
