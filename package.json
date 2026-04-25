@@ -16,7 +16,9 @@
     "test": "turbo run test",
     "dev": "bun run --cwd apps/webui dev",
     "lint": "turbo run lint",
-    "prepare": "husky"
+    "prepare": "husky",
+    "skills:check": "bun scripts/sync-agent-skills.ts --check",
+    "skills:sync": "bun scripts/sync-agent-skills.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

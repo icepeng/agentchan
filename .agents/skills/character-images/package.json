@@ -1,0 +1,12 @@
+{
+  "name": "character-images-skill",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.12",
+    "@types/node": "^25.6.0"
+  }
+}
