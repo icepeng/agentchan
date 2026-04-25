@@ -33,7 +33,6 @@ export function useSentenceAnimation(
       for (let i = prevCount; i < currentCount; i++) {
         newIndices.add(i);
       }
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- paint 전 동기 업데이트 필요 (useLayoutEffect)
       setAnimatingIndices(newIndices);
       animatedCountRef.current = currentCount;
 
@@ -47,7 +46,7 @@ export function useSentenceAnimation(
   useEffect(() => {
     if (!text) {
       animatedCountRef.current = 0;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 스트리밍 종료 시 애니메이션 리셋
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 텍스트가 비었을 때 애니메이션 상태를 즉시 리셋한다.
       setAnimatingIndices(new Set());
     }
   }, [text]);

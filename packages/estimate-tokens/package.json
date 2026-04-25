@@ -6,7 +6,7 @@
   "main": "index.mjs",
   "types": "index.d.ts",
   "devDependencies": {
-    "@google/genai": "^1.49.0",
+    "@google/genai": "^1.50.1",
     "tiktoken": "^1.0.22"
   }
 }
