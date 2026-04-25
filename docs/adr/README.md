@@ -16,3 +16,7 @@ note, the accepted ADR wins until it is superseded by a later ADR.
 - [0005. 창작 세션과 메타 세션을 분리한다](0005-meta-session.md)
 - [0006. Web UI는 server 3-layer와 client FSD 계층을 유지한다](0006-webui-layering.md)
 - [0007. 에이전트는 prompt 계약과 project-scoped tools로 동작한다](0007-agent-prompt-tool-boundary.md)
+
+## 관련 계획
+
+- [리팩터 현대화 계획](../refactor-modernization-plan.md)
