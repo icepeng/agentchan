@@ -32,6 +32,7 @@ import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
 import { createTemplateRoutes } from "./routes/template.routes.js";
 import { createUpdateRoutes } from "./routes/update.routes.js";
+import { CONTENT_SECURITY_POLICY } from "./security.js";
 
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
@@ -83,6 +84,11 @@ await migrateConversationsToSessions(PROJECTS_DIR);
 
 // ===== 4. Hono App =====
 const app = new Hono<AppEnv>();
+
+app.use("*", async (c, next) => {
+  c.header("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+  await next();
+});
 
 // Global error handler — log full stack traces to console
 app.onError((err, c) => {

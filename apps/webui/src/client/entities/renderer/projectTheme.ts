@@ -8,7 +8,8 @@ import type {
  * Renderer-owned theme: 렌더러가 프로젝트 페이지 한정으로 전역 CSS custom property를
  * 오버라이드할 수 있도록 하는 계약.
  *
- * - 색상 전용. 폰트는 렌더러 자체 `<style>` 안에서 `font-family`로 직접 지정한다.
+ * - 색상 전용. 폰트 적용은 renderer CSS에서 `font-family`로 지정한다.
+ *   외부 폰트 로딩이 필요하면 renderer component의 React 19 `<link>`를 사용한다.
  * - `base`만 있으면 단일 모드, `dark`가 있으면 듀얼 모드.
  * - `prefersScheme`이 명시되면 프로젝트 페이지에서만 사용자 Appearance 토글을 강제 오버라이드.
  * - `theme(snapshot)` 함수는 현재 files를 보고 팔레트를 다르게 반환할 수 있다.

@@ -51,6 +51,9 @@ Rules:
 - CSS must be part of the renderer graph, usually `import "./index.css"`.
 - Relative imports must stay inside `renderer/`.
 - External browser libraries must be vendored under `renderer/`.
+- External fonts may be declared with React 19 `<link rel="preconnect">` and
+  `<link rel="stylesheet" precedence="renderer-fonts">`. Host CSP controls
+  allowed origins; keep actual styling in renderer CSS.
 - Allowed bare imports are `agentchan:renderer/v1` and `react` only.
 - Do not import URL modules, `node:*`, host app internals, or browser storage.
 - Do not emit `<script>` tags or inline event-handler attributes.

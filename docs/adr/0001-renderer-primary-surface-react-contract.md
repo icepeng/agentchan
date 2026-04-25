@@ -42,6 +42,8 @@ export function theme(snapshot: Agentchan.RendererSnapshot): Agentchan.RendererT
 - `agentchan:renderer/v1`
 - `react`
 - `renderer/` 내부 relative import와 CSS import
+- React 19 metadata/resource `<link>` 태그 중 `rel="stylesheet"`와
+  `rel="preconnect"`로 선언한 외부 스타일시트/폰트 리소스
 
 `RendererSnapshot`은 `{ slug, baseUrl, files, state }`다. `ProjectFile`의
 `digest`는 opaque cache identity다. Renderer-visible
@@ -61,6 +63,10 @@ transport는 runtime 구현 세부사항이며 renderer 작성 API가 아니다.
   내부 relative import, CSS import로 제한한다.
 - renderer code는 host DOM global, browser storage, `node:*`, 외부 URL import,
   임의 npm package에 의존하지 않는다.
+- 외부 폰트는 React 19 `<link rel="stylesheet" precedence="...">`와
+  `<link rel="preconnect">`로 선언할 수 있다. Host CSP가 허용한 origin만
+  로드된다. 외부 stylesheet의 selector가 ShadowRoot 내부 DOM을 스타일링한다고
+  가정하지 말고, font-face 등록 용도로 사용한다.
 - 파일 URL은 가능하면 `Agentchan.fileUrl()`을 사용해 digest cache key를
   일관되게 붙인다.
 
