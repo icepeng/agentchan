@@ -1,16 +1,16 @@
-# 커스터마이즈 가이드
+﻿# 커스터마이즈 가이드
 
 ## `SYSTEM.md`
 프로젝트의 행동 원천. 장면 배경, 세션 흐름, 경계↔신뢰 규칙("큐 이벤트" 정의), 출력 형식이 전부 여기 들어 있습니다. **톤·규칙·세계관 배경**을 바꾸고 싶으면 여기를 편집합니다.
 
-## `renderer.ts`
+## `renderer/`
 `files/`를 받아 좌측 패널 HTML을 만드는 순수 함수. 씬 파싱(이미지 토큰, 캐릭터 대사·지문), 스탯 바, 페르소나 카드 등 시각화 전체를 담당합니다. 상단의 **`CHARACTER_META`에 세 캐릭터 id가 하드코딩**되어 있어, 캐릭터를 교체하려면 렌더러도 함께 수정해야 합니다.
 
 ## `files/characters/{id}/`
 **NPC 정의 + 감정 삽화**.
 - `{id}.md` — frontmatter의 `name` 값이 렌더러의 캐릭터 매칭 키입니다 (씬 속 토큰 `[iseo:assets/tense]`의 `iseo`가 곧 이 `name`). 그 외 `display-name`, `color`, `avatar-image`, `names`(별칭 목록)가 쓰입니다.
 - `assets/` — 3장 한 세트: `calm` / `tense` / `cracked`. 씬 안에서 `[id:assets/표정]`으로 참조. 확장자는 서버가 자동 탐색하므로 `.png`/`.jpg` 무관.
-- **캐릭터 교체 체크리스트**: 디렉토리명, `{id}.md`의 `name` frontmatter, `stats.md`의 키, `renderer.ts`의 `CHARACTER_META` — 이 네 곳을 함께 바꿔야 합니다.
+- **캐릭터 교체 체크리스트**: 디렉토리명, `{id}.md`의 `name` frontmatter, `stats.md`의 키, `renderer/`의 `CHARACTER_META` — 이 네 곳을 함께 바꿔야 합니다.
 
 ## `files/personas/*.md`
 유저 페르소나. frontmatter에 `role: persona`가 있어야 렌더러가 인식합니다. `position` 필드(`senior` / `peer` / `junior` / `outsider`)에 따라 세 NPC의 호칭·태도가 자동 전환됩니다. 파일을 지우면 이름 없는 외부 조사자로 동작. 여러 페르소나를 두고 원하는 것만 남기는 방식으로 전환해도 됩니다.
@@ -34,3 +34,4 @@ RP 씬이 append로 누적되는 파일. 렌더러는 `scenes/`로 시작하는 
 
 ## 난이도 조절
 쉬운 수사로 만들고 싶으면 `suspects-truth.md`의 `clues`를 3개로 줄이거나 `secrets[*].trust_threshold`를 낮춥니다. 반대로 `trust_threshold: +5`를 늘리고 `confront` 게이트가 걸린 단서를 늘리면 더 어려운 수사가 됩니다. `ending.full_resolution_requires.clues_revealed`로 엔딩 판정 기준도 바꿀 수 있습니다.
+

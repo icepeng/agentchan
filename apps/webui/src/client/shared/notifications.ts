@@ -146,6 +146,7 @@ export function notifyBackgroundCompletion(opts: NotifyOpts): void {
       try {
         window.focus();
       } catch { /* ignore */ }
+      markSeen(opts.projectSlug);
       opts.onClick();
       notif.close();
     };

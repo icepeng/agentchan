@@ -3,7 +3,7 @@ import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import { qk, matchesSlug } from "@/client/shared/queryKeys.js";
 import {
   fetchWorkspaceFiles,
-  fetchTranspiledRenderer,
+  fetchRendererBundle,
   createProject as apiCreate,
   updateProject as apiUpdate,
   deleteProject as apiDelete,
@@ -26,10 +26,10 @@ export function useWorkspaceFiles(slug: string | null) {
   );
 }
 
-export function useRendererJs(slug: string | null) {
-  return useSWR<{ js: string }>(
-    slug ? qk.rendererJs(slug) : null,
-    () => fetchTranspiledRenderer(slug as string),
+export function useRendererBundle(slug: string | null) {
+  return useSWR<{ js: string; css: string[] }>(
+    slug ? qk.rendererBundle(slug) : null,
+    () => fetchRendererBundle(slug as string),
   );
 }
 

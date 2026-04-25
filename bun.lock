@@ -11,7 +11,7 @@
         "eslint": "^10.2.0",
         "eslint-plugin-react-hooks": "^7.0.1",
         "husky": "^9.1.7",
-        "portless": "^0.10.1",
+        "portless": "^0.10.3",
         "turbo": "^2.9.6",
         "typescript": "^6.0.2",
         "typescript-eslint": "^8.58.1",
@@ -39,7 +39,6 @@
         "@mariozechner/pi-ai": "^0.66.1",
         "command-score": "^0.1.2",
         "hono": "^4.12.12",
-        "idiomorph": "^0.7.4",
         "lucide-react": "^1.8.0",
         "nanoid": "^5.1.7",
         "react": "^19.2.5",
@@ -733,7 +732,6 @@
 
     "husky": ["husky@9.1.7", "", { "bin": { "husky": "bin.js" } }, "sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA=="],
 
-    "idiomorph": ["idiomorph@0.7.4", "", {}, "sha512-uCdSpLo3uMfqOmrwXTpR1k/sq4sSmKC7l4o/LdJOEU+MMMq+wkevRqOQYn3lP7vfz9Mv+USBEqPvi0XhdL9ENw=="],
 
     "ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
 
@@ -849,7 +847,7 @@
 
     "picomatch": ["picomatch@4.0.4", "", {}, "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A=="],
 
-    "portless": ["portless@0.10.1", "", { "os": [ "linux", "win32", "darwin", ], "bin": { "portless": "dist/cli.js" } }, "sha512-WSzw0bW5tKoK8TIrOr54T43jc0A35XR6RApGEhlbBOl8NgugfQTD3EGKwqE2jjEdcNtPG5WHH/dXzxgVIoY4hw=="],
+    "portless": ["portless@0.10.3", "", { "os": [ "linux", "win32", "darwin", ], "bin": { "portless": "dist/cli.js" } }, "sha512-lXbVUsNiwWMKJGMi49HhTMW0lS7u0EzawonDZQ+yglSnHioiQK18Y4Fe0Ilk+TuXej71E/nTOHIFIBjUGvTm9w=="],
 
     "postcss": ["postcss@8.5.8", "", { "dependencies": { "nanoid": "^3.3.11", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg=="],
 

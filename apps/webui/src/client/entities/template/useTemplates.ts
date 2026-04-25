@@ -35,10 +35,13 @@ export function useTemplateMutations() {
 
   const setTrust = async (slug: string, trusted: boolean) => {
     await apiSetTrust(slug, trusted);
-    // Cache-only invalidate: callers typically navigate away (project create
-    // path), so the next mount will refetch on its own and we skip an extra
-    // round-trip here.
-    await mutate(qk.templates(), undefined, { revalidate: false });
+    await mutate<TemplateMeta[]>(
+      qk.templates(),
+      (current) => current?.map((tpl) => (
+        tpl.slug === slug ? { ...tpl, trusted } : tpl
+      )),
+      { revalidate: false, populateCache: true },
+    );
   };
 
   return { saveOrder, saveAsTemplate, setTrust };

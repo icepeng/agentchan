@@ -5,7 +5,7 @@ export type {
   ToolResultMessage,
   UserMessage,
 } from "./agentState.js";
-export { EMPTY_AGENT_STATE } from "./agentState.js";
+export { EMPTY_AGENT_STATE, selectCurrentTurnBlocks } from "./agentState.js";
 
 export {
   AgentStateProvider,

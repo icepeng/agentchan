@@ -10,6 +10,12 @@ import {
 } from "./editor.api.js";
 import type { TreeEntry } from "./editor.types.js";
 
+const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
+
+function notifyProjectFilesChanged(slug: string): void {
+  window.dispatchEvent(new CustomEvent(PROJECT_FILES_CHANGED, { detail: { slug } }));
+}
+
 export function useProjectTree(slug: string | null) {
   return useSWR<{ entries: TreeEntry[] }>(slug ? qk.projectTree(slug) : null);
 }
@@ -30,30 +36,35 @@ export function useEditorMutations(slug: string | null) {
     if (!slug) throw new Error("write: slug required");
     await apiWrite(slug, path, content);
     refreshTree();
+    notifyProjectFilesChanged(slug);
   };
 
   const removeFile = async (path: string) => {
     if (!slug) throw new Error("removeFile: slug required");
     await apiDeleteFile(slug, path);
     refreshTree();
+    notifyProjectFilesChanged(slug);
   };
 
   const removeDir = async (path: string) => {
     if (!slug) throw new Error("removeDir: slug required");
     await apiDeleteDir(slug, path);
     refreshTree();
+    notifyProjectFilesChanged(slug);
   };
 
   const rename = async (from: string, to: string) => {
     if (!slug) throw new Error("rename: slug required");
     await apiRename(slug, from, to);
     refreshTree();
+    notifyProjectFilesChanged(slug);
   };
 
   const createDir = async (path: string) => {
     if (!slug) throw new Error("createDir: slug required");
     await apiCreateDir(slug, path);
     refreshTree();
+    notifyProjectFilesChanged(slug);
   };
 
   const reveal = async (path: string) => {

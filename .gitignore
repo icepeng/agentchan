@@ -10,6 +10,7 @@ apps/webui/data/
 .claude/settings.local.json
 .claude/memory/
 .claude/skills/playtest/scripts/.play-state.json
+.agents/skills/playtest/scripts/.play-state.json
 
 research/
 CLAUDE.local.md

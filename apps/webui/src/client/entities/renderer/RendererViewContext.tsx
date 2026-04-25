@@ -5,35 +5,65 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-import type { RendererTheme } from "./renderer.types.js";
+import type {
+  RendererBundle,
+  RendererSnapshot,
+  RendererTheme,
+} from "./renderer.types.js";
 
 /** Singleton: only the active project's renderer output is on screen. */
 interface RendererViewState {
-  html: string;
+  bundle: RendererBundle | null;
+  snapshot: RendererSnapshot | null;
   theme: RendererTheme | null;
+  error: string | null;
 }
 
-// CLEAR_HTML keeps the last theme to avoid a two-step palette flash on switch;
+// CLEAR_RENDERER keeps the last theme to avoid a two-step palette flash on switch;
 // CLEAR drops both (used when there's no active project).
 type RendererViewAction =
-  | { type: "SET_OUTPUT"; html: string; theme: RendererTheme | null }
-  | { type: "CLEAR_HTML" }
+  | { type: "SET_RENDERER"; bundle: RendererBundle; snapshot: RendererSnapshot }
+  | { type: "SET_SNAPSHOT"; snapshot: RendererSnapshot }
+  | { type: "SET_THEME"; theme: RendererTheme | null }
+  | { type: "SET_ERROR"; error: string }
+  | { type: "CLEAR_RENDERER" }
   | { type: "CLEAR" };
 
 function reducer(state: RendererViewState, action: RendererViewAction): RendererViewState {
   switch (action.type) {
-    case "SET_OUTPUT":
-      return { html: action.html, theme: action.theme };
-    case "CLEAR_HTML":
-      return { ...state, html: "" };
+    case "SET_RENDERER":
+      return {
+        ...state,
+        bundle: action.bundle,
+        snapshot: action.snapshot,
+        error: null,
+      };
+    case "SET_SNAPSHOT":
+      return { ...state, snapshot: action.snapshot, error: null };
+    case "SET_THEME":
+      return { ...state, theme: action.theme };
+    case "SET_ERROR":
+      return {
+        ...state,
+        bundle: null,
+        snapshot: null,
+        error: action.error,
+      };
+    case "CLEAR_RENDERER":
+      return { ...state, bundle: null, snapshot: null, error: null };
     case "CLEAR":
-      return { html: "", theme: null };
+      return { bundle: null, snapshot: null, theme: null, error: null };
     default:
       return state;
   }
 }
 
-const initialState: RendererViewState = { html: "", theme: null };
+const initialState: RendererViewState = {
+  bundle: null,
+  snapshot: null,
+  theme: null,
+  error: null,
+};
 
 const StateContext = createContext<RendererViewState>(initialState);
 const DispatchContext = createContext<Dispatch<RendererViewAction>>(() => {});

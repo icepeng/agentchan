@@ -22,5 +22,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
   },
-  "exclude": ["node_modules", "example_data", "research"],
+  "exclude": ["node_modules", "example_data", "research", "apps/webui/data"],
 }

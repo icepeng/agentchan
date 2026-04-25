@@ -2,9 +2,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
+import { resolveDevPorts } from "./scripts/dev-ports.js";
 
-const serverPort = Number(process.env.SERVER_PORT ?? 3000);
-const clientPort = Number(process.env.CLIENT_PORT ?? 4100);
+const { serverPort, clientPort } = resolveDevPorts();
 
 export default defineConfig({
   plugins: [

@@ -3,6 +3,7 @@ import type {
   ToolResultMessage,
   UserMessage,
 } from "@mariozechner/pi-ai";
+import type { AssistantContentBlock } from "@/client/entities/session/index.js";
 
 export type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
 
@@ -32,3 +33,23 @@ export const EMPTY_AGENT_STATE: AgentState = {
   isStreaming: false,
   pendingToolCalls: EMPTY_PENDING,
 };
+
+/**
+ * 현재 진행 중인 턴의 assistant content 블록을 한 배열로 복원한다.
+ * 마지막 user 메시지 이후의 완료된 assistant 메시지 content +
+ * in-flight `streamingMessage.content`를 시간순으로 이어 붙인다.
+ *
+ * 서버는 턴 전체가 끝나야 `assistant_nodes` SSE를 보내므로, 멀티스텝 중간에
+ * 완료된 step은 `state.messages`에만 존재한다. `streamingMessage`만 보면
+ * 그 구간에서 이전 step의 toolCall이 사라지는 플리커가 생긴다 — 이 병합이
+ * 그 공백을 메운다.
+ */
+export function selectCurrentTurnBlocks(state: AgentState): AssistantContentBlock[] {
+  const lastUserIdx = state.messages.findLastIndex((m) => m.role === "user");
+  const turnMessages = state.messages.slice(lastUserIdx + 1);
+  const blocks = turnMessages.flatMap((m) =>
+    m.role === "assistant" ? m.content : [],
+  );
+  if (state.streamingMessage) blocks.push(...state.streamingMessage.content);
+  return blocks;
+}

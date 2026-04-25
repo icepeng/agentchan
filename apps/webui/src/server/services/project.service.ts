@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { buildRendererBundle } from "@agentchan/creative-agent";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 import { TrustRequiredError, type TemplateTrustService } from "./template-trust.service.js";
@@ -10,8 +10,6 @@ export function createProjectService(
   trustService: TemplateTrustService,
   projectsDir: string,
 ) {
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
-
   return {
     async list() { return projectRepo.list(); },
     async getCoverFile(slug: string) { return projectRepo.getCoverFile(slug); },
@@ -61,11 +59,8 @@ export function createProjectService(
       return projectRepo.createProjectDir(slug, dirPath);
     },
 
-    async transpileRenderer(slug: string): Promise<string | null> {
-      const rendererPath = join(projectsDir, slug, "renderer.ts");
-      if (!existsSync(rendererPath)) return null;
-      const source = await Bun.file(rendererPath).text();
-      return transpiler.transformSync(source);
+    async buildRenderer(slug: string) {
+      return buildRendererBundle(join(projectsDir, slug));
     },
 
     serveWorkspaceFile(slug: string, filePath: string): { fullPath: string } | null {

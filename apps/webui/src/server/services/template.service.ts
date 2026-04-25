@@ -72,11 +72,15 @@ export function createTemplateService(
       const copies: Promise<void>[] = [];
       const readmeSrc = join(srcDir, "README.md");
       const readmeWasCopied = existsSync(readmeSrc);
-      for (const file of ["SYSTEM.md", "renderer.ts", "README.md"] as const) {
+      for (const file of ["SYSTEM.md", "README.md"] as const) {
         const src = join(srcDir, file);
         if (existsSync(src)) {
           copies.push(cp(src, join(destDir, file)));
         }
+      }
+      const rendererSrc = join(srcDir, "renderer");
+      if (existsSync(rendererSrc)) {
+        copies.push(cp(rendererSrc, join(destDir, "renderer"), { recursive: true }));
       }
       const skillsSrc = join(srcDir, "skills");
       if (existsSync(skillsSrc)) {

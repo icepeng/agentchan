@@ -118,11 +118,13 @@ export function createProjectRoutes() {
     return c.json({ files });
   });
 
-  app.get("/:slug/renderer.js", async (c) => {
+  app.get("/:slug/renderer-bundle", async (c) => {
     const slug = c.req.param("slug");
-    const js = await c.get("projectService").transpileRenderer(slug);
-    if (js === null) return c.json({ error: "renderer.ts not found" }, 404);
-    return c.json({ js });
+    const bundle = await c.get("projectService").buildRenderer(slug);
+    if (bundle === null) {
+      return c.json({ error: "renderer/index.tsx not found" }, 404);
+    }
+    return c.json(bundle);
   });
 
   app.get("/:slug/cover", async (c) => {

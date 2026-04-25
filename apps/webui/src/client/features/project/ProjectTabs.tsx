@@ -4,11 +4,12 @@ import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import { useI18n } from "@/client/i18n/index.js";
 import { Indicator, CoverImage } from "@/client/shared/ui/index.js";
-import { useTemplates } from "@/client/entities/template/index.js";
+import { useTemplateMutations, useTemplates } from "@/client/entities/template/index.js";
 import { useAgentStateMap, EMPTY_AGENT_STATE } from "@/client/entities/agent-state/index.js";
 import { useProject } from "./useProject.js";
 import { ProjectSettingsModal } from "./ProjectSettingsModal.js";
 import { SaveAsTemplateModal } from "./SaveAsTemplateModal.js";
+import { TrustTemplateDialog } from "./TrustTemplateDialog.js";
 
 // -- Shared menu styles ---
 
@@ -67,9 +68,11 @@ export function ProjectTabs() {
   const agentStateMap = useAgentStateMap();
   const [mode, modeDispatch] = useReducer(tabsReducer, { type: "idle" });
   const { data: templates } = useTemplates();
+  const { setTrust } = useTemplateMutations();
   const createInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const submittingRef = useRef(false);
+  const [trustPrompt, setTrustPrompt] = useState<{ slug: string; name: string; projectName: string } | null>(null);
 
   const isCreating = mode.type === "creating";
   const isEditing = mode.type === "editing";
@@ -92,9 +95,29 @@ export function ProjectTabs() {
       createInputRef.current?.focus();
       return;
     }
+    const template = mode.templateName
+      ? templates?.find((tpl) => tpl.slug === mode.templateName)
+      : null;
+    if (template && !template.trusted) {
+      setTrustPrompt({ slug: template.slug, name: template.name, projectName: name });
+      return;
+    }
     submittingRef.current = true;
     try {
       await createProject(name, mode.templateName);
+      modeDispatch({ type: "RESET" });
+    } finally {
+      submittingRef.current = false;
+    }
+  };
+
+  const handleTrustConfirm = async () => {
+    if (!trustPrompt) return;
+    submittingRef.current = true;
+    try {
+      await setTrust(trustPrompt.slug, true);
+      setTrustPrompt(null);
+      await createProject(trustPrompt.projectName, trustPrompt.slug);
       modeDispatch({ type: "RESET" });
     } finally {
       submittingRef.current = false;
@@ -379,6 +402,12 @@ export function ProjectTabs() {
 
       <ProjectSettingsModal slug={settingsSlug} onClose={() => setSettingsSlug(null)} />
       <SaveAsTemplateModal slug={saveAsTemplateSlug} onClose={() => setSaveAsTemplateSlug(null)} />
+      <TrustTemplateDialog
+        open={trustPrompt !== null}
+        templateName={trustPrompt?.name ?? ""}
+        onCancel={() => setTrustPrompt(null)}
+        onConfirm={handleTrustConfirm}
+      />
     </div>
   );
 }
