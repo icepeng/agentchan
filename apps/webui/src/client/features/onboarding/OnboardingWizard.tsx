@@ -17,7 +17,7 @@ const STEPS: OnboardingStep[] = [0, 1, 2];
 // Strategic priority, separate from _order.json (the Templates page sort
 // hint). Slugs missing from disk are filtered out so pruned branches or
 // template renames don't break the wizard.
-const FEATURED_SLUGS: readonly string[] = ["sentinel", "tides-of-moonhaven"];
+const FEATURED_SLUGS: readonly string[] = ["last-vow", "tides-of-moonhaven"];
 
 export function OnboardingWizard() {
   const ob = useOnboarding();
