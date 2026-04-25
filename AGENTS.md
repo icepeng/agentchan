@@ -76,7 +76,15 @@
 - Renderer에서 Agentchan skills, `SYSTEM.md`, sessions, host DOM, parent/top window, browser storage, arbitrary URL, npm package, `node:*`에 접근하지 않는다.
 - 파일 URL은 `Agentchan.fileUrl(snapshot, fileOrPath)`를 우선 사용한다.
 - Renderer owns viewport. `RenderedView`가 외부 padding을 넣는다고 가정하지 않는다.
-- 한국어 가능성이 있는 영역에는 monospace 폰트를 사용하지 않는다.
+- 한국어 가능성이 있는 영역에는 monospace 폰트와 `font-style: italic`을 typographic 강조 수단으로 사용하지 않는다. 강조·구분은 weight, color/opacity, sans/serif 페어링, letter-spacing, 따옴표·괄호, border-left 같은 영역 분리로 처리한다.
+
+## Renderer 시각 디자인 규칙
+- 템플릿 renderer의 첫 viewport는 하나의 composition으로 읽혀야 한다. 정보 패널·카드·상태줄을 나열한 dashboard처럼 만들지 않는다.
+- 브랜드/작품명은 hero-level signal이어야 한다. nav나 작은 eyebrow를 지웠을 때 다른 템플릿과 구분되지 않으면 브랜딩이 약한 것이다.
+- 한국어가 노출될 수 있는 UI는 기본 제공 `Pretendard Variable`을 1순위로 쓴다. OS에 설치된 `Noto Serif KR`, `Nanum Myeongjo` 같은 폰트가 있다고 가정하지 않는다.
+- 영문 전용 브랜드/라벨에는 앱에서 이미 제공하는 `Syne`, `Lexend`, `Fira Code`를 사용할 수 있다. 단 한국어가 섞일 가능성이 있으면 `Pretendard Variable`로 돌아온다.
+- 한국어 가능 영역에서는 italic, monospace, 과한 letter-spacing을 강조 수단으로 쓰지 않는다. weight, color/opacity, serif/sans 페어링, 따옴표, border-left, 여백으로 구분한다.
+- Web UI 확인 시 데스크톱과 모바일 폭에서 첫 화면, 선택지, 버튼 텍스트 overflow, 실제 computed font-family를 확인한다.
 
 ## Agentchan 런타임 규칙
 - Agentchan tool LLM 가이드는 2층으로 둔다: system prompt는 선택 규칙, tool `description`은 사용법.
@@ -96,6 +104,13 @@
 - Cover image 인식은 프로젝트/템플릿 루트의 `COVER.*`와 `probeCover()` 흐름을 따른다.
 - `example_data/`를 수정한 뒤 runtime 반영이 필요하면 `bun run example-data:copy -- --force`를 사용한다.
 - 기존 프로젝트는 생성 시점의 template snapshot을 가진다. 템플릿 변경이 기존 프로젝트에 자동 반영된다고 가정하지 않는다.
+
+## Agentchan 템플릿 저작 규칙
+- 템플릿은 “평균적으로 무난한” 콘셉트보다 한 가지 감정·장르·상황을 강하게 밀어붙인다. 대중성이 필요하면 소재는 익숙하게, 연출은 치우치게 잡는다.
+- 템플릿의 첫 화면은 사용자가 즉시 행동할 수 있어야 한다. 빈 대기 화면에도 2~3개의 starter choice를 제공한다.
+- 대화형 템플릿은 각 주요 응답 말미에 다음 행동 선택지를 제공한다. 선택지는 이야기를 닫는 설명이 아니라 사용자의 다음 판단을 구체화해야 한다.
+- `SYSTEM.md`와 template skill은 변천사·세계관 설명보다 실행 루프를 우선한다: 시작 장면, 증거 제시, 인물 반응, 선택지 생성, 결말 판정 같은 행동 규칙을 짧고 강하게 쓴다.
+- 템플릿 변경 후 기존 프로젝트에 자동 반영된다고 가정하지 않는다. source of truth는 `example_data/`이고, 런타임 확인은 새 프로젝트를 만들거나 필요한 경우 `apps/webui/data/projects/*`의 스냅샷 차이를 의식한다.
 
 ## Agentchan 프롬프트 파일 규칙
 - Agentchan의 `SYSTEM.md`, `SYSTEM.meta.md`, `skills/*/SKILL.md`는 제품 런타임에서 LLM에 주입되는 실행 지침이다.
