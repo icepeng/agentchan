@@ -1,6 +1,8 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
+import { createHash } from "node:crypto";
+import type { Stats } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { parseFrontmatter } from "./frontmatter.js";
 import type { ProjectFile } from "./types.js";
@@ -25,6 +27,14 @@ function isHidden(name: string): boolean {
   return name.startsWith(".");
 }
 
+function digestContent(content: string | Uint8Array): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function digestStat(fileStat: Stats): string {
+  return `stat:${fileStat.size}:${fileStat.mtimeMs}`;
+}
+
 /**
  * Recursively scan a workspace directory and produce a `ProjectFile[]`.
  *
@@ -32,7 +42,7 @@ function isHidden(name: string): boolean {
  *   `.md` files, parsed `frontmatter`.
  * - Data files (`.yaml`, `.yml`, `.json`) include both `content` (original)
  *   and `data` (parsed object). Parse failures fall back to `TextFile`.
- * - Binary files include only `path` and `modifiedAt`.
+ * - Binary files include only `path`, `modifiedAt`, and a metadata digest.
  * - Dotfiles/dotdirs are skipped.
  *
  * Paths are relative to `baseDir`, using forward slashes.
@@ -75,6 +85,7 @@ export async function scanWorkspaceFiles(
               data: parsed.value,
               format,
               modifiedAt: fileStat.mtimeMs,
+              digest: digestContent(raw),
             });
           } else {
             // Parse failure — fall back to TextFile so callers still see content
@@ -84,6 +95,7 @@ export async function scanWorkspaceFiles(
               content: raw,
               frontmatter: null,
               modifiedAt: fileStat.mtimeMs,
+              digest: digestContent(raw),
             });
           }
         } else if (isTextFile(fullPath)) {
@@ -106,6 +118,7 @@ export async function scanWorkspaceFiles(
             content,
             frontmatter,
             modifiedAt: fileStat.mtimeMs,
+            digest: digestContent(raw),
           });
         } else {
           const fileStat = await stat(fullPath);
@@ -113,6 +126,7 @@ export async function scanWorkspaceFiles(
             type: "binary",
             path: relativePath,
             modifiedAt: fileStat.mtimeMs,
+            digest: digestStat(fileStat),
           });
         }
       } catch {
