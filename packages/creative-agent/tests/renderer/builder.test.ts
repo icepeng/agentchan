@@ -124,6 +124,31 @@ describe("Renderer V1 bundle", () => {
     expect(bundle?.css[0]).toContain(".root");
   });
 
+  test("React 19 stylesheet links can be declared by renderer components", async () => {
+    await writeRenderer(
+      "index.tsx",
+      `
+        export default function Renderer() {
+          return (
+            <main>
+              <link
+                rel="stylesheet"
+                href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap"
+                precedence="renderer-fonts"
+              />
+              <div style={{ fontFamily: '"Noto Sans KR", system-ui, sans-serif' }} />
+            </main>
+          );
+        }
+      `,
+    );
+
+    const bundle = await buildRendererBundle(projectDir);
+
+    expect(bundle?.js).toContain("fonts.googleapis.com");
+    expect(bundle?.js).toContain("renderer-fonts");
+  });
+
   test("Agentchan.fileUrl encodes paths and appends digest consistently", async () => {
     await writeRenderer(
       "index.tsx",

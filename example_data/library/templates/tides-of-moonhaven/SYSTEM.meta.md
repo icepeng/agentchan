@@ -17,6 +17,9 @@ Renderer rules:
   inputs. Use `actions.fill(text)` and `actions.send(text)` for host actions.
 - Use `Agentchan.fileUrl(snapshot, file)` for assets under `files/` when
   practical.
+- Declare external fonts with React 19 `<link rel="preconnect">` and
+  `<link rel="stylesheet" precedence="renderer-fonts">`; apply them from
+  renderer CSS with `font-family`.
 - Do not import host app modules, npm packages other than `react`, URLs,
   `node:*`, or browser storage APIs. Vendored browser libraries must live
   under `renderer/`.

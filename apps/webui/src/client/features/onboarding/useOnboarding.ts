@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect -- onboarding opens once after SWR resolves persisted setup status. */
 import { useState, useEffect } from "react";
 import {
   useProviders,
