@@ -115,6 +115,10 @@ Client code follows the existing feature-sliced layering:
   spacing and layout belong inside the renderer CSS/markup.
 - Renderer `theme(snapshot)` may override project page color tokens only. Fonts
   and detailed layout stay inside renderer CSS.
+- Renderer project switches are hosted by a single-surface statechart:
+  fade out the mounted renderer, wait for/import the next bundle, apply the next
+  theme, then mount and fade in the next renderer. Do not reintroduce two-layer
+  cross-fade behavior without a new lifecycle decision.
 - Do not use monospace fonts for areas that may contain Korean text.
 
 ## Data rules
