@@ -61,7 +61,7 @@ Context의 Portless가 비어 있으면 서버 기동: `cd <agentchan> && bun ru
 | **(c) files/ 업데이트** | 어떤 조건에 어떤 파일이 어떻게 갱신되는가. append/overwrite 규칙, 프론트매터 일관성 |
 | **(d) OOC ↔ 씬 경계** | 어시스턴트 응답과 파일 변경이 의도대로 구분되는가. 템플릿이 금지한 OOC 패턴(메타 표기·수치 보고·tool content 재출력 등) 노출 |
 | **(e) 분기·엔딩** | 템플릿이 분기를 정의했다면 각 진입 경로가 트리거 조건대로 작동하고, 결과 씬의 구조(구분선·에필로그·상태 보존 규칙 등)가 지켜지는가 |
-| **(f) 회귀 재검증** | 규칙 위반 발견 후 `example_data/` 패치 → `bash scripts/copy-example-data.sh --force` → 새 프로젝트로 같은 시나리오 반복 |
+| **(f) 회귀 재검증** | 규칙 위반 발견 후 `example_data/` 패치 → `bun run example-data:copy -- --force` → 새 프로젝트로 같은 시나리오 반복 |
 
 체크리스트는 매 범주 ✅/❌/⚠️ + 메모 컬럼으로 표 작성.
 
@@ -75,7 +75,7 @@ Context의 Portless가 비어 있으면 서버 기동: `cd <agentchan> && bun ru
 
 1. 분류 — 규칙 위반 vs 디자인 해석 충돌
 2. `example_data/library/templates/<name>/` 내 파일만 편집 (SYSTEM.md·README.md 등)
-3. `bash scripts/copy-example-data.sh --force`
+3. `bun run example-data:copy -- --force`
 4. **새 프로젝트** (`play.ts new`)로 재검증. 기존 프로젝트는 생성 시점 SYSTEM.md 스냅샷이라 재사용 불가
 
 ### 6. 보고

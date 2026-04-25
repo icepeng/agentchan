@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
-# Skip amends — only git rebase (incl. `git pull --rebase`) should trigger sync.
+
+# Skip amends; only git rebase, including `git pull --rebase`, should trigger sync.
 [ "$1" = "rebase" ] || exit 0
-bash scripts/sync-example-data-if-changed.sh
+bun scripts/sync-example-data-if-changed.ts

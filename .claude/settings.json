@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/setup-worktree.sh"
+            "command": "bun scripts/setup-worktree.ts"
           }
         ]
       }

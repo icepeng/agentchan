@@ -1,2 +1,3 @@
 #!/usr/bin/env sh
-bash scripts/sync-example-data-if-changed.sh
+
+bun scripts/sync-example-data-if-changed.ts
