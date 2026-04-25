@@ -37,7 +37,7 @@ function getSystemLanguage(): ResolvedLanguage {
 
 function resolveLanguage(pref: LanguagePreference): ResolvedLanguage {
   if (pref === "system") return getSystemLanguage();
-  return SUPPORTED.includes(pref as ResolvedLanguage) ? (pref as ResolvedLanguage) : "en";
+  return SUPPORTED.includes(pref) ? pref : "en";
 }
 
 function applyLang(resolved: ResolvedLanguage) {

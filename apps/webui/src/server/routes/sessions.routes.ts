@@ -15,7 +15,7 @@ export function createSessionRoutes() {
   // Optional body { mode } — client specifies session mode directly.
   app.post("/", async (c) => {
     const slug = c.req.param("slug")!;
-    const body = await c.req.json<{ mode?: "meta" }>().catch(() => ({} as { mode?: "meta" }));
+    const body = await c.req.json<{ mode?: "meta" }>().catch((): { mode?: "meta" } => ({}));
     return c.json(await c.get("sessionService").create(slug, body.mode), 201);
   });
 

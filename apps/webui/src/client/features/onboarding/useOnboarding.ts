@@ -34,6 +34,7 @@ export function useOnboarding() {
   useEffect(() => {
     if (decided || status === undefined) return;
     const forceShow = new URLSearchParams(window.location.search).has("onboarding");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SWR status 도착 시 한 번만 onboarding 표시 여부를 고정한다.
     if (!status.completed || forceShow) setWizardOpen(true);
     setDecided(true);
   }, [status, decided]);

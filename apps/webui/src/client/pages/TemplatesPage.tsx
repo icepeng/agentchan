@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { ArrowLeft, BookOpen, GripVertical } from "lucide-react";
 import { useSWRConfig } from "swr";
 import {
@@ -133,18 +133,12 @@ export function TemplatesPage() {
   const [trustPrompt, setTrustPrompt] = useState<{ slug: string; name: string } | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-select first template once the list arrives.
-  useEffect(() => {
-    if (selectedSlug || !templates) return;
-    const first = templates[0];
-    if (!first) return;
-    setSelectedSlug(first.slug);
-  }, [templates, selectedSlug]);
+  const effectiveSelectedSlug = selectedSlug ?? templates?.[0]?.slug ?? null;
 
-  const { data: readme } = useTemplateReadme(selectedSlug);
+  const { data: readme } = useTemplateReadme(effectiveSelectedSlug);
 
-  const selectedIndex = templates && selectedSlug
-    ? templates.findIndex((t) => t.slug === selectedSlug)
+  const selectedIndex = templates && effectiveSelectedSlug
+    ? templates.findIndex((t) => t.slug === effectiveSelectedSlug)
     : -1;
   const selectedTemplate = selectedIndex >= 0 ? templates![selectedIndex] : null;
 
@@ -171,17 +165,17 @@ export function TemplatesPage() {
   };
 
   const handleCreate = async () => {
-    if (!selectedSlug || !selectedTemplate || creating) return;
+    if (!effectiveSelectedSlug || !selectedTemplate || creating) return;
     const name = nameInput.trim();
     if (!name) {
       nameInputRef.current?.focus();
       return;
     }
     if (!selectedTemplate.trusted) {
-      setTrustPrompt({ slug: selectedSlug, name: selectedTemplate.name });
+      setTrustPrompt({ slug: effectiveSelectedSlug, name: selectedTemplate.name });
       return;
     }
-    await proceedCreate(selectedSlug, name);
+    await proceedCreate(effectiveSelectedSlug, name);
   };
 
   const handleTrustConfirm = async () => {
@@ -295,7 +289,7 @@ export function TemplatesPage() {
                       key={tpl.slug}
                       tpl={tpl}
                       index={i}
-                      isSelected={tpl.slug === selectedSlug}
+                      isSelected={tpl.slug === effectiveSelectedSlug}
                       onSelect={setSelectedSlug}
                       dragHandleLabel={t("templates.dragHandle")}
                       externalLabel={t("templates.externalLabel")}
