@@ -92,15 +92,18 @@ function importRendererModule(js: string): Promise<RendererModule> {
     .finally(() => URL.revokeObjectURL(url));
 }
 
-function clearShadowRoot(root: ShadowRoot): void {
-  while (root.firstChild) root.firstChild.remove();
+function clearRendererStyles(root: ShadowRoot): void {
+  for (const node of root.querySelectorAll("style[data-renderer-style]")) {
+    node.remove();
+  }
 }
 
 function injectCss(root: ShadowRoot, css: readonly string[]): void {
   for (const text of css) {
     const style = document.createElement("style");
+    style.setAttribute("data-renderer-style", "");
     style.textContent = text;
-    root.append(style);
+    root.prepend(style);
   }
 }
 
@@ -134,8 +137,10 @@ export function RenderedView() {
   const moduleRefs = useRef<[RendererModule | null, RendererModule | null]>([null, null]);
   const reactRootRefs = useRef<[Root | null, Root | null]>([null, null]);
   const reactMountRefs = useRef<[HTMLDivElement | null, HTMLDivElement | null]>([null, null]);
+  const rendererSnapshotRef = useRef(rendererView.snapshot);
   const stateRef = useRef(state);
   const prevSlugRef = useRef<string | null>(project.activeProjectSlug);
+  const activeProjectSlugRef = useRef<string | null>(project.activeProjectSlug);
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const frontPaintKeyRef = useRef(0);
   const activeLayerRef = useRef<RendererLayer>(0);
@@ -144,7 +149,12 @@ export function RenderedView() {
   const [exitingLayer, setExitingLayer] = useState<RendererLayer | null>(null);
   const [frontPaintKey, setFrontPaintKey] = useState(0);
   const [capturePaintKey, setCapturePaintKey] = useState(0);
-  activeLayerRef.current = activeLayer;
+
+  useLayoutEffect(() => {
+    rendererSnapshotRef.current = rendererView.snapshot;
+    activeProjectSlugRef.current = project.activeProjectSlug;
+    activeLayerRef.current = activeLayer;
+  });
 
   useEffect(() => {
     stateRef.current = state;
@@ -154,20 +164,23 @@ export function RenderedView() {
     for (const layer of [0, 1] as const) {
       const hostElement = hostElementRefs.current[layer];
       if (!hostElement || shadowRootRefs.current[layer]) continue;
-      shadowRootRefs.current[layer] = hostElement.attachShadow({ mode: "open" });
+      const root = hostElement.attachShadow({ mode: "open" });
+      const mount = appendMountNode(root);
+      shadowRootRefs.current[layer] = root;
+      reactMountRefs.current[layer] = mount;
+      reactRootRefs.current[layer] = createRoot(mount);
     }
   }, []);
 
   const clearLayer = (layer: RendererLayer) => {
-    reactRootRefs.current[layer]?.unmount();
-    reactRootRefs.current[layer] = null;
-    reactMountRefs.current[layer] = null;
+    reactRootRefs.current[layer]?.render(null);
     moduleRefs.current[layer] = null;
     layerSnapshotsRef.current[layer] = null;
     const root = shadowRootRefs.current[layer];
-    if (root) clearShadowRoot(root);
+    if (root) clearRendererStyles(root);
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Layer state must switch in the layout phase so the outgoing renderer is captured before paint. */
   useLayoutEffect(() => {
     const newSlug = project.activeProjectSlug;
     if (prevSlugRef.current !== null && prevSlugRef.current !== newSlug) {
@@ -193,6 +206,7 @@ export function RenderedView() {
     prevSlugRef.current = newSlug;
     void refresh();
   }, [project.activeProjectSlug, refresh]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     const handleFilesChanged = (event: Event) => {
@@ -252,14 +266,13 @@ export function RenderedView() {
     const layer = activeLayerRef.current;
     const root = shadowRootRefs.current[layer];
     const bundle = rendererView.bundle;
+    const bundleSlug = rendererSnapshotRef.current?.slug ?? null;
     if (!root || !bundle) return;
 
     let cancelled = false;
     clearLayer(layer);
-    layerSnapshotsRef.current[layer] = rendererView.snapshot;
+    layerSnapshotsRef.current[layer] = rendererSnapshotRef.current;
     injectCss(root, bundle.css);
-    const mount = appendMountNode(root);
-    reactMountRefs.current[layer] = mount;
     installRendererRuntime();
 
     const actions: RendererActions = {
@@ -284,11 +297,10 @@ export function RenderedView() {
     void importRendererModule(bundle.js)
       .then((mod) => {
         if (cancelled) return;
+        if (bundleSlug !== activeProjectSlugRef.current) return;
         moduleRefs.current[layer] = mod;
-        const mount = reactMountRefs.current[layer];
-        if (!mount) return;
-        const reactRoot = createRoot(mount);
-        reactRootRefs.current[layer] = reactRoot;
+        const reactRoot = reactRootRefs.current[layer];
+        if (!reactRoot) return;
         reactRoot.render(
           <RendererShell
             Component={mod.default}
@@ -312,6 +324,7 @@ export function RenderedView() {
       })
       .catch((error: unknown) => {
         if (cancelled) return;
+        if (bundleSlug !== activeProjectSlugRef.current) return;
         const message = error instanceof Error ? error.message : String(error);
         rendererViewDispatch({ type: "SET_ERROR", error: message });
       });
