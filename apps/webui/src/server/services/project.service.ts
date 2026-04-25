@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
+import { buildRendererBundle } from "@agentchan/creative-agent";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
-import { buildRendererBundle } from "./renderer-builder.js";
 
 export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
   return {
