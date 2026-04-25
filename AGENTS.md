@@ -22,6 +22,7 @@
 - `bun run dev` - Web UI dev server 실행. portless 기본 URL은 `https://agentchan.localhost`
 - `SERVER_PORT=3001 CLIENT_PORT=4101 bun run --cwd apps/webui dev:local` - portless 없이 수동 포트 실행
 - `bun run build` - Turbo production build
+- `bun run example-data:copy -- --force` - `example_data/`를 `apps/webui/data/` 런타임 데이터로 강제 반영
 - `bunx tsc --noEmit` - 타입 체크. `npx tsc`는 사용하지 않는다.
 - `bun run lint` - 전체 ESLint
 - `bun run test` - 기본 테스트. 실질 범위는 `packages/creative-agent`의 tools 테스트 중심이다.
@@ -93,7 +94,7 @@
 - Template repo에서 README가 없는 디렉터리는 preset으로 취급하지 않는다.
 - Template -> Project 복사는 선택한 템플릿 루트 엔트리를 모두 복사해야 한다. 새 루트 파일 추가 시 allowlist를 만들지 않는다.
 - Cover image 인식은 프로젝트/템플릿 루트의 `COVER.*`와 `probeCover()` 흐름을 따른다.
-- `example_data/`를 수정한 뒤 runtime 반영이 필요하면 `bash scripts/copy-example-data.sh --force`를 사용한다.
+- `example_data/`를 수정한 뒤 runtime 반영이 필요하면 `bun run example-data:copy -- --force`를 사용한다.
 - 기존 프로젝트는 생성 시점의 template snapshot을 가진다. 템플릿 변경이 기존 프로젝트에 자동 반영된다고 가정하지 않는다.
 
 ## Agentchan 프롬프트 파일 규칙

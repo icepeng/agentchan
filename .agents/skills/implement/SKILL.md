@@ -39,7 +39,7 @@ disable-model-invocation: true
 
 - 기존 패턴을 우선한다.
 - 불필요한 추상화와 관련 없는 리팩토링은 피한다.
-- `example_data/`를 수정하면 `bash scripts/copy-example-data.sh --force`로 런타임 데이터에 반영한다.
+- `example_data/`를 수정하면 `bun run example-data:copy -- --force`로 런타임 데이터에 반영한다.
 - 스킬·시스템 프롬프트 파일은 실행 지침으로 작성하고, 변천사·설계 합리화·중복 guard를 넣지 않는다.
 
 ## 5. 빌드 검증

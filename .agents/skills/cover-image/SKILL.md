@@ -105,7 +105,7 @@ done
 ## 6. 런타임 동기화 (템플릿 대상)
 
 ```bash
-bash scripts/copy-example-data.sh --force
+bun run example-data:copy -- --force
 ```
 
 ## 실패 복구
