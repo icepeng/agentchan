@@ -18,6 +18,12 @@ export async function saveTemplateOrder(order: string[]): Promise<void> {
   });
 }
 
+export async function setTemplateTrust(slug: string, trusted: boolean): Promise<void> {
+  await json<{ ok: boolean }>(`/templates/${encodeURIComponent(slug)}/trust`, {
+    method: trusted ? "POST" : "DELETE",
+  });
+}
+
 export async function saveProjectAsTemplate(
   slug: string,
   payload: {

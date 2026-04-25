@@ -20,6 +20,7 @@ import { createProjectService } from "./services/project.service.js";
 import { createSessionService } from "./services/session.service.js";
 import { createAgentService } from "./services/agent.service.js";
 import { createTemplateService } from "./services/template.service.js";
+import { createTemplateTrustService } from "./services/template-trust.service.js";
 import { createSkillService } from "./services/skill.service.js";
 import { createUpdateService } from "./services/update.service.js";
 
@@ -41,8 +42,9 @@ const updateRepo = createUpdateRepo();
 
 // ===== 2. Services =====
 const configService = createConfigService(settingsRepo);
-const templateService = createTemplateService(templateRepo, PROJECTS_DIR);
-const projectService = createProjectService(projectRepo, templateRepo, PROJECTS_DIR);
+const templateTrustService = createTemplateTrustService(settingsRepo);
+const templateService = createTemplateService(templateRepo, templateTrustService, PROJECTS_DIR);
+const projectService = createProjectService(projectRepo, templateRepo, templateTrustService, PROJECTS_DIR);
 const skillService = createSkillService(projectSkillRepo, PROJECTS_DIR);
 const updateService = createUpdateService(updateRepo);
 
@@ -98,6 +100,7 @@ app.use("/api/*", async (c, next) => {
   c.set("sessionService", sessionService);
   c.set("agentService", agentService);
   c.set("templateService", templateService);
+  c.set("templateTrustService", templateTrustService);
   c.set("skillService", skillService);
   c.set("updateService", updateService);
   await next();

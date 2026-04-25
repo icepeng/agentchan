@@ -16,6 +16,7 @@
     "test": "turbo run test",
     "dev": "bun run --cwd apps/webui dev",
     "lint": "turbo run lint",
+    "sync-builtins": "bun scripts/write-builtin-manifest.ts",
     "prepare": "husky",
     "skills:check": "bun scripts/sync-agent-skills.ts --check",
     "skills:sync": "bun scripts/sync-agent-skills.ts"

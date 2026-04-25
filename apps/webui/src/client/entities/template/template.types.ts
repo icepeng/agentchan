@@ -3,4 +3,6 @@ export interface TemplateMeta {
   name: string;
   description?: string;
   hasCover?: boolean;
+  trusted: boolean;
+  builtin: boolean;
 }

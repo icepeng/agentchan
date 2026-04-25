@@ -122,6 +122,11 @@ export const translations: Record<TranslationKey, string> = {
   "templates.noReadme": "README가 아직 준비되지 않았어요",
   "templates.dragHandle": "드래그하여 순서 변경",
   "templates.reorderFailed": "새 순서를 저장하지 못했습니다. 다시 시도해주세요.",
+  "templates.externalLabel": "외부",
+  "templates.trustTitle": '"{{name}}" 템플릿을 신뢰하시겠습니까?',
+  "templates.trustDescription": "외부에서 가져온 템플릿입니다. 이 템플릿으로 만든 프로젝트는 에이전트의 script 도구로 임의 코드를 실행할 수 있습니다. 출처를 신뢰할 수 있을 때만 진행하세요.",
+  "templates.trustConfirm": "신뢰함",
+  "templates.trustCancel": "취소",
 
   // README modal (in-project)
   "readme.modalTitle": "README",

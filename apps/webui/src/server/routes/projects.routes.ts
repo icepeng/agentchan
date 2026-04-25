@@ -5,6 +5,7 @@ import { createSkillRoutes } from "./skills.routes.js";
 
 import { IMAGE_EXTS } from "../paths.js";
 import { readmeResponse } from "../readme.js";
+import { TrustRequiredError } from "../services/template-trust.service.js";
 
 export function createProjectRoutes() {
   const app = new Hono<AppEnv>();
@@ -22,6 +23,9 @@ export function createProjectRoutes() {
         const project = await c.get("projectService").createFromTemplate(name.trim(), fromTemplate);
         return c.json(project, 201);
       } catch (err: unknown) {
+        if (err instanceof TrustRequiredError) {
+          return c.json({ error: "trust-required", template: err.template }, 403);
+        }
         const message = err instanceof Error ? err.message : "Failed to create from template";
         return c.json({ error: message }, 400);
       }

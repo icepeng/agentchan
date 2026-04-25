@@ -4,6 +4,7 @@ import { qk } from "@/client/shared/queryKeys.js";
 import {
   saveTemplateOrder as apiSaveOrder,
   saveProjectAsTemplate as apiSaveAsTemplate,
+  setTemplateTrust as apiSetTrust,
 } from "./template.api.js";
 import type { TemplateMeta } from "./template.types.js";
 
@@ -32,5 +33,16 @@ export function useTemplateMutations() {
     return result;
   };
 
-  return { saveOrder, saveAsTemplate };
+  const setTrust = async (slug: string, trusted: boolean) => {
+    await apiSetTrust(slug, trusted);
+    await mutate<TemplateMeta[]>(
+      qk.templates(),
+      (current) => current?.map((tpl) => (
+        tpl.slug === slug ? { ...tpl, trusted } : tpl
+      )),
+      { revalidate: false, populateCache: true },
+    );
+  };
+
+  return { saveOrder, saveAsTemplate, setTrust };
 }

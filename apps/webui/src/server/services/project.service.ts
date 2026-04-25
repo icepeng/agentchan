@@ -2,8 +2,14 @@ import { dirname, join } from "node:path";
 import { buildRendererBundle } from "@agentchan/creative-agent";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
+import { TrustRequiredError, type TemplateTrustService } from "./template-trust.service.js";
 
-export function createProjectService(projectRepo: ProjectRepo, templateRepo: TemplateRepo, projectsDir: string) {
+export function createProjectService(
+  projectRepo: ProjectRepo,
+  templateRepo: TemplateRepo,
+  trustService: TemplateTrustService,
+  projectsDir: string,
+) {
   return {
     async list() { return projectRepo.list(); },
     async getCoverFile(slug: string) { return projectRepo.getCoverFile(slug); },
@@ -15,6 +21,9 @@ export function createProjectService(projectRepo: ProjectRepo, templateRepo: Tem
     async delete(slug: string) { return projectRepo.delete(slug); },
     async duplicate(sourceSlug: string, name: string) { return projectRepo.duplicate(sourceSlug, name); },
     async createFromTemplate(name: string, templateName: string) {
+      if (!trustService.isTrusted(templateName)) {
+        throw new TrustRequiredError(templateName);
+      }
       const templateDir = templateRepo.getSourceDir(templateName);
       return projectRepo.createFromSource(name, templateDir);
     },

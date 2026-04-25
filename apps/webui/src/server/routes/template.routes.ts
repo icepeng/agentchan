@@ -34,5 +34,15 @@ export function createTemplateRoutes() {
     return c.json(readmeResponse(raw));
   });
 
+  app.post("/:slug/trust", (c) => {
+    c.get("templateTrustService").setTrust(c.req.param("slug"), true);
+    return c.json({ ok: true });
+  });
+
+  app.delete("/:slug/trust", (c) => {
+    c.get("templateTrustService").setTrust(c.req.param("slug"), false);
+    return c.json({ ok: true });
+  });
+
   return app;
 }

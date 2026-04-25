@@ -120,6 +120,11 @@ export const translations = {
   "templates.noReadme": "No README yet",
   "templates.dragHandle": "Drag to reorder",
   "templates.reorderFailed": "Failed to save the new order. Please try again.",
+  "templates.externalLabel": "external",
+  "templates.trustTitle": 'Trust "{{name}}"?',
+  "templates.trustDescription": "This template comes from an external source. Projects created from it can run arbitrary code through the agent's script tool. Only continue if you recognize the source.",
+  "templates.trustConfirm": "Trust",
+  "templates.trustCancel": "Cancel",
 
   // README modal (in-project)
   "readme.modalTitle": "README",
