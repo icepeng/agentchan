@@ -119,7 +119,7 @@ export function useRendererOutput() {
       if (message.includes("404")) {
         rendererViewDispatch({
           type: "SET_ERROR",
-          error: "renderer/index.tsx not found",
+          error: "renderer/index.ts or renderer/index.tsx not found",
         });
       } else {
         rendererViewDispatch({ type: "SET_ERROR", error: message });

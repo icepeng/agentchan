@@ -118,7 +118,7 @@ export function createProjectRoutes() {
     const slug = c.req.param("slug");
     const bundle = await c.get("projectService").buildRenderer(slug);
     if (bundle === null) {
-      return c.json({ error: "renderer/index.tsx not found" }, 404);
+      return c.json({ error: "renderer/index.ts or renderer/index.tsx not found" }, 404);
     }
     return c.json(bundle);
   });

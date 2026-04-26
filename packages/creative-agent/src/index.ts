@@ -62,12 +62,9 @@ export {
   validateRendererImportPolicy,
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
-  validateRendererTheme,
   RendererV1Error,
   RendererBuildError,
   type RendererBundle,
-  type RendererTheme,
-  type RendererThemeTokens,
   type RendererV1ErrorPhase,
 } from "./renderer/index.js";
 

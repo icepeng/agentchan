@@ -18,14 +18,15 @@ export function findRendererEntrypoint(projectDir: string): string | null {
   const hasTs = existsSync(tsEntry);
   const hasTsx = existsSync(tsxEntry);
 
-  if (hasTs) {
+  if (hasTs && hasTsx) {
     throw new RendererBuildError(
-      "Renderer must use the React entrypoint renderer/index.tsx. renderer/index.ts is not supported.",
+      "Renderer must have a single entrypoint: use either renderer/index.ts or renderer/index.tsx, not both.",
       "entrypoint",
     );
   }
 
   if (hasTsx) return tsxEntry;
+  if (hasTs) return tsEntry;
   return null;
 }
 

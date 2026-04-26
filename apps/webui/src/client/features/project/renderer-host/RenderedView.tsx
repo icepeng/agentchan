@@ -12,7 +12,6 @@ import {
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { RendererLayer, type RendererLayerHandle } from "./RendererLayer.js";
 import { useRendererHostMachine } from "./useRendererHostMachine.js";
-import { useRendererSnapshots } from "./useRendererSnapshots.js";
 import type { RendererLayerId } from "./rendererRuntime.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
@@ -37,10 +36,6 @@ export function RenderedView() {
     (theme: RendererTheme | null) => rendererViewDispatch({ type: "SET_THEME", theme }),
     [rendererViewDispatch],
   );
-
-  const snapshots = useRendererSnapshots({
-    snapshot: rendererView.snapshot,
-  });
 
   const actions: RendererActions = useMemo(
     () => ({
@@ -106,7 +101,6 @@ export function RenderedView() {
     snapshot: rendererView.snapshot,
     error: rendererView.error,
     layerHandle,
-    snapshots,
     onImportError: handleRendererError,
     onTheme,
   });

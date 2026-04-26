@@ -53,7 +53,7 @@ describe("orchestrator helpers", () => {
     const metaSkills = await loadEnvironmentSkills(projectDir, "meta");
 
     const creativeTools = assembleAgentTools(projectDir, creativeSkills);
-    const metaTools = assembleAgentTools(projectDir, metaSkills, "meta");
+    const metaTools = assembleAgentTools(projectDir, metaSkills);
 
     expect(creativeTools.map((tool) => tool.name)).toEqual([
       "script",
@@ -74,7 +74,6 @@ describe("orchestrator helpers", () => {
       "grep",
       "tree",
       "activate_skill",
-      "validate-renderer",
     ]);
   });
 

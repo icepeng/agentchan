@@ -1,5 +1,4 @@
-/** @jsxImportSource agentchan:renderer/v1 */
-import { Agentchan } from "agentchan:renderer/v1";
+import { createRenderer, fileUrl, type BinaryFile, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
 import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 //   tides-of-moonhaven renderer  ·  "Vellum Day — Cartographer's Logbook"
@@ -12,12 +11,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement, typ
 
 // ── Local renderer data shapes ──────────────────────
 
-type ProjectFile = Agentchan.ProjectFile;
-type TextFile = Agentchan.TextFile;
-type DataFile = Agentchan.DataFile;
-type BinaryFile = Agentchan.BinaryFile;
-type AgentState = Agentchan.RendererAgentState;
-type RendererActions = Agentchan.RendererActions;
+type AgentState = RendererAgentState;
 
 interface TextContent { type: "text"; text: string }
 interface ThinkingContent { type: "thinking"; thinking: string }
@@ -51,7 +45,6 @@ interface ToolResultMessage {
 type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
 type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
-type RendererTheme = Agentchan.RendererTheme;
 
 interface RendererContentProps {
   state: AgentState;
@@ -2167,7 +2160,7 @@ function RendererContent(props: RendererContentProps): ReactElement {
 
 
 
-export default function Renderer({ snapshot, actions }: Agentchan.RendererProps): ReactElement {
+function Renderer({ snapshot, actions }: RendererProps): ReactElement {
   return (
     <RendererContent
       files={[...snapshot.files]}
@@ -2179,6 +2172,8 @@ export default function Renderer({ snapshot, actions }: Agentchan.RendererProps)
   );
 }
 
-export function theme(snapshot: Agentchan.RendererSnapshot): Agentchan.RendererTheme {
+function theme(snapshot: RendererSnapshot): RendererTheme {
   return resolveRendererTheme({ files: [...snapshot.files] });
 }
+
+export const renderer = createRenderer(Renderer, { theme });

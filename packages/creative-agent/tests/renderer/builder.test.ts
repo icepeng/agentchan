@@ -4,14 +4,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  defineRenderer as packageDefineRenderer,
+  fileUrl as packageFileUrl,
+} from "@agentchan/renderer/core";
+import {
   buildRendererBundle,
   findRendererEntrypoint,
   RendererV1Error,
   validateRendererImportPolicy,
-  validateRendererTheme,
 } from "../../src/renderer/index.js";
 
 let projectDir: string;
+
+const RUNTIME_DIR_ENV = "AGENTCHAN_RENDERER_RUNTIME_DIR";
+const EXPERIMENTAL_DEPS_ENV = "AGENTCHAN_RENDERER_EXPERIMENTAL_DEPS";
+const LEFT_PAD_MANIFEST = JSON.stringify({ dependencies: { "left-pad": "^1.3.0" } });
 
 beforeEach(async () => {
   projectDir = await mkdtemp(join(tmpdir(), "renderer-"));
@@ -36,17 +43,85 @@ async function importBundle(js: string): Promise<Record<string, unknown>> {
   }
 }
 
+async function withEnv<T>(
+  vars: Record<string, string | undefined>,
+  run: () => Promise<T>,
+): Promise<T> {
+  const previous = Object.fromEntries(
+    Object.keys(vars).map((key) => [key, process.env[key]]),
+  );
+  for (const [key, value] of Object.entries(vars)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+  try {
+    return await run();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+}
+
+async function withLeftPadRuntime<T>(
+  options: {
+    runtimeManifest?: string;
+    packageManifest?: string;
+    source?: string;
+  },
+  run: (runtimeDir: string) => Promise<T>,
+): Promise<T> {
+  const runtimeDir = await mkdtemp(join(tmpdir(), "renderer-runtime-"));
+  try {
+    await mkdir(join(runtimeDir, "node_modules", "left-pad"), { recursive: true });
+    await writeFile(
+      join(runtimeDir, "package.json"),
+      options.runtimeManifest ?? LEFT_PAD_MANIFEST,
+      "utf-8",
+    );
+    await writeFile(
+      join(runtimeDir, "node_modules", "left-pad", "package.json"),
+      options.packageManifest ?? JSON.stringify({ name: "left-pad" }),
+      "utf-8",
+    );
+    if (options.source) {
+      await writeFile(
+        join(runtimeDir, "node_modules", "left-pad", "index.js"),
+        options.source,
+        "utf-8",
+      );
+    }
+    return await run(runtimeDir);
+  } finally {
+    await rm(runtimeDir, { recursive: true, force: true });
+  }
+}
+
 describe("Renderer V1 entrypoint", () => {
-  test("missing renderer/index.tsx returns not found", () => {
+  test("missing renderer entrypoint returns not found", () => {
     expect(findRendererEntrypoint(projectDir)).toBeNull();
   });
 
-  test("renderer/index.ts is rejected", async () => {
-    await writeRenderer("index.ts", "export default function Renderer() { return null; }");
+  test("renderer/index.ts is accepted", async () => {
+    await writeRenderer("index.ts", "export const renderer = {};");
 
-    expect(() => findRendererEntrypoint(projectDir)).toThrow(
-      /renderer\/index\.tsx/,
+    expect(findRendererEntrypoint(projectDir)).toBe(
+      join(projectDir, "renderer", "index.ts"),
     );
+  });
+
+  test("renderer/index.ts and renderer/index.tsx together are rejected", async () => {
+    await writeRenderer("index.ts", "export const renderer = {};");
+    await writeRenderer("index.tsx", "export const renderer = {};");
+
+    expect(() => findRendererEntrypoint(projectDir)).toThrow(/not both/);
   });
 });
 
@@ -55,7 +130,7 @@ describe("Renderer V1 import policy", () => {
     await writeRenderer("helper.ts", "export const value = 1;");
     await writeRenderer(
       "index.tsx",
-      'import { value } from "./helper"; export default function Renderer() { return value; }',
+      'import { defineRenderer } from "@agentchan/renderer/core"; import { value } from "./helper"; export const renderer = defineRenderer(({ container }) => { container.textContent = String(value); return { update() {}, unmount() {} }; });',
     );
 
     await expect(
@@ -70,7 +145,7 @@ describe("Renderer V1 import policy", () => {
     await writeFile(join(projectDir, "outside.ts"), "export const value = 1;", "utf-8");
     await writeRenderer(
       "index.tsx",
-      'import { value } from "../outside"; export default function Renderer() { return value; }',
+      'import { value } from "../outside"; export const renderer = value;',
     );
 
     await expect(
@@ -81,10 +156,10 @@ describe("Renderer V1 import policy", () => {
     ).rejects.toMatchObject({ phase: "policy" });
   });
 
-  test("bare import other than react and agentchan:renderer/v1 is rejected", async () => {
+  test("bare import outside the renderer contract is rejected", async () => {
     await writeRenderer(
       "index.tsx",
-      'import clsx from "clsx"; export default function Renderer() { return clsx; }',
+      'import clsx from "clsx"; export const renderer = clsx;',
     );
 
     await expect(
@@ -95,10 +170,52 @@ describe("Renderer V1 import policy", () => {
     ).rejects.toThrow(/bare import is not allowed: clsx/);
   });
 
+  test("declared runtime dependency is rejected unless experimental deps are enabled", async () => {
+    await withLeftPadRuntime({}, async (runtimeDir) => {
+      await writeRenderer(
+        "index.tsx",
+        'import leftPad from "left-pad"; export const renderer = leftPad;',
+      );
+
+      await withEnv({
+        [RUNTIME_DIR_ENV]: runtimeDir,
+        [EXPERIMENTAL_DEPS_ENV]: undefined,
+      }, async () => {
+        await expect(
+          validateRendererImportPolicy(
+            join(projectDir, "renderer", "index.tsx"),
+            join(projectDir, "renderer"),
+          ),
+        ).rejects.toThrow(/bare import is not allowed: left-pad/);
+      });
+    });
+  });
+
+  test("declared runtime dependency is accepted for experimental deps", async () => {
+    await withLeftPadRuntime({}, async (runtimeDir) => {
+      await writeRenderer(
+        "index.tsx",
+        'import leftPad from "left-pad"; export const renderer = leftPad;',
+      );
+
+      await withEnv({
+        [RUNTIME_DIR_ENV]: runtimeDir,
+        [EXPERIMENTAL_DEPS_ENV]: "1",
+      }, async () => {
+        await expect(
+          validateRendererImportPolicy(
+            join(projectDir, "renderer", "index.tsx"),
+            join(projectDir, "renderer"),
+          ),
+        ).resolves.toBeUndefined();
+      });
+    });
+  });
+
   test("host DOM and storage leak denylist is enforced", async () => {
     await writeRenderer(
       "index.tsx",
-      "export default function Renderer() { localStorage.setItem('x', 'y'); return null; }",
+      "export const renderer = { mount() { localStorage.setItem('x', 'y'); return { update() {}, unmount() {} }; } };",
     );
 
     await expect(
@@ -111,11 +228,71 @@ describe("Renderer V1 import policy", () => {
 });
 
 describe("Renderer V1 bundle", () => {
+  test("experimental runtime dependency can bundle when env flag is enabled", async () => {
+    await withLeftPadRuntime({
+      runtimeManifest: JSON.stringify({ type: "module", dependencies: { "left-pad": "^1.3.0" } }),
+      packageManifest: JSON.stringify({ name: "left-pad", type: "module", exports: "./index.js" }),
+      source: "export default function leftPad(value, length, char = ' ') { return String(value).padStart(length, char); }",
+    }, async (runtimeDir) => {
+      await writeRenderer(
+        "index.ts",
+        `
+          import leftPad from "left-pad";
+          import { defineRenderer } from "@agentchan/renderer/core";
+
+          export function pad(value: string) {
+            return leftPad(value, 3, "0");
+          }
+
+          export const renderer = defineRenderer(({ container }) => {
+            container.textContent = pad("7");
+            return { update() {}, unmount() {} };
+          });
+        `,
+      );
+
+      await withEnv({
+        [RUNTIME_DIR_ENV]: runtimeDir,
+        [EXPERIMENTAL_DEPS_ENV]: "1",
+      }, async () => {
+        const bundle = await buildRendererBundle(projectDir);
+        const mod = await importBundle(bundle?.js ?? "");
+
+        expect((mod.pad as (value: string) => string)("7")).toBe("007");
+      });
+    });
+  });
+
+  test("vanilla renderer can bundle from renderer/index.ts without React adapter", async () => {
+    await writeRenderer(
+      "index.ts",
+      `
+        import { defineRenderer } from "@agentchan/renderer/core";
+
+        export const renderer = defineRenderer(({ container, snapshot }) => {
+          container.textContent = snapshot.slug;
+          return {
+            update(nextSnapshot) {
+              container.textContent = nextSnapshot.slug;
+            },
+            unmount() {},
+          };
+        });
+      `,
+    );
+
+    const bundle = await buildRendererBundle(projectDir);
+    const mod = await importBundle(bundle?.js ?? "");
+
+    expect(typeof (mod.renderer as { mount?: unknown }).mount).toBe("function");
+    expect(bundle?.js).not.toContain("react-dom");
+  });
+
   test("CSS import is accepted and appears in bundle CSS artifacts", async () => {
     await writeRenderer("style.css", ".root { color: red; }");
     await writeRenderer(
       "index.tsx",
-      'import "./style.css"; export default function Renderer() { return null; }',
+      'import "./style.css"; import { defineRenderer } from "@agentchan/renderer/core"; export const renderer = defineRenderer(({ container }) => { container.className = "root"; return { update() {}, unmount() {} }; });',
     );
 
     const bundle = await buildRendererBundle(projectDir);
@@ -124,19 +301,19 @@ describe("Renderer V1 bundle", () => {
     expect(bundle?.css[0]).toContain(".root");
   });
 
-  test("Agentchan.fileUrl encodes paths and appends digest consistently", async () => {
+  test("fileUrl encodes paths and appends digest consistently", async () => {
     await writeRenderer(
       "index.tsx",
       `
-        import { Agentchan } from "agentchan:renderer/v1";
+        import { defineRenderer, fileUrl } from "@agentchan/renderer/core";
         const snapshot = { baseUrl: "/api/projects/demo/", files: [], state: {} };
         export function makeFileUrl() {
-          return Agentchan.fileUrl(snapshot, { path: "/folder/a b.png", digest: "sha/1" });
+          return fileUrl(snapshot, { path: "/folder/a b.png", digest: "sha/1" });
         }
         export function makeFileUrlWithoutPath() {
-          return Agentchan.fileUrl(snapshot, {});
+          return fileUrl(snapshot, {});
         }
-        export default function Renderer() { return null; }
+        export const renderer = defineRenderer(() => ({ update() {}, unmount() {} }));
       `,
     );
 
@@ -150,26 +327,103 @@ describe("Renderer V1 bundle", () => {
       /requires a file path/,
     );
   });
-});
 
-describe("Renderer V1 theme", () => {
-  test("theme validation uses tolerant runtime normalization", () => {
-    expect(validateRendererTheme({
-      base: { accent: "#0aa", unknown: "#fff" },
-      dark: "invalid",
-      prefersScheme: "system",
-    })).toEqual({ base: { accent: "#0aa" } });
+  test("core SDK shim matches package helper behavior", async () => {
+    await writeRenderer(
+      "index.ts",
+      `
+        import { defineRenderer, fileUrl } from "@agentchan/renderer/core";
+        export { defineRenderer as bundledDefineRenderer, fileUrl as bundledFileUrl };
+        export const renderer = defineRenderer(() => ({ update() {}, unmount() {} }));
+      `,
+    );
+
+    const snapshot = { slug: "before", baseUrl: "/api/projects/demo/", files: [], state: {
+      messages: [],
+      isStreaming: false,
+      pendingToolCalls: [],
+    } };
+    const file = { path: "/folder/a b.png", digest: "sha/1" };
+    const bridge = {
+      snapshot,
+      actions: {
+        send() {},
+        fill() {},
+      },
+    };
+    const makeFactory = (events: string[]) =>
+      ({ container, snapshot: initialSnapshot, actions }: any) => {
+        events.push(`${container.name}:${initialSnapshot.slug}:${typeof actions.fill}`);
+        return {
+          update(nextSnapshot: typeof snapshot) {
+            events.push(`update:${nextSnapshot.slug}`);
+          },
+          unmount() {
+            events.push("unmount");
+          },
+        };
+      };
+
+    const bundle = await buildRendererBundle(projectDir);
+    const mod = await importBundle(bundle?.js ?? "");
+    const bundledFileUrl = mod.bundledFileUrl as typeof packageFileUrl;
+    const bundledDefineRenderer = mod.bundledDefineRenderer as typeof packageDefineRenderer;
+
+    expect(bundledFileUrl(snapshot, file)).toBe(packageFileUrl(snapshot, file));
+
+    const bundledEvents: string[] = [];
+    const packageEvents: string[] = [];
+    const bundledRuntime = bundledDefineRenderer(makeFactory(bundledEvents), {
+      theme: (snapshot) => ({ base: { accent: snapshot.slug } }),
+    });
+    const packageRuntime = packageDefineRenderer(makeFactory(packageEvents), {
+      theme: (snapshot) => ({ base: { accent: snapshot.slug } }),
+    });
+
+    expect(bundledRuntime.theme?.(snapshot)).toEqual(packageRuntime.theme?.(snapshot));
+
+    const bundledInstance = bundledRuntime.mount({ name: "node" } as HTMLElement, bridge);
+    const packageInstance = packageRuntime.mount({ name: "node" } as HTMLElement, bridge);
+    bundledInstance.update({ ...snapshot, slug: "after" });
+    packageInstance.update({ ...snapshot, slug: "after" });
+    bundledInstance.unmount();
+    packageInstance.unmount();
+
+    expect(bundledEvents).toEqual(packageEvents);
   });
 
-  test("theme validation returns null for invalid base shape", () => {
-    expect(validateRendererTheme({ base: { unknown: "#fff" } })).toBeNull();
-    expect(validateRendererTheme("not an object")).toBeNull();
+  test("React adapter preserves theme option on bundled runtime", async () => {
+    await writeRenderer(
+      "index.tsx",
+      `
+        import { createRenderer, type RendererProps } from "@agentchan/renderer/react";
+
+        function Renderer(_props: RendererProps) {
+          return null;
+        }
+
+        export const renderer = createRenderer(Renderer, {
+          theme(snapshot) {
+            return { base: { accent: snapshot.slug } };
+          },
+        });
+      `,
+    );
+
+    const bundle = await buildRendererBundle(projectDir);
+    const mod = await importBundle(bundle?.js ?? "");
+    const renderer = mod.renderer as {
+      theme?: (snapshot: { slug: string }) => unknown;
+    };
+
+    expect(renderer.theme?.({ slug: "#abc" })).toEqual({ base: { accent: "#abc" } });
   });
 });
 
 describe("Renderer V1 errors", () => {
   test("entrypoint rejection exposes a stable phase", async () => {
-    await writeRenderer("index.ts", "export default function Renderer() { return null; }");
+    await writeRenderer("index.ts", "export const renderer = {};");
+    await writeRenderer("index.tsx", "export const renderer = {};");
 
     try {
       findRendererEntrypoint(projectDir);

@@ -1,4 +1,4 @@
-export type RendererV1ErrorPhase = "entrypoint" | "policy" | "build" | "theme";
+export type RendererV1ErrorPhase = "entrypoint" | "policy" | "build";
 
 export class RendererV1Error extends Error {
   readonly phase: RendererV1ErrorPhase;

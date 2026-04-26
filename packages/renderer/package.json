@@ -1,0 +1,25 @@
+{
+  "name": "@agentchan/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./core": {
+      "types": "./src/core.ts",
+      "default": "./src/core.ts"
+    },
+    "./react": {
+      "types": "./src/react.tsx",
+      "default": "./src/react.tsx"
+    }
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  }
+}

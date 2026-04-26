@@ -67,7 +67,7 @@ export async function setupCreativeAgent(
 ): Promise<CreativeAgentSetup> {
   const env = getSessionSkillEnvironment(sessionMode);
   const envSkills = await loadEnvironmentSkills(projectDir, env);
-  const tools = assembleAgentTools(projectDir, envSkills, sessionMode);
+  const tools = assembleAgentTools(projectDir, envSkills);
   const systemPrompt = await buildSystemPrompt(projectDir, envSkills, sessionMode);
 
   // History is already AgentMessage[] — pass directly

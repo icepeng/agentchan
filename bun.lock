@@ -23,6 +23,7 @@
       "dependencies": {
         "@agentchan/creative-agent": "workspace:*",
         "@agentchan/estimate-tokens": "workspace:*",
+        "@agentchan/renderer": "workspace:*",
         "@base-ui/react": "^1.4.1",
         "@codemirror/autocomplete": "^6.20.1",
         "@codemirror/commands": "^6.10.3",
@@ -43,6 +44,7 @@
         "nanoid": "^5.1.9",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
+        "scheduler": "^0.27.0",
         "swr": "^2.4.1",
       },
       "devDependencies": {
@@ -63,6 +65,7 @@
       "dependencies": {
         "@agentchan/estimate-tokens": "workspace:*",
         "@agentchan/grep": "workspace:*",
+        "@agentchan/renderer": "workspace:*",
         "@google/genai": "^1.50.1",
         "@mariozechner/pi-agent-core": "^0.70.2",
         "@mariozechner/pi-ai": "^0.70.2",
@@ -70,6 +73,9 @@
         "@sinclair/typebox": "^0.34.49",
         "nanoid": "^5.1.9",
         "picocolors": "^1.1.1",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "scheduler": "^0.27.0",
         "yaml": "^2.8.3",
       },
     },
@@ -85,6 +91,18 @@
       "name": "@agentchan/grep",
       "version": "0.1.0",
     },
+    "packages/renderer": {
+      "name": "@agentchan/renderer",
+      "version": "0.1.0",
+      "dependencies": {
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+      },
+      "devDependencies": {
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+      },
+    },
   },
   "packages": {
     "@agentchan/creative-agent": ["@agentchan/creative-agent@workspace:packages/creative-agent"],
@@ -92,6 +110,8 @@
     "@agentchan/estimate-tokens": ["@agentchan/estimate-tokens@workspace:packages/estimate-tokens"],
 
     "@agentchan/grep": ["@agentchan/grep@workspace:packages/grep"],
+
+    "@agentchan/renderer": ["@agentchan/renderer@workspace:packages/renderer"],
 
     "@agentchan/webui": ["@agentchan/webui@workspace:apps/webui"],
 
