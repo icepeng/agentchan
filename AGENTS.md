@@ -34,7 +34,7 @@
 - Web UI 변경은 i18n 키, Feature-Sliced import 경계, client runtime import, renderer sandbox 계약을 확인한다.
 - Agentchan agent/session/tool 변경은 JSONL 호환성, abort/streaming 동작, tool description과 system prompt의 역할 분리를 확인한다.
 - Agentchan agent/session/tool 변경은 기본 테스트 밖의 `tests/session/`, `tests/workspace/`, `tests/slash/`, `tests/slug.test.ts` 필요 여부를 확인한다.
-- Renderer 변경은 빌드, sandbox 계약, 런타임 import 가능성, theme export를 확인한다.
+- Renderer 변경은 빌드, runtime boundary 계약, 런타임 import 가능성, renderer theme option을 확인한다.
 - 리뷰 요청을 받으면 findings를 먼저 쓰고, 실제 버그·회귀 위험·누락된 검증·아키텍처 경계 위반만 보고한다.
 
 ## 저장소 구조
@@ -67,14 +67,21 @@
 - React Compiler가 켜져 있으므로 성능 목적의 `useMemo`/`useCallback`/`React.memo`를 습관적으로 추가하지 않는다.
 
 ## Renderer 규칙
-- Renderer contract 상세는 `docs/adr/0001-renderer-primary-surface-react-contract.md`를 따른다.
-- Renderer entrypoint는 `renderer/index.tsx`이고 default React component를 export한다.
-- Renderer props는 `Agentchan.RendererProps`를 사용한다.
-- Renderer imports는 `agentchan:renderer/v1`, `react`, `renderer/` 내부 relative import, 해당 그래프의 CSS import만 허용한다.
+- Renderer contract 상세는 `docs/adr/0001-renderer-app-surface-contract.md`를 따른다.
+- Renderer entrypoint는 `renderer/index.ts` 또는 `renderer/index.tsx`이고 named export `renderer`를 제공한다.
+- React renderer는 `@agentchan/renderer/react`의 `createRenderer(Component, options?)`를 사용한다.
+- Vanilla renderer는 `@agentchan/renderer/core`의 `defineRenderer(factory, options?)`를 사용한다.
+- Renderer theme은 별도 named export가 아니라 `createRenderer` / `defineRenderer` options의 `theme(snapshot)`으로 제공한다.
+- Renderer imports는 `@agentchan/renderer/core`, `@agentchan/renderer/react`, `react`, `react-dom/client`, `renderer/` 내부 relative import, 해당 그래프의 CSS import만 안정 계약으로 둔다.
+- 추가 renderer bare dependency는 stable 계약이 아니다. r3f/three 검증은 `AGENTCHAN_RENDERER_EXPERIMENTAL_DEPS=1`과 `AGENTCHAN_RENDERER_RUNTIME_DIR`를 쓰는 lab path에서만 다룬다.
+- `renderer-runtime`은 exe renderer bundling용 내부 baseline sidecar이며 project별 dependency sandbox가 아니다.
+- `react`, `react-dom`, `scheduler`, `@agentchan/renderer`는 renderer runtime baseline singleton으로 취급한다.
 - Vendored browser library는 `renderer/` 아래에 둔다.
 - Renderer는 `snapshot`과 `actions.send()` / `actions.fill()`만 사용한다.
-- Renderer에서 Agentchan skills, `SYSTEM.md`, sessions, host DOM, parent/top window, browser storage, arbitrary URL, npm package, `node:*`에 접근하지 않는다.
-- 파일 URL은 `Agentchan.fileUrl(snapshot, fileOrPath)`를 우선 사용한다.
+- Renderer에서 Agentchan skills, `SYSTEM.md`, sessions, host DOM, parent/top window, browser storage, arbitrary URL, runtime npm package, `node:*`에 접근하지 않는다.
+- DOM 작업은 adapter가 전달한 `container` 하위 tree 기준으로 하고, 문서 API가 필요하면 `container.ownerDocument`를 기준으로 한다.
+- Snapshot과 action payload는 structured-clone 가능한 JSON-like 값으로 유지한다.
+- 파일 URL은 `fileUrl(snapshot, fileOrPath)`를 우선 사용한다.
 - Renderer owns viewport. `RenderedView`가 외부 padding을 넣는다고 가정하지 않는다.
 - 한국어 가능성이 있는 영역에는 monospace 폰트와 `font-style: italic`을 typographic 강조 수단으로 사용하지 않는다. 강조·구분은 weight, color/opacity, sans/serif 페어링, letter-spacing, 따옴표·괄호, border-left 같은 영역 분리로 처리한다.
 

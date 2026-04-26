@@ -1,16 +1,10 @@
-/** @jsxImportSource agentchan:renderer/v1 */
-import { Agentchan } from "agentchan:renderer/v1";
+import { createRenderer, fileUrl, type BinaryFile, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
 import "./index.css";
 import type { ReactElement } from "react";
 
 // ── Local renderer data shapes ──────────
 
-type ProjectFile = Agentchan.ProjectFile;
-type TextFile = Agentchan.TextFile;
-type DataFile = Agentchan.DataFile;
-type BinaryFile = Agentchan.BinaryFile;
-type AgentState = Agentchan.RendererAgentState;
-type RendererActions = Agentchan.RendererActions;
+type AgentState = RendererAgentState;
 
 // pi-ai content blocks (inline)
 interface TextContent {
@@ -58,7 +52,6 @@ type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 // ── Renderer theme contract ──────────────────────────────────
 
-type RendererTheme = Agentchan.RendererTheme;
 
 // ── Renderer props (React component contract) ────────────────
 
@@ -1456,7 +1449,7 @@ function RendererContent(props: RendererContentProps): ReactElement {
 
 
 
-export default function Renderer({ snapshot, actions }: Agentchan.RendererProps): ReactElement {
+function Renderer({ snapshot, actions }: RendererProps): ReactElement {
   return (
     <RendererContent
       files={[...snapshot.files]}
@@ -1468,6 +1461,8 @@ export default function Renderer({ snapshot, actions }: Agentchan.RendererProps)
   );
 }
 
-export function theme(_snapshot: Agentchan.RendererSnapshot): Agentchan.RendererTheme {
+function theme(_snapshot: RendererSnapshot): RendererTheme {
   return resolveRendererTheme();
 }
+
+export const renderer = createRenderer(Renderer, { theme });

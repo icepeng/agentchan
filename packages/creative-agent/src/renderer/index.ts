@@ -9,15 +9,13 @@ export {
   type RendererBundle,
 } from "./builder.js";
 export {
-  RENDERER_V1_IMPORT,
+  RENDERER_CORE_IMPORT,
+  RENDERER_REACT_IMPORT,
   findImportSpecifiers,
   isInside,
   validateRendererImportPolicy,
 } from "./policy.js";
 export {
-  RENDERER_RUNTIME_SOURCE,
-  REACT_RUNTIME_SOURCE,
-  RENDERER_JSX_RUNTIME_SOURCE,
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
 } from "./runtime-source.js";

@@ -1,15 +1,14 @@
 # Architecture Decision Records
 
-ADRs in this directory record decisions that should change future engineering
-behavior. They are not plans, specs, changelogs, or explanations of a completed
-implementation.
+이 디렉터리의 ADR은 앞으로의 엔지니어링 판단을 바꿔야 하는 결정을 기록한다.
+ADR은 계획, 사양서, changelog, 완료된 구현 설명이 아니다.
 
-When an ADR conflicts with an older draft, temporary spec, or stale project
-note, the accepted ADR wins until it is superseded by a later ADR.
+ADR이 오래된 초안, 임시 spec, stale project note와 충돌하면, 더 나중에 승인된
+ADR이 supersede하기 전까지 accepted ADR이 우선한다.
 
-## Accepted
+## 승인됨
 
-- [0001. 렌더러는 React 기반의 주 화면이다](0001-renderer-primary-surface-react-contract.md)
+- [0001. 렌더러는 프로젝트 앱 표면으로 실행된다](0001-renderer-app-surface-contract.md)
 - [0002. 프로젝트 디렉토리는 얇은 런타임 계약만 가진다](0002-project-directory-contract.md)
 - [0003. files/는 시스템이 해석하지 않는 사용자 콘텐츠 workspace다](0003-files-workspace-contract.md)
 - [0004. 세션은 JSONL tree 파일로 저장한다](0004-session-jsonl-tree.md)

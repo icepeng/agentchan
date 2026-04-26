@@ -25,12 +25,11 @@ and user intent.
 Use the React primary-surface renderer contract:
 
 ```tsx
-/** @jsxImportSource agentchan:renderer/v1 */
-import { Agentchan } from "agentchan:renderer/v1";
+import { createRenderer, fileUrl, type RendererProps, type RendererSnapshot, type RendererTheme } from "@agentchan/renderer/react";
 import { useState } from "react";
 import "./index.css";
 
-export default function Renderer({ snapshot, actions }: Agentchan.RendererProps) {
+function Renderer({ snapshot, actions }: RendererProps) {
   const [selected, setSelected] = useState<string | null>(null);
   return (
     <button onClick={() => void actions.fill(selected ?? "Next scene")}>
@@ -39,24 +38,26 @@ export default function Renderer({ snapshot, actions }: Agentchan.RendererProps)
   );
 }
 
-export function theme(snapshot: Agentchan.RendererSnapshot): Agentchan.RendererTheme | null {
+function theme(snapshot: RendererSnapshot): RendererTheme | null {
   return { base: { accent: "#6aa" } };
 }
+
+export const renderer = createRenderer(Renderer, { theme });
 ```
 
 Rules:
 
-- The only entrypoint is `renderer/index.tsx`.
-- Default export a React component.
+- Use `renderer/index.tsx` for React renderers. Use `renderer/index.ts` only for vanilla `defineRenderer` renderers, and do not create both.
+- Export `const renderer = createRenderer(Component, options?)`.
 - CSS must be part of the renderer graph, usually `import "./index.css"`.
 - Relative imports must stay inside `renderer/`.
 - External browser libraries must be vendored under `renderer/`.
-- Allowed bare imports are `agentchan:renderer/v1` and `react` only.
+- Allowed bare imports are `@agentchan/renderer/react`, `@agentchan/renderer/core`, `react`, `react-dom/client`.
 - Do not import URL modules, `node:*`, host app internals, or browser storage.
 - Do not emit `<script>` tags or inline event-handler attributes.
 - Do not use `window.parent`, `window.top`, `document.body`, or
   `document.documentElement`.
-- Use `Agentchan.fileUrl(snapshot, file)` for assets under `files/` when
+- Use `fileUrl(snapshot, file)` for assets under `files/` when
   possible; file objects include digest-based cache busting.
 
 ## Snapshot
