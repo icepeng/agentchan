@@ -37,7 +37,6 @@ Important:
     parameters: ActivateSkillParams,
     label: "Activate skill",
 
-    // eslint-disable-next-line @typescript-eslint/require-await -- AgentTool requires async
     execute: async (_toolCallId: string, params: ActivateSkillInput) => {
       const skill = skills.get(params.name);
       if (!skill) {

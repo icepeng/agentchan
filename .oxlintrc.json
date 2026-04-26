@@ -1,0 +1,86 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc"],
+  "env": {
+    "browser": true,
+    "builtin": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/data/**",
+    "example_data/**",
+    "research/**",
+    ".claude/**",
+    ".turbo/**"
+  ],
+  "jsPlugins": [
+    {
+      "name": "react-hooks-js",
+      "specifier": "eslint-plugin-react-hooks"
+    },
+    {
+      "name": "agentchan",
+      "specifier": "./scripts/oxlint-agentchan-plugin.mjs"
+    }
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "no-empty": "off",
+    "no-unused-vars": ["error", { "ignoreRestSiblings": true }],
+    "typescript/consistent-type-imports": "off",
+    "typescript/no-empty-function": "off",
+    "typescript/no-empty-object-type": "off",
+    "typescript/no-explicit-any": "off",
+    "typescript/no-inferrable-types": "off",
+    "typescript/no-meaningless-void-operator": "off",
+    "typescript/no-misused-promises": ["error", { "checksVoidReturn": { "attributes": false } }],
+    "typescript/no-unsafe-argument": "off",
+    "typescript/no-unsafe-assignment": "off",
+    "typescript/no-unsafe-call": "off",
+    "typescript/no-unsafe-member-access": "off",
+    "typescript/no-unsafe-return": "off"
+  },
+  "overrides": [
+    {
+      "files": ["apps/webui/src/**/*.{ts,tsx}"],
+      "rules": {
+        "react-hooks-js/capitalized-calls": "error",
+        "react-hooks-js/component-hook-factories": "error",
+        "react-hooks-js/config": "error",
+        "react-hooks-js/error-boundaries": "error",
+        "react-hooks-js/exhaustive-deps": "warn",
+        "react-hooks-js/fbt": "error",
+        "react-hooks-js/gating": "error",
+        "react-hooks-js/globals": "error",
+        "react-hooks-js/hooks": "error",
+        "react-hooks-js/immutability": "error",
+        "react-hooks-js/incompatible-library": "error",
+        "react-hooks-js/invariant": "error",
+        "react-hooks-js/memoized-effect-dependencies": "error",
+        "react-hooks-js/no-deriving-state-in-effects": "error",
+        "react-hooks-js/preserve-manual-memoization": "error",
+        "react-hooks-js/purity": "error",
+        "react-hooks-js/refs": "error",
+        "react-hooks-js/rule-suppression": "error",
+        "react-hooks-js/rules-of-hooks": "error",
+        "react-hooks-js/set-state-in-effect": "error",
+        "react-hooks-js/set-state-in-render": "error",
+        "react-hooks-js/static-components": "error",
+        "react-hooks-js/syntax": "error",
+        "react-hooks-js/todo": "off",
+        "react-hooks-js/unsupported-syntax": "error",
+        "react-hooks-js/use-memo": "error",
+        "react-hooks-js/void-use-memo": "error"
+      }
+    },
+    {
+      "files": ["apps/webui/src/client/**/*.{ts,tsx}"],
+      "rules": {
+        "agentchan/no-direct-local-storage": "error"
+      }
+    }
+  ]
+}

@@ -7,8 +7,7 @@
   "types": "src/index.ts",
   "scripts": {
     "test": "bun test --filter tests/tools/",
-    "eval": "bun test tests/eval/",
-    "lint": "eslint src/"
+    "eval": "bun test tests/eval/"
   },
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",

@@ -341,7 +341,7 @@ export function FileEditor({ path, baseline, dirty, onMarkDirty, onSave, editorR
       viewRef.current = null;
       editorRef.current = null;
     };
-  }, [path, language, hasBaseline]); // eslint-disable-line react-hooks/exhaustive-deps -- baseline used only for initial doc; save/markDirty via refs
+  }, [path, language, hasBaseline]); // oxlint-disable-line react-hooks-js/exhaustive-deps -- baseline used only for initial doc; save/markDirty via refs
 
   // Sync baseline → CodeMirror doc. With buffer lifted out of React, baseline
   // only changes on SELECT_FILE / FILE_SAVED / EXTERNAL_REFRESH, so this effect

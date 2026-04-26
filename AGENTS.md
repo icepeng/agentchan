@@ -24,7 +24,7 @@
 - `bun run build` - Turbo production build
 - `bun run example-data:copy -- --force` - `example_data/`를 `apps/webui/data/` 런타임 데이터로 강제 반영
 - `bunx tsc --noEmit` - 타입 체크. `npx tsc`는 사용하지 않는다.
-- `bun run lint` - 전체 ESLint
+- `bun run lint` - 전체 oxlint
 - `bun run test` - 기본 테스트. 실질 범위는 `packages/creative-agent`의 tools 테스트 중심이다.
 - `cd packages/creative-agent && bun test tests/<dir>` - 개별 테스트
 - `bun run skills:check` / `bun run skills:sync` - `.agents/skills`와 `.claude/skills` 드리프트 검사/동기화

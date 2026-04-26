@@ -15,7 +15,7 @@
     "build:exe:win": "bun run --cwd apps/webui build:exe:win",
     "test": "turbo run test",
     "dev": "bun run --cwd apps/webui dev",
-    "lint": "turbo run lint",
+    "lint": "oxlint apps/webui/src packages/creative-agent/src --type-aware",
     "sync-builtins": "bun scripts/write-builtin-manifest.ts",
     "prepare": "husky",
     "example-data:copy": "bun scripts/copy-example-data.ts",
@@ -23,16 +23,15 @@
     "skills:sync": "bun scripts/sync-agent-skills.ts"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@types/bun": "^1.3.13",
     "@types/node": "^25.6.0",
-    "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
+    "oxlint": "^1.61.0",
+    "oxlint-tsgolint": "^0.22.0",
     "portless": "^0.10.3",
     "turbo": "^2.9.6",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.0"
+    "typescript": "^6.0.3"
   },
   "packageManager": "bun@1.3.11"
 }
