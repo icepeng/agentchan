@@ -117,6 +117,8 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+// Mirrors @agentchan/renderer/core isRendererRuntime without importing package source
+// across the creative-agent TS rootDir boundary.
 function isRendererRuntime(value: unknown): value is {
   mount: (...args: unknown[]) => unknown;
   theme?: (snapshot: RendererSnapshot) => unknown;

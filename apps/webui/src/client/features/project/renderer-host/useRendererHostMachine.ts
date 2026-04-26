@@ -75,7 +75,18 @@ function evaluateTheme(
 }
 
 function themeIdentity(theme: RendererTheme | null): string {
-  return theme === null ? "null" : JSON.stringify(theme);
+  if (theme === null) return "null";
+  return JSON.stringify({
+    base: sortedTokens(theme.base),
+    dark: sortedTokens(theme.dark ?? {}),
+    prefersScheme: theme.prefersScheme ?? null,
+  });
+}
+
+function sortedTokens(tokens: Partial<RendererTheme["base"]>): [string, string][] {
+  return Object.entries(tokens)
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    .sort(([a], [b]) => a.localeCompare(b));
 }
 
 function classForStatus(status: HostStatus): string {
@@ -143,9 +154,13 @@ export function useRendererHostMachine({
     try {
       layerHandle.renderModule(prepared.module, actions, prepared.snapshot);
     } catch (mountError: unknown) {
+      const message = errorMessage(mountError);
+      clearTimer();
       mountedBundleRef.current = null;
       mountedModuleRef.current = null;
-      onImportError(errorMessage(mountError));
+      setVisibleError(message);
+      setStatus("showing-error");
+      onImportError(message);
       return;
     }
     mountedBundleRef.current = prepared.bundle;
@@ -156,7 +171,7 @@ export function useRendererHostMachine({
       setStatus("stable");
       timerRef.current = null;
     }, FADE_IN_MS);
-  }, [actions, layerHandle, onImportError, setStatus]);
+  }, [actions, clearTimer, layerHandle, onImportError, setStatus]);
 
   const applyPreparedTheme = useCallback((prepared: PreparedRenderer) => {
     emitTheme(prepared.theme);

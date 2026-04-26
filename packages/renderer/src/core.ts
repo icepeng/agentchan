@@ -113,6 +113,7 @@ export function defineRenderer(
   };
 }
 
+/** Shape contract for renderer runtime exports. Mirror this guard where package imports would cross build boundaries. */
 export function isRendererRuntime(value: unknown): value is RendererRuntime {
   if (typeof value !== "object" || value === null) return false;
   const runtime = value as { mount?: unknown; theme?: unknown };
