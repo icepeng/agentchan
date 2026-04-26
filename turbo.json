@@ -15,9 +15,6 @@
     "dev:client": {
       "cache": false,
       "persistent": true
-    },
-    "lint": {
-      "dependsOn": ["^build"]
     }
   }
 }

@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/set-state-in-effect -- This hook is an explicit renderer host state machine driven by external project/output events. */
+/* oxlint-disable react-hooks-js/set-state-in-effect -- This hook is an explicit renderer host state machine driven by external project/output events. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   validateTheme,
