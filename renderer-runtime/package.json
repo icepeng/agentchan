@@ -1,0 +1,10 @@
+{
+  "name": "agentchan-renderer-runtime",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "scheduler": "^0.27.0"
+  }
+}

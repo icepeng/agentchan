@@ -1,13 +1,10 @@
 import { useLayoutEffect, useRef } from "react";
-import { createRoot } from "react-dom/client";
-import type { RendererActions } from "@/client/entities/renderer/index.js";
+import type { RendererActions, RendererSnapshot } from "@/client/entities/renderer/index.js";
 import {
-  RendererShell,
   type RendererLayerId,
+  type RendererInstance,
   type RendererModule,
-  type Root,
 } from "./rendererRuntime.js";
-import type { RendererSnapshotStore } from "./useRendererSnapshots.js";
 
 export interface RendererLayerHandle {
   clear: () => void;
@@ -15,9 +12,10 @@ export interface RendererLayerHandle {
   renderModule: (
     mod: RendererModule,
     actions: RendererActions,
-    snapshots: RendererSnapshotStore,
+    snapshot: RendererSnapshot,
   ) => void;
   setCss: (css: readonly string[]) => void;
+  updateSnapshot: (snapshot: RendererSnapshot) => void;
 }
 
 interface RendererLayerProps {
@@ -28,7 +26,7 @@ interface RendererLayerProps {
 
 interface LayerHostRuntime {
   mount: HTMLDivElement;
-  reactRoot: Root;
+  instance: RendererInstance | null;
   shadowRoot: ShadowRoot;
   unmountTimer: number | null;
 }
@@ -75,32 +73,40 @@ export function RendererLayer({
       clearTimeout(runtime.unmountTimer);
       runtime.unmountTimer = null;
     }
-    const { reactRoot, shadowRoot } = runtime;
+    const { shadowRoot } = runtime;
     let hasContent = false;
 
     const handle: RendererLayerHandle = {
       clear() {
-        reactRoot.render(null);
+        runtime.instance?.unmount();
+        runtime.instance = null;
+        runtime.mount.replaceChildren();
         clearRendererStyles(shadowRoot);
         hasContent = false;
       },
       hasContent() {
         return hasContent;
       },
-      renderModule(mod, actions, snapshots) {
-        reactRoot.render(
-          <RendererShell
-            Component={mod.default}
-            actions={actions}
-            getSnapshot={() => snapshots.getSnapshot(layer)}
-            subscribe={(listener) => snapshots.subscribe(layer, listener)}
-          />,
-        );
+      renderModule(mod, actions, snapshot) {
+        runtime.instance?.unmount();
+        runtime.instance = null;
+        runtime.mount.replaceChildren();
+        // Renderer adapters capture this actions object for the mount lifetime.
+        const instance = mod.renderer.mount(runtime.mount, { snapshot, actions });
+        if (!isRendererInstance(instance)) {
+          throw new Error(
+            "Renderer mount() must return an instance with update(snapshot) and unmount() functions.",
+          );
+        }
+        runtime.instance = instance;
         hasContent = true;
       },
       setCss(css) {
         clearRendererStyles(shadowRoot);
         injectCss(shadowRoot, css);
+      },
+      updateSnapshot(snapshot) {
+        runtime.instance?.update(snapshot);
       },
     };
 
@@ -109,7 +115,8 @@ export function RendererLayer({
       register(layer, null);
       handle.clear();
       runtime.unmountTimer = window.setTimeout(() => {
-        reactRoot.unmount();
+        runtime.instance?.unmount();
+        runtime.instance = null;
         layerHostRuntimes.delete(host);
       }, 0);
     };
@@ -125,6 +132,12 @@ export function RendererLayer({
   );
 }
 
+function isRendererInstance(value: unknown): value is RendererInstance {
+  if (typeof value !== "object" || value === null) return false;
+  const instance = value as { update?: unknown; unmount?: unknown };
+  return typeof instance.update === "function" && typeof instance.unmount === "function";
+}
+
 function getLayerHostRuntime(host: HTMLDivElement): LayerHostRuntime {
   const existing = layerHostRuntimes.get(host);
   if (existing) return existing;
@@ -135,16 +148,10 @@ function getLayerHostRuntime(host: HTMLDivElement): LayerHostRuntime {
     appendMountNode(shadowRoot);
   const runtime = {
     mount,
-    reactRoot: createLayerRoot(mount),
+    instance: null,
     shadowRoot,
     unmountTimer: null,
   };
   layerHostRuntimes.set(host, runtime);
   return runtime;
-}
-
-function createLayerRoot(mount: HTMLDivElement): Root {
-  return (window as typeof window & {
-    __agentchanCreateRendererRoot?: (mount: HTMLDivElement) => Root;
-  }).__agentchanCreateRendererRoot?.(mount) ?? createRoot(mount);
 }

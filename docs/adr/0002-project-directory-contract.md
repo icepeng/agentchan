@@ -24,7 +24,8 @@ template directory의 루트 엔트리를 `readdir`로 모두 복사한다.
 - `SYSTEM.md`: creative session system prompt.
 - `SYSTEM.meta.md`: meta session system prompt. 없으면 빈 값.
 - `skills/*/SKILL.md`: skill catalog와 activation body.
-- `renderer/`: React renderer source. entrypoint는 `renderer/index.tsx`.
+- `renderer/`: renderer app source. entrypoint는 `renderer/index.ts` 또는
+  `renderer/index.tsx`.
 - `files/`: renderer snapshot과 creative workspace로 스캔되는 사용자 콘텐츠.
 - `sessions/`: JSONL session storage. file API와 edit tree에서는 숨긴다.
 - `README.md`: template/project documentation. Template metadata는 README

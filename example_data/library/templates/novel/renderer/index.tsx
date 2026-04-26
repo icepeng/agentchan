@@ -1,14 +1,8 @@
-/** @jsxImportSource agentchan:renderer/v1 */
-import { Agentchan } from "agentchan:renderer/v1";
+import { createRenderer, fileUrl, type BinaryFile, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
 import "./index.css";
 import type { ReactElement, ReactNode } from "react";
 
-type ProjectFile = Agentchan.ProjectFile;
-type TextFile = Agentchan.TextFile;
-type DataFile = Agentchan.DataFile;
-type BinaryFile = Agentchan.BinaryFile;
-type AgentState = Agentchan.RendererAgentState;
-type RendererActions = Agentchan.RendererActions;
+type AgentState = RendererAgentState;
 
 interface RendererContentProps {
   state: AgentState;
@@ -352,7 +346,7 @@ function RendererContent({ files }: RendererContentProps): ReactElement {
 
 
 
-export default function Renderer({ snapshot, actions }: Agentchan.RendererProps): ReactElement {
+function Renderer({ snapshot, actions }: RendererProps): ReactElement {
   return (
     <RendererContent
       files={[...snapshot.files]}
@@ -363,3 +357,5 @@ export default function Renderer({ snapshot, actions }: Agentchan.RendererProps)
     />
   );
 }
+
+export const renderer = createRenderer(Renderer);

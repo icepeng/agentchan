@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 const WEBUI_ROOT = join(import.meta.dir, "..");
 const MONOREPO_ROOT = join(WEBUI_ROOT, "../..");
 const DIST_DIR = join(WEBUI_ROOT, "dist/exe");
+const RENDERER_RUNTIME_DIR = join(MONOREPO_ROOT, "renderer-runtime");
 
 // Parse --target flag (e.g., --target=bun-linux-x64)
 const targetFlag = process.argv.find((a) => a.startsWith("--target="));
@@ -40,7 +41,16 @@ await cp(join(MONOREPO_ROOT, "example_data"), join(DIST_DIR, "data"), {
   recursive: true,
 });
 
+await $`cd ${RENDERER_RUNTIME_DIR} && bun install --frozen-lockfile`;
+
+await cp(RENDERER_RUNTIME_DIR, join(DIST_DIR, "renderer-runtime"), {
+  recursive: true,
+  force: true,
+  dereference: true,
+});
+
 console.log(`\nBuild complete: ${DIST_DIR}/`);
 console.log(`  ${exeName}`);
 console.log("  public/");
 console.log("  data/");
+console.log("  renderer-runtime/");

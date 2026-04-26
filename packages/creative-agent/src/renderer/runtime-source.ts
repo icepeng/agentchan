@@ -1,110 +1,197 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { BunPlugin } from "bun";
-import { isInside, RENDERER_V1_IMPORT } from "./policy.js";
+import { isInside, RENDERER_CORE_IMPORT, RENDERER_REACT_IMPORT } from "./policy.js";
+import {
+  experimentalRendererDepsEnabled,
+  packageRootName,
+  rendererRuntimeDir,
+} from "./runtime-deps.js";
+const SDK_NAMESPACE = "agentchan-renderer-sdk";
+const HOST_RUNTIME_PATH_CACHE = new Map<string, string | null>();
+const TRANSFORMED_RUNTIME_SOURCE_CACHE = new Map<string, Promise<string>>();
 
-const VIRTUAL_NAMESPACE = "agentchan-renderer";
+// Mirrors packages/renderer/src/core.ts. Keep builder equivalence tests in sync
+// when changing this shim.
+const RENDERER_CORE_SOURCE = `
+export function defineRenderer(factory, options = {}) {
+  return {
+    mount(container, bridge) {
+      return factory({
+        container,
+        snapshot: bridge.snapshot,
+        actions: bridge.actions,
+      });
+    },
+    theme: options.theme,
+  };
+}
 
-export const RENDERER_RUNTIME_SOURCE = `
-function normalizePath(path) {
-  return String(path).replace(/^\\/+/, "");
+export function isRendererRuntime(value) {
+  if (typeof value !== "object" || value === null) return false;
+  return typeof value.mount === "function" &&
+    (value.theme === undefined || typeof value.theme === "function");
+}
+
+export function fileUrl(snapshot, fileOrPath, options = {}) {
+  const path = typeof fileOrPath === "string" ? fileOrPath : fileOrPath?.path;
+  if (!path) {
+    throw new Error("fileUrl requires a file path");
+  }
+
+  let url = snapshot.baseUrl.replace(/\\/$/, "") + "/files/" + encodeFilePath(path);
+  const digest = typeof fileOrPath === "string" ? options.digest : fileOrPath?.digest;
+  if (digest) url += "?v=" + encodeURIComponent(digest);
+  return url;
 }
 
 function encodeFilePath(path) {
   return normalizePath(path).split("/").map(encodeURIComponent).join("/");
 }
 
-export const Agentchan = {
-  fileUrl(snapshot, fileOrPath, options = {}) {
-    const path =
-      typeof fileOrPath === "string" ? fileOrPath : fileOrPath?.path;
-    if (!path) {
-      throw new Error("Agentchan.fileUrl requires a file path");
-    }
-    let url = snapshot.baseUrl.replace(/\\/$/, "") + "/files/" + encodeFilePath(path);
-    const digest =
-      typeof fileOrPath === "string" ? options.digest : fileOrPath?.digest;
-    if (digest) url += "?v=" + encodeURIComponent(digest);
-    return url;
+function normalizePath(path) {
+  return String(path).replace(/^\\/+/, "");
+}
+`;
+
+// Mirrors packages/renderer/src/react.tsx. Keep builder equivalence tests in sync
+// when changing this shim.
+const RENDERER_REACT_SOURCE = `
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { defineRenderer, fileUrl, isRendererRuntime } from "@agentchan/renderer/core";
+
+export { defineRenderer, fileUrl, isRendererRuntime };
+
+export function createRenderer(Component, options = {}) {
+  return {
+    mount(container, bridge) {
+      let currentSnapshot = bridge.snapshot;
+      const root = createRoot(container);
+
+      function render() {
+        root.render(createElement(Component, {
+          snapshot: currentSnapshot,
+          actions: bridge.actions,
+        }));
+      }
+
+      render();
+
+      return {
+        update(snapshot) {
+          currentSnapshot = snapshot;
+          render();
+        },
+        unmount() {
+          root.unmount();
+        },
+      };
+    },
+    theme: options.theme,
+  };
+}
+`;
+
+const SDK_SOURCES: Record<string, { path: string; source: string; loader: "ts" | "tsx" }> = {
+  [RENDERER_CORE_IMPORT]: {
+    path: "core.ts",
+    source: RENDERER_CORE_SOURCE,
+    loader: "ts",
+  },
+  [RENDERER_REACT_IMPORT]: {
+    path: "react.tsx",
+    source: RENDERER_REACT_SOURCE,
+    loader: "tsx",
   },
 };
 
-export default Agentchan;
-`;
-
-export const REACT_RUNTIME_SOURCE = `
-const runtime = globalThis.__AGENTCHAN_RENDERER_V1__;
-if (!runtime) {
-  throw new Error("Agentchan renderer React runtime is not installed.");
-}
-const React = runtime.React;
-export const Children = React.Children;
-export const Component = React.Component;
-export const Fragment = React.Fragment;
-export const StrictMode = React.StrictMode;
-export const Suspense = React.Suspense;
-export const cloneElement = React.cloneElement;
-export const createContext = React.createContext;
-export const createElement = React.createElement;
-export const createRef = React.createRef;
-export const forwardRef = React.forwardRef;
-export const isValidElement = React.isValidElement;
-export const lazy = React.lazy;
-export const startTransition = React.startTransition;
-export const use = React.use;
-export const useActionState = React.useActionState;
-export const useCallback = React.useCallback;
-export const useContext = React.useContext;
-export const useDebugValue = React.useDebugValue;
-export const useDeferredValue = React.useDeferredValue;
-export const useEffect = React.useEffect;
-export const useId = React.useId;
-export const useImperativeHandle = React.useImperativeHandle;
-export const useInsertionEffect = React.useInsertionEffect;
-export const useLayoutEffect = React.useLayoutEffect;
-export const useMemo = React.useMemo;
-export const useOptimistic = React.useOptimistic;
-export const useReducer = React.useReducer;
-export const useRef = React.useRef;
-export const useState = React.useState;
-export const useSyncExternalStore = React.useSyncExternalStore;
-export const useTransition = React.useTransition;
-export default React;
-`;
-
-export const RENDERER_JSX_RUNTIME_SOURCE = `
-const runtime = globalThis.__AGENTCHAN_RENDERER_V1__;
-if (!runtime) {
-  throw new Error("Agentchan renderer JSX runtime is not installed.");
-}
-export const Fragment = runtime.Fragment;
-export const jsx = runtime.jsx;
-export const jsxs = runtime.jsxs;
-export const jsxDEV = runtime.jsxDEV ?? runtime.jsx;
-`;
+const HOST_RUNTIME_SIDE_CARS: Record<string, string> = {
+  react: join("react", "index.js"),
+  "react-dom/client": join("react-dom", "client.js"),
+  "react/jsx-runtime": join("react", "jsx-runtime.js"),
+  "react/jsx-dev-runtime": join("react", "jsx-dev-runtime.js"),
+  scheduler: join("scheduler", "index.js"),
+};
 
 export function createRendererRuntimePlugin(): BunPlugin {
   return {
     name: "agentchan-renderer",
     setup(build) {
-      build.onResolve({ filter: /^agentchan:renderer\/v1(\/jsx-runtime|\/jsx-dev-runtime)?$/ }, (args) => ({
-        path: args.path,
-        namespace: VIRTUAL_NAMESPACE,
+      build.onResolve({ filter: /^@agentchan\/renderer\/(core|react)$/ }, (args) => ({
+        path: SDK_SOURCES[args.path]?.path ?? args.path,
+        namespace: SDK_NAMESPACE,
       }));
-      build.onResolve({ filter: /^react$/ }, (args) => ({
-        path: args.path,
-        namespace: VIRTUAL_NAMESPACE,
+      build.onResolve({ filter: /^\.\/core(?:\.ts)?$/, namespace: SDK_NAMESPACE }, () => ({
+        path: SDK_SOURCES[RENDERER_CORE_IMPORT]!.path,
+        namespace: SDK_NAMESPACE,
       }));
-      build.onLoad({ filter: /.*/, namespace: VIRTUAL_NAMESPACE }, (args) => ({
-        contents: args.path === RENDERER_V1_IMPORT
-          ? RENDERER_RUNTIME_SOURCE
-          : args.path === "react"
-            ? REACT_RUNTIME_SOURCE
-            : RENDERER_JSX_RUNTIME_SOURCE,
-        loader: "js",
-      }));
+      build.onResolve({ filter: /^[^./].*/ }, (args) => {
+        const runtimePath = resolveRendererRuntimeDependency(args.path);
+        if (runtimePath) return { path: runtimePath };
+        const hostRuntimePath = resolveHostRuntimePath(args.path);
+        if (hostRuntimePath) return { path: hostRuntimePath };
+        return undefined;
+      });
+      build.onLoad({ filter: /node_modules[\\/](?:react|react-dom|scheduler)[\\/].*\.(?:js|cjs|mjs)$/ }, async (args) => {
+        return {
+          contents: await loadTransformedRuntimeSource(args.path),
+          loader: "js",
+        };
+      });
+      build.onLoad({ filter: /\.(ts|tsx)$/, namespace: SDK_NAMESPACE }, (args) => {
+        const source = Object.values(SDK_SOURCES).find((item) => item.path === args.path);
+        if (!source) return undefined;
+        return {
+          contents: source.source,
+          loader: source.loader,
+        };
+      });
     },
   };
+}
+
+function resolveHostRuntimePath(specifier: string): string | null {
+  const cacheKey = `${rendererRuntimeDir()}\0${specifier}`;
+  if (HOST_RUNTIME_PATH_CACHE.has(cacheKey)) {
+    return HOST_RUNTIME_PATH_CACHE.get(cacheKey) ?? null;
+  }
+
+  let resolved: string | null;
+  try {
+    resolved = fileURLToPath(import.meta.resolve(specifier));
+  } catch {
+    const sideCar = HOST_RUNTIME_SIDE_CARS[specifier];
+    resolved = sideCar ? join(rendererRuntimeDir(), "node_modules", sideCar) : null;
+  }
+  HOST_RUNTIME_PATH_CACHE.set(cacheKey, resolved);
+  return resolved;
+}
+
+function resolveRendererRuntimeDependency(specifier: string): string | null {
+  if (!experimentalRendererDepsEnabled()) return null;
+
+  const rootName = packageRootName(specifier);
+  if (!rootName) return null;
+
+  try {
+    return Bun.resolveSync(specifier, join(rendererRuntimeDir(), "package.json"));
+  } catch {
+    return null;
+  }
+}
+
+function loadTransformedRuntimeSource(path: string): Promise<string> {
+  const existing = TRANSFORMED_RUNTIME_SOURCE_CACHE.get(path);
+  if (existing) return existing;
+  const source = readFile(path, "utf-8").then((text) =>
+    text
+      .replace(/\bprocess\.env\.NODE_ENV\b/g, JSON.stringify("development"))
+      .replace(/\bprocess\.env\b/g, "({ NODE_ENV: \"development\" })")
+  );
+  TRANSFORMED_RUNTIME_SOURCE_CACHE.set(path, source);
+  return source;
 }
 
 export function createRendererSourcePlugin(rendererDir: string): BunPlugin {
@@ -116,7 +203,7 @@ export function createRendererSourcePlugin(rendererDir: string): BunPlugin {
         const sourcePath = resolve(args.path);
         if (!isInside(rendererRoot, sourcePath)) return undefined;
         const source = await readFile(sourcePath, "utf-8");
-        const pragma = "/** @jsxImportSource agentchan:renderer/v1 */";
+        const pragma = "/** @jsxImportSource react */";
         return {
           contents: source.includes("@jsxImportSource")
             ? source
