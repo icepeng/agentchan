@@ -51,6 +51,7 @@ export function deleteSession(projectSlug: string, id: string): Promise<void> {
 export function renameSession(
   projectSlug: string,
   id: string,
+  leafId: string | null,
   name: string,
 ): Promise<{
   entries: SessionEntry[];
@@ -59,7 +60,7 @@ export function renameSession(
   return json(`${projectBase(projectSlug)}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ leafId, name }),
   });
 }
 

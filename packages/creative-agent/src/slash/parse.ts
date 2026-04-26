@@ -20,3 +20,11 @@ export function serializeCommand(name: string, args: string): string {
   const n = `<command-name>/${name}</command-name>`;
   return args.trim() ? `${n}\n<command-args>${args.trim()}</command-args>` : n;
 }
+
+export function formatSerializedCommandForDisplay(text: string): string {
+  const match = text.match(/^<command-name>\/([^<]+)<\/command-name>(?:\n<command-args>([\s\S]*)<\/command-args>)?$/);
+  if (!match) return text;
+  const name = match[1]!;
+  const args = match[2]?.trim();
+  return args ? `/${name} ${args}` : `/${name}`;
+}

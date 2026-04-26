@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type {
+  CompactionEntry,
   SessionMessageEntry,
   TextContent,
   ThinkingContent,
   ToolCall,
 } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
+import { parseBlockMarkdown } from "@/client/shared/blockMarkdown.js";
+import { formatTokens } from "@/client/shared/pricing.utils.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
 import { MessageContent } from "./MessageContent.js";
 
@@ -21,6 +24,44 @@ function getUserText(entry: SessionMessageEntry): string {
     .filter((b): b is TextContent => b.type === "text")
     .map((b) => b.text)
     .join("\n");
+}
+
+interface ParsedSkillContent {
+  name: string;
+  content: string;
+  userMessage: string | undefined;
+}
+
+function parseSkillContent(text: string): ParsedSkillContent | null {
+  const match = text.match(/^<skill_content name="([^"]+)">\n([\s\S]*?)\n<\/skill_content>(?:\n\n([\s\S]+))?$/);
+  if (!match) return null;
+  return {
+    name: match[1]!,
+    content: match[2]!,
+    userMessage: match[3]?.trim() || undefined,
+  };
+}
+
+function formatSerializedCommandForDisplay(text: string): string {
+  const match = text.match(/^<command-name>\/([^<]+)<\/command-name>(?:\n<command-args>([\s\S]*)<\/command-args>)?$/);
+  if (!match) return text;
+  const name = match[1]!;
+  const args = match[2]?.trim();
+  return args ? `/${name} ${args}` : `/${name}`;
+}
+
+function SkillInvocationBlock({ skill }: { skill: ParsedSkillContent }) {
+  const { t } = useI18n();
+  return (
+    <details className="mb-2 rounded-md border border-accent/12 bg-accent/5 px-3 py-2 text-xs">
+      <summary className="cursor-pointer select-none text-accent">
+        {t("chat.skillLoaded")}: {skill.name}
+      </summary>
+      <div className="mt-2 max-h-64 overflow-auto border-t border-accent/10 pt-2 text-fg-2">
+        {parseBlockMarkdown(skill.content)}
+      </div>
+    </details>
+  );
 }
 
 // ── Bubble Wrap ───────────────────────────────
@@ -204,8 +245,15 @@ export function MessageBubble({
 
   if (role !== "user") return null;
 
+  const userText = getUserText(entry);
+  const skill = parseSkillContent(userText);
+  const visibleText = skill?.userMessage
+    ? formatSerializedCommandForDisplay(skill.userMessage)
+    : skill
+      ? ""
+      : userText;
   const displayContent: Array<TextContent | ThinkingContent | ToolCall> = [
-    { type: "text" as const, text: getUserText(entry) },
+    { type: "text" as const, text: visibleText ?? "" },
   ];
 
   return (
@@ -218,8 +266,31 @@ export function MessageBubble({
       isStreaming={isStreaming}
       footer={footer}
     >
-      <MessageContent content={displayContent} />
+      {skill && <SkillInvocationBlock skill={skill} />}
+      {visibleText && <MessageContent content={displayContent} />}
     </BubbleShell>
+  );
+}
+
+export function CompactionBubble({
+  entry,
+  variant = "compact",
+}: {
+  entry: CompactionEntry;
+  variant?: "compact" | "wide";
+}) {
+  const { t } = useI18n();
+  return (
+    <BubbleWrap variant={variant} padding="tight" className="bg-accent/4">
+      <details className="max-w-3xl mx-auto rounded-md border border-accent/10 bg-surface/70 px-3 py-2 text-xs text-fg-2">
+        <summary className="cursor-pointer select-none text-accent">
+          {t("chat.compactSummary")} · {formatTokens(entry.tokensBefore)}
+        </summary>
+        <div className="mt-2 border-t border-accent/10 pt-2">
+          {parseBlockMarkdown(entry.summary)}
+        </div>
+      </details>
+    </BubbleWrap>
   );
 }
 

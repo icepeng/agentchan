@@ -8,14 +8,14 @@ import {
   useActiveSessionSelection,
   branchFromLeaf,
 } from "@/client/entities/session/index.js";
-import type { SessionEntry, SessionMessageEntry } from "@/client/entities/session/index.js";
+import type { CompactionEntry, SessionEntry, SessionMessageEntry } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
-import { AssistantTurnBubble, MessageBubble } from "./MessageBubble.js";
+import { AssistantTurnBubble, CompactionBubble, MessageBubble } from "./MessageBubble.js";
 import { StreamingMessage } from "./StreamingMessage.js";
 
 // ── Model Info Popover ───────────────────────
@@ -89,10 +89,6 @@ function ModelInfoPopover({ entry }: { entry: SessionMessageEntry }) {
 
 const EMPTY_ENTRIES: readonly SessionEntry[] = [];
 
-function messageEntriesOf(entries: readonly SessionEntry[]): SessionMessageEntry[] {
-  return entries.filter((entry): entry is SessionMessageEntry => entry.type === "message");
-}
-
 function siblingMessageEntryIds(
   entries: readonly SessionEntry[],
   entry: SessionMessageEntry,
@@ -107,11 +103,17 @@ function siblingMessageEntryIds(
 
 type BubbleGroup =
   | { kind: "user"; entry: SessionMessageEntry }
-  | { kind: "assistantTurn"; entries: SessionMessageEntry[] };
+  | { kind: "assistantTurn"; entries: SessionMessageEntry[] }
+  | { kind: "compaction"; entry: CompactionEntry };
 
-function groupBranchMessages(entries: readonly SessionMessageEntry[]): BubbleGroup[] {
+function groupBranchEntries(entries: readonly SessionEntry[]): BubbleGroup[] {
   const groups: BubbleGroup[] = [];
   for (const entry of entries) {
+    if (entry.type === "compaction") {
+      groups.push({ kind: "compaction", entry });
+      continue;
+    }
+    if (entry.type !== "message") continue;
     if (entry.message.role === "user") {
       groups.push({ kind: "user", entry });
       continue;
@@ -136,7 +138,6 @@ export function AgentPanel() {
   );
   const entries = sessionData?.entries ?? EMPTY_ENTRIES;
   const branch = sessionData ? branchFromLeaf(sessionData.entries, sessionData.leafId) : EMPTY_ENTRIES;
-  const branchMessages = messageEntriesOf(branch);
 
   const { t } = useI18n();
   const { selectLeaf, setAppendLeaf } = useSession();
@@ -145,12 +146,12 @@ export function AgentPanel() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [branchMessages.length, state.streamingMessage]);
+  }, [branch.length, state.streamingMessage]);
 
   const getSiblings = (entry: SessionMessageEntry): string[] =>
     siblingMessageEntryIds(entries, entry);
 
-  const groups = groupBranchMessages(branchMessages);
+  const groups = groupBranchEntries(branch);
 
   if (!selection.openSessionId) {
     return (
@@ -207,6 +208,9 @@ export function AgentPanel() {
               />
             );
           }
+          if (g.kind === "compaction") {
+            return <CompactionBubble key={g.entry.id} entry={g.entry} variant="compact" />;
+          }
           const first = g.entries[0];
           if (!first) return null;
           const lastAssistant = [...g.entries]
@@ -231,7 +235,7 @@ export function AgentPanel() {
 
         <StreamingMessage variant="compact" />
 
-        {branchMessages.length === 0 && !state.isStreaming && (
+        {branch.length === 0 && !state.isStreaming && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-fg-3 tracking-wide">
               {t("chat.awaitingInput")}

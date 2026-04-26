@@ -41,7 +41,7 @@ export const translations: Record<TranslationKey, string> = {
   "chat.streamError": "오류가 발생했습니다",
   "chat.streamErrorRetry": "메시지를 다시 보내보세요",
   "chat.multiProviderAgent": "멀티 프로바이더 AI 에이전트",
-  "chat.compactSummary": "이전 세션에서 요약됨",
+  "chat.compactSummary": "세션 요약됨",
   "chat.compactShowDetails": "자세히 보기",
   "chat.compactHideDetails": "접기",
   "chat.skillLoaded": "스킬 로드됨",

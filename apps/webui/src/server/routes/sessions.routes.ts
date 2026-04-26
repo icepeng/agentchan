@@ -42,9 +42,9 @@ export function createSessionRoutes() {
   app.patch("/:id", async (c) => {
     const slug = c.req.param("slug")!;
     const sessionId = c.req.param("id");
-    const { name } = await c.req.json<{ name: string }>();
+    const { leafId, name } = await c.req.json<{ leafId: string | null; name: string }>();
 
-    const result = await c.get("sessionService").rename(slug, sessionId, name);
+    const result = await c.get("sessionService").rename(slug, sessionId, leafId, name);
     if (!result) return c.json({ error: "Session not found" }, 404);
     return c.json(result);
   });

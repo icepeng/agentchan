@@ -13,6 +13,8 @@ import type {
   AgentchanSessionHeader,
 } from "../types.js";
 import { generateTitle } from "./tree.js";
+import { parseSkillContent } from "../skills/skill-content.js";
+import { formatSerializedCommandForDisplay } from "../slash/parse.js";
 
 // --- Header ---
 
@@ -107,12 +109,26 @@ function parseTimestamp(timestamp: string | undefined, fallback = Date.now()): n
 function extractUserTextFromMessageEntry(entry: SessionMessageEntry): string {
   const msg = entry.message;
   if (msg.role !== "user") return "";
-  if (typeof msg.content === "string") return msg.content;
+  if (typeof msg.content === "string") {
+    const skillContent = parseSkillContent(msg.content);
+    if (skillContent) {
+      return skillContent.userMessage
+        ? formatSerializedCommandForDisplay(skillContent.userMessage)
+        : `/${skillContent.name}`;
+    }
+    return msg.content;
+  }
   if (Array.isArray(msg.content)) {
-    return msg.content
+    const text = msg.content
       .filter((b): b is TextContent => b.type === "text")
       .map((b) => b.text)
       .join("\n");
+    const skillContent = parseSkillContent(text);
+    return skillContent
+      ? skillContent.userMessage
+        ? formatSerializedCommandForDisplay(skillContent.userMessage)
+        : `/${skillContent.name}`
+      : text;
   }
   return "";
 }

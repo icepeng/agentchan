@@ -133,7 +133,7 @@ describe("SessionEntry storage", () => {
       const created = await storage.createSession("project-a");
       await storage.appendEntriesAtLeaf("project-a", created.id, null, [entry("n1", "derived title")]);
 
-      const renamed = await storage.appendSessionInfo("project-a", created.id, "  Named Session  ");
+      const renamed = await storage.appendSessionInfo("project-a", created.id, "n1", "  Named Session  ");
       expect(renamed).toMatchObject({
         type: "session_info",
         parentId: "n1",
@@ -154,6 +154,26 @@ describe("SessionEntry storage", () => {
         parentId: "n1",
         name: "Named Session",
       });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("appends session_info at the requested leaf", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "agentchan-session-"));
+    try {
+      const storage = createSessionStorage(dir);
+      const created = await storage.createSession("project-a");
+      await storage.appendEntriesAtLeaf("project-a", created.id, null, [entry("n1", "root")]);
+      await storage.appendEntriesAtLeaf("project-a", created.id, "n1", [entry("n2", "left")]);
+      await storage.appendEntriesAtLeaf("project-a", created.id, "n1", [entry("n3", "right")]);
+
+      const renamed = await storage.appendSessionInfo("project-a", created.id, "n2", "Left branch");
+      if (!renamed) throw new Error("expected session_info entry");
+      expect(renamed?.parentId).toBe("n2");
+
+      const selected = await storage.loadSession("project-a", created.id, renamed?.id);
+      expect(ids(branchFromLeaf(selected?.entries ?? [], selected?.leafId))).toEqual(["n1", "n2", renamed.id]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

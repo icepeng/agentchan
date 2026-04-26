@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 
 import { buildUserEntriesForPrompt } from "../../src/agent/build.js";
 import { discoverProjectSkills } from "../../src/skills/discovery.js";
-import { SKILL_CONTENT_PREFIX } from "../../src/skills/skill-content.js";
+import { parseSkillContent, SKILL_CONTENT_PREFIX } from "../../src/skills/skill-content.js";
 import { generateCatalog } from "../../src/skills/catalog.js";
 import {
   SYSTEM_REMINDER_OPEN,
@@ -90,20 +90,17 @@ describe("skill-load shape — two injection paths", () => {
     expect(entry.message.role).toBe("user");
     expect("parentId" in entry).toBe(false);
     const content = getContent(entry);
-    expect(Array.isArray(content)).toBe(true);
-    expect((content as any[]).length).toBe(2);
+    expect(typeof content).toBe("string");
 
-    // content[0] = skill body
-    const skillText = getText(entry);
+    const text = getText(entry);
+    const parsed = parseSkillContent(text);
+    expect(parsed).not.toBeNull();
+    const skillText = text.slice(0, text.indexOf("\n\n<command-name>"));
     expect(skillText.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
     expect(skillText).toContain('name="invocable-character"');
     expect(skillText).toContain("</skill_content>");
 
-    // content[1] = serialized command
-    const contentArr = content as (TextContent | { type: string })[];
-    const cmdBlock = contentArr[1];
-    expect(cmdBlock.type).toBe("text");
-    const cmdText = (cmdBlock as TextContent).text;
+    const cmdText = parsed?.userMessage ?? "";
     expect(cmdText).toContain("<command-name>/invocable-character</command-name>");
     expect(cmdText).toContain("<command-args>hello world</command-args>");
 
@@ -136,10 +133,10 @@ describe("skill-load wire format consistency across paths", () => {
       projectDir,
       skills,
     );
-    // content[0] is the skill body in the merged entry
     const firstEntry = slashResult.entries[0];
     if (!firstEntry) throw new Error("expected entry");
-    const slashSkillText = getText(firstEntry);
+    const slashText = getText(firstEntry);
+    const slashSkillText = slashText.slice(0, slashText.indexOf("\n\n<command-name>"));
 
     const tool = createActivateSkillTool(skills, projectDir);
     const toolResult = await tool.execute("test-call-id", { name: "invocable-character" });

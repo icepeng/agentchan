@@ -51,9 +51,9 @@ export function useSessionMutations(projectSlug: string | null) {
     await mutate(qk.session(projectSlug, id), undefined, { revalidate: false });
   };
 
-  const rename = async (id: string, name: string) => {
+  const rename = async (id: string, leafId: string | null, name: string) => {
     if (!projectSlug) throw new Error("rename: projectSlug required");
-    const result = await apiRename(projectSlug, id, name);
+    const result = await apiRename(projectSlug, id, leafId, name);
     await mutate(qk.sessions(projectSlug));
     await mutate(
       qk.session(projectSlug, id),

@@ -39,7 +39,7 @@ export const translations = {
   "chat.streamError": "Something went wrong",
   "chat.streamErrorRetry": "Try sending your message again",
   "chat.multiProviderAgent": "multi-provider ai agent",
-  "chat.compactSummary": "Summarized from previous session",
+  "chat.compactSummary": "Session compacted",
   "chat.compactShowDetails": "show details",
   "chat.compactHideDetails": "hide details",
   "chat.skillLoaded": "Skill loaded",

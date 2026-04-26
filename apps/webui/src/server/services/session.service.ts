@@ -55,8 +55,8 @@ export function createSessionService(ctx: AgentContext) {
 
     delete: (slug: string, id: string) => deleteSession(ctx, slug, id),
 
-    rename: async (slug: string, sessionId: string, name: string) => {
-      const entry = await ctx.storage.appendSessionInfo(slug, sessionId, name);
+    rename: async (slug: string, sessionId: string, leafId: string | null, name: string) => {
+      const entry = await ctx.storage.appendSessionInfo(slug, sessionId, leafId, name);
       if (!entry) return null;
       const detail = await ctx.storage.loadSession(slug, sessionId, entry.id);
       if (!detail) return null;

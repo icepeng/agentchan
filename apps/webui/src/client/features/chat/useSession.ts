@@ -61,7 +61,8 @@ export function useSession() {
 
   const rename = async (id: string, name: string) => {
     if (!slug) return;
-    await mutations.rename(id, name);
+    const leafId = id === selection.openSessionId ? activeSessionData?.leafId ?? null : null;
+    await mutations.rename(id, leafId, name);
   };
 
   const refresh = async () => {

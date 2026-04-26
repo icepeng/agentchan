@@ -43,6 +43,7 @@ export interface SessionStorage {
   appendSessionInfo(
     projectSlug: string,
     sessionId: string,
+    leafId: string | null,
     name: string,
   ): Promise<SessionInfoEntry | null>;
   appendCompaction<T = unknown>(
@@ -213,9 +214,10 @@ export function createSessionStorage(projectsDir: string): SessionStorage {
     async appendSessionInfo(
       projectSlug: string,
       sessionId: string,
+      leafId: string | null,
       name: string,
     ) {
-      const loaded = await this.loadSession(projectSlug, sessionId);
+      const loaded = await this.loadSession(projectSlug, sessionId, leafId);
       if (!loaded) return null;
 
       const draft: EntryWithoutParent<SessionInfoEntry> = {

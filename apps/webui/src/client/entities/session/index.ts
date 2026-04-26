@@ -1,6 +1,7 @@
 export type {
   AgentMessage,
   AssistantMessage,
+  CompactionEntry,
   ImageContent,
   Message,
   SessionEntry,

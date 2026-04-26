@@ -31,7 +31,7 @@ disable-model-invocation: true
 | `write <path> [content\|@<file>]` | 파일 쓰기 (`@`로 로컬 파일 주입) |
 | `clear <path>` | 파일 비우기 |
 | `tree` | 프로젝트 트리 |
-| `state` / `raw` / `config [k=v]` | 상태·node 덤프·config |
+| `state` / `raw` / `config [k=v]` | 상태·entry 덤프·config |
 
 **Env**: `AGENTCHAN_URL=http://localhost:<port>` (기본 `:4244`), `PLAYTEST_STATE_FILE` (state 파일 경로 오버라이드)
 
@@ -68,7 +68,7 @@ Context의 Portless가 비어 있으면 서버 기동: `cd <agentchan> && bun ru
 ### 4. 플레이 루프
 
 - 입력은 인게임 행동(`*동작*` + 대사). `send` 호출 결과에서 tool call·스트림·파일 변경 관측
-- 매 턴 후 `read`/`tree`로 `files/` 변화, `raw`로 session node 확인
+- 매 턴 후 `read`/`tree`로 `files/` 변화, `raw`로 session entry 확인
 - 템플릿이 "LLM 전용" 파일(범인·세계관 진실 등)을 정의했다면 **검증자만 참조** — 플레이 입력에 단어를 그대로 옮기지 말고 "모르는 척" 자연스러운 대사로 위장
 
 ### 5. 회귀 발견 시

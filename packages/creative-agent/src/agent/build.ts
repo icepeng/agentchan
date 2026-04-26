@@ -78,10 +78,7 @@ function tryBuildSlashSkillEntries(
     timestamp: new Date(now).toISOString(),
     message: {
       role: "user",
-      content: [
-        { type: "text", text: skillText },
-        { type: "text", text: userText },
-      ],
+      content: `${skillText}\n\n${userText}`,
       timestamp: now,
     } as UserMessage,
   };

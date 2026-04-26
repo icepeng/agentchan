@@ -33,8 +33,18 @@ function computeUsageFromBranch(
   let cacheCreationTokens = 0;
   let cost = 0;
   let contextTokens = 0;
+  let latestCompactionIndex = -1;
 
-  for (const entry of branch) {
+  for (let i = branch.length - 1; i >= 0; i--) {
+    if (branch[i]?.type === "compaction") {
+      latestCompactionIndex = i;
+      break;
+    }
+  }
+
+  for (let i = 0; i < branch.length; i++) {
+    const entry = branch[i];
+    if (!entry) continue;
     if (entry.type !== "message" || entry.message.role !== "assistant") continue;
     const u = entry.message.usage;
     if (!u) continue;
@@ -47,7 +57,9 @@ function computeUsageFromBranch(
     cachedInputTokens += cacheRead;
     cacheCreationTokens += cacheWrite;
     cost += u.cost?.total ?? 0;
-    contextTokens = input + output + cacheRead + cacheWrite;
+    if (i > latestCompactionIndex) {
+      contextTokens = input + output + cacheRead + cacheWrite;
+    }
   }
 
   return {

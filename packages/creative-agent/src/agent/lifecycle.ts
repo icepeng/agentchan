@@ -8,16 +8,17 @@
 
 import {
   buildSessionContext,
-  compact as generateCompaction,
   DEFAULT_COMPACTION_SETTINGS,
   estimateTokens,
   findCutPoint,
 } from "@mariozechner/pi-coding-agent";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { Message } from "@mariozechner/pi-ai";
 import type { CompactionSettings } from "@mariozechner/pi-coding-agent";
 
 import type { SessionEntry } from "../types.js";
 import { branchFromLeaf, type SessionMode } from "../session/format.js";
+import { fullCompact } from "./compact.js";
 import { resolveModel, clearSessionAgentState } from "./orchestrator.js";
 import { type AgentContext } from "./context.js";
 
@@ -56,6 +57,14 @@ function entryMessage(entry: SessionEntry): AgentMessage | undefined {
 
 function estimateContextTokens(messages: readonly AgentMessage[]): number {
   return messages.reduce((total, message) => total + estimateTokens(message), 0);
+}
+
+function userTextMessage(text: string): Message {
+  return {
+    role: "user",
+    content: [{ type: "text", text }],
+    timestamp: Date.now(),
+  };
 }
 
 function prepareAgentchanCompaction(
@@ -141,24 +150,29 @@ export async function compactSession(
     throw new Error("Nothing to compact");
   }
 
-  const result = await generateCompaction(
-    preparation,
-    resolveModel(
+  const result = await fullCompact({
+    messages: [
+      ...(preparation.previousSummary
+        ? [userTextMessage(`Previous compaction summary:\n\n${preparation.previousSummary}`)]
+        : []),
+      ...(preparation.messagesToSummarize as Message[]),
+      ...(preparation.turnPrefixMessages as Message[]),
+    ],
+    model: resolveModel(
       cfg.provider,
       cfg.model,
       cfg.baseUrl && cfg.apiFormat
         ? { baseUrl: cfg.baseUrl, apiFormat: cfg.apiFormat }
         : undefined,
     ),
-    cfg.apiKey ?? "",
-  );
+    apiKey: cfg.apiKey ?? "",
+  });
 
   const entry = await ctx.storage.appendCompaction(slug, sessionId, {
     leafId: loaded.leafId,
     summary: result.summary,
-    firstKeptEntryId: result.firstKeptEntryId,
-    tokensBefore: result.tokensBefore,
-    details: result.details,
+    firstKeptEntryId: preparation.firstKeptEntryId,
+    tokensBefore: preparation.tokensBefore,
   });
   const detail = await ctx.storage.loadSession(slug, sessionId, entry.id);
   if (!detail) throw new Error("Session not found after compaction append");

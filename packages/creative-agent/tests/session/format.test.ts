@@ -186,6 +186,13 @@ describe("session metadata derivation", () => {
     expect(title.endsWith("...")).toBe(true);
   });
 
+  test("title ignores injected skill body", () => {
+    const skillText = `<skill_content name="outline">\n# Outline Skill\n\nLong private skill body.\n</skill_content>\n\n<command-name>/outline</command-name>\n<command-args>draft chapter 2</command-args>`;
+    const entry = makeMessageEntry("n1", null, "user", skillText);
+
+    expect(deriveSessionTitle([entry])).toBe("/outline draft chapter 2");
+  });
+
   test("parentSession is exposed as compactedFrom metadata", () => {
     const header = {
       type: "session",

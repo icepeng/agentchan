@@ -16,7 +16,7 @@
  *   bun play.ts tree                             프로젝트 파일 트리
  *   bun play.ts state                            현재 play state 출력
  *   bun play.ts config [k=v...]                  config 조회 / 수정
- *   bun play.ts raw                              activePath 순서로 node JSON 덤프
+ *   bun play.ts raw                              현재 leaf branch 순서로 entry JSON 덤프
  *
  * Env:
  *   AGENTCHAN_URL         서버 BASE URL (기본 http://localhost:4244)
@@ -39,7 +39,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 type State = {
   projectSlug: string;
   sessionId: string;
-  lastNodeId?: string | null;
+  leafId?: string | null;
 };
 
 function loadState(): State | null {
@@ -102,7 +102,7 @@ async function cmdNew(template?: string, name?: string) {
   saveState({
     projectSlug: project.slug,
     sessionId: sessRes.session.id,
-    lastNodeId: null,
+    leafId: null,
   });
 }
 
@@ -113,10 +113,9 @@ async function cmdUse(slug?: string, sessionId?: string) {
     if (!sessions.length) throw new Error(`no sessions in ${slug}; run \`sess\` to create one`);
     sessionId = sessions[0].id;
   }
-  const sess = await api<{ activePath: string[] }>(`/api/projects/${slug}/sessions/${sessionId}`);
-  const lastNodeId = sess.activePath[sess.activePath.length - 1] ?? null;
-  saveState({ projectSlug: slug, sessionId, lastNodeId });
-  console.log(C.green(`[ok] bound to ${slug} / ${sessionId} (lastNode=${lastNodeId})`));
+  const sess = await api<{ entries: Array<{ id: string; parentId: string | null }>; leafId: string | null }>(`/api/projects/${slug}/sessions/${sessionId}`);
+  saveState({ projectSlug: slug, sessionId, leafId: sess.leafId });
+  console.log(C.green(`[ok] bound to ${slug} / ${sessionId} (leaf=${sess.leafId})`));
 }
 
 async function cmdSess() {
@@ -126,7 +125,7 @@ async function cmdSess() {
     { method: "POST", body: JSON.stringify({}) },
   );
   s.sessionId = sessRes.session.id;
-  s.lastNodeId = null;
+  s.leafId = null;
   saveState(s);
   console.log(C.green(`[ok] new session: ${sessRes.session.id}`));
 }
@@ -142,7 +141,7 @@ async function cmdSend(text: string) {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ parentNodeId: s.lastNodeId ?? null, text }),
+      body: JSON.stringify({ leafId: s.leafId ?? null, text }),
     },
   );
   if (!res.ok || !res.body) {
@@ -152,7 +151,7 @@ async function cmdSend(text: string) {
 
   const decoder = new TextDecoder();
   let buf = "";
-  let finalNodes: Array<{ id: string }> = [];
+  let finalEntries: Array<{ id: string }> = [];
   let lastAssistantUsage: any = null;
   let lastStreamedText = "";
 
@@ -181,8 +180,11 @@ async function cmdSend(text: string) {
         case "agent_event":
           handleAgentEvent(data);
           break;
-        case "assistant_nodes":
-          finalNodes = Array.isArray(data) ? data : [];
+        case "user_entries":
+          if (Array.isArray(data) && data.length > 0) finalEntries = data;
+          break;
+        case "assistant_entries":
+          if (Array.isArray(data) && data.length > 0) finalEntries = data;
           break;
         case "error":
           console.error(C.red(`\n[error] ${JSON.stringify(data)}`));
@@ -239,9 +241,9 @@ async function cmdSend(text: string) {
     }
   }
 
-  if (finalNodes.length) {
-    const lastNode = finalNodes[finalNodes.length - 1];
-    s.lastNodeId = lastNode.id;
+  if (finalEntries.length) {
+    const lastEntry = finalEntries[finalEntries.length - 1];
+    s.leafId = lastEntry.id;
     saveState(s);
   }
   console.log("");
@@ -309,15 +311,19 @@ async function cmdConfig(kvs: string[]) {
 
 async function cmdRaw() {
   const s = requireState();
-  const sess = await api<{ nodes: any[]; activePath: string[] }>(
+  const sess = await api<{ entries: any[]; leafId: string | null }>(
     `/api/projects/${s.projectSlug}/sessions/${s.sessionId}`,
   );
-  const byId = new Map(sess.nodes.map((n) => [n.id, n]));
-  for (const id of sess.activePath) {
-    const n = byId.get(id);
-    if (!n) continue;
-    console.log(C.bold(`--- node ${n.id} (parent=${n.parentId}) ---`));
-    console.log(JSON.stringify(n.message, null, 2));
+  const byId = new Map(sess.entries.map((entry) => [entry.id, entry]));
+  const branch: any[] = [];
+  let current = sess.leafId ? byId.get(sess.leafId) : undefined;
+  while (current) {
+    branch.unshift(current);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  for (const entry of branch) {
+    console.log(C.bold(`--- entry ${entry.id} (${entry.type}, parent=${entry.parentId}) ---`));
+    console.log(JSON.stringify(entry, null, 2));
   }
 }
 

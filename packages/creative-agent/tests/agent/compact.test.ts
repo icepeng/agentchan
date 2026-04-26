@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { microCompact, clearCompactState } from "../../src/agent/compact.js";
+import { formatCompactSummary, microCompact, clearCompactState } from "../../src/agent/compact.js";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 
 // --- Helpers ---
@@ -203,5 +203,23 @@ describe("microCompact", () => {
       clearCompactState("a");
       clearCompactState("b");
     });
+  });
+});
+
+describe("formatCompactSummary", () => {
+  test("extracts the creative summary block", () => {
+    const raw = `<analysis>
+Internal reasoning.
+</analysis>
+
+<summary>
+1. Creative Direction:
+   noir fantasy
+
+2. Characters and World:
+   - a tired detective
+</summary>`;
+
+    expect(formatCompactSummary(raw)).toBe("1. Creative Direction:\n   noir fantasy\n\n2. Characters and World:\n   - a tired detective");
   });
 });
