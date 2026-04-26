@@ -23,12 +23,12 @@ export interface SwitchBranchResult {
 export interface SessionStorage {
   listSessions(projectSlug: string): Promise<ProjectSessionInfo[]>;
   getSession(projectSlug: string, id: string): Promise<ProjectSessionInfo | null>;
-  loadState(projectSlug: string, id: string, leafId?: string | null): Promise<ProjectSessionState | null>;
+  loadState(projectSlug: string, id: string, leafId?: LeafSelector): Promise<ProjectSessionState | null>;
   createSession(projectSlug: string, provider: string, model: string, mode?: SessionMode): Promise<ProjectSessionInfo>;
   deleteSession(projectSlug: string, id: string): Promise<void>;
   openManager(projectSlug: string, id: string): Promise<SessionManager | null>;
   flush(manager: SessionManager): Promise<void>;
-  snapshot(manager: SessionManager, leafId?: string | null): ProjectSessionState | null;
+  snapshot(manager: SessionManager, leafId?: LeafSelector): ProjectSessionState | null;
   switchBranch(projectSlug: string, sessionId: string, entryId: string): Promise<SwitchBranchResult | null>;
 }
 
@@ -113,12 +113,17 @@ export async function forceFlush(manager: SessionManager): Promise<void> {
   if (!sessionFile || !header) return;
   const entries = [header, ...manager.getEntries()];
   await writeFile(sessionFile, `${entries.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
-  manager.setSessionFile(sessionFile);
+  markFlushed(manager);
 }
+
+type LeafSelector =
+  | undefined // use the manager's current in-memory leaf
+  | null // project an empty branch before the first entry
+  | string; // project the branch ending at a specific entry
 
 function stateFromManager(
   manager: SessionManager,
-  leafId?: string | null,
+  leafId?: LeafSelector,
 ): ProjectSessionState | null {
   if (leafId && !manager.getEntry(leafId)) return null;
   const branch = leafId === null ? [] : manager.getBranch(leafId);
@@ -128,6 +133,11 @@ function stateFromManager(
     branch,
     leafId: leafId === undefined ? manager.getLeafId() : leafId,
   };
+}
+
+function markFlushed(manager: SessionManager): void {
+  // Pi exposes no public flush; avoid setSessionFile(), which reloads and resets the in-memory leaf.
+  (manager as unknown as { flushed: boolean }).flushed = true;
 }
 
 function sessionInfoFromManager(manager: SessionManager): ProjectSessionInfo {

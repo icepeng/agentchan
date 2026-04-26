@@ -6,8 +6,8 @@ export const AGENTCHAN_SESSION_TYPE = "agentchan.session";
 export function getSessionModeFromEntries(
   entries: readonly SessionEntry[],
 ): SessionMode | undefined {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i];
+  // Agentchan writes this once during session creation; treat the first entry as the invariant.
+  for (const entry of entries) {
     if (entry?.type !== "custom" || entry.customType !== AGENTCHAN_SESSION_TYPE) {
       continue;
     }

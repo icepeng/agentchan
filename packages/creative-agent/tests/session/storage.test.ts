@@ -72,6 +72,42 @@ describe("Pi SessionManager storage", () => {
     expect(state?.entries).toHaveLength(3);
   });
 
+  test("flush does not reset the in-memory branch leaf", async () => {
+    const storage = createSessionStorage(await tempProjectsDir());
+    const session = await storage.createSession("p", "google", "gemini-test");
+    const manager = await storage.openManager("p", session.id);
+    expect(manager).not.toBeNull();
+    if (!manager) return;
+
+    const first = manager.appendMessage({
+      role: "user",
+      content: "first",
+      timestamp: Date.now(),
+    });
+    manager.appendMessage({
+      role: "assistant",
+      content: [{ type: "text", text: "first response" }],
+      api: "anthropic-messages",
+      provider: "google",
+      model: "gemini-test",
+      usage: {
+        input: 1,
+        output: 1,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 2,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: "stop",
+      timestamp: Date.now(),
+    });
+
+    manager.branch(first);
+    await storage.flush(manager);
+
+    expect(storage.snapshot(manager)?.leafId).toBe(first);
+  });
+
   test("flush before first assistant does not duplicate entries when Pi resumes appending", async () => {
     const storage = createSessionStorage(await tempProjectsDir());
     const session = await storage.createSession("p", "google", "gemini-test");

@@ -17,6 +17,7 @@ export function useSessionData(projectSlug: string | null, sessionId: string | n
     projectSlug && sessionId ? qk.session(projectSlug, sessionId) : null,
     { keepPreviousData: false },
   );
+  // Keep the panel blank if an in-flight response for an old key wins the race.
   if (!result.data || (sessionId && result.data.info.id === sessionId)) return result;
   return { ...result, data: undefined };
 }

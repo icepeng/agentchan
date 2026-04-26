@@ -72,6 +72,9 @@ export function runRegenerate(
       throw new Error("User entry not found");
     }
     manager.branch(input.userEntryId);
+    // Pi stores entries, not a durable leaf pointer; the next assistant append persists this branch.
+    const branched = ctx.storage.snapshot(manager);
+    if (branched) emit({ type: "snapshot", snapshot: branched });
     await runAgentContinuation(ctx, input.slug, manager, emit, signal);
   });
 }
@@ -144,6 +147,7 @@ async function runAgentContinuation(
 }
 
 function isPersistableMessage(message: AgentMessage): message is Message {
+  // User entries are appended before the agent runs; Pi custom messages are runtime-only here.
   return (
     "role" in message
     && (message.role === "assistant" || message.role === "toolResult")

@@ -18,7 +18,6 @@ import {
   clearAbortController,
   branchToMessages,
   type ProjectSessionState,
-  type SessionEntry,
   type SSECallbacks,
 } from "@/client/entities/session/index.js";
 import type { UserMessage } from "@/client/entities/agent-state/index.js";
@@ -29,37 +28,7 @@ import {
   notifyBackgroundCompletion,
 } from "@/client/shared/notifications.js";
 import { useProject } from "@/client/features/project/useProject.js";
-
-function branchUntil(
-  branch: ReadonlyArray<SessionEntry>,
-  entryId: string | null,
-): ReadonlyArray<SessionEntry> {
-  if (!entryId) return [];
-  const index = branch.findIndex((entry) => entry.id === entryId);
-  return index >= 0 ? branch.slice(0, index + 1) : branch;
-}
-
-function branchWithAppendedEntry(
-  entries: ReadonlyArray<SessionEntry>,
-  branch: ReadonlyArray<SessionEntry>,
-  entry: SessionEntry,
-): SessionEntry[] {
-  if (branch.some((existing) => existing.id === entry.id)) return branch as SessionEntry[];
-  const base = branchUntil(branch, entry.parentId);
-  if (!entry.parentId || base.length > 0) return [...base, entry];
-
-  const byId = new Map(entries.map((existing) => [existing.id, existing]));
-  const path: SessionEntry[] = [];
-  for (let id: string | null = entry.parentId; id;) {
-    const parent = byId.get(id);
-    if (!parent) return [...branch, entry];
-    path.push(parent);
-    id = parent.parentId;
-  }
-  path.reverse();
-  path.push(entry);
-  return path;
-}
+import { branchUntil, branchWithAppendedEntry } from "./streamingBranch.js";
 
 export function useStreaming() {
   const projectSelection = useProjectSelectionState();
