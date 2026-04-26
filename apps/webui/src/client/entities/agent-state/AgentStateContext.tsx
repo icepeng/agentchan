@@ -6,20 +6,26 @@ import {
   type Dispatch,
 } from "react";
 import type { AgentEvent } from "@agentchan/creative-agent";
-import type { AgentMessage, AgentState } from "./agentState.js";
+import type { AgentMessage, AgentState, UserMessage } from "./agentState.js";
 import { EMPTY_AGENT_STATE } from "./agentState.js";
 
 // Map keyed by projectSlug for agentchan's parallel-stream model.
 // Reducer is a 1:1 port of pi-agent-core `Agent.processEvents`.
 
-type AgentStateMap = ReadonlyMap<string, AgentState>;
+export type AgentStateMap = ReadonlyMap<string, AgentState>;
 
 const EMPTY_MAP: AgentStateMap = new Map();
 
 type Action =
   | { type: "HYDRATE"; projectSlug: string; messages: ReadonlyArray<AgentMessage> }
-  | { type: "START"; projectSlug: string }
-  | { type: "STOP"; projectSlug: string }
+  | {
+      type: "BEGIN_TURN";
+      projectSlug: string;
+      messages: ReadonlyArray<AgentMessage>;
+      userMessage?: UserMessage;
+    }
+  | { type: "BEGIN_BUSY"; projectSlug: string }
+  | { type: "END_BUSY"; projectSlug: string }
   | { type: "AGENT_EVENT"; projectSlug: string; event: AgentEvent }
   | { type: "ERROR"; projectSlug: string; message: string }
   | { type: "CLOSE"; projectSlug: string };
@@ -29,12 +35,18 @@ function applyAgentEvent(state: AgentState, ev: AgentEvent): AgentState {
     case "agent_start":
       return { ...state, isStreaming: true, streamingMessage: undefined, errorMessage: undefined };
     case "agent_end":
-      return { ...state, isStreaming: false, streamingMessage: undefined };
+      return {
+        ...state,
+        isStreaming: false,
+        streamingMessage: undefined,
+        pendingToolCalls: EMPTY_AGENT_STATE.pendingToolCalls,
+      };
     case "message_start":
     case "message_update":
-      if (ev.message.role !== "assistant") return state;
+      if (!isUiAgentMessage(ev.message) || ev.message.role !== "assistant") return state;
       return { ...state, streamingMessage: ev.message };
     case "message_end":
+      if (!isUiAgentMessage(ev.message)) return state;
       return {
         ...state,
         streamingMessage: undefined,
@@ -59,6 +71,19 @@ function applyAgentEvent(state: AgentState, ev: AgentEvent): AgentState {
   }
 }
 
+function isUiAgentMessage(message: unknown): message is AgentMessage {
+  return (
+    typeof message === "object"
+    && message !== null
+    && "role" in message
+    && (
+      message.role === "user"
+      || message.role === "assistant"
+      || message.role === "toolResult"
+    )
+  );
+}
+
 function getSlot(map: AgentStateMap, slug: string): AgentState {
   return map.get(slug) ?? EMPTY_AGENT_STATE;
 }
@@ -69,7 +94,7 @@ function setSlot(map: AgentStateMap, slug: string, slot: AgentState): AgentState
   return next;
 }
 
-function reducer(map: AgentStateMap, action: Action): AgentStateMap {
+export function reduceAgentStateMap(map: AgentStateMap, action: Action): AgentStateMap {
   switch (action.type) {
     case "HYDRATE": {
       // 스트리밍 중엔 events 가 권위. HYDRATE 는 idle 세션 스위치 · branch 전환용.
@@ -77,22 +102,37 @@ function reducer(map: AgentStateMap, action: Action): AgentStateMap {
       const slot: AgentState = { ...EMPTY_AGENT_STATE, messages: action.messages };
       return setSlot(map, action.projectSlug, slot);
     }
-    case "START": {
+    case "BEGIN_TURN": {
+      const current = getSlot(map, action.projectSlug);
+      const messages = action.userMessage
+        ? [...action.messages, action.userMessage]
+        : action.messages;
+      return setSlot(map, action.projectSlug, {
+        ...current,
+        messages,
+        isStreaming: true,
+        streamingMessage: undefined,
+        pendingToolCalls: EMPTY_AGENT_STATE.pendingToolCalls,
+        errorMessage: undefined,
+      });
+    }
+    case "BEGIN_BUSY": {
       const current = getSlot(map, action.projectSlug);
       return setSlot(map, action.projectSlug, {
         ...current,
         isStreaming: true,
         streamingMessage: undefined,
+        pendingToolCalls: EMPTY_AGENT_STATE.pendingToolCalls,
         errorMessage: undefined,
       });
     }
-    case "STOP": {
-      // 비-agent 루프 작업(예: compact)용 락 해제. 정상 스트림은 agent_end 가 담당.
+    case "END_BUSY": {
       const current = getSlot(map, action.projectSlug);
       return setSlot(map, action.projectSlug, {
         ...current,
         isStreaming: false,
         streamingMessage: undefined,
+        pendingToolCalls: EMPTY_AGENT_STATE.pendingToolCalls,
       });
     }
     case "AGENT_EVENT": {
@@ -126,7 +166,7 @@ const StateContext = createContext<AgentStateMap>(EMPTY_MAP);
 const DispatchContext = createContext<Dispatch<Action>>(() => {});
 
 export function AgentStateProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, EMPTY_MAP);
+  const [state, dispatch] = useReducer(reduceAgentStateMap, EMPTY_MAP);
   return (
     <StateContext.Provider value={state}>
       <DispatchContext.Provider value={dispatch}>

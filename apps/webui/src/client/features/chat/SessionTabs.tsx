@@ -1,5 +1,6 @@
 import { ChevronsRight, Plus, Settings, X } from "lucide-react";
 import {
+  sessionLabel,
   useSessions,
   useActiveSessionSelection,
 } from "@/client/entities/session/index.js";
@@ -28,6 +29,7 @@ export function SessionTabs() {
       >
         {sessions.map((sess) => {
           const isActive = selection.openSessionId === sess.id;
+          const label = sessionLabel(sess);
           return (
             <button
               key={sess.id}
@@ -43,11 +45,11 @@ export function SessionTabs() {
               ) : isActive ? (
                 <span className="w-1 h-1 rounded-full bg-accent flex-shrink-0" />
               ) : null}
-              <span className="truncate">{sess.title}</span>
+              <span className="truncate">{label}</span>
               <span
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!confirm(t("session.deleteConfirm", { title: sess.title }))) return;
+                  if (!confirm(t("session.deleteConfirm", { title: label }))) return;
                   void remove(sess.id);
                 }}
                 className="opacity-0 group-hover:opacity-100 flex-shrink-0 hover:text-danger transition-all cursor-pointer"

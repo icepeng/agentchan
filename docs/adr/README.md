@@ -12,7 +12,7 @@ note, the accepted ADR wins until it is superseded by a later ADR.
 - [0001. 렌더러는 React 기반의 주 화면이다](0001-renderer-primary-surface-react-contract.md)
 - [0002. 프로젝트 디렉토리는 얇은 런타임 계약만 가진다](0002-project-directory-contract.md)
 - [0003. files/는 시스템이 해석하지 않는 사용자 콘텐츠 workspace다](0003-files-workspace-contract.md)
-- [0004. 세션은 JSONL tree 파일로 저장한다](0004-session-jsonl-tree.md)
+- [0004. 세션 영속화는 Pi SessionManager entry model을 따른다](0004-session-pi-entry.md)
 - [0005. 창작 세션과 메타 세션을 분리한다](0005-meta-session.md)
 - [0006. Web UI는 server 3-layer와 client FSD 계층을 유지한다](0006-webui-layering.md)
 - [0007. 에이전트는 prompt 계약과 project-scoped tools로 동작한다](0007-agent-prompt-tool-boundary.md)

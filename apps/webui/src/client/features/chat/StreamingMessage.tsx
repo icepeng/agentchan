@@ -62,6 +62,9 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
 
   const showCursor = lastBlock?.type === "text" && state.isStreaming;
   const head = lastBlock?.type === "text" ? content.slice(0, -1) : content;
+  if (content.length === 0 && !state.streamingMessage && state.pendingToolCalls.size === 0) {
+    return null;
+  }
 
   return (
     <BubbleWrap variant={variant} padding="loose" className="bg-surface/40 animate-fade">

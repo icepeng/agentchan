@@ -4,7 +4,7 @@ import { createProjectTools } from "../tools/index.js";
 import { createValidateRendererTool } from "../tools/validate-renderer.js";
 import { createActivateSkillTool } from "../skills/manager.js";
 import type { SkillRecord } from "../skills/types.js";
-import type { SessionMode } from "../session/format.js";
+import type { SessionMode } from "../types.js";
 
 export function assembleAgentTools(
   projectDir: string,

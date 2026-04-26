@@ -2,7 +2,7 @@ import { join } from "node:path";
 
 import { discoverProjectSkills } from "../skills/discovery.js";
 import type { SkillEnvironment, SkillMetadata, SkillRecord } from "../skills/types.js";
-import type { SessionMode } from "../session/format.js";
+import type { SessionMode } from "../types.js";
 
 export function getSessionSkillEnvironment(sessionMode?: SessionMode): SkillEnvironment {
   return sessionMode === "meta" ? "meta" : "creative";

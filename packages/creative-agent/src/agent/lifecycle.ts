@@ -1,34 +1,23 @@
-/**
- * Session operations that touch the LLM or seed agent state.
- *
- * - createSession: storage create (no bootstrap nodes)
- * - deleteSession: storage delete + per-session agent state cleanup
- * - compactSession: LLM-based summarization, persisted as a fresh session
- */
+import type { AssistantMessage, Message, UserMessage } from "@mariozechner/pi-ai";
 
-import { nanoid } from "nanoid";
-import type { Message, UserMessage, AssistantMessage } from "@mariozechner/pi-ai";
-
-import type { Session, TreeNode } from "../types.js";
-import type { SessionMode } from "../session/format.js";
-import { flattenPathToMessages } from "../session/tree.js";
+import type {
+  ProjectSessionInfo,
+  ProjectSessionState,
+  SessionMode,
+} from "../types.js";
 import { fullCompact } from "./compact.js";
-import { resolveModel, clearSessionAgentState } from "./orchestrator.js";
-import { type AgentContext } from "./context.js";
-
-// --- Public types ---
+import { clearSessionAgentState, resolveModel } from "./orchestrator.js";
+import type { AgentContext } from "./context.js";
+import { getSessionModeFromEntries } from "../session/metadata.js";
 
 export interface CreatedSession {
-  session: Session;
+  session: ProjectSessionInfo;
 }
 
 export interface CompactResult {
-  session: Session;
-  nodes: TreeNode[];
+  state: ProjectSessionState;
   sourceSessionId: string;
 }
-
-// --- Create / delete ---
 
 export async function createSession(
   ctx: AgentContext,
@@ -36,7 +25,7 @@ export async function createSession(
   mode?: SessionMode,
 ): Promise<CreatedSession> {
   const cfg = ctx.resolveAgentConfig();
-  const session = await ctx.storage.createSession(slug, cfg.provider, cfg.model, undefined, mode);
+  const session = await ctx.storage.createSession(slug, cfg.provider, cfg.model, mode);
   return { session };
 }
 
@@ -49,28 +38,23 @@ export async function deleteSession(
   await ctx.storage.deleteSession(slug, id);
 }
 
-// --- Compact ---
-
 export async function compactSession(
   ctx: AgentContext,
   slug: string,
   sourceId: string,
 ): Promise<CompactResult> {
-  const loaded = await ctx.storage.loadSessionWithTree(slug, sourceId);
-  if (!loaded) throw new Error("Session not found");
-  if (loaded.activePath.length === 0) {
-    throw new Error("Session is empty");
-  }
+  const manager = await ctx.storage.openManager(slug, sourceId);
+  if (!manager) throw new Error("Session not found");
+  const context = manager.buildSessionContext();
+  if (context.messages.length === 0) throw new Error("Session is empty");
 
   const cfg = ctx.resolveAgentConfig();
   if (!cfg.apiKey && !cfg.baseUrl) {
     throw new Error(`API key not configured for provider: ${cfg.provider}`);
   }
 
-  // History is already AgentMessage[] — pass to fullCompact as Message[]
-  const history = flattenPathToMessages(loaded.tree, loaded.activePath);
   const result = await fullCompact({
-    messages: history as Message[],
+    messages: context.messages as Message[],
     model: resolveModel(
       cfg.provider,
       cfg.model,
@@ -81,62 +65,46 @@ export async function compactSession(
     apiKey: cfg.apiKey,
   });
 
-  const summaryText = `This session continues from a previous conversation. Below is the context summary.\n\n${result.summary}`;
+  const mode = getSessionModeFromEntries(manager.getEntries());
+  const newSession = await ctx.storage.createSession(slug, cfg.provider, cfg.model, mode);
+  const compacted = await ctx.storage.openManager(slug, newSession.id);
+  if (!compacted) throw new Error("Compacted session not found");
   const now = Date.now();
-  const newSession = await ctx.storage.createSession(
-    slug,
-    cfg.provider,
-    cfg.model,
-    sourceId,
-    loaded.session.mode,
-  );
-
-  const userNode: TreeNode = {
-    id: nanoid(12),
-    parentId: null,
-    message: {
-      role: "user",
-      content: summaryText,
-      timestamp: now,
-    } as UserMessage,
-    createdAt: now,
-    meta: "compact-summary",
-  };
-  // Synthetic assistant message for the compact bootstrap. Usage is zero here
-  // because the real compact cost lives on the TreeNode-level `usage` field.
-  const assistantNode: TreeNode = {
-    id: nanoid(12),
-    parentId: userNode.id,
-    message: {
-      role: "assistant",
-      content: [
-        {
-          type: "text",
-          text: "Understood. I have the full context from the previous conversation and I'm ready to continue. What would you like to work on next?",
-        },
-      ],
-      api: "anthropic-messages",
-      provider: cfg.provider,
-      model: cfg.model,
-      usage: { input: 0, output: 0, totalTokens: 0, cacheRead: 0, cacheWrite: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
-      stopReason: "stop",
-      timestamp: now,
-    } as AssistantMessage,
-    createdAt: now,
+  compacted.appendMessage({
+    role: "user",
+    content: `Conversation summary:\n\n${result.summary}`,
+    timestamp: now,
+  } as UserMessage);
+  compacted.appendMessage({
+    role: "assistant",
+    content: [
+      {
+        type: "text",
+        text: "Understood. I have the context summary and I am ready to continue.",
+      },
+    ],
+    api: "anthropic-messages",
+    provider: cfg.provider,
+    model: cfg.model,
     usage: {
-      inputTokens: result.inputTokens,
-      outputTokens: result.outputTokens,
-      ...(result.cost ? { cost: result.cost } : {}),
+      input: result.inputTokens,
+      output: result.outputTokens,
+      totalTokens: result.inputTokens + result.outputTokens,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cost: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        total: result.cost ?? 0,
+      },
     },
-    meta: "compact-summary",
-  };
-
-  const nodes: TreeNode[] = [userNode, assistantNode];
-  await ctx.storage.appendNodes(slug, newSession.id, nodes);
-
-  return {
-    session: { ...newSession, rootNodeId: userNode.id, activeLeafId: assistantNode.id },
-    nodes,
-    sourceSessionId: sourceId,
-  };
+    stopReason: "stop",
+    timestamp: now,
+  } as AssistantMessage);
+  await ctx.storage.flush(compacted);
+  const state = await ctx.storage.loadState(slug, newSession.id);
+  if (!state) throw new Error("Compacted session not found");
+  return { state, sourceSessionId: sourceId };
 }

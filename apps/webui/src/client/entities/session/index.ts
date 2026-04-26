@@ -1,16 +1,17 @@
 export type {
   AssistantContentBlock,
   AssistantMessage,
-  ClientMessage,
+  MessageEntry,
   ImageContent,
   Message,
-  Session,
+  ProjectSessionInfo,
+  ProjectSessionState,
+  SessionEntry,
   TextContent,
   ThinkingContent,
-  TokenUsage,
   ToolCallContent,
   ToolResultMessage,
-  TreeNode,
+  Usage,
   UserMessage,
 } from "./session.types.js";
 
@@ -19,13 +20,10 @@ export {
   useSessionData,
   useSessionMutations,
 } from "./useSessions.js";
-export type { SessionData } from "./useSessions.js";
-
-export { insertNode, insertNodes, replaceTempNode } from "./tree.utils.js";
 
 export {
   fetchSession, fetchSessions, createSession, deleteSession,
-  deleteNode, switchBranch, sendMessage, regenerateResponse, compactSession,
+  switchBranch, sendMessage, regenerateResponse, compactSession,
   registerAbortController, clearAbortController, abortProjectStream,
 } from "./session.api.js";
 export type {
@@ -33,7 +31,12 @@ export type {
   AgentEvent,
 } from "./session.api.js";
 
-export { flattenActivePathToMessages } from "./session.selectors.js";
+export {
+  branchToMessages,
+  entryMessage,
+  isMessageEntry,
+  sessionLabel,
+} from "./session.selectors.js";
 
 export {
   SessionSelectionProvider,

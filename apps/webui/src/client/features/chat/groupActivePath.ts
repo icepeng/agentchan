@@ -1,27 +1,29 @@
-import type { TreeNode } from "@/client/entities/session/index.js";
+import type { MessageEntry, SessionEntry } from "@/client/entities/session/index.js";
+import { isMessageEntry } from "@/client/entities/session/index.js";
 
-export type BubbleGroup =
-  | { kind: "user"; node: TreeNode }
-  | { kind: "assistantTurn"; nodes: TreeNode[] };
+export type BranchGroup =
+  | { kind: "user"; entry: MessageEntry }
+  | { kind: "assistantTurn"; entries: MessageEntry[] };
 
-export function groupActivePath(
-  activePath: readonly string[],
-  nodes: Map<string, TreeNode>,
-): BubbleGroup[] {
-  const groups: BubbleGroup[] = [];
-  for (const nodeId of activePath) {
-    const node = nodes.get(nodeId);
-    if (!node) continue;
-    if (node.message.role === "user") {
-      groups.push({ kind: "user", node });
+export function groupBranch(branch: readonly SessionEntry[]): BranchGroup[] {
+  const groups: BranchGroup[] = [];
+
+  for (const entry of branch) {
+    if (!isMessageEntry(entry)) continue;
+    const role = entry.message.role;
+    if (role === "user") {
+      groups.push({ kind: "user", entry });
       continue;
     }
+    if (role !== "assistant" && role !== "toolResult") continue;
+
     const prev = groups[groups.length - 1];
-    if (prev && prev.kind === "assistantTurn") {
-      prev.nodes.push(node);
+    if (prev?.kind === "assistantTurn") {
+      prev.entries.push(entry);
     } else {
-      groups.push({ kind: "assistantTurn", nodes: [node] });
+      groups.push({ kind: "assistantTurn", entries: [entry] });
     }
   }
+
   return groups;
 }

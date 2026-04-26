@@ -30,8 +30,6 @@ export {
 
 export {
   buildSkillInjectionContent,
-  buildUserNodeForPrompt,
-  joinUserNodeText,
+  buildUserMessageForPrompt,
+  textFromUserMessage,
 } from "./build.js";
-
-export { summarizeTurnUsage } from "./usage.js";

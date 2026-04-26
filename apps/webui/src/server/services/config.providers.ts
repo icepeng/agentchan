@@ -3,8 +3,9 @@ import type { ProviderInfo, CustomProviderDef } from "../types.js";
 import type { SettingsRepo } from "../repositories/settings.repo.js";
 
 type PiModel = ReturnType<typeof getModels>[number];
+type BuiltInProvider = ReturnType<typeof getProviders>[number];
 
-const BUILTIN_PROVIDERS = new Set([
+const BUILTIN_PROVIDERS = new Set<BuiltInProvider>([
   "google",
   "google-vertex",
   "openai",
@@ -14,7 +15,7 @@ const BUILTIN_PROVIDERS = new Set([
   "github-copilot",
 ]);
 
-const OAUTH_PROVIDER_NAMES = new Set(["github-copilot"]);
+const OAUTH_PROVIDER_NAMES = new Set<BuiltInProvider>(["github-copilot"]);
 
 const ALLOWED_MODELS = new Set([
   // Anthropic
@@ -72,7 +73,7 @@ function toCustomProviderInfo(provider: CustomProviderDef): ProviderInfo {
 }
 
 export function isOAuthProviderName(provider: string): boolean {
-  return OAUTH_PROVIDER_NAMES.has(provider);
+  return (OAUTH_PROVIDER_NAMES as ReadonlySet<string>).has(provider);
 }
 
 export function createProviderRegistry(
@@ -85,7 +86,11 @@ export function createProviderRegistry(
     return settingsRepo.getOAuthCredentials(provider) != null;
   }
 
-  function toBuiltInProviderInfo(name: string): ProviderInfo {
+function isBuiltInProvider(name: BuiltInProvider): boolean {
+  return BUILTIN_PROVIDERS.has(name);
+}
+
+function toBuiltInProviderInfo(name: BuiltInProvider): ProviderInfo {
     if (isOAuthProviderName(name)) {
       const models = hasOAuthCredentials(name) ? getModels(name).map(toModelInfo) : [];
       return { name, defaultModel: models[0]?.id ?? "", models, oauth: true };
@@ -103,7 +108,7 @@ export function createProviderRegistry(
 
   function buildProviderList(): ProviderInfo[] {
     const builtIn = getProviders()
-      .filter((name) => BUILTIN_PROVIDERS.has(name))
+      .filter(isBuiltInProvider)
       .map(toBuiltInProviderInfo);
     const custom = loadCustomProviders().map(toCustomProviderInfo);
     return [...builtIn, ...custom];

@@ -7,9 +7,7 @@ import {
 } from "@agentchan/creative-agent";
 
 /**
- * SSE adapter — forwards pi `AgentEvent` raw under the single `agent_event`
- * wire name and keeps agentchan-specific session persistence events
- * (`user_node`, `assistant_nodes`, `error`, `done`) on their own names.
+ * SSE adapter — forwards pi `AgentEvent` and persisted Pi session entries.
  *
  * `prepareRun` is called before each prompt/regenerate. OAuth providers use it
  * to refresh expired tokens into the DB so the sync `resolveAgentConfig` reads
@@ -24,7 +22,7 @@ export function createAgentService(
       stream: SSEStreamingApi,
       slug: string,
       sessionId: string,
-      parentNodeId: string | null,
+      parentEntryId: string | null,
       text: string,
       signal?: AbortSignal,
     ) {
@@ -33,7 +31,7 @@ export function createAgentService(
       try {
         await runPrompt(
           ctx,
-          { slug, sessionId, parentNodeId, text },
+          { slug, sessionId, parentEntryId, text },
           (ev) => queue.push(ev),
           signal,
         );
@@ -46,7 +44,7 @@ export function createAgentService(
       stream: SSEStreamingApi,
       slug: string,
       sessionId: string,
-      userNodeId: string,
+      userEntryId: string,
       signal?: AbortSignal,
     ) {
       await prepareRun();
@@ -54,7 +52,7 @@ export function createAgentService(
       try {
         await runRegenerate(
           ctx,
-          { slug, sessionId, userNodeId },
+          { slug, sessionId, userEntryId },
           (ev) => queue.push(ev),
           signal,
         );
@@ -92,11 +90,11 @@ async function writeSessionEvent(
   ev: SessionEvent,
 ): Promise<void> {
   switch (ev.type) {
-    case "user_node":
-      await stream.writeSSE({ event: "user_node", data: JSON.stringify(ev.node) });
+    case "entry":
+      await stream.writeSSE({ event: "entry", data: JSON.stringify(ev.entry) });
       return;
     case "agent_event": {
-      // user role message_start/end 은 `user_node` SSE 로 별도 채널 — 중복 방지
+      // User messages are persisted and sent through the `entry` channel.
       const event = ev.event;
       if (
         (event.type === "message_start" || event.type === "message_end") &&
@@ -107,10 +105,10 @@ async function writeSessionEvent(
       await stream.writeSSE({ event: "agent_event", data: JSON.stringify(event) });
       return;
     }
-    case "assistant_nodes":
+    case "snapshot":
       await stream.writeSSE({
-        event: "assistant_nodes",
-        data: JSON.stringify(ev.nodes),
+        event: "snapshot",
+        data: JSON.stringify(ev.snapshot),
       });
       return;
     case "error":

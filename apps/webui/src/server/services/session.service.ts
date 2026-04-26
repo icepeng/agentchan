@@ -10,7 +10,7 @@ export function createSessionService(ctx: AgentContext) {
   return {
     list: (slug: string) => ctx.storage.listSessions(slug),
 
-    get: (slug: string, id: string) => ctx.storage.loadSnapshot(slug, id),
+    get: (slug: string, id: string, leafId?: string) => ctx.storage.loadState(slug, id, leafId),
 
     getSession: (slug: string, id: string) => ctx.storage.getSession(slug, id),
 
@@ -18,14 +18,11 @@ export function createSessionService(ctx: AgentContext) {
 
     delete: (slug: string, id: string) => deleteSession(ctx, slug, id),
 
-    deleteSubtree: (slug: string, sessionId: string, nodeId: string) =>
-      ctx.storage.deleteSubtree(slug, sessionId, nodeId),
-
     compact: (slug: string, sessionId: string) =>
       compactSession(ctx, slug, sessionId),
 
-    switchBranch: (slug: string, sessionId: string, nodeId: string) =>
-      ctx.storage.switchBranch(slug, sessionId, nodeId),
+    switchBranch: (slug: string, sessionId: string, entryId: string) =>
+      ctx.storage.switchBranch(slug, sessionId, entryId),
   };
 }
 

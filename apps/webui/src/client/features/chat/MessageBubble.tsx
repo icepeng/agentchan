@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import type { TreeNode, TextContent, ImageContent, AssistantContentBlock } from "@/client/entities/session/index.js";
+import type { MessageEntry, TextContent, ImageContent, AssistantContentBlock } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
@@ -9,8 +9,8 @@ import { MessageContent } from "./MessageContent.js";
 // ── Helpers ─────────────────────────────────────
 
 /** Extract text from a user message's content (string or array of text blocks). */
-function getUserText(node: TreeNode): string {
-  const msg = node.message;
+function getUserText(entry: MessageEntry): string {
+  const msg = entry.message;
   if (msg.role !== "user") return "";
   if (typeof msg.content === "string") return msg.content;
   return msg.content
@@ -20,8 +20,8 @@ function getUserText(node: TreeNode): string {
 }
 
 /** Get content blocks from a user message as an array, normalizing string content. */
-function getUserContentBlocks(node: TreeNode): (TextContent | ImageContent)[] {
-  const msg = node.message;
+function getUserContentBlocks(entry: MessageEntry): (TextContent | ImageContent)[] {
+  const msg = entry.message;
   if (msg.role !== "user") return [];
   if (typeof msg.content === "string") return [{ type: "text", text: msg.content }];
   return msg.content;
@@ -58,15 +58,15 @@ export function BubbleWrap({
 // ── Branch Navigator ──────────────────────────
 
 function BranchNavigator({
-  nodeId,
+  entryId,
   siblings,
   onSwitch,
 }: {
-  nodeId: string;
+  entryId: string;
   siblings: string[];
-  onSwitch: (nodeId: string) => void;
+  onSwitch: (entryId: string) => void;
 }) {
-  const currentIndex = siblings.indexOf(nodeId);
+  const currentIndex = siblings.indexOf(entryId);
   if (siblings.length <= 1) return null;
 
   return (
@@ -101,17 +101,17 @@ function BranchNavigator({
 // ── Compact Summary Bubble ───────────────────
 
 function CompactSummaryBubble({
-  node,
+  entry,
   variant = "compact",
 }: {
-  node: TreeNode;
+  entry: MessageEntry;
   variant?: "compact" | "wide";
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
   // Compact summary is stored as a user message with text content
-  const summaryText = getUserText(node);
+  const summaryText = getUserText(entry);
 
   return (
     <BubbleWrap variant={variant}>
@@ -142,16 +142,16 @@ function CompactSummaryBubble({
 // `<skill_content name="...">` blocks for the header label.
 
 function SkillChipBubble({
-  node,
+  entry,
   variant = "compact",
 }: {
-  node: TreeNode;
+  entry: MessageEntry;
   variant?: "compact" | "wide";
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
-  const blocks = getUserContentBlocks(node);
+  const blocks = getUserContentBlocks(entry);
   const firstBlock = blocks[0];
   const firstText = firstBlock && "text" in firstBlock ? firstBlock.text : "";
 
@@ -218,14 +218,13 @@ function SkillChipBubble({
 // ── Message Bubble ────────────────────────────
 
 export interface MessageBubbleActions {
-  onSwitchBranch?: (nodeId: string) => void;
-  onBranchFrom?: (nodeId: string) => void;
-  onDelete?: (nodeId: string) => void;
-  onRegenerate?: (nodeId: string) => void;
+  onSwitchBranch?: (entryId: string) => void;
+  onBranchFrom?: (entryId: string) => void;
+  onRegenerate?: (entryId: string) => void;
 }
 
 export interface MessageBubbleProps {
-  node: TreeNode;
+  entry: MessageEntry;
   siblings: string[];
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
@@ -241,7 +240,7 @@ function BubbleShell({
   kind,
   variant,
   siblings,
-  anchorNodeId,
+  anchorEntryId,
   actions,
   isStreaming,
   footer,
@@ -250,7 +249,7 @@ function BubbleShell({
   kind: BubbleKind;
   variant: "compact" | "wide";
   siblings: string[];
-  anchorNodeId: string;
+  anchorEntryId: string;
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
   footer?: ReactNode;
@@ -279,7 +278,7 @@ function BubbleShell({
             {footer}
             {actions?.onSwitchBranch && (
               <BranchNavigator
-                nodeId={anchorNodeId}
+                entryId={anchorEntryId}
                 siblings={siblings}
                 onSwitch={actions.onSwitchBranch}
               />
@@ -297,21 +296,11 @@ function BubbleShell({
               )}
               {actions?.onBranchFrom && (
                 <button
-                  onClick={() => actions.onBranchFrom!(anchorNodeId)}
+                  onClick={() => actions.onBranchFrom!(anchorEntryId)}
                   className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-accent px-1.5 py-0.5 rounded-md hover:bg-accent/8 transition-all"
                   title={t("chat.branchFromHere")}
                 >
                   {t("chat.fork")}
-                </button>
-              )}
-              {actions?.onDelete && (
-                <button
-                  onClick={() => actions.onDelete!(anchorNodeId)}
-                  disabled={isStreaming}
-                  className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-danger disabled:opacity-30 px-1.5 py-0.5 rounded-md hover:bg-danger/8 transition-all"
-                  title={t("chat.delete")}
-                >
-                  {t("chat.delete")}
                 </button>
               )}
             </div>
@@ -325,27 +314,29 @@ function BubbleShell({
 }
 
 export function MessageBubble({
-  node,
+  entry,
   siblings,
   actions,
   isStreaming,
   variant = "compact",
   footer,
 }: MessageBubbleProps) {
-  const role = node.message.role;
+  const role = entry.message.role;
 
   if (role !== "user") return null;
 
-  if (node.meta === "skill-load") {
-    return <SkillChipBubble node={node} variant={variant} />;
+  const userText = getUserText(entry);
+
+  if (userText.includes("<skill_content")) {
+    return <SkillChipBubble entry={entry} variant={variant} />;
   }
 
-  if (node.meta === "compact-summary") {
-    return <CompactSummaryBubble node={node} variant={variant} />;
+  if (userText.startsWith("Conversation summary:")) {
+    return <CompactSummaryBubble entry={entry} variant={variant} />;
   }
 
   const displayContent: AssistantContentBlock[] = [
-    { type: "text" as const, text: getUserText(node) },
+    { type: "text" as const, text: userText },
   ];
 
   return (
@@ -353,7 +344,7 @@ export function MessageBubble({
       kind={{ type: "user" }}
       variant={variant}
       siblings={siblings}
-      anchorNodeId={node.id}
+      anchorEntryId={entry.id}
       actions={actions}
       isStreaming={isStreaming}
       footer={footer}
@@ -367,10 +358,10 @@ export function MessageBubble({
 // Renders one or more consecutive assistant/toolResult nodes as a single bubble
 // so that post-stream rendering matches the streaming UX (all tool calls in one
 // agent block). toolResult nodes contribute no content; they're retained in the
-// group only so actions/boundaries line up with the tree structure.
+// group only so actions/boundaries line up with the Pi entry branch.
 
 export interface AssistantTurnBubbleProps {
-  nodes: TreeNode[];
+  entries: MessageEntry[];
   siblings: string[];
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
@@ -379,15 +370,15 @@ export interface AssistantTurnBubbleProps {
 }
 
 export function AssistantTurnBubble({
-  nodes,
+  entries,
   siblings,
   actions,
   isStreaming,
   variant = "compact",
   footer,
 }: AssistantTurnBubbleProps) {
-  const firstAssistant = nodes.find((n) => n.message.role === "assistant");
-  const mergedContent: AssistantContentBlock[] = nodes.flatMap((n) =>
+  const firstAssistant = entries.find((n) => n.message.role === "assistant");
+  const mergedContent: AssistantContentBlock[] = entries.flatMap((n) =>
     n.message.role === "assistant" ? n.message.content : [],
   );
 
@@ -398,7 +389,7 @@ export function AssistantTurnBubble({
       kind={{ type: "assistant", regenerateFromId: firstAssistant.parentId }}
       variant={variant}
       siblings={siblings}
-      anchorNodeId={firstAssistant.id}
+      anchorEntryId={firstAssistant.id}
       actions={actions}
       isStreaming={isStreaming}
       footer={footer}

@@ -61,33 +61,28 @@ export function useSession() {
     await mutate(qk.sessions(slug));
   };
 
-  const switchBranch = async (nodeId: string) => {
+  const switchBranch = async (entryId: string) => {
     if (!selection.openSessionId || !slug) return;
-    await mutations.switchBranch(selection.openSessionId, nodeId);
+    await mutations.switchBranch(selection.openSessionId, entryId);
   };
 
-  const deleteNode = async (nodeId: string) => {
-    if (!selection.openSessionId || !slug) return;
-    await mutations.removeNode(selection.openSessionId, nodeId);
-  };
-
-  const setReplyTo = (nodeId: string | null) => {
+  const setReplyTo = (entryId: string | null) => {
     if (!slug) return;
-    sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
+    sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, entryId });
   };
 
   const compact = async () => {
     if (!slug || !selection.openSessionId) return;
     const sessionId = selection.openSessionId;
-    agentDispatch({ type: "START", projectSlug: slug });
+    agentDispatch({ type: "BEGIN_BUSY", projectSlug: slug });
     try {
       const result = await mutations.compact(sessionId);
       sessionSelectionDispatch({
         type: "SET_ACTIVE_SESSION",
         projectSlug: slug,
-        sessionId: result.session.id,
+        sessionId: result.state.info.id,
       });
-      agentDispatch({ type: "STOP", projectSlug: slug });
+      agentDispatch({ type: "END_BUSY", projectSlug: slug });
     } catch (err) {
       agentDispatch({
         type: "ERROR",
@@ -104,7 +99,6 @@ export function useSession() {
     refresh,
     switchBranch,
     setReplyTo,
-    deleteNode,
     compact,
     activeSessionId: selection.openSessionId,
   };
