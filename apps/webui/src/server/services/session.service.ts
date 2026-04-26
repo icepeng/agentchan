@@ -4,28 +4,70 @@ import {
   createSession,
   deleteSession,
   compactSession,
+  deriveSessionCreatedAt,
+  deriveSessionProviderModel,
+  deriveSessionTitle,
+  deriveSessionUpdatedAt,
 } from "@agentchan/creative-agent";
+
+function sessionListItem(
+  id: string,
+  header: Parameters<typeof deriveSessionCreatedAt>[0],
+  entries: Parameters<typeof deriveSessionTitle>[0],
+) {
+  const { provider, model } = deriveSessionProviderModel(entries);
+  return {
+    id,
+    title: deriveSessionTitle(entries),
+    createdAt: deriveSessionCreatedAt(header, entries),
+    updatedAt: deriveSessionUpdatedAt(header, entries),
+    provider,
+    model,
+    ...(header?.parentSession ? { compactedFrom: header.parentSession } : {}),
+    ...(header?.mode ? { mode: header.mode } : {}),
+  };
+}
 
 export function createSessionService(ctx: AgentContext) {
   return {
-    list: (slug: string) => ctx.storage.listSessions(slug),
+    list: async (slug: string) => {
+      const sessions = await ctx.storage.listSessions(slug);
+      return sessions.map((session) =>
+        sessionListItem(session.id, session.header, session.entries),
+      );
+    },
 
-    get: (slug: string, id: string) => ctx.storage.loadSnapshot(slug, id),
+    get: async (slug: string, id: string, leafId?: string | null) => {
+      const detail = await ctx.storage.loadSession(slug, id, leafId);
+      if (!detail) return null;
+      return {
+        entries: detail.entries,
+        leafId: detail.leafId,
+      };
+    },
 
-    getSession: (slug: string, id: string) => ctx.storage.getSession(slug, id),
-
-    create: (slug: string, mode?: SessionMode) => createSession(ctx, slug, mode),
+    create: async (slug: string, mode?: SessionMode) => {
+      const created = await createSession(ctx, slug, mode);
+      return {
+        session: sessionListItem(created.id, created.header, created.entries),
+      };
+    },
 
     delete: (slug: string, id: string) => deleteSession(ctx, slug, id),
 
-    deleteSubtree: (slug: string, sessionId: string, nodeId: string) =>
-      ctx.storage.deleteSubtree(slug, sessionId, nodeId),
+    rename: async (slug: string, sessionId: string, name: string) => {
+      const entry = await ctx.storage.appendSessionInfo(slug, sessionId, name);
+      if (!entry) return null;
+      const detail = await ctx.storage.loadSession(slug, sessionId, entry.id);
+      if (!detail) return null;
+      return {
+        entries: detail.entries,
+        leafId: detail.leafId,
+      };
+    },
 
-    compact: (slug: string, sessionId: string) =>
-      compactSession(ctx, slug, sessionId),
-
-    switchBranch: (slug: string, sessionId: string, nodeId: string) =>
-      ctx.storage.switchBranch(slug, sessionId, nodeId),
+    compact: (slug: string, sessionId: string, leafId?: string | null) =>
+      compactSession(ctx, slug, sessionId, leafId),
   };
 }
 

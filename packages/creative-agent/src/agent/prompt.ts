@@ -1,36 +1,29 @@
 import { join } from "node:path";
 import { nanoid } from "nanoid";
-import type {
-  Message,
-  AssistantMessage,
-} from "@mariozechner/pi-ai";
 import type { AgentEvent, AgentMessage } from "@mariozechner/pi-agent-core";
-
-import type {
-  TokenUsage,
-  TreeNode,
-  TreeNodeWithChildren,
-} from "../types.js";
-import type { SessionMode } from "../session/format.js";
 import {
-  pathToNode,
-  flattenPathToMessages,
-} from "../session/tree.js";
+  buildSessionContext,
+  type SessionEntry,
+  type SessionMessageEntry,
+} from "@mariozechner/pi-coding-agent";
+import type { SessionMode } from "../session/format.js";
 import { setupCreativeAgent } from "./orchestrator.js";
 import { discoverProjectSkills } from "../skills/discovery.js";
 import { type AgentContext, projectDirOf } from "./context.js";
 import {
-  buildUserNodeForPrompt,
-  joinUserNodeText,
+  buildUserEntriesForPrompt,
+  joinUserEntryText,
 } from "./build.js";
-import { summarizeTurnUsage } from "./usage.js";
+
+type MessageEntryDraft = Omit<SessionMessageEntry, "parentId">;
+type ReadSessionResult = NonNullable<Awaited<ReturnType<AgentContext["storage"]["loadSession"]>>>;
 
 // --- Public types ---
 
 export type SessionEvent =
-  | { type: "user_node"; node: TreeNode }
+  | { type: "user_entries"; entries: SessionEntry[] }
   | { type: "agent_event"; event: AgentEvent }
-  | { type: "assistant_nodes"; nodes: TreeNode[] }
+  | { type: "assistant_entries"; entries: SessionEntry[] }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -39,28 +32,14 @@ export type Emit = (ev: SessionEvent) => void;
 export interface PromptInput {
   slug: string;
   sessionId: string;
-  parentNodeId: string | null;
+  leafId: string | null;
   text: string;
 }
 
 export interface RegenerateInput {
   slug: string;
   sessionId: string;
-  userNodeId: string;
-}
-
-// --- Helpers ---
-
-/** Extract usage stats from a completed AssistantMessage. */
-function extractUsage(msg: AssistantMessage): TokenUsage {
-  const usage = msg.usage;
-  return {
-    inputTokens: usage.input ?? 0,
-    outputTokens: usage.output ?? 0,
-    ...(usage.cacheRead ? { cachedInputTokens: usage.cacheRead } : {}),
-    ...(usage.cacheWrite ? { cacheCreationTokens: usage.cacheWrite } : {}),
-    ...(usage.cost?.total ? { cost: usage.cost.total } : {}),
-  };
+  entryId: string;
 }
 
 // --- Public entry points ---
@@ -73,35 +52,38 @@ export function runPrompt(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.sessionId);
+    const loaded = await loadFreshSession(ctx, input.slug, input.sessionId, input.leafId);
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
 
-    const { nodes: userNodes, llmText } = buildUserNodeForPrompt(
+    const { entries: userEntryDrafts, promptEntry, llmText } = buildUserEntriesForPrompt(
       input.text,
       projectDir,
       skills,
-      input.parentNodeId,
     );
 
-    for (const node of userNodes) {
-      await persistAndInsertNode(ctx, input.slug, input.sessionId, tree, node);
-      emit({ type: "user_node", node });
+    const userEntries = await ctx.storage.appendEntriesAtLeaf(
+      input.slug,
+      input.sessionId,
+      loaded.leafId,
+      userEntryDrafts,
+    );
+    const persistedPromptEntry = userEntries.find((entry) => entry.id === promptEntry.id);
+    if (!persistedPromptEntry) {
+      throw new Error("Prompt entry was not persisted");
     }
+    emit({ type: "user_entries", entries: userEntries });
 
-    // History anchor = the last node we just persisted.
-    const last = userNodes[userNodes.length - 1];
-    if (!last) throw new Error("buildUserNodesForPrompt returned empty list");
     await runAgentTurn({
       ctx,
       slug: input.slug,
       sessionId: input.sessionId,
       projectDir,
-      tree,
-      promptParentId: last.id,
-      historyAnchorId: last.parentId,
+      promptParentId: persistedPromptEntry.id,
+      historyLeafId: loaded.leafId,
       llmText,
       emit,
-      sessionMode: mode,
+      sessionMode: loaded.header?.mode,
+      entries: loaded.entries,
       signal,
     });
   });
@@ -115,16 +97,19 @@ export function runRegenerate(
 ): Promise<void> {
   return runWithEnvelope(emit, async () => {
     const projectDir = projectDirOf(ctx, input.slug);
-    const { tree, mode } = await loadFreshTree(ctx, input.slug, input.sessionId);
+    const loaded = await loadFreshSession(ctx, input.slug, input.sessionId);
 
-    const userNode = tree.get(input.userNodeId);
-    if (!userNode) {
-      emit({ type: "error", message: "User node not found" });
+    const userEntry = loaded.entries.find(
+      (entry): entry is SessionMessageEntry =>
+        entry.id === input.entryId && entry.type === "message" && entry.message.role === "user",
+    );
+    if (!userEntry) {
+      emit({ type: "error", message: "User entry not found" });
       return;
     }
-    const userText = joinUserNodeText(userNode.message);
+    const userText = joinUserEntryText(userEntry.message);
     if (!userText) {
-      emit({ type: "error", message: "No text content in user node" });
+      emit({ type: "error", message: "No text content in user entry" });
       return;
     }
 
@@ -133,12 +118,12 @@ export function runRegenerate(
       slug: input.slug,
       sessionId: input.sessionId,
       projectDir,
-      tree,
-      promptParentId: input.userNodeId,
-      historyAnchorId: userNode.parentId,
+      promptParentId: input.entryId,
+      historyLeafId: userEntry.parentId,
       llmText: userText,
       emit,
-      sessionMode: mode,
+      sessionMode: loaded.header?.mode,
+      entries: loaded.entries,
       signal,
     });
   });
@@ -163,39 +148,17 @@ async function runWithEnvelope(emit: Emit, fn: () => Promise<void>): Promise<voi
   }
 }
 
-async function loadFreshTree(
+async function loadFreshSession(
   ctx: AgentContext,
   slug: string,
   sessionId: string,
-): Promise<{ tree: Map<string, TreeNodeWithChildren>; mode: SessionMode | undefined }> {
-  const loaded = await ctx.storage.loadSessionWithTree(slug, sessionId);
+  leafId?: string | null,
+): Promise<ReadSessionResult> {
+  const loaded = await ctx.storage.loadSession(slug, sessionId, leafId);
   if (!loaded) {
     throw new Error(`Session not found: ${slug}/${sessionId}`);
   }
-  return { tree: loaded.tree, mode: loaded.session.mode };
-}
-
-/**
- * Append a node to disk and patch the in-memory tree.
- *
- * The activeChildId update on the parent is intentionally in-memory only:
- * computeActivePath's "last child" fallback already picks the newest append
- * on reload, so persisting the pointer here would be redundant.
- */
-async function persistAndInsertNode(
-  ctx: AgentContext,
-  slug: string,
-  sessionId: string,
-  tree: Map<string, TreeNodeWithChildren>,
-  node: TreeNode,
-): Promise<void> {
-  await ctx.storage.appendNode(slug, sessionId, node);
-  tree.set(node.id, { ...node, children: [] });
-  if (node.parentId && tree.has(node.parentId)) {
-    const parent = tree.get(node.parentId)!;
-    parent.children.push(node.id);
-    parent.activeChildId = node.id;
-  }
+  return loaded;
 }
 
 interface AgentTurnArgs {
@@ -203,17 +166,17 @@ interface AgentTurnArgs {
   slug: string;
   sessionId: string;
   projectDir: string;
-  tree: Map<string, TreeNodeWithChildren>;
   promptParentId: string;
-  historyAnchorId: string | null;
+  historyLeafId: string | null;
   llmText: string;
   emit: Emit;
   sessionMode?: SessionMode;
+  entries: ReadSessionResult["entries"];
   signal?: AbortSignal;
 }
 
 async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
-  const { ctx, slug, sessionId, projectDir, tree, emit, signal } = args;
+  const { ctx, slug, sessionId, projectDir, emit, signal } = args;
 
   const cfg = ctx.resolveAgentConfig();
   if (!cfg.apiKey && !cfg.baseUrl) {
@@ -224,14 +187,11 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     return;
   }
 
-  // If the caller already aborted (e.g. client disconnected between tree load
+  // If the caller already aborted (e.g. client disconnected between session load
   // and agent setup), bail before spending tokens.
   if (signal?.aborted) return;
 
-  const historyPath = args.historyAnchorId
-    ? pathToNode(tree, args.historyAnchorId)
-    : [];
-  const history = flattenPathToMessages(tree, historyPath);
+  const history = buildSessionContext(args.entries, args.historyLeafId).messages;
 
   const { agent, historyLength } = await setupCreativeAgent(
     cfg,
@@ -241,16 +201,7 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     args.sessionMode,
   );
 
-  let lastNodeId = args.promptParentId;
-
-  const usageEntries: TokenUsage[] = [];
   const unsubscribe = agent.subscribe((ev: AgentEvent) => {
-    if (
-      ev.type === "message_end" &&
-      (ev.message as Message).role === "assistant"
-    ) {
-      usageEntries.push(extractUsage(ev.message as AssistantMessage));
-    }
     emit({ type: "agent_event", event: ev });
   });
 
@@ -285,39 +236,26 @@ async function runAgentTurn(args: AgentTurnArgs): Promise<void> {
     newMessages.push(msg);
   }
 
-  // Wrap each pi-ai Message directly as a TreeNode — no conversion needed
-  const newNodes: TreeNode[] = [];
+  const newEntryDrafts: MessageEntryDraft[] = [];
   for (const msg of newMessages) {
-    const node: TreeNode = {
+    const entry: MessageEntryDraft = {
+      type: "message",
       id: nanoid(12),
-      parentId: lastNodeId,
+      timestamp: new Date().toISOString(),
       message: msg,
-      createdAt: Date.now(),
     };
-    newNodes.push(node);
-    lastNodeId = node.id;
+    newEntryDrafts.push(entry);
   }
 
-  const turnUsage = summarizeTurnUsage(usageEntries);
-  if (turnUsage) {
-    // Hang the rolled-up usage off the last assistant node so the frontend
-    // can render context window utilization.
-    for (let i = newNodes.length - 1; i >= 0; i--) {
-      const node = newNodes[i];
-      if (node && node.message.role === "assistant") {
-        node.usage = turnUsage;
-        break;
-      }
-    }
-  }
-
-  for (const node of newNodes) {
-    await persistAndInsertNode(ctx, slug, sessionId, tree, node);
-  }
-
-  if (newNodes.length === 0) {
+  if (newEntryDrafts.length === 0) {
     emit({ type: "error", message: "No response from model" });
   } else {
-    emit({ type: "assistant_nodes", nodes: newNodes });
+    const entries = await ctx.storage.appendEntriesAtLeaf(
+      slug,
+      sessionId,
+      args.promptParentId,
+      newEntryDrafts,
+    );
+    emit({ type: "assistant_entries", entries });
   }
 }

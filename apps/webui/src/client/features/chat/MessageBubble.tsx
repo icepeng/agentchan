@@ -1,30 +1,26 @@
-import { useState, type ReactNode } from "react";
-import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import type { TreeNode, TextContent, ImageContent, AssistantContentBlock } from "@/client/entities/session/index.js";
+import type { ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import type {
+  SessionMessageEntry,
+  TextContent,
+  ThinkingContent,
+  ToolCall,
+} from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { ScrollArea } from "@/client/shared/ui/index.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
 import { MessageContent } from "./MessageContent.js";
 
 // ── Helpers ─────────────────────────────────────
 
 /** Extract text from a user message's content (string or array of text blocks). */
-function getUserText(node: TreeNode): string {
-  const msg = node.message;
+function getUserText(entry: SessionMessageEntry): string {
+  const msg = entry.message;
   if (msg.role !== "user") return "";
   if (typeof msg.content === "string") return msg.content;
   return msg.content
     .filter((b): b is TextContent => b.type === "text")
     .map((b) => b.text)
     .join("\n");
-}
-
-/** Get content blocks from a user message as an array, normalizing string content. */
-function getUserContentBlocks(node: TreeNode): (TextContent | ImageContent)[] {
-  const msg = node.message;
-  if (msg.role !== "user") return [];
-  if (typeof msg.content === "string") return [{ type: "text", text: msg.content }];
-  return msg.content;
 }
 
 // ── Bubble Wrap ───────────────────────────────
@@ -58,15 +54,15 @@ export function BubbleWrap({
 // ── Branch Navigator ──────────────────────────
 
 function BranchNavigator({
-  nodeId,
+  entryId,
   siblings,
   onSwitch,
 }: {
-  nodeId: string;
+  entryId: string;
   siblings: string[];
-  onSwitch: (nodeId: string) => void;
+  onSwitch: (leafId: string) => void;
 }) {
-  const currentIndex = siblings.indexOf(nodeId);
+  const currentIndex = siblings.indexOf(entryId);
   if (siblings.length <= 1) return null;
 
   return (
@@ -98,134 +94,16 @@ function BranchNavigator({
   );
 }
 
-// ── Compact Summary Bubble ───────────────────
-
-function CompactSummaryBubble({
-  node,
-  variant = "compact",
-}: {
-  node: TreeNode;
-  variant?: "compact" | "wide";
-}) {
-  const { t } = useI18n();
-  const [expanded, setExpanded] = useState(false);
-
-  // Compact summary is stored as a user message with text content
-  const summaryText = getUserText(node);
-
-  return (
-    <BubbleWrap variant={variant}>
-      <div className="flex items-center gap-2 text-xs text-fg-3 py-1.5">
-        <AlignLeft size={14} strokeWidth={2} className="shrink-0 opacity-50" />
-        <span className="opacity-70">{t("chat.compactSummary")}</span>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="text-accent/60 hover:text-accent transition-colors ml-1"
-        >
-          {expanded ? t("chat.compactHideDetails") : t("chat.compactShowDetails")}
-        </button>
-      </div>
-      {expanded && (
-        <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
-          <ScrollArea className="max-h-[300px]" viewportClassName="whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
-            {summaryText}
-          </ScrollArea>
-        </div>
-      )}
-    </BubbleWrap>
-  );
-}
-
-// ── Skill Chip Bubble ────────────────────────
-// Renders any user node tagged `meta: "skill-load"` — covers slash invocation
-// and activate_skill paths. Extracts skill names from the canonical
-// `<skill_content name="...">` blocks for the header label.
-
-function SkillChipBubble({
-  node,
-  variant = "compact",
-}: {
-  node: TreeNode;
-  variant?: "compact" | "wide";
-}) {
-  const { t } = useI18n();
-  const [expanded, setExpanded] = useState(false);
-
-  const blocks = getUserContentBlocks(node);
-  const firstBlock = blocks[0];
-  const firstText = firstBlock && "text" in firstBlock ? firstBlock.text : "";
-
-  const skillMatches = [...firstText.matchAll(/<skill_content name="([^"]+)"/g)].map(
-    (m) => m[1],
-  );
-  const names = skillMatches.length > 0 ? skillMatches : ["unknown"];
-
-  // Slash command: blocks[1] holds the serialized command text
-  const slashBlock = blocks[1];
-  const slashText =
-    slashBlock && slashBlock.type === "text" && "text" in slashBlock ? slashBlock.text : "";
-  const slashMatch = slashText.match(
-    /^<command-name>\/([a-z0-9][a-z0-9-]*)<\/command-name>(?:\s*<command-args>([\s\S]*?)<\/command-args>)?/,
-  );
-  const slashInfo = slashMatch ? { name: slashMatch[1], args: slashMatch[2] ?? "" } : null;
-
-  const chipRow = (
-    <div className={`flex items-center gap-2 text-xs text-fg-3 ${slashInfo ? "mt-1" : "py-1"} opacity-70`}>
-      <span>{"\u2699"}</span>
-      <span>
-        {t("chat.skillLoaded")}:{" "}
-        <span className="font-mono text-accent/80">{names.join(", ")}</span>
-      </span>
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="text-accent/60 hover:text-accent transition-colors ml-1"
-      >
-        {expanded ? t("chat.hideBody") : t("chat.showBody")}
-      </button>
-    </div>
-  );
-
-  return (
-    <BubbleWrap variant={variant} padding={slashInfo ? "loose" : "tight"}>
-      {slashInfo ? (
-        <div className="flex items-start gap-2.5">
-          <UserAvatar />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-warm">
-                {t("chat.you")}
-              </span>
-            </div>
-            <div className="text-sm text-fg">
-              <span className="font-mono text-accent">/{slashInfo.name}</span>
-              {slashInfo.args && <span className="ml-1 whitespace-pre-wrap">{slashInfo.args}</span>}
-            </div>
-            {chipRow}
-          </div>
-        </div>
-      ) : chipRow}
-      {expanded && (
-        <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
-          <ScrollArea className="max-h-[300px]" viewportClassName="whitespace-pre-wrap font-mono text-[11px] leading-relaxed p-2">
-            {firstText}
-          </ScrollArea>
-        </div>
-      )}
-    </BubbleWrap>
-  );
-}
-
 // ── Message Bubble ────────────────────────────
 
 export interface MessageBubbleActions {
-  onSwitchBranch?: (nodeId: string) => void;
-  onBranchFrom?: (nodeId: string) => void;
-  onDelete?: (nodeId: string) => void;
-  onRegenerate?: (nodeId: string) => void;
+  onSelectLeaf?: (leafId: string) => void;
+  onBranchFrom?: (entryId: string) => void;
+  onRegenerate?: (entryId: string) => void;
 }
 
 export interface MessageBubbleProps {
-  node: TreeNode;
+  entry: SessionMessageEntry;
   siblings: string[];
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
@@ -241,7 +119,7 @@ function BubbleShell({
   kind,
   variant,
   siblings,
-  anchorNodeId,
+  anchorEntryId,
   actions,
   isStreaming,
   footer,
@@ -250,7 +128,7 @@ function BubbleShell({
   kind: BubbleKind;
   variant: "compact" | "wide";
   siblings: string[];
-  anchorNodeId: string;
+  anchorEntryId: string;
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
   footer?: ReactNode;
@@ -277,11 +155,11 @@ function BubbleShell({
               {headerLabel}
             </span>
             {footer}
-            {actions?.onSwitchBranch && (
+            {actions?.onSelectLeaf && (
               <BranchNavigator
-                nodeId={anchorNodeId}
+                entryId={anchorEntryId}
                 siblings={siblings}
-                onSwitch={actions.onSwitchBranch}
+                onSwitch={actions.onSelectLeaf}
               />
             )}
             <div className="opacity-0 group-hover:opacity-100 ml-auto flex items-center gap-0.5 transition-all">
@@ -297,21 +175,11 @@ function BubbleShell({
               )}
               {actions?.onBranchFrom && (
                 <button
-                  onClick={() => actions.onBranchFrom!(anchorNodeId)}
+                  onClick={() => actions.onBranchFrom!(anchorEntryId)}
                   className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-accent px-1.5 py-0.5 rounded-md hover:bg-accent/8 transition-all"
                   title={t("chat.branchFromHere")}
                 >
                   {t("chat.fork")}
-                </button>
-              )}
-              {actions?.onDelete && (
-                <button
-                  onClick={() => actions.onDelete!(anchorNodeId)}
-                  disabled={isStreaming}
-                  className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-danger disabled:opacity-30 px-1.5 py-0.5 rounded-md hover:bg-danger/8 transition-all"
-                  title={t("chat.delete")}
-                >
-                  {t("chat.delete")}
                 </button>
               )}
             </div>
@@ -325,27 +193,19 @@ function BubbleShell({
 }
 
 export function MessageBubble({
-  node,
+  entry,
   siblings,
   actions,
   isStreaming,
   variant = "compact",
   footer,
 }: MessageBubbleProps) {
-  const role = node.message.role;
+  const role = entry.message.role;
 
   if (role !== "user") return null;
 
-  if (node.meta === "skill-load") {
-    return <SkillChipBubble node={node} variant={variant} />;
-  }
-
-  if (node.meta === "compact-summary") {
-    return <CompactSummaryBubble node={node} variant={variant} />;
-  }
-
-  const displayContent: AssistantContentBlock[] = [
-    { type: "text" as const, text: getUserText(node) },
+  const displayContent: Array<TextContent | ThinkingContent | ToolCall> = [
+    { type: "text" as const, text: getUserText(entry) },
   ];
 
   return (
@@ -353,7 +213,7 @@ export function MessageBubble({
       kind={{ type: "user" }}
       variant={variant}
       siblings={siblings}
-      anchorNodeId={node.id}
+      anchorEntryId={entry.id}
       actions={actions}
       isStreaming={isStreaming}
       footer={footer}
@@ -364,13 +224,13 @@ export function MessageBubble({
 }
 
 // ── Assistant Turn Bubble ─────────────────────
-// Renders one or more consecutive assistant/toolResult nodes as a single bubble
+// Renders one or more consecutive assistant/toolResult entries as a single bubble
 // so that post-stream rendering matches the streaming UX (all tool calls in one
-// agent block). toolResult nodes contribute no content; they're retained in the
-// group only so actions/boundaries line up with the tree structure.
+// agent block). toolResult entries contribute no content; they're retained in the
+// group only so actions/boundaries line up with the entry graph.
 
 export interface AssistantTurnBubbleProps {
-  nodes: TreeNode[];
+  entries: SessionMessageEntry[];
   siblings: string[];
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
@@ -379,16 +239,16 @@ export interface AssistantTurnBubbleProps {
 }
 
 export function AssistantTurnBubble({
-  nodes,
+  entries,
   siblings,
   actions,
   isStreaming,
   variant = "compact",
   footer,
 }: AssistantTurnBubbleProps) {
-  const firstAssistant = nodes.find((n) => n.message.role === "assistant");
-  const mergedContent: AssistantContentBlock[] = nodes.flatMap((n) =>
-    n.message.role === "assistant" ? n.message.content : [],
+  const firstAssistant = entries.find((entry) => entry.message.role === "assistant");
+  const mergedContent: Array<TextContent | ThinkingContent | ToolCall> = entries.flatMap((entry) =>
+    entry.message.role === "assistant" ? entry.message.content : [],
   );
 
   if (!firstAssistant) return null;
@@ -398,7 +258,7 @@ export function AssistantTurnBubble({
       kind={{ type: "assistant", regenerateFromId: firstAssistant.parentId }}
       variant={variant}
       siblings={siblings}
-      anchorNodeId={firstAssistant.id}
+      anchorEntryId={firstAssistant.id}
       actions={actions}
       isStreaming={isStreaming}
       footer={footer}

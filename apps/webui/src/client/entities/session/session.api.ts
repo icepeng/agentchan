@@ -1,6 +1,6 @@
 import type { AgentEvent } from "@agentchan/creative-agent";
 import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
-import type { Session, TreeNode } from "./session.types.js";
+import type { SessionEntry, SessionMode } from "@agentchan/creative-agent";
 
 export type { AgentEvent };
 
@@ -10,14 +10,23 @@ function projectBase(projectSlug: string): string {
   return `/projects/${encodeURIComponent(projectSlug)}/sessions`;
 }
 
-export function fetchSessions(projectSlug: string): Promise<Session[]> {
+export function fetchSessions(projectSlug: string): Promise<Array<{
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  provider: string;
+  model: string;
+  compactedFrom?: string;
+  mode?: SessionMode;
+}>> {
   return json(projectBase(projectSlug));
 }
 
 export function createSession(
   projectSlug: string,
-  mode?: "creative" | "meta",
-): Promise<{ session: Session }> {
+  mode?: SessionMode,
+): Promise<{ session: Awaited<ReturnType<typeof fetchSessions>>[number] }> {
   return json(projectBase(projectSlug), {
     method: "POST",
     ...(mode && {
@@ -27,46 +36,39 @@ export function createSession(
   });
 }
 
-export function fetchSession(projectSlug: string, id: string): Promise<{
-  session: Session;
-  nodes: TreeNode[];
-  activePath: string[];
+export function fetchSession(projectSlug: string, id: string, leafId?: string | null): Promise<{
+  entries: SessionEntry[];
+  leafId: string | null;
 }> {
-  return json(`${projectBase(projectSlug)}/${id}`);
+  const query = leafId ? `?leafId=${encodeURIComponent(leafId)}` : "";
+  return json(`${projectBase(projectSlug)}/${id}${query}`);
 }
 
 export function deleteSession(projectSlug: string, id: string): Promise<void> {
   return json(`${projectBase(projectSlug)}/${id}`, { method: "DELETE" });
 }
 
-export function deleteNode(
+export function renameSession(
   projectSlug: string,
-  sessionId: string,
-  nodeId: string,
-): Promise<{ activePath: string[]; activeLeafId: string; rootNodeId: string }> {
-  return json(`${projectBase(projectSlug)}/${sessionId}/nodes/${nodeId}`, {
-    method: "DELETE",
-  });
-}
-
-export function switchBranch(
-  projectSlug: string,
-  sessionId: string,
-  nodeId: string,
-): Promise<{ activePath: string[]; activeLeafId: string }> {
-  return json(`${projectBase(projectSlug)}/${sessionId}/branch`, {
-    method: "POST",
+  id: string,
+  name: string,
+): Promise<{
+  entries: SessionEntry[];
+  leafId: string | null;
+}> {
+  return json(`${projectBase(projectSlug)}/${id}`, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nodeId }),
+    body: JSON.stringify({ name }),
   });
 }
 
 // --- SSE Message Stream ---
 
 export interface SSECallbacks {
-  onUserNode: (node: TreeNode) => void;
+  onUserEntries: (entries: SessionEntry[]) => void;
   onAgentEvent: (event: AgentEvent) => void;
-  onAssistantNodes: (nodes: TreeNode[]) => void;
+  onAssistantEntries: (entries: SessionEntry[]) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -74,14 +76,14 @@ export interface SSECallbacks {
 function handleSSEEvent(event: string, data: string, callbacks: SSECallbacks): void {
   try {
     switch (event) {
-      case "user_node":
-        callbacks.onUserNode(JSON.parse(data));
+      case "user_entries":
+        callbacks.onUserEntries(JSON.parse(data));
         break;
       case "agent_event":
         callbacks.onAgentEvent(JSON.parse(data));
         break;
-      case "assistant_nodes":
-        callbacks.onAssistantNodes(JSON.parse(data));
+      case "assistant_entries":
+        callbacks.onAssistantEntries(JSON.parse(data));
         break;
       case "done":
         callbacks.onDone();
@@ -171,14 +173,14 @@ export function abortProjectStream(projectSlug: string): void {
 export function sendMessage(
   projectSlug: string,
   sessionId: string,
-  parentNodeId: string | null,
+  leafId: string | null,
   text: string,
   callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
   return postSSE(
     `${BASE}${projectBase(projectSlug)}/${sessionId}/messages`,
-    { parentNodeId, text },
+    { leafId, text },
     callbacks,
     signal,
   );
@@ -187,13 +189,13 @@ export function sendMessage(
 export function regenerateResponse(
   projectSlug: string,
   sessionId: string,
-  userNodeId: string,
+  entryId: string,
   callbacks: SSECallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
   return postSSE(
     `${BASE}${projectBase(projectSlug)}/${sessionId}/regenerate`,
-    { userNodeId },
+    { entryId },
     callbacks,
     signal,
   );
@@ -204,8 +206,11 @@ export function regenerateResponse(
 export function compactSession(
   projectSlug: string,
   sessionId: string,
-): Promise<{ session: Session; nodes: TreeNode[]; sourceSessionId: string }> {
+  leafId?: string | null,
+): Promise<{ entries: SessionEntry[]; leafId: string | null; compactionEntryId: string }> {
   return json(`${projectBase(projectSlug)}/${sessionId}/compact`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ leafId }),
   });
 }

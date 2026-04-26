@@ -7,6 +7,7 @@
 
 import { Agent, type AgentMessage } from "@mariozechner/pi-agent-core";
 import { getEnvApiKey, type Message } from "@mariozechner/pi-ai";
+import { convertToLlm } from "@mariozechner/pi-coding-agent";
 import type { SkillMetadata } from "../skills/types.js";
 import type { SessionMode } from "../session/format.js";
 import { microCompact, clearCompactState } from "./compact.js";
@@ -96,7 +97,7 @@ export async function setupCreativeAgent(
       messages: history as Message[],
       thinkingLevel: thinkingLevel ?? ("off" as any),
     },
-    convertToLlm: (msgs: AgentMessage[]) => msgs as Message[],
+    convertToLlm: (msgs: AgentMessage[]) => convertToLlm(msgs),
     transformContext: (msgs: AgentMessage[]) =>
       Promise.resolve(microCompact(msgs, {
         sessionId,

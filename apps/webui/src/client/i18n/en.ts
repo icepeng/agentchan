@@ -21,6 +21,7 @@ export const translations = {
   "session.deleteConfirm": 'Delete "{{title}}"?',
   "session.deleteConfirmFull": 'Delete session "{{title}}"?',
   "session.delete": "Delete",
+  "session.rename": "Rename",
   "session.noSessions": "No sessions yet",
 
   // Chat
@@ -66,7 +67,7 @@ export const translations = {
   "slash.noMatches": "No commands match",
   "slash.skillTag": "skill",
   "slash.new": "Create new session",
-  "slash.compact": "Summarize and continue in new session",
+  "slash.compact": "Summarize this branch",
   "slash.edit": "Toggle edit mode",
   "slash.readme": "Show project README",
   "slash.model": "Change model",

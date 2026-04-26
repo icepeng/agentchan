@@ -9,13 +9,13 @@ import {
 // --- Types ---
 
 /**
- * Per-project session selection — which session tab is open and which node
- * the user has picked as reply anchor. Coupled because reply anchor is only
+ * Per-project session selection — which session tab is open and which entry
+ * the user has picked as the next append leaf. Coupled because that leaf is only
  * meaningful within the currently open session (SET_ACTIVE_SESSION clears it).
  */
 export interface SessionSelection {
   openSessionId: string | null;
-  replyToNodeId: string | null;
+  replyToLeafId: string | null;
 }
 
 export interface SessionSelectionState {
@@ -24,14 +24,14 @@ export interface SessionSelectionState {
 
 export type SessionSelectionAction =
   | { type: "SET_ACTIVE_SESSION"; projectSlug: string; sessionId: string | null }
-  | { type: "SET_REPLY_TO"; projectSlug: string; nodeId: string | null }
+  | { type: "SET_APPEND_LEAF"; projectSlug: string; leafId: string | null }
   | { type: "CLEAR"; projectSlug: string };
 
 // --- Helpers ---
 
 export const EMPTY_SELECTION: SessionSelection = {
   openSessionId: null,
-  replyToNodeId: null,
+  replyToLeafId: null,
 };
 
 function updateSelection(
@@ -56,21 +56,20 @@ function reducer(
   switch (action.type) {
     case "SET_ACTIVE_SESSION":
       return updateSelection(state, action.projectSlug, (sel) =>
-        sel.openSessionId === action.sessionId && sel.replyToNodeId === null
+        sel.openSessionId === action.sessionId && sel.replyToLeafId === null
           ? sel
           : {
               ...sel,
               openSessionId: action.sessionId,
-              // Reply anchor is scoped to the current session — clear on switch.
-              replyToNodeId: null,
+              replyToLeafId: null,
             },
       );
 
-    case "SET_REPLY_TO":
+    case "SET_APPEND_LEAF":
       return updateSelection(state, action.projectSlug, (sel) =>
-        sel.replyToNodeId === action.nodeId
+        sel.replyToLeafId === action.leafId
           ? sel
-          : { ...sel, replyToNodeId: action.nodeId },
+          : { ...sel, replyToLeafId: action.leafId },
       );
 
     case "CLEAR": {

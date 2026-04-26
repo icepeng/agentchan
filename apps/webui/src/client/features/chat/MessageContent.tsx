@@ -1,4 +1,4 @@
-import type { AssistantContentBlock } from "@/client/entities/session/index.js";
+import type { TextContent, ThinkingContent, ToolCall } from "@/client/entities/session/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { ToolCallDisplay } from "./ToolCallDisplay.js";
 
@@ -18,7 +18,7 @@ export function MessageContent({
   content,
   runningToolIds,
 }: {
-  content: ReadonlyArray<AssistantContentBlock>;
+  content: ReadonlyArray<TextContent | ThinkingContent | ToolCall>;
   runningToolIds?: ReadonlySet<string>;
 }) {
   return (

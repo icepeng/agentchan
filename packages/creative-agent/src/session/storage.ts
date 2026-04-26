@@ -2,80 +2,73 @@ import { appendFile, readFile, mkdir, unlink, writeFile, readdir } from "node:fs
 import { existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { nanoid } from "nanoid";
-import type { TreeNode, TreeNodeWithChildren, Session } from "../types.js";
-import {
-  computeActivePath,
-  switchBranch as switchBranchInTree,
-} from "./tree.js";
+import type {
+  CompactionEntry,
+  SessionEntry,
+  SessionInfoEntry,
+} from "@mariozechner/pi-coding-agent";
 import {
   CURRENT_SESSION_VERSION,
   type SessionHeader,
   type SessionMode,
-  type BranchMarker,
   type ParsedSession,
   parseSessionFile,
-  buildTreeMap,
-  deriveSession,
-  serializeSession,
+  deriveSessionUpdatedAt,
+  defaultLeafId,
 } from "./format.js";
 
-// --- Public types ---
-
-export interface LoadedSession {
-  session: Session;
-  tree: Map<string, TreeNodeWithChildren>;
-  activePath: string[];
-}
-
-export interface SessionSnapshot {
-  session: Session;
-  nodes: TreeNodeWithChildren[];
-  activePath: string[];
-}
-
-export interface DeleteSubtreeResult {
-  rootNodeId: string;
-  activeLeafId: string;
-  activePath: string[];
-}
-
-export interface SwitchBranchResult {
-  activePath: string[];
-  activeLeafId: string;
-}
+type EntryWithoutParent<T extends SessionEntry = SessionEntry> = T extends SessionEntry
+  ? Omit<T, "parentId">
+  : never;
 
 // --- Storage interface ---
 
 export interface SessionStorage {
   // Session CRUD
-  listSessions(projectSlug: string): Promise<Session[]>;
-  getSession(projectSlug: string, id: string): Promise<Session | null>;
-  loadSessionWithTree(projectSlug: string, id: string): Promise<LoadedSession | null>;
-  loadSnapshot(projectSlug: string, id: string): Promise<SessionSnapshot | null>;
-  createSession(projectSlug: string, provider: string, model: string, compactedFrom?: string, mode?: SessionMode): Promise<Session>;
+  listSessions(projectSlug: string): Promise<Array<{ id: string; header: SessionHeader | null; entries: SessionEntry[] }>>;
+  loadSession(projectSlug: string, id: string, leafId?: string | null): Promise<{
+    header: SessionHeader | null;
+    entries: SessionEntry[];
+    leafId: string | null;
+  } | null>;
+  createSession(projectSlug: string, compactedFrom?: string, mode?: SessionMode): Promise<{ id: string; header: SessionHeader; entries: [] }>;
   deleteSession(projectSlug: string, id: string): Promise<void>;
 
-  // Tree node operations
-  appendNode(projectSlug: string, sessionId: string, node: TreeNode): Promise<void>;
-  appendNodes(projectSlug: string, sessionId: string, nodes: TreeNode[]): Promise<void>;
-  deleteSubtree(
+  appendEntriesAtLeaf(
     projectSlug: string,
     sessionId: string,
-    nodeId: string,
-  ): Promise<DeleteSubtreeResult>;
-  switchBranch(
+    leafId: string | null,
+    entries: EntryWithoutParent[],
+  ): Promise<SessionEntry[]>;
+  appendSessionInfo(
     projectSlug: string,
     sessionId: string,
-    nodeId: string,
-  ): Promise<SwitchBranchResult | null>;
+    name: string,
+  ): Promise<SessionInfoEntry | null>;
+  appendCompaction<T = unknown>(
+    projectSlug: string,
+    sessionId: string,
+    input: {
+      leafId?: string | null;
+      summary: string;
+      firstKeptEntryId: string;
+      tokensBefore: number;
+      details?: T;
+      fromHook?: boolean;
+    },
+  ): Promise<CompactionEntry>;
 }
 
 // --- JSONL Implementation ---
 
 export function createSessionStorage(projectsDir: string): SessionStorage {
   // Path helpers
+  function projectDir(projectSlug: string): string {
+    return join(projectsDir, projectSlug);
+  }
+
   function sessionsDir(projectSlug: string): string {
-    return join(projectsDir, projectSlug, "sessions");
+    return join(projectDir(projectSlug), "sessions");
   }
 
   function sessionPath(projectSlug: string, id: string): string {
@@ -91,30 +84,55 @@ export function createSessionStorage(projectsDir: string): SessionStorage {
     await appendFile(path, body);
   }
 
-  async function writeNodeLines(
+  async function writeEntryLines(
     projectSlug: string,
     sessionId: string,
-    nodes: TreeNode[],
+    entries: SessionEntry[],
   ): Promise<void> {
     await ensureSessionsDir(projectSlug);
-    await appendJsonLines(sessionPath(projectSlug, sessionId), nodes);
+    await appendJsonLines(sessionPath(projectSlug, sessionId), entries);
   }
 
-  /** Read, parse, and build tree from a single session file. */
-  async function readFull(projectSlug: string, id: string): Promise<(ParsedSession & { tree: Map<string, TreeNodeWithChildren> }) | null> {
+  async function readFull(projectSlug: string, id: string): Promise<ParsedSession | null> {
     const path = sessionPath(projectSlug, id);
     try {
       const content = await readFile(path, "utf-8");
-      const parsed = parseSessionFile(content);
-      const tree = buildTreeMap(parsed.nodes);
-      return { ...parsed, tree };
+      return parseSessionFile(content);
     } catch {
       return null;
     }
   }
 
+  function resolveLeafId(entries: readonly SessionEntry[], requestedLeafId?: string | null): string | null | undefined {
+    if (requestedLeafId === undefined) return defaultLeafId(entries);
+    if (requestedLeafId === null) return null;
+    return entries.some((entry) => entry.id === requestedLeafId) ? requestedLeafId : undefined;
+  }
+
+  function withParents(drafts: readonly EntryWithoutParent[], leafId: string | null): SessionEntry[] {
+    let parentId = leafId;
+    return drafts.map((draft) => {
+      const entry = { ...draft, parentId };
+      parentId = entry.id;
+      return entry;
+    });
+  }
+
+  function toReadResult(
+    data: ParsedSession,
+    requestedLeafId?: string | null,
+  ) {
+    const leafId = resolveLeafId(data.entries, requestedLeafId);
+    if (leafId === undefined) return null;
+    return {
+      header: data.header,
+      entries: data.entries,
+      leafId,
+    };
+  }
+
   return {
-    async listSessions(projectSlug: string): Promise<Session[]> {
+    async listSessions(projectSlug: string): Promise<Array<{ id: string; header: SessionHeader | null; entries: SessionEntry[] }>> {
       const dir = sessionsDir(projectSlug);
       if (!existsSync(dir)) return [];
 
@@ -126,68 +144,48 @@ export function createSessionStorage(projectsDir: string): SessionStorage {
           const id = basename(file, ".jsonl");
           const data = await readFull(projectSlug, id);
           if (!data) return null;
-          return deriveSession(id, data.header, data.nodes, data.tree);
+          return { id, header: data.header, entries: data.entries };
         }),
       );
 
       return results
-        .filter((s): s is Session => s !== null)
-        .sort((a, b) => b.updatedAt - a.updatedAt);
+        .filter((s): s is { id: string; header: SessionHeader | null; entries: SessionEntry[] } => s !== null)
+        .sort((a, b) =>
+          deriveSessionUpdatedAt(b.header, b.entries) - deriveSessionUpdatedAt(a.header, a.entries),
+        );
     },
 
-    async getSession(projectSlug: string, id: string): Promise<Session | null> {
+    async loadSession(projectSlug: string, id: string, leafId?: string | null) {
       const data = await readFull(projectSlug, id);
       if (!data) return null;
-      return deriveSession(id, data.header, data.nodes, data.tree);
-    },
-
-    async loadSessionWithTree(projectSlug: string, id: string): Promise<LoadedSession | null> {
-      const data = await readFull(projectSlug, id);
-      if (!data) return null;
-      const session = deriveSession(id, data.header, data.nodes, data.tree);
-      const activePath = session.rootNodeId ? computeActivePath(data.tree, session.rootNodeId) : [];
-      return { session, tree: data.tree, activePath };
-    },
-
-    async loadSnapshot(projectSlug: string, id: string): Promise<SessionSnapshot | null> {
-      const loaded = await this.loadSessionWithTree(projectSlug, id);
-      if (!loaded) return null;
-      return {
-        session: loaded.session,
-        nodes: [...loaded.tree.values()],
-        activePath: loaded.activePath,
-      };
+      return toReadResult(data, leafId);
     },
 
     async createSession(
       projectSlug: string,
-      provider: string,
-      model: string,
       compactedFrom?: string,
       mode?: SessionMode,
-    ): Promise<Session> {
+    ): Promise<{ id: string; header: SessionHeader; entries: [] }> {
       await ensureSessionsDir(projectSlug);
       const id = nanoid(12);
       const now = Date.now();
+      const timestamp = new Date(now).toISOString();
 
       const header: SessionHeader = {
-        _header: true, version: CURRENT_SESSION_VERSION, createdAt: now, provider, model,
-        ...(compactedFrom ? { compactedFrom } : {}),
+        type: "session",
+        version: CURRENT_SESSION_VERSION,
+        id,
+        timestamp,
+        cwd: projectDir(projectSlug),
+        ...(compactedFrom ? { parentSession: compactedFrom } : {}),
         ...(mode ? { mode } : {}),
       };
       await writeFile(sessionPath(projectSlug, id), JSON.stringify(header) + "\n");
 
       return {
         id,
-        title: "New session",
-        createdAt: now,
-        updatedAt: now,
-        rootNodeId: "",
-        activeLeafId: "",
-        provider,
-        model,
-        ...(compactedFrom ? { compactedFrom } : {}),
-        ...(mode ? { mode } : {}),
+        header,
+        entries: [],
       };
     },
 
@@ -197,103 +195,69 @@ export function createSessionStorage(projectsDir: string): SessionStorage {
       } catch { /* ignore ENOENT */ }
     },
 
-    async appendNode(projectSlug: string, sessionId: string, node: TreeNode): Promise<void> {
-      await writeNodeLines(projectSlug, sessionId, [node]);
-    },
-
-    async appendNodes(projectSlug: string, sessionId: string, nodes: TreeNode[]): Promise<void> {
-      if (nodes.length === 0) return;
-      await writeNodeLines(projectSlug, sessionId, nodes);
-    },
-
-    async deleteSubtree(
+    async appendEntriesAtLeaf(
       projectSlug: string,
       sessionId: string,
-      nodeId: string,
-    ): Promise<{ rootNodeId: string; activeLeafId: string; activePath: string[] }> {
-      // Single file read: parse header + build tree
-      const path = sessionPath(projectSlug, sessionId);
-      const content = await readFile(path, "utf-8");
-      const { headerLine, nodes } = parseSessionFile(content);
-      const tree = buildTreeMap(nodes);
+      leafId: string | null,
+      drafts: EntryWithoutParent[],
+    ) {
+      const loaded = await this.loadSession(projectSlug, sessionId, leafId);
+      if (!loaded) throw new Error("Session or leaf entry not found");
+      if (drafts.length === 0) return [];
 
-      const target = tree.get(nodeId);
-      if (!target) throw new Error(`Node not found: ${nodeId}`);
-
-      const toRemove = collectDescendants(tree, nodeId);
-
-      if (target.parentId) {
-        const parent = tree.get(target.parentId);
-        if (parent) {
-          parent.children = parent.children.filter((id) => !toRemove.has(id));
-          if (parent.activeChildId && toRemove.has(parent.activeChildId)) {
-            parent.activeChildId =
-              parent.children.length > 0
-                ? parent.children[parent.children.length - 1]
-                : undefined;
-          }
-        }
-      }
-
-      for (const id of toRemove) {
-        tree.delete(id);
-      }
-
-      if (tree.size === 0) {
-        await writeFile(path, headerLine ? headerLine + "\n" : "", "utf-8");
-        return { rootNodeId: "", activeLeafId: "", activePath: [] };
-      }
-
-      await writeFile(path, serializeSession(headerLine, tree), "utf-8");
-
-      const rootNode = [...tree.values()].find((n) => !n.parentId);
-      const rootNodeId = rootNode?.id ?? "";
-
-      const activePath = rootNodeId ? computeActivePath(tree, rootNodeId) : [];
-      const activeLeafId = activePath[activePath.length - 1] ?? "";
-
-      return { rootNodeId, activeLeafId, activePath };
+      const entries = withParents(drafts, loaded.leafId);
+      await writeEntryLines(projectSlug, sessionId, entries);
+      return entries;
     },
 
-    async switchBranch(
+    async appendSessionInfo(
       projectSlug: string,
       sessionId: string,
-      nodeId: string,
-    ): Promise<SwitchBranchResult | null> {
-      const loaded = await this.loadSessionWithTree(projectSlug, sessionId);
+      name: string,
+    ) {
+      const loaded = await this.loadSession(projectSlug, sessionId);
       if (!loaded) return null;
-      const tree = loaded.tree;
-      if (!tree.has(nodeId)) return null;
 
-      const { updatedNodes, newLeafId } = switchBranchInTree(tree, nodeId);
-      const markers = updatedNodes
-        .filter((n) => n.activeChildId)
-        .map((n): BranchMarker => ({ _marker: "branch", nodeId: n.id, activeChildId: n.activeChildId! }));
-      if (markers.length > 0) {
-        const path = sessionPath(projectSlug, sessionId);
-        await appendJsonLines(path, markers);
-      }
+      const draft: EntryWithoutParent<SessionInfoEntry> = {
+        type: "session_info",
+        id: nanoid(12),
+        timestamp: new Date().toISOString(),
+        name: name.trim(),
+      };
 
-      const { rootNodeId } = loaded.session;
-      const activePath = rootNodeId ? computeActivePath(tree, rootNodeId) : [];
-      return { activePath, activeLeafId: newLeafId };
+      const [entry] = await this.appendEntriesAtLeaf(projectSlug, sessionId, loaded.leafId, [draft]);
+      return entry as SessionInfoEntry | undefined ?? null;
+    },
+
+    async appendCompaction<T = unknown>(
+      projectSlug: string,
+      sessionId: string,
+      input: {
+        leafId?: string | null;
+        summary: string;
+        firstKeptEntryId: string;
+        tokensBefore: number;
+        details?: T;
+        fromHook?: boolean;
+      },
+    ) {
+      const loaded = await this.loadSession(projectSlug, sessionId, input.leafId);
+      if (!loaded) throw new Error("Session not found");
+
+      const draft: EntryWithoutParent<CompactionEntry<T>> = {
+        type: "compaction",
+        id: nanoid(12),
+        timestamp: new Date().toISOString(),
+        summary: input.summary,
+        firstKeptEntryId: input.firstKeptEntryId,
+        tokensBefore: input.tokensBefore,
+        ...(input.details !== undefined ? { details: input.details } : {}),
+        ...(input.fromHook !== undefined ? { fromHook: input.fromHook } : {}),
+      };
+
+      const [entry] = await this.appendEntriesAtLeaf(projectSlug, sessionId, loaded.leafId, [draft]);
+      if (!entry) throw new Error("Session not found after compaction append");
+      return entry as CompactionEntry;
     },
   };
-}
-
-function collectDescendants(
-  nodes: Map<string, TreeNodeWithChildren>,
-  nodeId: string,
-): Set<string> {
-  const toRemove = new Set<string>();
-  const queue = [nodeId];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    toRemove.add(id);
-    const node = nodes.get(id);
-    if (node) {
-      queue.push(...node.children);
-    }
-  }
-  return toRemove;
 }

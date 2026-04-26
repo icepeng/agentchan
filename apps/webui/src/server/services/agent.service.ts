@@ -9,7 +9,7 @@ import {
 /**
  * SSE adapter — forwards pi `AgentEvent` raw under the single `agent_event`
  * wire name and keeps agentchan-specific session persistence events
- * (`user_node`, `assistant_nodes`, `error`, `done`) on their own names.
+ * (`user_entries`, `assistant_entries`, `error`, `done`) on their own names.
  *
  * `prepareRun` is called before each prompt/regenerate. OAuth providers use it
  * to refresh expired tokens into the DB so the sync `resolveAgentConfig` reads
@@ -24,7 +24,7 @@ export function createAgentService(
       stream: SSEStreamingApi,
       slug: string,
       sessionId: string,
-      parentNodeId: string | null,
+      leafId: string | null,
       text: string,
       signal?: AbortSignal,
     ) {
@@ -33,7 +33,7 @@ export function createAgentService(
       try {
         await runPrompt(
           ctx,
-          { slug, sessionId, parentNodeId, text },
+          { slug, sessionId, leafId, text },
           (ev) => queue.push(ev),
           signal,
         );
@@ -46,7 +46,7 @@ export function createAgentService(
       stream: SSEStreamingApi,
       slug: string,
       sessionId: string,
-      userNodeId: string,
+      entryId: string,
       signal?: AbortSignal,
     ) {
       await prepareRun();
@@ -54,7 +54,7 @@ export function createAgentService(
       try {
         await runRegenerate(
           ctx,
-          { slug, sessionId, userNodeId },
+          { slug, sessionId, entryId },
           (ev) => queue.push(ev),
           signal,
         );
@@ -92,11 +92,11 @@ async function writeSessionEvent(
   ev: SessionEvent,
 ): Promise<void> {
   switch (ev.type) {
-    case "user_node":
-      await stream.writeSSE({ event: "user_node", data: JSON.stringify(ev.node) });
+    case "user_entries":
+      await stream.writeSSE({ event: "user_entries", data: JSON.stringify(ev.entries) });
       return;
     case "agent_event": {
-      // user role message_start/end 은 `user_node` SSE 로 별도 채널 — 중복 방지
+      // user role message_start/end 은 `user_entries` SSE 로 별도 채널 — 중복 방지
       const event = ev.event;
       if (
         (event.type === "message_start" || event.type === "message_end") &&
@@ -107,10 +107,10 @@ async function writeSessionEvent(
       await stream.writeSSE({ event: "agent_event", data: JSON.stringify(event) });
       return;
     }
-    case "assistant_nodes":
+    case "assistant_entries":
       await stream.writeSSE({
-        event: "assistant_nodes",
-        data: JSON.stringify(ev.nodes),
+        event: "assistant_entries",
+        data: JSON.stringify(ev.entries),
       });
       return;
     case "error":

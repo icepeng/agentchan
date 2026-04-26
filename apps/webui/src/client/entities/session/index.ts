@@ -1,39 +1,37 @@
 export type {
-  AssistantContentBlock,
+  AgentMessage,
   AssistantMessage,
-  ClientMessage,
   ImageContent,
   Message,
-  Session,
+  SessionEntry,
+  SessionMessageEntry,
   TextContent,
   ThinkingContent,
-  TokenUsage,
-  ToolCallContent,
+  ToolCall,
   ToolResultMessage,
-  TreeNode,
   UserMessage,
-} from "./session.types.js";
+} from "@agentchan/creative-agent";
 
 export {
   useSessions,
   useSessionData,
   useSessionMutations,
 } from "./useSessions.js";
-export type { SessionData } from "./useSessions.js";
 
-export { insertNode, insertNodes, replaceTempNode } from "./tree.utils.js";
+export {
+  appendEntriesUnique,
+  branchFromLeaf,
+} from "./entry.utils.js";
 
 export {
   fetchSession, fetchSessions, createSession, deleteSession,
-  deleteNode, switchBranch, sendMessage, regenerateResponse, compactSession,
+  sendMessage, regenerateResponse, compactSession,
   registerAbortController, clearAbortController, abortProjectStream,
 } from "./session.api.js";
 export type {
   SSECallbacks,
   AgentEvent,
 } from "./session.api.js";
-
-export { flattenActivePathToMessages } from "./session.selectors.js";
 
 export {
   SessionSelectionProvider,

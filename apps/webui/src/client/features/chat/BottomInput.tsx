@@ -146,7 +146,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              selection.replyToNodeId
+              selection.replyToLeafId
                 ? t("input.branchPlaceholder")
                 : t("input.placeholder")
             }

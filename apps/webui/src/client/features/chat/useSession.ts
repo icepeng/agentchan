@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useSWRConfig } from "swr";
+import type { SessionMode } from "@agentchan/creative-agent";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
   useAgentStateDispatch,
@@ -8,6 +9,7 @@ import {
   useSessionMutations,
   useActiveSessionSelection,
   useSessionSelectionDispatch,
+  useSessionData,
 } from "@/client/entities/session/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 
@@ -18,9 +20,10 @@ export function useSession() {
   const agentDispatch = useAgentStateDispatch();
   const slug = projectSelection.activeProjectSlug;
   const mutations = useSessionMutations(slug);
+  const { data: activeSessionData } = useSessionData(slug, selection.openSessionId);
   const { mutate } = useSWRConfig();
 
-  const create = useCallback(async (mode?: "creative" | "meta") => {
+  const create = useCallback(async (mode?: SessionMode) => {
     if (!slug) return;
     const { session } = await mutations.create(mode);
     sessionSelectionDispatch({
@@ -56,24 +59,24 @@ export function useSession() {
     }
   };
 
+  const rename = async (id: string, name: string) => {
+    if (!slug) return;
+    await mutations.rename(id, name);
+  };
+
   const refresh = async () => {
     if (!slug) return;
     await mutate(qk.sessions(slug));
   };
 
-  const switchBranch = async (nodeId: string) => {
+  const selectLeaf = async (leafId: string) => {
     if (!selection.openSessionId || !slug) return;
-    await mutations.switchBranch(selection.openSessionId, nodeId);
+    await mutations.selectLeaf(selection.openSessionId, leafId);
   };
 
-  const deleteNode = async (nodeId: string) => {
-    if (!selection.openSessionId || !slug) return;
-    await mutations.removeNode(selection.openSessionId, nodeId);
-  };
-
-  const setReplyTo = (nodeId: string | null) => {
+  const setAppendLeaf = (leafId: string | null) => {
     if (!slug) return;
-    sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
+    sessionSelectionDispatch({ type: "SET_APPEND_LEAF", projectSlug: slug, leafId });
   };
 
   const compact = async () => {
@@ -81,12 +84,7 @@ export function useSession() {
     const sessionId = selection.openSessionId;
     agentDispatch({ type: "START", projectSlug: slug });
     try {
-      const result = await mutations.compact(sessionId);
-      sessionSelectionDispatch({
-        type: "SET_ACTIVE_SESSION",
-        projectSlug: slug,
-        sessionId: result.session.id,
-      });
+      await mutations.compact(sessionId, activeSessionData?.leafId);
       agentDispatch({ type: "STOP", projectSlug: slug });
     } catch (err) {
       agentDispatch({
@@ -101,10 +99,10 @@ export function useSession() {
     create,
     load,
     remove,
+    rename,
     refresh,
-    switchBranch,
-    setReplyTo,
-    deleteNode,
+    selectLeaf,
+    setAppendLeaf,
     compact,
     activeSessionId: selection.openSessionId,
   };

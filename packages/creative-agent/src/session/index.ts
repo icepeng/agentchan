@@ -5,11 +5,14 @@
  */
 
 export type {
-  SessionSnapshot,
-  DeleteSubtreeResult,
-  SwitchBranchResult,
   SessionStorage,
-  LoadedSession,
 } from "./storage.js";
 export { createSessionStorage } from "./storage.js";
 export type { SessionMode } from "./format.js";
+export {
+  branchFromLeaf,
+  deriveSessionCreatedAt,
+  deriveSessionProviderModel,
+  deriveSessionTitle,
+  deriveSessionUpdatedAt,
+} from "./format.js";

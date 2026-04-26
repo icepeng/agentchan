@@ -3,8 +3,8 @@ import type { SkillRecord } from "./types.js";
 
 /**
  * Wire-format prefix every `buildSkillContent` output begins with. Exported
- * so consumers (e.g. session.ts steer detection) can identify skill-load
- * messages without re-encoding the wrapper tag.
+ * so consumers can identify injected skill content without re-encoding the
+ * wrapper tag.
  */
 export const SKILL_CONTENT_PREFIX = "<skill_content";
 

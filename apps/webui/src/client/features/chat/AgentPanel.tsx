@@ -6,34 +6,33 @@ import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
   useSessionData,
   useActiveSessionSelection,
+  branchFromLeaf,
 } from "@/client/entities/session/index.js";
-import type { TreeNode } from "@/client/entities/session/index.js";
+import type { SessionEntry, SessionMessageEntry } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
-import { MessageActionsProvider } from "./MessageActionsContext.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
 import { AssistantTurnBubble, MessageBubble } from "./MessageBubble.js";
 import { StreamingMessage } from "./StreamingMessage.js";
-import { groupActivePath } from "./groupActivePath.js";
 
 // ── Model Info Popover ───────────────────────
 
-function ModelInfoPopover({ node }: { node: TreeNode }) {
+function ModelInfoPopover({ entry }: { entry: SessionMessageEntry }) {
   const { t } = useI18n();
 
-  const msg = node.message;
+  const msg = entry.message;
   const model = msg.role === "assistant" ? msg.model : undefined;
   const provider = msg.role === "assistant" ? msg.provider : undefined;
+  const usage = msg.role === "assistant" ? msg.usage : undefined;
 
-  const u = node.usage;
-  const hasUsage = !!(u?.inputTokens || u?.outputTokens);
-  const cost = u?.cost ?? null;
-  const cachedInput = u?.cachedInputTokens ?? 0;
-  const cacheCreation = u?.cacheCreationTokens ?? 0;
-  const totalInput = (u?.inputTokens ?? 0) + cachedInput + cacheCreation;
+  const hasUsage = !!(usage?.input || usage?.output);
+  const cost = usage?.cost?.total ?? null;
+  const cachedInput = usage?.cacheRead ?? 0;
+  const cacheCreation = usage?.cacheWrite ?? 0;
+  const totalInput = (usage?.input ?? 0) + cachedInput + cacheCreation;
   const cachePercent = totalInput > 0 && cachedInput > 0
     ? Math.round((cachedInput / totalInput) * 100) : 0;
 
@@ -56,7 +55,7 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
                 <div className="flex justify-between gap-4">
                   <span className="text-fg-3">{t("input.tokenIn")}</span>
                   <span className="text-fg">
-                    {formatTokens(u?.inputTokens ?? 0)}
+                    {formatTokens(usage?.input ?? 0)}
                   </span>
                 </div>
                 {cachePercent > 0 && (
@@ -68,7 +67,7 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
                 <div className="flex justify-between gap-4">
                   <span className="text-fg-3">{t("input.tokenOut")}</span>
                   <span className="text-fg">
-                    {formatTokens(u?.outputTokens ?? 0)}
+                    {formatTokens(usage?.output ?? 0)}
                   </span>
                 </div>
                 {cost !== null && (
@@ -88,8 +87,44 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
 
 // ── Agent Panel ───────────────────────────────
 
-const EMPTY_NODES: readonly TreeNode[] = [];
-const EMPTY_PATH: readonly string[] = [];
+const EMPTY_ENTRIES: readonly SessionEntry[] = [];
+
+function messageEntriesOf(entries: readonly SessionEntry[]): SessionMessageEntry[] {
+  return entries.filter((entry): entry is SessionMessageEntry => entry.type === "message");
+}
+
+function siblingMessageEntryIds(
+  entries: readonly SessionEntry[],
+  entry: SessionMessageEntry,
+): string[] {
+  const siblings = entries
+    .filter((candidate): candidate is SessionMessageEntry =>
+      candidate.type === "message" && candidate.parentId === entry.parentId,
+    )
+    .map((candidate) => candidate.id);
+  return siblings.length > 0 ? siblings : [entry.id];
+}
+
+type BubbleGroup =
+  | { kind: "user"; entry: SessionMessageEntry }
+  | { kind: "assistantTurn"; entries: SessionMessageEntry[] };
+
+function groupBranchMessages(entries: readonly SessionMessageEntry[]): BubbleGroup[] {
+  const groups: BubbleGroup[] = [];
+  for (const entry of entries) {
+    if (entry.message.role === "user") {
+      groups.push({ kind: "user", entry });
+      continue;
+    }
+    const prev = groups[groups.length - 1];
+    if (prev?.kind === "assistantTurn") {
+      prev.entries.push(entry);
+    } else {
+      groups.push({ kind: "assistantTurn", entries: [entry] });
+    }
+  }
+  return groups;
+}
 
 export function AgentPanel() {
   const selection = useActiveSessionSelection();
@@ -99,27 +134,23 @@ export function AgentPanel() {
     activeProjectSlug,
     selection.openSessionId,
   );
-  const nodes = sessionData?.nodes ?? EMPTY_NODES;
-  const activePath = sessionData?.activePath ?? EMPTY_PATH;
-  const nodeMap = new Map<string, TreeNode>();
-  for (const n of nodes) nodeMap.set(n.id, n);
+  const entries = sessionData?.entries ?? EMPTY_ENTRIES;
+  const branch = sessionData ? branchFromLeaf(sessionData.entries, sessionData.leafId) : EMPTY_ENTRIES;
+  const branchMessages = messageEntriesOf(branch);
 
   const { t } = useI18n();
-  const { switchBranch, setReplyTo, deleteNode } = useSession();
+  const { selectLeaf, setAppendLeaf } = useSession();
   const { regenerate } = useStreaming();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activePath, state.streamingMessage]);
+  }, [branchMessages.length, state.streamingMessage]);
 
-  const getSiblings = (node: TreeNode): string[] => {
-    if (!node.parentId) return [node.id];
-    const parent = nodeMap.get(node.parentId);
-    return parent?.children ?? [node.id];
-  };
+  const getSiblings = (entry: SessionMessageEntry): string[] =>
+    siblingMessageEntryIds(entries, entry);
 
-  const groups = groupActivePath(activePath, nodeMap);
+  const groups = groupBranchMessages(branchMessages);
 
   if (!selection.openSessionId) {
     return (
@@ -135,9 +166,8 @@ export function AgentPanel() {
   }
 
   const actions = {
-    onSwitchBranch: switchBranch,
-    onBranchFrom: setReplyTo,
-    onDelete: deleteNode,
+    onSelectLeaf: selectLeaf,
+    onBranchFrom: setAppendLeaf,
     onRegenerate: regenerate,
   };
 
@@ -147,14 +177,14 @@ export function AgentPanel() {
       <SessionTabs />
 
       {/* Reply-to banner */}
-      {selection.replyToNodeId && (
+      {selection.replyToLeafId && (
         <div className="px-3 py-2 bg-accent/5 border-b border-accent/10 flex items-center justify-between">
           <span className="text-[11px] text-accent tracking-wide flex items-center gap-1.5">
             <CornerUpLeft size={10} strokeWidth={2} />
             {t("chat.branching")}
           </span>
           <button
-            onClick={() => setReplyTo(null)}
+            onClick={() => setAppendLeaf(null)}
             className="text-[11px] text-accent/60 hover:text-accent transition-colors"
           >
             {t("chat.cancel")}
@@ -164,52 +194,44 @@ export function AgentPanel() {
 
       {/* Messages */}
       <ScrollArea className="flex-1">
-        <MessageActionsProvider
-          switchBranch={switchBranch}
-          branchFrom={setReplyTo}
-          deleteNode={deleteNode}
-          regenerate={regenerate}
-          isStreaming={state.isStreaming}
-        >
-          {groups.map((g) => {
-            if (g.kind === "user") {
-              return (
-                <MessageBubble
-                  key={g.node.id}
-                  node={g.node}
-                  siblings={getSiblings(g.node)}
-                  actions={actions}
-                  isStreaming={state.isStreaming}
-                  variant="compact"
-                />
-              );
-            }
-            const first = g.nodes[0];
-            if (!first) return null;
-            const lastAssistant = [...g.nodes]
-              .reverse()
-              .find((n) => n.message.role === "assistant");
+        {groups.map((g) => {
+          if (g.kind === "user") {
             return (
-              <AssistantTurnBubble
-                key={first.id}
-                nodes={g.nodes}
-                siblings={getSiblings(first)}
+              <MessageBubble
+                key={g.entry.id}
+                entry={g.entry}
+                siblings={getSiblings(g.entry)}
                 actions={actions}
                 isStreaming={state.isStreaming}
                 variant="compact"
-                footer={
-                  lastAssistant && lastAssistant.message.role === "assistant" && lastAssistant.message.model
-                    ? <ModelInfoPopover node={lastAssistant} />
-                    : undefined
-                }
               />
             );
-          })}
-        </MessageActionsProvider>
+          }
+          const first = g.entries[0];
+          if (!first) return null;
+          const lastAssistant = [...g.entries]
+            .reverse()
+            .find((entry) => entry.message.role === "assistant");
+          return (
+            <AssistantTurnBubble
+              key={first.id}
+              entries={g.entries}
+              siblings={getSiblings(first)}
+              actions={actions}
+              isStreaming={state.isStreaming}
+              variant="compact"
+              footer={
+                lastAssistant && lastAssistant.message.role === "assistant" && lastAssistant.message.model
+                  ? <ModelInfoPopover entry={lastAssistant} />
+                  : undefined
+              }
+            />
+          );
+        })}
 
         <StreamingMessage variant="compact" />
 
-        {activePath.length === 0 && !state.isStreaming && (
+        {branchMessages.length === 0 && !state.isStreaming && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-fg-3 tracking-wide">
               {t("chat.awaitingInput")}

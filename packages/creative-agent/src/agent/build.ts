@@ -1,14 +1,24 @@
 /**
- * Pure helpers that build user TreeNodes for skill-injection paths
+ * Pure helpers that build user SessionEntries for skill-injection paths
  * (slash invocation, plain prompt, activate_skill).
  */
 
 import { nanoid } from "nanoid";
 import type { UserMessage, TextContent } from "@mariozechner/pi-ai";
-import type { TreeNode } from "../types.js";
+import type {
+  SessionMessageEntry,
+} from "@mariozechner/pi-coding-agent";
 import { buildSkillContent } from "../skills/skill-content.js";
 import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
+
+type UserEntryDraft = Omit<SessionMessageEntry, "parentId">;
+
+export interface UserEntriesForPrompt {
+  entries: UserEntryDraft[];
+  promptEntry: UserEntryDraft;
+  llmText: string;
+}
 
 /**
  * Format one or more skill bodies into the canonical injection text.
@@ -23,38 +33,35 @@ export function buildSkillInjectionContent(
 }
 
 /**
- * Build the user TreeNode(s) for a raw user prompt.
+ * Build the user SessionEntry entries for a raw user prompt.
  *
- * Slash → single node with skill body + command text, meta "skill-load".
- * Plain prompts return a single node.
+ * Slash and plain prompts both return a single message entry.
  *
  * `llmText` is the text fed to `agent.prompt()`.
  */
-export function buildUserNodeForPrompt(
+export function buildUserEntriesForPrompt(
   rawText: string,
   projectDir: string,
   skills: Map<string, SkillRecord>,
-  parentNodeId: string | null,
-): { nodes: TreeNode[]; llmText: string } {
-  const slashNode = tryBuildSlashSkillNode(rawText, projectDir, skills, parentNodeId);
-  if (slashNode) return slashNode;
+): UserEntriesForPrompt {
+  const slashEntries = tryBuildSlashSkillEntries(rawText, projectDir, skills);
+  if (slashEntries) return slashEntries;
 
   const now = Date.now();
-  const node: TreeNode = {
+  const promptEntry: UserEntryDraft = {
+    type: "message",
     id: nanoid(12),
-    parentId: parentNodeId,
+    timestamp: new Date(now).toISOString(),
     message: { role: "user", content: rawText, timestamp: now } as UserMessage,
-    createdAt: now,
   };
-  return { nodes: [node], llmText: rawText };
+  return { entries: [promptEntry], promptEntry, llmText: rawText };
 }
 
-function tryBuildSlashSkillNode(
+function tryBuildSlashSkillEntries(
   rawText: string,
   projectDir: string,
   skills: Map<string, SkillRecord>,
-  parentNodeId: string | null,
-): { nodes: TreeNode[]; llmText: string } | null {
+): UserEntriesForPrompt | null {
   if (!rawText.trimStart().startsWith("/")) return null;
   const parsed = parseSlashInput(rawText);
   if (!parsed) return null;
@@ -65,9 +72,10 @@ function tryBuildSlashSkillNode(
   const skillText = buildSkillInjectionContent([skill], projectDir);
   const userText = serializeCommand(parsed.name, parsed.args);
   const now = Date.now();
-  const node: TreeNode = {
+  const promptEntry: UserEntryDraft = {
+    type: "message",
     id: nanoid(12),
-    parentId: parentNodeId,
+    timestamp: new Date(now).toISOString(),
     message: {
       role: "user",
       content: [
@@ -76,14 +84,16 @@ function tryBuildSlashSkillNode(
       ],
       timestamp: now,
     } as UserMessage,
-    createdAt: now,
-    meta: "skill-load",
   };
-  return { nodes: [node], llmText: skillText + "\n" + userText };
+  return {
+    entries: [promptEntry],
+    promptEntry,
+    llmText: skillText + "\n" + userText,
+  };
 }
 
-/** Extract user-visible text from a user node's message content. */
-export function joinUserNodeText(message: TreeNode["message"]): string {
+/** Extract user-visible text from a user message entry. */
+export function joinUserEntryText(message: SessionMessageEntry["message"]): string {
   if (message.role !== "user") return "";
   const content = message.content;
   if (typeof content === "string") return content;

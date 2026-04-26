@@ -23,6 +23,7 @@ export const translations: Record<TranslationKey, string> = {
   "session.deleteConfirm": '"{{title}}" 삭제하시겠습니까?',
   "session.deleteConfirmFull": '"{{title}}" 세션을 삭제하시겠습니까?',
   "session.delete": "삭제",
+  "session.rename": "이름 변경",
   "session.noSessions": "세션이 없습니다",
 
   // Chat
@@ -68,7 +69,7 @@ export const translations: Record<TranslationKey, string> = {
   "slash.noMatches": "일치하는 명령이 없습니다",
   "slash.skillTag": "skill",
   "slash.new": "새 세션 시작",
-  "slash.compact": "요약 후 새 세션에서 이어가기",
+  "slash.compact": "현재 브랜치 요약",
   "slash.edit": "편집 모드 전환",
   "slash.readme": "프로젝트 README 보기",
   "slash.model": "모델 변경",

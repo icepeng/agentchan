@@ -1,108 +1,111 @@
 /**
- * JSONL session file format: header + tree node lines.
+ * Pi-compatible JSONL session file format.
  *
- * Pure data transforms — no fs, no LLM. Storage uses these to read/write
- * session files; nothing else should depend on this module.
+ * Canonical persistence is a header line followed by Pi `SessionEntry` lines.
  */
 
-import type { AssistantMessage, TextContent } from "@mariozechner/pi-ai";
-import type { TreeNode, TreeNodeWithChildren, Session } from "../types.js";
-import { computeActivePath, generateTitle } from "./tree.js";
+import type { TextContent } from "@mariozechner/pi-ai";
+import type {
+  SessionEntry,
+  SessionMessageEntry,
+} from "@mariozechner/pi-coding-agent";
+import type {
+  AgentchanSessionHeader,
+} from "../types.js";
+import { generateTitle } from "./tree.js";
 
 // --- Header ---
 
 export type SessionMode = "creative" | "meta";
 
-/** Session file format version. Bump when on-disk shape changes. */
-export const CURRENT_SESSION_VERSION = 1;
+/** Pi session format version. Keep in sync with the compatible entry model. */
+export const CURRENT_SESSION_VERSION = 3;
 
-export interface SessionHeader {
-  _header: true;
-  version: number;
-  createdAt: number;
-  provider: string;
-  model: string;
-  compactedFrom?: string;
-  /** Session mode. Omitted = creative (backward compatible). */
-  mode?: SessionMode;
-}
+export type SessionHeader = AgentchanSessionHeader;
 
 // --- Parsing ---
 
 export interface ParsedSession {
   headerLine: string | null;
   header: SessionHeader | null;
-  nodes: TreeNode[];
-}
-
-/** Branch marker appended by switchBranch (append-only alternative to file rewrite). */
-export interface BranchMarker {
-  _marker: "branch";
-  nodeId: string;
-  activeChildId: string;
+  entries: SessionEntry[];
 }
 
 export function parseSessionFile(content: string): ParsedSession {
   const lines = content.split("\n").filter((line) => line.trim());
-  if (lines.length === 0) return { headerLine: null, header: null, nodes: [] };
+  if (lines.length === 0) {
+    return { headerLine: null, header: null, entries: [] };
+  }
 
   let headerLine: string | null = null;
   let header: SessionHeader | null = null;
   let startIdx = 0;
+
   const firstLine = lines[0];
-  try {
-    const first = JSON.parse(firstLine!);
-    if (first._header) {
-      headerLine = firstLine!;
-      // Pre-versioning files match the v1 shape; never bump this with CURRENT_SESSION_VERSION.
-      header = { version: 1, ...first } as SessionHeader;
+  if (firstLine) {
+    const first = JSON.parse(firstLine);
+    if (first.type === "session") {
+      headerLine = firstLine;
+      header = { version: CURRENT_SESSION_VERSION, ...first } as SessionHeader;
       startIdx = 1;
     }
-  } catch { /* not valid JSON — treat all as nodes */ }
+  }
 
-  const nodes: TreeNode[] = [];
-  const branchMarkers: BranchMarker[] = [];
-
+  const entries: SessionEntry[] = [];
   for (let i = startIdx; i < lines.length; i++) {
     const line = lines[i];
     if (!line) continue;
-    const parsed = JSON.parse(line);
-    if (parsed._marker === "branch") {
-      branchMarkers.push(parsed as BranchMarker);
-    } else {
-      nodes.push(parsed as TreeNode);
+    const parsed = JSON.parse(line) as SessionEntry;
+    if (!("id" in parsed) || !("parentId" in parsed) || !("timestamp" in parsed)) {
+      continue;
     }
+    entries.push(parsed);
   }
 
-  // Apply branch markers to set activeChildId on the referenced nodes
-  if (branchMarkers.length > 0) {
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-    for (const marker of branchMarkers) {
-      const node = nodeMap.get(marker.nodeId);
-      if (node) node.activeChildId = marker.activeChildId;
-    }
-  }
-
-  return { headerLine, header, nodes };
+  return {
+    headerLine,
+    header,
+    entries,
+  };
 }
 
-export function buildTreeMap(nodes: TreeNode[]): Map<string, TreeNodeWithChildren> {
-  const map = new Map<string, TreeNodeWithChildren>();
-  for (const node of nodes) map.set(node.id, { ...node, children: [] });
-  for (const node of map.values()) {
-    if (node.parentId) {
-      const parent = map.get(node.parentId);
-      if (parent) parent.children.push(node.id);
-    }
+// --- Entry graph helpers ---
+
+export function buildEntryMap(entries: readonly SessionEntry[]): Map<string, SessionEntry> {
+  return new Map(entries.map((entry) => [entry.id, entry]));
+}
+
+export function defaultLeafId(entries: readonly SessionEntry[]): string | null {
+  return entries[entries.length - 1]?.id ?? null;
+}
+
+export function branchFromLeaf(
+  entries: readonly SessionEntry[],
+  leafId?: string | null,
+): SessionEntry[] {
+  const byId = buildEntryMap(entries);
+  const startId = leafId === undefined ? defaultLeafId(entries) : leafId;
+  if (startId === null) return [];
+
+  const branch: SessionEntry[] = [];
+  let current = startId ? byId.get(startId) : undefined;
+  while (current) {
+    branch.unshift(current);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
   }
-  return map;
+  return branch;
+}
+
+function parseTimestamp(timestamp: string | undefined, fallback = Date.now()): number {
+  if (!timestamp) return fallback;
+  const parsed = new Date(timestamp).getTime();
+  return Number.isNaN(parsed) ? fallback : parsed;
 }
 
 // --- Helpers ---
 
-/** Extract user-visible text from a message for title generation. */
-function extractUserText(node: TreeNode): string {
-  const msg = node.message;
+function extractUserTextFromMessageEntry(entry: SessionMessageEntry): string {
+  const msg = entry.message;
   if (msg.role !== "user") return "";
   if (typeof msg.content === "string") return msg.content;
   if (Array.isArray(msg.content)) {
@@ -114,60 +117,71 @@ function extractUserText(node: TreeNode): string {
   return "";
 }
 
-// --- Derivation: header + nodes → Session metadata ---
+function latestSessionName(entries: readonly SessionEntry[]): string | undefined {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (entry?.type !== "session_info") continue;
+    const name = entry.name?.trim();
+    return name || undefined;
+  }
+  return undefined;
+}
 
-export function deriveSession(
-  id: string,
+function deriveProviderModel(entries: readonly SessionEntry[]) {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (!entry) continue;
+    if (entry.type === "model_change") {
+      return { provider: entry.provider, model: entry.modelId };
+    }
+    if (entry.type === "message" && entry.message.role === "assistant") {
+      return { provider: entry.message.provider ?? "", model: entry.message.model ?? "" };
+    }
+  }
+
+  return { provider: "", model: "" };
+}
+
+// --- Derivation helpers: header + entries -> UI metadata ---
+
+export function deriveSessionTitle(entries: readonly SessionEntry[]): string {
+  const namedTitle = latestSessionName(entries);
+  const firstUser = entries.find(
+    (entry): entry is SessionMessageEntry =>
+      entry.type === "message" && entry.message.role === "user",
+  );
+  return namedTitle
+    ?? (firstUser ? generateTitle(extractUserTextFromMessageEntry(firstUser)) : "New session");
+}
+
+export function deriveSessionCreatedAt(
   header: SessionHeader | null,
-  nodes: TreeNode[],
-  tree?: Map<string, TreeNodeWithChildren>,
-): Session {
-  const firstUser = nodes.find((n) => n.message.role === "user");
-  const title = firstUser
-    ? generateTitle(extractUserText(firstUser))
-    : "New session";
+  entries: readonly SessionEntry[],
+): number {
+  return parseTimestamp(header?.timestamp, parseTimestamp(entries[0]?.timestamp));
+}
 
-  const createdAt = header?.createdAt ?? nodes[0]?.createdAt ?? Date.now();
-  const updatedAt = nodes[nodes.length - 1]?.createdAt ?? createdAt;
+export function deriveSessionUpdatedAt(
+  header: SessionHeader | null,
+  entries: readonly SessionEntry[],
+): number {
+  const createdAt = deriveSessionCreatedAt(header, entries);
+  return entries.length > 0
+    ? parseTimestamp(entries[entries.length - 1]?.timestamp)
+    : createdAt;
+}
 
-  const rootNode = nodes.find((n) => n.parentId === null);
-  const rootNodeId = rootNode?.id ?? "";
-
-  let activeLeafId = "";
-  if (rootNodeId) {
-    const treeMap = tree ?? buildTreeMap(nodes);
-    const path = computeActivePath(treeMap, rootNodeId);
-    activeLeafId = path[path.length - 1] ?? "";
-  }
-
-  // Backward search — avoids copying the array
-  let lastAssistant: TreeNode | undefined;
-  for (let i = nodes.length - 1; i >= 0; i--) {
-    const node = nodes[i];
-    if (node && node.message.role === "assistant") { lastAssistant = node; break; }
-  }
-  const assistantMsg = lastAssistant?.message as AssistantMessage | undefined;
-  const provider = assistantMsg?.provider ?? header?.provider ?? "";
-  const model = assistantMsg?.model ?? header?.model ?? "";
-
-  return {
-    id, title, createdAt, updatedAt, rootNodeId, activeLeafId, provider, model,
-    ...(header?.compactedFrom ? { compactedFrom: header.compactedFrom } : {}),
-    ...(header?.mode ? { mode: header.mode } : {}),
-  };
+export function deriveSessionProviderModel(entries: readonly SessionEntry[]) {
+  return deriveProviderModel(entries);
 }
 
 // --- Serialization ---
 
-/**
- * Render a session tree back to JSONL text. Storage writes the result
- * with `writeFile` — separating serialization here keeps fs out of format/.
- */
-export function serializeSession(
+export function serializeEntries(
   headerLine: string | null,
-  tree: Map<string, TreeNodeWithChildren>,
+  entries: readonly SessionEntry[],
 ): string {
-  const allNodes = [...tree.values()].map(({ children, ...node }) => node);
-  const nodeContent = allNodes.map((n) => JSON.stringify(n)).join("\n") + "\n";
-  return headerLine ? headerLine + "\n" + nodeContent : nodeContent;
+  const entryContent = entries.map((entry) => JSON.stringify(entry)).join("\n");
+  const body = entryContent ? entryContent + "\n" : "";
+  return headerLine ? headerLine + "\n" + body : body;
 }

@@ -1,45 +1,20 @@
 import { describe, test, expect } from "bun:test";
-import {
-  computeActivePath,
-  flattenPathToMessages,
-  pathToNode,
-  switchBranch,
-  generateTitle,
-} from "../../src/session/tree.js";
-import type { TreeNodeWithChildren } from "../../src/types.js";
+import type { SessionEntry, SessionMessageEntry } from "@mariozechner/pi-coding-agent";
+import { branchFromLeaf } from "../../src/session/format.js";
+import { generateTitle } from "../../src/session/tree.js";
 
-// --- Helpers ---
-
-function makeNode(
-  id: string,
-  parentId: string | null,
-  children: string[] = [],
-  activeChildId?: string,
-): TreeNodeWithChildren {
+function messageEntry(id: string, parentId: string | null, text = `msg-${id}`): SessionMessageEntry {
   return {
+    type: "message",
     id,
     parentId,
-    message: { role: "user", content: [{ type: "text", text: `msg-${id}` }] } as any,
-    createdAt: Date.now(),
-    children,
-    ...(activeChildId ? { activeChildId } : {}),
+    timestamp: new Date(Date.UTC(2026, 3, 26, 0, 0, 0)).toISOString(),
+    message: { role: "user", content: [{ type: "text", text }], timestamp: Date.now() } as any,
   };
 }
 
 /**
- * Build a simple linear chain: A → B → C → D
- */
-function linearChain(): Map<string, TreeNodeWithChildren> {
-  const map = new Map<string, TreeNodeWithChildren>();
-  map.set("A", makeNode("A", null, ["B"]));
-  map.set("B", makeNode("B", "A", ["C"]));
-  map.set("C", makeNode("C", "B", ["D"]));
-  map.set("D", makeNode("D", "C"));
-  return map;
-}
-
-/**
- * Build a branching tree:
+ * Entry graph:
  *
  *       A
  *      / \
@@ -47,172 +22,50 @@ function linearChain(): Map<string, TreeNodeWithChildren> {
  *    / \
  *   C   D
  */
-function branchingTree(): Map<string, TreeNodeWithChildren> {
-  const map = new Map<string, TreeNodeWithChildren>();
-  map.set("A", makeNode("A", null, ["B", "E"]));
-  map.set("B", makeNode("B", "A", ["C", "D"]));
-  map.set("C", makeNode("C", "B"));
-  map.set("D", makeNode("D", "B"));
-  map.set("E", makeNode("E", "A"));
-  return map;
+function branchingEntries(): SessionEntry[] {
+  return [
+    messageEntry("A", null),
+    messageEntry("B", "A"),
+    messageEntry("C", "B"),
+    messageEntry("D", "B"),
+    messageEntry("E", "A"),
+  ];
 }
 
-// ---------------------------------------------------------------------------
-// computeActivePath
-// ---------------------------------------------------------------------------
-
-describe("computeActivePath", () => {
-  test("follows linear chain to the leaf", () => {
-    const path = computeActivePath(linearChain(), "A");
-    expect(path).toEqual(["A", "B", "C", "D"]);
+describe("entry branch graph", () => {
+  test("walks selected leaf to root by parentId", () => {
+    expect(branchFromLeaf(branchingEntries(), "D").map((entry) => entry.id))
+      .toEqual(["A", "B", "D"]);
+    expect(branchFromLeaf(branchingEntries(), "E").map((entry) => entry.id))
+      .toEqual(["A", "E"]);
   });
 
-  test("follows activeChildId when set", () => {
-    const tree = branchingTree();
-    tree.get("A")!.activeChildId = "E";
-    const path = computeActivePath(tree, "A");
-    expect(path).toEqual(["A", "E"]);
+  test("uses the last append entry as default leaf", () => {
+    expect(branchFromLeaf(branchingEntries()).map((entry) => entry.id))
+      .toEqual(["A", "E"]);
   });
 
-  test("falls back to last child when no activeChildId", () => {
-    const tree = branchingTree();
-    // No activeChildId on A → picks last child "E"
-    const path = computeActivePath(tree, "A");
-    expect(path).toEqual(["A", "E"]);
+  test("returns empty branch for explicit null leaf", () => {
+    expect(branchFromLeaf(branchingEntries(), null)).toEqual([]);
   });
 
-  test("follows activeChildId then falls back to last child deeper", () => {
-    const tree = branchingTree();
-    tree.get("A")!.activeChildId = "B";
-    // B has no activeChildId → picks last child "D"
-    const path = computeActivePath(tree, "A");
-    expect(path).toEqual(["A", "B", "D"]);
-  });
+  test("includes non-message entries that are on the selected branch", () => {
+    const entries: SessionEntry[] = [
+      messageEntry("A", null),
+      {
+        type: "session_info",
+        id: "A-info",
+        parentId: "A",
+        timestamp: new Date().toISOString(),
+        name: "Named",
+      },
+      messageEntry("B", "A-info"),
+    ];
 
-  test("single node tree", () => {
-    const map = new Map<string, TreeNodeWithChildren>();
-    map.set("X", makeNode("X", null));
-    expect(computeActivePath(map, "X")).toEqual(["X"]);
-  });
-
-  test("returns empty on unknown rootNodeId", () => {
-    const path = computeActivePath(linearChain(), "UNKNOWN");
-    expect(path).toEqual([]);
-  });
-
-  test("skips invalid activeChildId that is not in the map", () => {
-    const tree = linearChain();
-    tree.get("A")!.activeChildId = "GONE";
-    // "GONE" not in map → falls back to last child "B"
-    const path = computeActivePath(tree, "A");
-    expect(path).toEqual(["A", "B", "C", "D"]);
+    expect(branchFromLeaf(entries, "B").map((entry) => entry.id))
+      .toEqual(["A", "A-info", "B"]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// flattenPathToMessages
-// ---------------------------------------------------------------------------
-
-describe("flattenPathToMessages", () => {
-  test("returns messages in path order", () => {
-    const tree = linearChain();
-    const messages = flattenPathToMessages(tree, ["A", "B", "C"]);
-    expect(messages).toHaveLength(3);
-    expect((messages[0] as any).content[0].text).toBe("msg-A");
-    expect((messages[2] as any).content[0].text).toBe("msg-C");
-  });
-
-  test("returns empty for empty path", () => {
-    expect(flattenPathToMessages(linearChain(), [])).toEqual([]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// pathToNode
-// ---------------------------------------------------------------------------
-
-describe("pathToNode", () => {
-  test("traces from root to leaf", () => {
-    const tree = linearChain();
-    expect(pathToNode(tree, "D")).toEqual(["A", "B", "C", "D"]);
-  });
-
-  test("traces from root to middle node", () => {
-    const tree = linearChain();
-    expect(pathToNode(tree, "B")).toEqual(["A", "B"]);
-  });
-
-  test("root node returns single-element path", () => {
-    const tree = linearChain();
-    expect(pathToNode(tree, "A")).toEqual(["A"]);
-  });
-
-  test("works in branching tree", () => {
-    const tree = branchingTree();
-    expect(pathToNode(tree, "D")).toEqual(["A", "B", "D"]);
-    expect(pathToNode(tree, "E")).toEqual(["A", "E"]);
-  });
-
-  test("unknown node returns single-element path", () => {
-    expect(pathToNode(linearChain(), "UNKNOWN")).toEqual(["UNKNOWN"]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// switchBranch
-// ---------------------------------------------------------------------------
-
-describe("switchBranch", () => {
-  test("switches parent activeChildId upward to root", () => {
-    const tree = branchingTree();
-    // Switch to C (child of B, which is child of A)
-    tree.get("A")!.activeChildId = "E"; // currently pointing to E
-    tree.get("B")!.activeChildId = "D"; // currently pointing to D
-
-    const result = switchBranch(tree, "C");
-
-    // A should now point to B, B should now point to C
-    expect(tree.get("A")!.activeChildId).toBe("B");
-    expect(tree.get("B")!.activeChildId).toBe("C");
-    expect(result.updatedNodes).toHaveLength(2);
-    expect(result.newLeafId).toBe("C");
-  });
-
-  test("returns empty updatedNodes when already on active path", () => {
-    const tree = branchingTree();
-    tree.get("A")!.activeChildId = "B";
-    tree.get("B")!.activeChildId = "D";
-
-    const result = switchBranch(tree, "D");
-    expect(result.updatedNodes).toHaveLength(0);
-    expect(result.newLeafId).toBe("D");
-  });
-
-  test("switching to a non-leaf walks down to find actual leaf", () => {
-    const tree = branchingTree();
-    tree.get("A")!.activeChildId = "E";
-
-    const result = switchBranch(tree, "B");
-    expect(tree.get("A")!.activeChildId).toBe("B");
-    // B has children [C, D], no activeChildId → picks last child "D"
-    expect(result.newLeafId).toBe("D");
-  });
-
-  test("switching to root works", () => {
-    const map = new Map<string, TreeNodeWithChildren>();
-    map.set("A", makeNode("A", null, ["B"]));
-    map.set("B", makeNode("B", "A"));
-
-    const result = switchBranch(map, "A");
-    expect(result.newLeafId).toBe("B");
-    // No parent to update
-    expect(result.updatedNodes).toHaveLength(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// generateTitle
-// ---------------------------------------------------------------------------
 
 describe("generateTitle", () => {
   test("returns short text as-is", () => {
@@ -222,7 +75,7 @@ describe("generateTitle", () => {
   test("truncates at 50 chars with ellipsis", () => {
     const long = "a".repeat(60);
     const title = generateTitle(long);
-    expect(title.length).toBe(53); // 50 + "..."
+    expect(title.length).toBe(53);
     expect(title.endsWith("...")).toBe(true);
   });
 
