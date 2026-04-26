@@ -12,6 +12,8 @@ const DEFAULT_SYSTEM_PROMPT = `You are a creative AI assistant with access to fi
 - To see the project directory structure, use tree.
 - To search file contents by pattern, use grep.
 - To run a helper script shipped with a skill (e.g. compile, validate, analyze), use script.
+- Batch independent tool calls in one response, including reads/searches and writes to different files. Call dependent tools later.
+- Activate required skills before doing their file reads.
 
 There is no shell tool in this environment. Do not try to call bash, sh, cmd, powershell, cat, sed, find, or echo — those tools do not exist. Use script to execute helper code shipped with a skill.
 

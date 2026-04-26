@@ -8,6 +8,8 @@
 export interface CollectedToolCall {
   toolName: string;
   args: Record<string, any>;
+  /** 1-based assistant tool-call batch id. Calls with the same id came from one assistant message. */
+  batchId?: number;
   result?: any;
   isError?: boolean;
 }
@@ -124,6 +126,61 @@ export function expectToolCallAny(
     `Expected any of [${toolNames.join(", ")}] to be called${argMatchers ? ` with matching args` : ""}, but none matched.\n` +
       `Tools called: [${allTools}]\nTotal calls: ${toolCalls.length}`,
   );
+}
+
+function matchesArgs(
+  tc: CollectedToolCall,
+  argMatchers?: Record<string, string | RegExp>,
+): boolean {
+  if (!argMatchers) return true;
+  return Object.entries(argMatchers).every(([key, pattern]) => {
+    const value = tc.args?.[key];
+    if (value === undefined) return false;
+    const strValue = typeof value === "string" ? value : JSON.stringify(value);
+    if (pattern instanceof RegExp) return pattern.test(strValue);
+    return strValue.includes(pattern);
+  });
+}
+
+/**
+ * Assert that all requested tool calls occurred in a single assistant tool-call batch.
+ * This catches sequential waterfalls where the model waits for one read result before
+ * requesting another independent read.
+ */
+export function expectToolCallsInSameBatch(
+  toolCalls: CollectedToolCall[],
+  expected: Array<{ toolName: string; args?: Record<string, string | RegExp> }>,
+): void {
+  const matches = expected.map((item) =>
+    toolCalls.filter((tc) => tc.toolName === item.toolName && matchesArgs(tc, item.args)),
+  );
+
+  const missing = matches
+    .map((candidates, index) => ({ candidates, index }))
+    .filter((item) => item.candidates.length === 0);
+  if (missing.length > 0) {
+    const summary = toolCalls.map((tc) => `${tc.batchId ?? "?"}:${tc.toolName} ${JSON.stringify(tc.args)}`).join("\n");
+    const missingList = missing
+      .map(({ index }) => `${expected[index]!.toolName} ${JSON.stringify(expected[index]!.args ?? {})}`)
+      .join(", ");
+    throw new Error(`Expected tool calls missing from batch assertion: ${missingList}\n\nActual calls:\n${summary}`);
+  }
+
+  const candidateBatchIds = new Set(matches[0]!.map((tc) => tc.batchId).filter((id): id is number => id !== undefined));
+  for (const candidates of matches.slice(1)) {
+    for (const id of [...candidateBatchIds]) {
+      if (!candidates.some((tc) => tc.batchId === id)) {
+        candidateBatchIds.delete(id);
+      }
+    }
+  }
+
+  if (candidateBatchIds.size === 0) {
+    const summary = toolCalls
+      .map((tc) => `${tc.batchId ?? "?"}:${tc.toolName} ${JSON.stringify(tc.args)}`)
+      .join("\n");
+    throw new Error(`Expected tool calls to share one assistant batch, but they did not.\n\nActual calls:\n${summary}`);
+  }
 }
 
 /**

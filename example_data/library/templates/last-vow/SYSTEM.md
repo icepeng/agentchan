@@ -30,7 +30,7 @@
 <turn-flow>
 
 <first-turn>
-`files/suspects-truth.md`가 없거나 `files/scenes/scene.md`가 비어 있으면 → **`start-scene` 스킬 활성화**. 사건 진실 생성, 오프닝, 첫 선택지 규칙은 `start-scene` SKILL.md가 단일 원천이다.
+`files/suspects-truth.md`가 없거나 `files/scenes/scene.md`가 비어 있으면 → 선행 read 없이 **`start-scene` 스킬 활성화**. 사건 진실 생성, 오프닝, 첫 선택지 규칙은 `start-scene` SKILL.md가 단일 원천이다.
 </first-turn>
 
 <ongoing>

@@ -3,6 +3,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
 import { resolveInProject } from "./_paths.js";
+import { withFileMutationQueue } from "./file-mutation-queue.js";
 
 const EditParams = Type.Object({
   file_path: Type.String({
@@ -163,6 +164,7 @@ Guidelines:
 - old_string must match the file content exactly, including whitespace and newlines.
 - Keep old_string as small as possible while still being unique in the file.
 - When changing multiple separate sections, make separate edit calls for each.
+- Batch edits to different files.
 - For appending content, use append instead.`;
 
 export function createEditTool(cwd?: string): AgentTool<typeof EditParams, void> {
@@ -179,26 +181,28 @@ export function createEditTool(cwd?: string): AgentTool<typeof EditParams, void>
       params: EditInput,
     ): Promise<AgentToolResult<void>> {
       const filePath = resolveInProject(workDir, params.file_path);
-      const content = await readFile(filePath, "utf-8");
+      return withFileMutationQueue(filePath, async () => {
+        const content = await readFile(filePath, "utf-8");
 
-      const { match, count, fuzzy } = findMatch(content, params.old_string);
+        const { match, count, fuzzy } = findMatch(content, params.old_string);
 
-      if (count === 0) {
-        const snippet = fileSnippet(content);
-        throw new Error(
-          `old_string not found in file. The old_string must match the file content exactly (including whitespace and newlines). ` +
-            `Read the file first to get the exact text.\n\nCurrent file content:\n${snippet}`,
-        );
-      }
-      if (count > 1) {
-        throw new Error(
-          `old_string matches ${count} locations — provide more surrounding context to make it unique`,
-        );
-      }
+        if (count === 0) {
+          const snippet = fileSnippet(content);
+          throw new Error(
+            `old_string not found in file. The old_string must match the file content exactly (including whitespace and newlines). ` +
+              `Read the file first to get the exact text.\n\nCurrent file content:\n${snippet}`,
+          );
+        }
+        if (count > 1) {
+          throw new Error(
+            `old_string matches ${count} locations - provide more surrounding context to make it unique`,
+          );
+        }
 
-      const updated = content.replace(match, params.new_string);
-      await writeFile(filePath, updated, "utf-8");
-      return textResult(fuzzy ? "File edited successfully (fuzzy matched)." : "File edited successfully.");
+        const updated = content.replace(match, params.new_string);
+        await writeFile(filePath, updated, "utf-8");
+        return textResult(fuzzy ? "File edited successfully (fuzzy matched)." : "File edited successfully.");
+      });
     },
   };
 }
