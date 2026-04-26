@@ -19,8 +19,3 @@ export {
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
 } from "./runtime-source.js";
-export {
-  validateRendererTheme,
-  type RendererTheme,
-  type RendererThemeTokens,
-} from "./theme.js";

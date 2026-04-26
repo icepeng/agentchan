@@ -17,8 +17,7 @@ and user intent.
 3. Ask the user about style, priorities, and whether to rewrite or make a
    targeted change when the desired renderer is ambiguous.
 4. Edit the React renderer and its CSS or local helper modules.
-5. Run `validate-renderer`. Fix failures and validate again before reporting
-   success.
+5. Report what changed and ask the user to check the renderer preview.
 
 ## Contract
 

@@ -8,7 +8,6 @@ import {
   findRendererEntrypoint,
   RendererV1Error,
   validateRendererImportPolicy,
-  validateRendererTheme,
 } from "../../src/renderer/index.js";
 
 let projectDir: string;
@@ -323,21 +322,6 @@ describe("Renderer V1 bundle", () => {
     expect(() => (mod.makeFileUrlWithoutPath as () => string)()).toThrow(
       /requires a file path/,
     );
-  });
-});
-
-describe("Renderer V1 theme", () => {
-  test("theme validation uses tolerant runtime normalization", () => {
-    expect(validateRendererTheme({
-      base: { accent: "#0aa", unknown: "#fff" },
-      dark: "invalid",
-      prefersScheme: "system",
-    })).toEqual({ base: { accent: "#0aa" } });
-  });
-
-  test("theme validation returns null for invalid base shape", () => {
-    expect(validateRendererTheme({ base: { unknown: "#fff" } })).toBeNull();
-    expect(validateRendererTheme("not an object")).toBeNull();
   });
 });
 

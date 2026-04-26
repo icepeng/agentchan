@@ -2320,7 +2320,6 @@ const TOOL_LABELS: Record<string, string> = {
   tree: "성채의 지도를 살핀다",
   script: "주문을 외운다",
   activate_skill: "비법서를 펼친다",
-  "validate-renderer": "룬의 균형을 살핀다",
 };
 
 function toolLabelFor(name: string): string {
