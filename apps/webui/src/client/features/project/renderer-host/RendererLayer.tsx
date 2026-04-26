@@ -91,6 +91,7 @@ export function RendererLayer({
         runtime.instance?.unmount();
         runtime.instance = null;
         runtime.mount.replaceChildren();
+        // Renderer adapters capture this actions object for the mount lifetime.
         const instance = mod.renderer.mount(runtime.mount, { snapshot, actions });
         if (!isRendererInstance(instance)) {
           throw new Error(

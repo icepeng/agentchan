@@ -156,6 +156,7 @@ export function useRendererHostMachine({
     } catch (mountError: unknown) {
       const message = errorMessage(mountError);
       clearTimer();
+      preparedRef.current = null;
       mountedBundleRef.current = null;
       mountedModuleRef.current = null;
       setVisibleError(message);

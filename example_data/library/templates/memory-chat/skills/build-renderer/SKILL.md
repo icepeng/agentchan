@@ -17,11 +17,12 @@ and user intent.
 3. Ask the user about style, priorities, and whether to rewrite or make a
    targeted change when the desired renderer is ambiguous.
 4. Edit the React renderer and its CSS or local helper modules.
-5. Report what changed and ask the user to check the renderer preview.
+5. Report what changed and ask the user to check the renderer preview. If the
+   preview shows a policy or build error, fix it and ask the user to re-check.
 
 ## Contract
 
-Use the React primary-surface renderer contract:
+Use the React renderer contract:
 
 ```tsx
 import { createRenderer, fileUrl, type RendererProps, type RendererSnapshot, type RendererTheme } from "@agentchan/renderer/react";
