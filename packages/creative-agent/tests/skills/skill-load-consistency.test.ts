@@ -70,7 +70,7 @@ function getToolResultText(result: { content: { type: string; text?: string }[] 
   return block.text;
 }
 
-describe("skill-load shape — two injection paths", () => {
+describe("skill content shape — two injection paths", () => {
   test("slash invocation path: buildUserMessageForPrompt returns single merged message", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const result = buildUserMessageForPrompt(
@@ -120,7 +120,7 @@ describe("skill-load shape — two injection paths", () => {
   });
 });
 
-describe("skill-load wire format consistency across paths", () => {
+describe("skill content wire format consistency across paths", () => {
   test("slash and activate_skill produce byte-identical skill body text", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
 

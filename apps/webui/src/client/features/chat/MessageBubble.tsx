@@ -137,9 +137,9 @@ function CompactSummaryBubble({
 }
 
 // ── Skill Chip Bubble ────────────────────────
-// Renders any user node tagged `meta: "skill-load"` — covers slash invocation
-// and activate_skill paths. Extracts skill names from the canonical
-// `<skill_content name="...">` blocks for the header label.
+// Skill loads are plain Pi user messages that contain canonical
+// `<skill_content name="...">` blocks. No Agentchan-specific session entry
+// type is needed.
 
 function SkillChipBubble({
   entry,
