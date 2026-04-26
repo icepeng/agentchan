@@ -30,12 +30,7 @@ export function useSessionMutations(projectSlug: string | null) {
     await mutate(qk.sessions(projectSlug));
     await mutate(
       qk.session(projectSlug, result.session.id),
-      {
-        info: result.session,
-        entries: [],
-        branch: [],
-        leafId: null,
-      } satisfies ProjectSessionState,
+      result.state,
       { revalidate: false },
     );
     return result;

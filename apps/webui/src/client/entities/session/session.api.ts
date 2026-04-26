@@ -19,7 +19,7 @@ export function fetchSessions(projectSlug: string): Promise<ProjectSessionInfo[]
 export function createSession(
   projectSlug: string,
   mode?: "creative" | "meta",
-): Promise<{ session: ProjectSessionInfo }> {
+): Promise<{ session: ProjectSessionInfo; state: ProjectSessionState }> {
   return json(projectBase(projectSlug), {
     method: "POST",
     ...(mode && {

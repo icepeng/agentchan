@@ -12,6 +12,7 @@ import { getSessionModeFromEntries } from "../session/metadata.js";
 
 export interface CreatedSession {
   session: ProjectSessionInfo;
+  state: ProjectSessionState;
 }
 
 export interface CompactResult {
@@ -26,7 +27,9 @@ export async function createSession(
 ): Promise<CreatedSession> {
   const cfg = ctx.resolveAgentConfig();
   const session = await ctx.storage.createSession(slug, cfg.provider, cfg.model, mode);
-  return { session };
+  const state = await ctx.storage.loadState(slug, session.id);
+  if (!state) throw new Error("Created session not found");
+  return { session, state };
 }
 
 export async function deleteSession(

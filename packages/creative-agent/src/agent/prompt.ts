@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { AgentEvent, AgentMessage } from "@mariozechner/pi-agent-core";
-import type { Message, UserMessage } from "@mariozechner/pi-ai";
+import type { Message } from "@mariozechner/pi-ai";
 import type { SessionEntry } from "@mariozechner/pi-coding-agent";
 
 import { discoverProjectSkills } from "../skills/discovery.js";
@@ -45,8 +45,7 @@ export function runPrompt(
     const projectDir = projectDirOf(ctx, input.slug);
     const manager = await ctx.storage.openManager(input.slug, input.sessionId);
     if (!manager) throw new Error(`Session not found: ${input.slug}/${input.sessionId}`);
-    if (input.parentEntryId === null) manager.resetLeaf();
-    else if (input.parentEntryId) manager.branch(input.parentEntryId);
+    if (input.parentEntryId) manager.branch(input.parentEntryId);
 
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const { message } = buildUserMessageForPrompt(input.text, projectDir, skills);
@@ -153,5 +152,5 @@ function isPersistableMessage(message: AgentMessage): message is Message {
 
 export function textFromUserEntry(entry: SessionEntry): string {
   if (entry.type !== "message" || entry.message.role !== "user") return "";
-  return textFromUserMessage(entry.message as UserMessage);
+  return textFromUserMessage(entry.message);
 }

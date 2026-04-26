@@ -34,9 +34,9 @@ Agentchan의 세션 영속화와 branch 관리는 Pi `SessionManager`의 JSONL e
 - 순수 branch 선택 상태는 세션 파일에 저장하지 않는다.
 - Web UI에서 사용자가 선택한 branch는 client state 또는 prompt request의 `leafId`
   로 전달한다.
-- 선택된 branch에서 prompt를 보내면 서버가 append 직전에
-  `SessionManager.branch(leafId)` 또는 `resetLeaf()`를 적용한다. append 이후에는
-  그 branch가 최신 leaf가 되어 자연스럽게 영속된다.
+- 선택된 branch에서 prompt를 보내면 서버가 append 직전에 명시적 `leafId`가 있을 때만
+  `SessionManager.branch(leafId)`를 적용한다. 명시적 parent가 없으면 현재 Pi leaf에
+  append하며, append 이후에는 그 branch가 최신 leaf가 되어 자연스럽게 영속된다.
 - durable fork/regenerate가 필요해지면 같은 파일 안에 active child marker를
   저장하지 않고 Pi `SessionManager.createBranchedSession()`처럼 새 세션으로 만든다.
 - compact는 Agentchan meta node가 아니라 Pi compaction semantics에 맞춘 entry로

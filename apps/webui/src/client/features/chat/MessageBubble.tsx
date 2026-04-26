@@ -241,6 +241,7 @@ function BubbleShell({
   variant,
   siblings,
   anchorEntryId,
+  branchFromEntryId = anchorEntryId,
   actions,
   isStreaming,
   footer,
@@ -250,6 +251,7 @@ function BubbleShell({
   variant: "compact" | "wide";
   siblings: string[];
   anchorEntryId: string;
+  branchFromEntryId?: string;
   actions?: MessageBubbleActions;
   isStreaming?: boolean;
   footer?: ReactNode;
@@ -296,7 +298,7 @@ function BubbleShell({
               )}
               {actions?.onBranchFrom && (
                 <button
-                  onClick={() => actions.onBranchFrom!(anchorEntryId)}
+                  onClick={() => actions.onBranchFrom!(branchFromEntryId)}
                   className="text-[10px] uppercase tracking-wider text-fg-3 hover:text-accent px-1.5 py-0.5 rounded-md hover:bg-accent/8 transition-all"
                   title={t("chat.branchFromHere")}
                 >
@@ -378,11 +380,12 @@ export function AssistantTurnBubble({
   footer,
 }: AssistantTurnBubbleProps) {
   const firstAssistant = entries.find((n) => n.message.role === "assistant");
+  const lastEntry = entries.at(-1);
   const mergedContent: AssistantContentBlock[] = entries.flatMap((n) =>
     n.message.role === "assistant" ? n.message.content : [],
   );
 
-  if (!firstAssistant) return null;
+  if (!firstAssistant || !lastEntry) return null;
 
   return (
     <BubbleShell
@@ -390,6 +393,7 @@ export function AssistantTurnBubble({
       variant={variant}
       siblings={siblings}
       anchorEntryId={firstAssistant.id}
+      branchFromEntryId={lastEntry.id}
       actions={actions}
       isStreaming={isStreaming}
       footer={footer}
