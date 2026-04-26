@@ -91,7 +91,13 @@ export function RendererLayer({
         runtime.instance?.unmount();
         runtime.instance = null;
         runtime.mount.replaceChildren();
-        runtime.instance = mod.renderer.mount(runtime.mount, { snapshot, actions });
+        const instance = mod.renderer.mount(runtime.mount, { snapshot, actions });
+        if (!isRendererInstance(instance)) {
+          throw new Error(
+            "Renderer mount() must return an instance with update(snapshot) and unmount() functions.",
+          );
+        }
+        runtime.instance = instance;
         hasContent = true;
       },
       setCss(css) {
@@ -123,6 +129,12 @@ export function RendererLayer({
       className={className}
     />
   );
+}
+
+function isRendererInstance(value: unknown): value is RendererInstance {
+  if (typeof value !== "object" || value === null) return false;
+  const instance = value as { update?: unknown; unmount?: unknown };
+  return typeof instance.update === "function" && typeof instance.unmount === "function";
 }
 
 function getLayerHostRuntime(host: HTMLDivElement): LayerHostRuntime {

@@ -78,6 +78,7 @@
 - `react`, `react-dom`, `scheduler`, `@agentchan/renderer`는 renderer runtime baseline singleton으로 취급한다.
 - Vendored browser library는 `renderer/` 아래에 둔다.
 - Renderer는 `snapshot`과 `actions.send()` / `actions.fill()`만 사용한다.
+- Host는 renderer mount lifetime 동안 `actions` object identity를 안정적으로 유지한다.
 - Renderer에서 Agentchan skills, `SYSTEM.md`, sessions, host DOM, parent/top window, browser storage, arbitrary URL, runtime npm package, `node:*`에 접근하지 않는다.
 - DOM 작업은 adapter가 전달한 `container` 하위 tree 기준으로 하고, 문서 API가 필요하면 `container.ownerDocument`를 기준으로 한다.
 - Snapshot과 action payload는 structured-clone 가능한 JSON-like 값으로 유지한다.

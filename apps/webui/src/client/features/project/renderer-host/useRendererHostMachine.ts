@@ -305,10 +305,14 @@ export function useRendererHostMachine({
     const mod = mountedModuleRef.current;
     if (!mod || !snapshot || snapshot.slug !== visibleSlugRef.current) return;
     layerHandle?.updateSnapshot(snapshot);
-    if (statusRef.current === "stable") {
-      emitTheme(evaluateTheme(mod, snapshot));
-    }
-  }, [emitTheme, layerHandle, snapshot]);
+  }, [layerHandle, snapshot]);
+
+  useEffect(() => {
+    const mod = mountedModuleRef.current;
+    if (!mod || !snapshot || snapshot.slug !== visibleSlugRef.current) return;
+    if (status !== "stable") return;
+    emitTheme(evaluateTheme(mod, snapshot));
+  }, [emitTheme, snapshot, status]);
 
   useEffect(() => clearTimer, [clearTimer]);
 

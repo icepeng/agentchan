@@ -1,9 +1,15 @@
-import { isRendererRuntime } from "@agentchan/renderer/core";
-import type {
-  RendererActions,
-  RendererSnapshot,
-  RendererTheme,
-} from "@/client/entities/renderer/index.js";
+import {
+  isRendererRuntime,
+  type RendererBridge,
+  type RendererInstance,
+  type RendererRuntime,
+} from "@agentchan/renderer/core";
+
+export type {
+  RendererBridge,
+  RendererInstance,
+  RendererRuntime,
+} from "@agentchan/renderer/core";
 
 export const FADE_DURATION_MS = 300;
 
@@ -11,21 +17,6 @@ export type RendererLayerId = 0 | 1;
 
 export interface RendererModule {
   renderer: RendererRuntime;
-}
-
-export interface RendererBridge {
-  snapshot: RendererSnapshot;
-  actions: RendererActions;
-}
-
-export interface RendererInstance {
-  update(snapshot: RendererSnapshot): void;
-  unmount(): void;
-}
-
-export interface RendererRuntime {
-  mount(container: HTMLElement, bridge: RendererBridge): RendererInstance;
-  theme?: (snapshot: RendererSnapshot) => RendererTheme | null;
 }
 
 export function importRendererModule(js: string): Promise<RendererModule> {

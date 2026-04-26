@@ -12,6 +12,8 @@ const SDK_NAMESPACE = "agentchan-renderer-sdk";
 const HOST_RUNTIME_PATH_CACHE = new Map<string, string | null>();
 const TRANSFORMED_RUNTIME_SOURCE_CACHE = new Map<string, Promise<string>>();
 
+// Mirrors packages/renderer/src/core.ts. Keep builder equivalence tests in sync
+// when changing this shim.
 const RENDERER_CORE_SOURCE = `
 export function defineRenderer(factory, options = {}) {
   return {
@@ -53,6 +55,8 @@ function normalizePath(path) {
 }
 `;
 
+// Mirrors packages/renderer/src/react.tsx. Keep builder equivalence tests in sync
+// when changing this shim.
 const RENDERER_REACT_SOURCE = `
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -149,8 +153,9 @@ export function createRendererRuntimePlugin(): BunPlugin {
 }
 
 function resolveHostRuntimePath(specifier: string): string | null {
-  if (HOST_RUNTIME_PATH_CACHE.has(specifier)) {
-    return HOST_RUNTIME_PATH_CACHE.get(specifier) ?? null;
+  const cacheKey = `${rendererRuntimeDir()}\0${specifier}`;
+  if (HOST_RUNTIME_PATH_CACHE.has(cacheKey)) {
+    return HOST_RUNTIME_PATH_CACHE.get(cacheKey) ?? null;
   }
 
   let resolved: string | null;
@@ -160,7 +165,7 @@ function resolveHostRuntimePath(specifier: string): string | null {
     const sideCar = HOST_RUNTIME_SIDE_CARS[specifier];
     resolved = sideCar ? join(rendererRuntimeDir(), "node_modules", sideCar) : null;
   }
-  HOST_RUNTIME_PATH_CACHE.set(specifier, resolved);
+  HOST_RUNTIME_PATH_CACHE.set(cacheKey, resolved);
   return resolved;
 }
 
