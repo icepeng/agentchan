@@ -53,18 +53,5 @@ export type { ProjectFile, TextFile, DataFile, BinaryFile } from "./workspace/ty
 export { scanWorkspaceFiles } from "./workspace/scan.js";
 export { parseFrontmatter, stringifyFrontmatter, type ParsedFrontmatter } from "./workspace/frontmatter.js";
 
-// Renderer V1 build contract
-export {
-  buildRendererBundle,
-  findRendererEntrypoint,
-  validateRendererImportPolicy,
-  createRendererRuntimePlugin,
-  createRendererSourcePlugin,
-  RendererV1Error,
-  RendererBuildError,
-  type RendererBundle,
-  type RendererV1ErrorPhase,
-} from "./renderer/index.js";
-
 // Re-export pi-ai model registry functions for consumers (webui config)
 export { getProviders, getModels } from "@mariozechner/pi-ai";
