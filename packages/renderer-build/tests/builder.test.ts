@@ -12,7 +12,7 @@ import {
   findRendererEntrypoint,
   RendererV1Error,
   validateRendererImportPolicy,
-} from "../../src/renderer/index.js";
+} from "../src/index.js";
 
 let projectDir: string;
 
