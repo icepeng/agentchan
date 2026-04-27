@@ -18,4 +18,4 @@ export {
 export {
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
-} from "./runtime-source.js";
+} from "./plugins/index.js";

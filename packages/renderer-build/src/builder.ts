@@ -5,7 +5,7 @@ import { validateRendererImportPolicy } from "./policy.js";
 import {
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
-} from "./runtime-source.js";
+} from "./plugins/index.js";
 
 export interface RendererBundle {
   js: string;
