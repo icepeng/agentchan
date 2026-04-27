@@ -11,8 +11,8 @@ import {
 } from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { RendererLayer, type RendererLayerHandle } from "./RendererLayer.js";
-import { useRendererHostMachine } from "./useRendererHostMachine.js";
-import type { RendererLayerId } from "./rendererRuntime.js";
+import { useRendererHostMachine } from "./use-host-machine/index.js";
+import type { RendererLayerId } from "@/client/entities/renderer/bundle/index.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 

@@ -1,26 +1,25 @@
 /* oxlint-disable react-hooks-js/set-state-in-effect -- This hook is an explicit renderer host state machine driven by external project/output events. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  validateTheme,
   type RendererActions,
   type RendererBundle,
   type RendererSnapshot,
   type RendererTheme,
 } from "@/client/entities/renderer/index.js";
-import type { RendererLayerHandle } from "./RendererLayer.js";
 import {
   importRendererModule,
   type RendererModule,
 } from "@/client/entities/renderer/bundle/index.js";
-
-type HostStatus =
-  | "stable"
-  | "fading-out"
-  | "waiting-for-import"
-  | "applying-theme"
-  | "mounting"
-  | "fading-in"
-  | "showing-error";
+import type { RendererLayerHandle } from "../RendererLayer.js";
+import { evaluateTheme, themeIdentity } from "./theme-identity.js";
+import {
+  classForStatus,
+  errorMessage,
+  FADE_IN_MS,
+  FADE_OUT_MS,
+  THEME_TRANSITION_MS,
+  type HostStatus,
+} from "./transitions.js";
 
 /*
  * Project switch statechart:
@@ -51,59 +50,6 @@ interface RendererHostMachineOptions {
 interface RendererHostMachine {
   layerClassName: string;
   visibleError: string | null;
-}
-
-const FADE_OUT_MS = 300;
-const THEME_TRANSITION_MS = 300;
-const FADE_IN_MS = 180;
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-function evaluateTheme(
-  mod: RendererModule,
-  snapshot: RendererSnapshot,
-): RendererTheme | null {
-  try {
-    return validateTheme(mod.renderer.theme?.(snapshot) ?? null);
-  } catch (error) {
-    console.warn("[renderer.theme] theme function threw", error);
-    return null;
-  }
-}
-
-function themeIdentity(theme: RendererTheme | null): string {
-  if (theme === null) return "null";
-  return JSON.stringify({
-    base: sortedTokens(theme.base),
-    dark: sortedTokens(theme.dark ?? {}),
-    prefersScheme: theme.prefersScheme ?? null,
-  });
-}
-
-function sortedTokens(tokens: Partial<RendererTheme["base"]>): [string, string][] {
-  return Object.entries(tokens)
-    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
-    .sort(([a], [b]) => a.localeCompare(b));
-}
-
-function classForStatus(status: HostStatus): string {
-  const base = "relative z-10 h-full min-h-full";
-  switch (status) {
-    case "fading-out":
-      return `${base} opacity-0 transition-opacity duration-300 ease-out motion-reduce:duration-0`;
-    case "waiting-for-import":
-    case "applying-theme":
-    case "mounting":
-      return `${base} opacity-0 transition-none`;
-    case "fading-in":
-    case "showing-error":
-      return `${base} opacity-100 transition-opacity duration-200 ease-out motion-reduce:duration-0`;
-    case "stable":
-      return `${base} opacity-100 transition-none`;
-  }
 }
 
 export function useRendererHostMachine({
