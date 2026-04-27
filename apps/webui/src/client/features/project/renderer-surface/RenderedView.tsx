@@ -10,9 +10,8 @@ import {
   type RendererTheme,
 } from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
-import { RendererLayer, type RendererLayerHandle } from "./RendererLayer.js";
-import { useRendererHostMachine } from "./use-host-machine/index.js";
-import type { RendererLayerId } from "@/client/entities/renderer/bundle/index.js";
+import { ShadowShell, type ShadowShellHandle } from "./ShadowShell.js";
+import { useRendererSurfaceMachine } from "./use-host-machine/index.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 
@@ -24,12 +23,12 @@ export function RenderedView() {
   const { refresh, refreshState } = useRendererOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [layerHandle, setLayerHandle] = useState<RendererLayerHandle | null>(null);
+  const [layerHandle, setLayerHandle] = useState<ShadowShellHandle | null>(null);
   const stateRef = useRef(state);
 
   // Stable identity here is semantic: child ShadowRoot effects depend on it.
-  const registerLayer = useCallback((layer: RendererLayerId, handle: RendererLayerHandle | null) => {
-    if (layer === 0) setLayerHandle(handle);
+  const registerLayer = useCallback((handle: ShadowShellHandle | null) => {
+    setLayerHandle(handle);
   }, []);
 
   const onTheme = useCallback(
@@ -94,7 +93,7 @@ export function RenderedView() {
     return () => cancelAnimationFrame(raf);
   }, [state.isStreaming, refreshState]);
 
-  const host = useRendererHostMachine({
+  const host = useRendererSurfaceMachine({
     actions,
     activeProjectSlug: project.activeProjectSlug,
     bundle: rendererView.bundle,
@@ -111,8 +110,7 @@ export function RenderedView() {
     <div data-renderer-surface className="relative flex-1 flex flex-col min-h-0">
       <ScrollArea ref={containerRef} className="flex-1">
         <div className="relative h-full min-h-full">
-          <RendererLayer
-            layer={0}
+          <ShadowShell
             register={registerLayer}
             className={host.layerClassName}
           />

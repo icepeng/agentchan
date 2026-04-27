@@ -19,14 +19,14 @@ export interface ShadowShellHandle {
   updateSnapshot: (snapshot: RendererSnapshot) => void;
 }
 
-export interface LayerHostRuntime {
+export interface ShadowRuntime {
   mount: HTMLDivElement;
   instance: RendererInstance | null;
   shadowRoot: ShadowRoot;
   unmountTimer: number | null;
 }
 
-const layerHostRuntimes = new WeakMap<HTMLDivElement, LayerHostRuntime>();
+const shadowRuntimes = new WeakMap<HTMLDivElement, ShadowRuntime>();
 
 export function clearRendererStyles(root: ShadowRoot): void {
   for (const node of root.querySelectorAll("style[data-renderer-style]")) {
@@ -52,26 +52,26 @@ function appendMountNode(root: ShadowRoot): HTMLDivElement {
   return mount;
 }
 
-export function getLayerHostRuntime(host: HTMLDivElement): LayerHostRuntime {
-  const existing = layerHostRuntimes.get(host);
+export function getShadowRuntime(host: HTMLDivElement): ShadowRuntime {
+  const existing = shadowRuntimes.get(host);
   if (existing) return existing;
 
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   const mount =
     shadowRoot.querySelector<HTMLDivElement>("[data-renderer-mount]") ??
     appendMountNode(shadowRoot);
-  const runtime: LayerHostRuntime = {
+  const runtime: ShadowRuntime = {
     mount,
     instance: null,
     shadowRoot,
     unmountTimer: null,
   };
-  layerHostRuntimes.set(host, runtime);
+  shadowRuntimes.set(host, runtime);
   return runtime;
 }
 
-export function disposeLayerHostRuntime(host: HTMLDivElement): void {
-  layerHostRuntimes.delete(host);
+export function disposeShadowRuntime(host: HTMLDivElement): void {
+  shadowRuntimes.delete(host);
 }
 
 export function isRendererInstance(value: unknown): value is RendererInstance {

@@ -1,9 +1,8 @@
 import { useLayoutEffect, useRef } from "react";
-import type { RendererLayerId } from "@/client/entities/renderer/bundle/index.js";
 import {
   clearRendererStyles,
-  disposeLayerHostRuntime,
-  getLayerHostRuntime,
+  disposeShadowRuntime,
+  getShadowRuntime,
   injectCss,
   isRendererInstance,
   type ShadowShellHandle,
@@ -13,22 +12,17 @@ export type { ShadowShellHandle } from "./shadow-runtime.js";
 
 interface ShadowShellProps {
   className: string;
-  layer: RendererLayerId;
-  register: (layer: RendererLayerId, handle: ShadowShellHandle | null) => void;
+  register: (handle: ShadowShellHandle | null) => void;
 }
 
-export function ShadowShell({
-  className,
-  layer,
-  register,
-}: ShadowShellProps) {
+export function ShadowShell({ className, register }: ShadowShellProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
-    const runtime = getLayerHostRuntime(host);
+    const runtime = getShadowRuntime(host);
     if (runtime.unmountTimer !== null) {
       clearTimeout(runtime.unmountTimer);
       runtime.unmountTimer = null;
@@ -70,23 +64,22 @@ export function ShadowShell({
       },
     };
 
-    register(layer, handle);
+    register(handle);
     return () => {
-      register(layer, null);
+      register(null);
       handle.clear();
       runtime.unmountTimer = window.setTimeout(() => {
         runtime.instance?.unmount();
         runtime.instance = null;
-        disposeLayerHostRuntime(host);
+        disposeShadowRuntime(host);
       }, 0);
     };
-  }, [layer, register]);
+  }, [register]);
 
   return (
     <div
       ref={hostRef}
-      data-renderer-host
-      data-renderer-layer={layer}
+      data-renderer-shell
       className={className}
     />
   );

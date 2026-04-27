@@ -10,7 +10,7 @@ import {
   importRendererModule,
   type RendererModule,
 } from "@/client/entities/renderer/bundle/index.js";
-import type { RendererLayerHandle } from "../RendererLayer.js";
+import type { ShadowShellHandle } from "../ShadowShell.js";
 import { evaluateTheme, themeIdentity } from "./theme-identity.js";
 import {
   classForStatus,
@@ -36,23 +36,23 @@ interface PreparedRenderer {
   theme: RendererTheme | null;
 }
 
-interface RendererHostMachineOptions {
+interface RendererSurfaceMachineOptions {
   actions: RendererActions;
   activeProjectSlug: string | null;
   bundle: RendererBundle | null;
   snapshot: RendererSnapshot | null;
   error: string | null;
-  layerHandle: RendererLayerHandle | null;
+  layerHandle: ShadowShellHandle | null;
   onImportError: (message: string) => void;
   onTheme: (theme: RendererTheme | null) => void;
 }
 
-interface RendererHostMachine {
+interface RendererSurfaceMachine {
   layerClassName: string;
   visibleError: string | null;
 }
 
-export function useRendererHostMachine({
+export function useRendererSurfaceMachine({
   actions,
   activeProjectSlug,
   bundle,
@@ -61,7 +61,7 @@ export function useRendererHostMachine({
   layerHandle,
   onImportError,
   onTheme,
-}: RendererHostMachineOptions): RendererHostMachine {
+}: RendererSurfaceMachineOptions): RendererSurfaceMachine {
   const visibleSlugRef = useRef<string | null>(snapshot?.slug ?? null);
   const statusRef = useRef<HostStatus>("stable");
   const generationRef = useRef(0);

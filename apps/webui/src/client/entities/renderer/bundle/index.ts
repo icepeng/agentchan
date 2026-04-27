@@ -3,7 +3,6 @@ export {
   importRendererModule,
   type RendererBridge,
   type RendererInstance,
-  type RendererLayerId,
   type RendererModule,
   type RendererRuntime,
 } from "./importer.js";
