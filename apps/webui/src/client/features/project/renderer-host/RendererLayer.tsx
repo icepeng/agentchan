@@ -4,7 +4,7 @@ import {
   type RendererLayerId,
   type RendererInstance,
   type RendererModule,
-} from "./rendererRuntime.js";
+} from "@/client/entities/renderer/bundle/index.js";
 
 export interface RendererLayerHandle {
   clear: () => void;

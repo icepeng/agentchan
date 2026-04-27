@@ -6,6 +6,7 @@ import {
   fetchWorkspaceFiles,
   fetchRendererBundle,
 } from "@/client/entities/project/index.js";
+import { sameBundle } from "./bundle/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import type {
   RendererAgentState,
@@ -41,11 +42,6 @@ function reuseStableFiles(
     return file;
   });
   return changed ? files : previous;
-}
-
-function sameBundle(a: RendererBundle, b: RendererBundle): boolean {
-  if (a.js !== b.js || a.css.length !== b.css.length) return false;
-  return a.css.every((css, index) => css === b.css[index]);
 }
 
 function toRendererAgentState(state: AgentState): RendererAgentState {

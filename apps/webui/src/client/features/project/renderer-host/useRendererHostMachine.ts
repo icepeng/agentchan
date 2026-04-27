@@ -11,7 +11,7 @@ import type { RendererLayerHandle } from "./RendererLayer.js";
 import {
   importRendererModule,
   type RendererModule,
-} from "./rendererRuntime.js";
+} from "@/client/entities/renderer/bundle/index.js";
 
 type HostStatus =
   | "stable"
