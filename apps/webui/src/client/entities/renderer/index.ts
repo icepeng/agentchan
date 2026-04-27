@@ -12,7 +12,7 @@ export type {
 export {
   validateTheme,
   resolveThemeVars,
-} from "./projectTheme.js";
+} from "./theme/index.js";
 
 export {
   RendererViewProvider,
