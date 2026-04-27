@@ -197,6 +197,20 @@ detail이며 project별 dependency sandbox가 아니다. Source repository는
 `AGENTCHAN_RENDERER_RUNTIME_DIR`로 분리한 lab runtime에서 수행할 수 있다. 이 경로는
 제품 계약이 아니라 future capability 검증용 escape hatch다.
 
+## 구현 메모
+
+빌드 도구는 별도 패키지 `@agentchan/renderer-build`에 격리한다. webui server가
+이 패키지를 직접 의존해 `buildRendererBundle()`을 호출한다. agent runtime은
+빌드 도구를 import하지 않는다. SDK 패키지 `@agentchan/renderer/{core,react}`는
+작성자 surface로 변경 없이 유지된다. SDK 원본과 빌드 도구가 인라인으로 보유한
+shim은 mirror 관계이며, `packages/renderer-build/tests/builder.test.ts`의
+equivalence 테스트가 drift를 잡는다.
+
+webui 클라이언트의 renderer surface는 책임 단위 5 모듈로 분해되어 있다 —
+Bundle Loader / Snapshot Binder / Theme Resolver / ShadowRoot Shell /
+State Machine. 어휘 규칙은 `apps/webui/src/client/features/project/renderer-surface/README.md`
+참조.
+
 ## 결과
 
 - Renderer source는 더 이상 default-export React component를 public contract로
