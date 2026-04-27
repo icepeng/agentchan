@@ -1,11 +1,12 @@
 /**
- * Pure helpers that build user TreeNodes for skill-injection paths
+ * Pure helpers that build draft session entries for skill-injection paths
  * (slash invocation, plain prompt, activate_skill).
+ *
+ * Returns DraftEntry[] — storage assigns id/parentId/timestamp.
  */
 
-import { nanoid } from "nanoid";
-import type { UserMessage, TextContent } from "@mariozechner/pi-ai";
-import type { TreeNode } from "../types.js";
+import type { Message, TextContent, UserMessage } from "@mariozechner/pi-ai";
+import type { DraftEntry } from "../session/index.js";
 import { buildSkillContent } from "../skills/skill-content.js";
 import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
@@ -23,38 +24,30 @@ export function buildSkillInjectionContent(
 }
 
 /**
- * Build the user TreeNode(s) for a raw user prompt.
+ * Build draft session entries for a raw user prompt.
  *
- * Slash → single node with skill body + command text, meta "skill-load".
- * Plain prompts return a single node.
- *
- * `llmText` is the text fed to `agent.prompt()`.
+ * Slash → single user message whose content embeds the skill body followed
+ *   by the command text. The same combined text is fed to `agent.prompt()`,
+ *   so what we persist and what the LLM sees on this turn (and every later
+ *   turn rebuilt from history) match 1:1.
+ * Plain → single user message.
  */
-export function buildUserNodeForPrompt(
+export function buildUserDraftEntries(
   rawText: string,
   projectDir: string,
   skills: Map<string, SkillRecord>,
-  parentNodeId: string | null,
-): { nodes: TreeNode[]; llmText: string } {
-  const slashNode = tryBuildSlashSkillNode(rawText, projectDir, skills, parentNodeId);
-  if (slashNode) return slashNode;
+): { drafts: DraftEntry[]; llmText: string } {
+  const slash = tryBuildSlashSkillDrafts(rawText, projectDir, skills);
+  if (slash) return slash;
 
-  const now = Date.now();
-  const node: TreeNode = {
-    id: nanoid(12),
-    parentId: parentNodeId,
-    message: { role: "user", content: rawText, timestamp: now } as UserMessage,
-    createdAt: now,
-  };
-  return { nodes: [node], llmText: rawText };
+  return { drafts: [makeUserMessageDraft(rawText)], llmText: rawText };
 }
 
-function tryBuildSlashSkillNode(
+function tryBuildSlashSkillDrafts(
   rawText: string,
   projectDir: string,
   skills: Map<string, SkillRecord>,
-  parentNodeId: string | null,
-): { nodes: TreeNode[]; llmText: string } | null {
+): { drafts: DraftEntry[]; llmText: string } | null {
   if (!rawText.trimStart().startsWith("/")) return null;
   const parsed = parseSlashInput(rawText);
   if (!parsed) return null;
@@ -64,26 +57,28 @@ function tryBuildSlashSkillNode(
 
   const skillText = buildSkillInjectionContent([skill], projectDir);
   const userText = serializeCommand(parsed.name, parsed.args);
-  const now = Date.now();
-  const node: TreeNode = {
-    id: nanoid(12),
-    parentId: parentNodeId,
-    message: {
-      role: "user",
-      content: [
-        { type: "text", text: skillText },
-        { type: "text", text: userText },
-      ],
-      timestamp: now,
-    } as UserMessage,
-    createdAt: now,
-    meta: "skill-load",
+  const combined = `${skillText}\n\n${userText}`;
+
+  return {
+    drafts: [makeUserMessageDraft(combined)],
+    llmText: combined,
   };
-  return { nodes: [node], llmText: skillText + "\n" + userText };
 }
 
-/** Extract user-visible text from a user node's message content. */
-export function joinUserNodeText(message: TreeNode["message"]): string {
+function makeUserMessageDraft(text: string): DraftEntry {
+  const message: UserMessage = {
+    role: "user",
+    content: text,
+    timestamp: Date.now(),
+  };
+  return {
+    type: "message",
+    message,
+  };
+}
+
+/** Extract user-visible text from a user message's content. */
+export function joinUserMessageText(message: Message): string {
   if (message.role !== "user") return "";
   const content = message.content;
   if (typeof content === "string") return content;

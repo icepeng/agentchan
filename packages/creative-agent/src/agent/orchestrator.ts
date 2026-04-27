@@ -8,7 +8,7 @@
 import { Agent, type AgentMessage } from "@mariozechner/pi-agent-core";
 import { getEnvApiKey, type Message } from "@mariozechner/pi-ai";
 import type { SkillMetadata } from "../skills/types.js";
-import type { SessionMode } from "../session/format.js";
+import type { SessionMode } from "../session/index.js";
 import { microCompact, clearCompactState } from "./compact.js";
 import type { ResolvedAgentConfig } from "./config.js";
 import { createGoogleCacheHook, clearGoogleCache } from "./google-cache.js";

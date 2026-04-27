@@ -1,18 +1,27 @@
 export type {
-  AssistantContentBlock,
+  AgentchanSessionInfo,
+  CompactionEntry,
+  CustomMessageEntry,
+  SessionEntry,
+  SessionInfoEntry,
+  SessionMessageEntry,
+  SessionMode,
+} from "@agentchan/creative-agent";
+
+export type {
   AssistantMessage,
-  ClientMessage,
   ImageContent,
   Message,
-  Session,
   TextContent,
   ThinkingContent,
-  TokenUsage,
-  ToolCallContent,
   ToolResultMessage,
-  TreeNode,
   UserMessage,
-} from "./session.types.js";
+} from "@mariozechner/pi-ai";
+
+import type { TextContent, ThinkingContent, ToolCall } from "@mariozechner/pi-ai";
+
+/** Content union for assistant messages — text, thinking, or tool call. */
+export type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 export {
   useSessions,
@@ -21,19 +30,28 @@ export {
 } from "./useSessions.js";
 export type { SessionData } from "./useSessions.js";
 
-export { insertNode, insertNodes, replaceTempNode } from "./tree.utils.js";
+export { insertEntries, replaceTempEntry } from "./entry.utils.js";
 
 export {
   fetchSession, fetchSessions, createSession, deleteSession,
-  deleteNode, switchBranch, sendMessage, regenerateResponse, compactSession,
+  renameSession, sendMessage, regenerateResponse, compactSession,
   registerAbortController, clearAbortController, abortProjectStream,
 } from "./session.api.js";
 export type {
+  CompactResponse,
+  SessionDetailResponse,
   SSECallbacks,
   AgentEvent,
 } from "./session.api.js";
 
-export { flattenActivePathToMessages } from "./session.selectors.js";
+export {
+  selectBranch,
+  selectSiblings,
+  buildSiblingsByEntry,
+  selectMessageEntries,
+  selectBranchMessages,
+  defaultLeafId,
+} from "./session.selectors.js";
 
 export {
   SessionSelectionProvider,

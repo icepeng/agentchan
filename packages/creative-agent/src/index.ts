@@ -9,7 +9,7 @@ export { parseSlashInput } from "./slash/parse.js";
 export { slugify } from "./slug.js";
 
 // Types
-export type { AgentMessage, TokenUsage, TreeNode, TreeNodeWithChildren, Session } from "./types.js";
+export type { AgentMessage } from "./types.js";
 export type { ModelInfo, CustomApiFormat, ProviderInfo, CustomProviderDef, ThinkingLevel } from "./config-types.js";
 export { DEFAULT_THINKING_LEVEL } from "./config-types.js";
 
@@ -23,15 +23,36 @@ export {
 export type { AgentEvent } from "@mariozechner/pi-agent-core";
 export type { ToolCall } from "@mariozechner/pi-ai";
 
-// Session — storage
+// Session — storage + Pi-compatible types
 export type {
-  SessionSnapshot,
-  DeleteSubtreeResult,
-  SwitchBranchResult,
-  SessionStorage,
+  SessionEntry,
+  SessionEntryBase,
+  SessionMessageEntry,
+  SessionInfoEntry,
+  CompactionEntry,
+  CustomMessageEntry,
+  ModelChangeEntry,
+  SessionHeader,
+  SessionInfo,
+  SessionContext,
+  FileEntry,
+  AgentchanSessionHeader,
+  AgentchanSessionInfo,
   SessionMode,
+  SessionStorage,
+  DraftEntry,
+  CreateSessionOpts,
 } from "./session/index.js";
-export { createSessionStorage } from "./session/index.js";
+export {
+  createSessionStorage,
+  branchFromLeaf,
+  defaultLeafId,
+  siblingsOf,
+  buildSessionContext,
+  buildAgentHistory,
+  getLatestCompactionEntry,
+  CURRENT_SESSION_VERSION,
+} from "./session/index.js";
 
 // Agent — context, config, and LLM-touching ops
 export {
@@ -43,7 +64,6 @@ export {
   runRegenerate,
   type AgentContext,
   type ResolvedAgentConfig,
-  type CreatedSession,
   type CompactResult,
   type SessionEvent,
 } from "./agent/index.js";

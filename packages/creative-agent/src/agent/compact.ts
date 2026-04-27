@@ -12,9 +12,10 @@ import { completeSimple, type Model, type Api } from "@mariozechner/pi-ai";
 import type { Message, ToolResultMessage, AssistantMessage } from "@mariozechner/pi-ai";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import { estimateTokens, formatTokens } from "@agentchan/estimate-tokens";
+import type { SessionMessageEntry } from "../session/index.js";
 import * as log from "../logger.js";
 
-const KEEP_RECENT_TOKENS = 40_000;
+export const KEEP_RECENT_TOKENS = 40_000;
 const CACHE_TTL_MS = 5 * 60_000;
 
 // ── micro-compact ──────────────────────────────────────────────────
@@ -257,4 +258,65 @@ export async function fullCompact(options: FullCompactOptions): Promise<FullComp
     outputTokens: response.usage.output,
     cost: response.usage.cost.total,
   };
+}
+
+// ── compaction cutpoint ────────────────────────────────────────────
+
+/**
+ * Walk the branch newest → oldest and pick the oldest entry whose tail
+ * (from this entry to the leaf) still fits the keep budget. That entry's
+ * id is the `firstKeptEntryId` for a CompactionEntry: Pi's
+ * `buildSessionContext` will emit the summary once and replay every
+ * entry from this id forward.
+ *
+ * Mirrors Pi's `findCutPoint` (see `pi-mono/.../compaction.ts:386`) over
+ * our SessionMessageEntry shape. Returns the oldest entry's id when the
+ * whole branch fits within the budget — caller can decide whether to
+ * skip compaction in that case.
+ */
+export function computeCompactionCutpoint(
+  entries: ReadonlyArray<SessionMessageEntry>,
+  keepRecentTokens: number = KEEP_RECENT_TOKENS,
+): string {
+  if (entries.length === 0) {
+    throw new Error("computeCompactionCutpoint: empty entries");
+  }
+  let tokens = 0;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i]!;
+    tokens += entryTokens(entry);
+    if (tokens >= keepRecentTokens) {
+      return entry.id;
+    }
+  }
+  return entries[0]!.id;
+}
+
+function entryTokens(entry: SessionMessageEntry): number {
+  const msg = entry.message as Message;
+  if (msg.role === "user") {
+    const c = msg.content;
+    if (typeof c === "string") return estimateTokens(c);
+    let n = 0;
+    for (const b of c) if (b.type === "text") n += estimateTokens(b.text);
+    return n;
+  }
+  if (msg.role === "assistant") {
+    let n = 0;
+    for (const b of msg.content) {
+      if (b.type === "text") n += estimateTokens(b.text);
+      else if (b.type === "thinking") n += estimateTokens(b.thinking ?? "");
+      else if (b.type === "toolCall")
+        n += estimateTokens(JSON.stringify(b.arguments ?? {}));
+    }
+    return n;
+  }
+  if (msg.role === "toolResult") {
+    let n = 0;
+    for (const b of msg.content) {
+      if ("text" in b && typeof b.text === "string") n += estimateTokens(b.text);
+    }
+    return n;
+  }
+  return 0;
 }

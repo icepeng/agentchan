@@ -1,6 +1,11 @@
 import { describe, test, expect, beforeEach } from "bun:test";
-import { microCompact, clearCompactState } from "../../src/agent/compact.js";
+import {
+  microCompact,
+  clearCompactState,
+  computeCompactionCutpoint,
+} from "../../src/agent/compact.js";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { SessionMessageEntry } from "../../src/session/index.js";
 
 // --- Helpers ---
 
@@ -203,5 +208,65 @@ describe("microCompact", () => {
       clearCompactState("a");
       clearCompactState("b");
     });
+  });
+});
+
+// --- compaction cutpoint ---
+
+function makeUserEntry(id: string, parentId: string | null, text: string): SessionMessageEntry {
+  return {
+    type: "message",
+    id,
+    parentId,
+    timestamp: new Date().toISOString(),
+    message: { role: "user", content: text, timestamp: Date.now() },
+  };
+}
+
+function makeAssistantEntry(id: string, parentId: string, text: string): SessionMessageEntry {
+  return {
+    type: "message",
+    id,
+    parentId,
+    timestamp: new Date().toISOString(),
+    message: {
+      role: "assistant",
+      content: [{ type: "text", text }],
+      stopReason: "stop",
+      provider: "anthropic",
+      model: "claude-test",
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+    } as any,
+  };
+}
+
+describe("computeCompactionCutpoint", () => {
+  test("returns the oldest entry id when the whole branch fits the budget", () => {
+    const a = makeUserEntry("a", null, "hi");
+    const b = makeAssistantEntry("b", "a", "ok");
+    const c = makeUserEntry("c", "b", "more");
+    expect(computeCompactionCutpoint([a, b, c], 100_000)).toBe("a");
+  });
+
+  test("walks newest → oldest and stops when the budget is reached", () => {
+    // Each "y".repeat(400) is roughly ~94 tokens. Budget 200 should cover
+    // exactly the last two entries (~188) and reject the third walking back.
+    const e1 = makeUserEntry("e1", null, "y".repeat(400));
+    const e2 = makeAssistantEntry("e2", "e1", "y".repeat(400));
+    const e3 = makeUserEntry("e3", "e2", "y".repeat(400));
+    const e4 = makeAssistantEntry("e4", "e3", "y".repeat(400));
+    const cut = computeCompactionCutpoint([e1, e2, e3, e4], 200);
+    // Tail e4 alone (~94) is under; e4+e3 (~188) is under; e4+e3+e2 (~282) exceeds → e2.
+    expect(cut).toBe("e2");
+  });
+
+  test("keeps at least the leaf entry when a single message exceeds the budget", () => {
+    const a = makeUserEntry("a", null, "y".repeat(400));
+    const b = makeAssistantEntry("b", "a", "y".repeat(40_000));
+    expect(computeCompactionCutpoint([a, b], 1_000)).toBe("b");
+  });
+
+  test("throws on empty input", () => {
+    expect(() => computeCompactionCutpoint([], 1000)).toThrow();
   });
 });

@@ -16,7 +16,7 @@
  *   bun play.ts tree                             프로젝트 파일 트리
  *   bun play.ts state                            현재 play state 출력
  *   bun play.ts config [k=v...]                  config 조회 / 수정
- *   bun play.ts raw                              activePath 순서로 node JSON 덤프
+ *   bun play.ts raw                              현재 branch entry JSON 덤프
  *
  * Env:
  *   AGENTCHAN_URL         서버 BASE URL (기본 http://localhost:4244)
@@ -39,7 +39,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 type State = {
   projectSlug: string;
   sessionId: string;
-  lastNodeId?: string | null;
+  leafId?: string | null;
 };
 
 function loadState(): State | null {
@@ -93,16 +93,16 @@ async function cmdNew(template?: string, name?: string) {
   });
   console.log(C.green(`[ok] project: ${project.slug}`));
 
-  const sessRes = await api<{ session: { id: string } }>(
+  const sessRes = await api<{ id: string }>(
     `/api/projects/${project.slug}/sessions`,
     { method: "POST", body: JSON.stringify({}) },
   );
-  console.log(C.green(`[ok] session: ${sessRes.session.id}`));
+  console.log(C.green(`[ok] session: ${sessRes.id}`));
 
   saveState({
     projectSlug: project.slug,
-    sessionId: sessRes.session.id,
-    lastNodeId: null,
+    sessionId: sessRes.id,
+    leafId: null,
   });
 }
 
@@ -113,22 +113,21 @@ async function cmdUse(slug?: string, sessionId?: string) {
     if (!sessions.length) throw new Error(`no sessions in ${slug}; run \`sess\` to create one`);
     sessionId = sessions[0].id;
   }
-  const sess = await api<{ activePath: string[] }>(`/api/projects/${slug}/sessions/${sessionId}`);
-  const lastNodeId = sess.activePath[sess.activePath.length - 1] ?? null;
-  saveState({ projectSlug: slug, sessionId, lastNodeId });
-  console.log(C.green(`[ok] bound to ${slug} / ${sessionId} (lastNode=${lastNodeId})`));
+  const sess = await api<{ leafId: string | null }>(`/api/projects/${slug}/sessions/${sessionId}`);
+  saveState({ projectSlug: slug, sessionId, leafId: sess.leafId });
+  console.log(C.green(`[ok] bound to ${slug} / ${sessionId} (leafId=${sess.leafId})`));
 }
 
 async function cmdSess() {
   const s = requireState();
-  const sessRes = await api<{ session: { id: string } }>(
+  const sessRes = await api<{ id: string }>(
     `/api/projects/${s.projectSlug}/sessions`,
     { method: "POST", body: JSON.stringify({}) },
   );
-  s.sessionId = sessRes.session.id;
-  s.lastNodeId = null;
+  s.sessionId = sessRes.id;
+  s.leafId = null;
   saveState(s);
-  console.log(C.green(`[ok] new session: ${sessRes.session.id}`));
+  console.log(C.green(`[ok] new session: ${sessRes.id}`));
 }
 
 async function cmdSend(text: string) {
@@ -142,7 +141,7 @@ async function cmdSend(text: string) {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ parentNodeId: s.lastNodeId ?? null, text }),
+      body: JSON.stringify({ leafId: s.leafId ?? null, text }),
     },
   );
   if (!res.ok || !res.body) {
@@ -152,7 +151,7 @@ async function cmdSend(text: string) {
 
   const decoder = new TextDecoder();
   let buf = "";
-  let finalNodes: Array<{ id: string }> = [];
+  const allEntries: Array<{ id: string }> = [];
   let lastAssistantUsage: any = null;
   let lastStreamedText = "";
 
@@ -181,8 +180,8 @@ async function cmdSend(text: string) {
         case "agent_event":
           handleAgentEvent(data);
           break;
-        case "assistant_nodes":
-          finalNodes = Array.isArray(data) ? data : [];
+        case "entries_persisted":
+          if (Array.isArray(data)) for (const e of data) allEntries.push(e);
           break;
         case "error":
           console.error(C.red(`\n[error] ${JSON.stringify(data)}`));
@@ -239,9 +238,9 @@ async function cmdSend(text: string) {
     }
   }
 
-  if (finalNodes.length) {
-    const lastNode = finalNodes[finalNodes.length - 1];
-    s.lastNodeId = lastNode.id;
+  if (allEntries.length) {
+    const last = allEntries[allEntries.length - 1];
+    s.leafId = last.id;
     saveState(s);
   }
   console.log("");
@@ -309,15 +308,19 @@ async function cmdConfig(kvs: string[]) {
 
 async function cmdRaw() {
   const s = requireState();
-  const sess = await api<{ nodes: any[]; activePath: string[] }>(
+  const sess = await api<{ entries: any[]; leafId: string | null }>(
     `/api/projects/${s.projectSlug}/sessions/${s.sessionId}`,
   );
-  const byId = new Map(sess.nodes.map((n) => [n.id, n]));
-  for (const id of sess.activePath) {
-    const n = byId.get(id);
-    if (!n) continue;
-    console.log(C.bold(`--- node ${n.id} (parent=${n.parentId}) ---`));
-    console.log(JSON.stringify(n.message, null, 2));
+  const byId = new Map(sess.entries.map((e) => [e.id, e]));
+  const branch: any[] = [];
+  let cur = sess.leafId ? byId.get(sess.leafId) : undefined;
+  while (cur) {
+    branch.unshift(cur);
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  for (const e of branch) {
+    console.log(C.bold(`--- ${e.type} ${e.id} (parent=${e.parentId}) ---`));
+    console.log(JSON.stringify(e, null, 2));
   }
 }
 

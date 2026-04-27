@@ -1,13 +1,16 @@
 import { useCallback } from "react";
-import { useSWRConfig } from "swr";
+import { mutate as globalMutate, useSWRConfig } from "swr";
 import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
   useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
 import {
   useSessionMutations,
+  useSessionData,
   useActiveSessionSelection,
   useSessionSelectionDispatch,
+  type SessionData,
+  type SessionMode,
 } from "@/client/entities/session/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 
@@ -19,24 +22,21 @@ export function useSession() {
   const slug = projectSelection.activeProjectSlug;
   const mutations = useSessionMutations(slug);
   const { mutate } = useSWRConfig();
+  const { data: sessionData } = useSessionData(slug, selection.openSessionId);
 
-  const create = useCallback(async (mode?: "creative" | "meta") => {
+  const create = useCallback(async (mode?: SessionMode) => {
     if (!slug) return;
-    const { session } = await mutations.create(mode);
+    const info = await mutations.create(mode);
     sessionSelectionDispatch({
       type: "SET_ACTIVE_SESSION",
       projectSlug: slug,
-      sessionId: session.id,
+      sessionId: info.id,
     });
-    return session;
+    return info;
   }, [slug, mutations, sessionSelectionDispatch]);
 
   const load = (id: string) => {
     if (!slug) return;
-    // Flip selection immediately; `useSessionData(slug, id)` auto-fetches
-    // under the new key. Mirrors `useProject.selectProject`, which flips
-    // `activeProjectSlug` before the sessions-list fetch resolves —
-    // subscribers fall back to empty arrays for the single render gap.
     sessionSelectionDispatch({
       type: "SET_ACTIVE_SESSION",
       projectSlug: slug,
@@ -61,19 +61,23 @@ export function useSession() {
     await mutate(qk.sessions(slug));
   };
 
-  const switchBranch = async (nodeId: string) => {
-    if (!selection.openSessionId || !slug) return;
-    await mutations.switchBranch(selection.openSessionId, nodeId);
-  };
+  /** Client-only branch switch — moves the leaf pointer in the SWR cache. */
+  const switchBranch = useCallback(
+    (entryId: string) => {
+      if (!selection.openSessionId || !slug) return;
+      const key = qk.session(slug, selection.openSessionId);
+      void globalMutate<SessionData>(
+        key,
+        (cur) => (cur ? { ...cur, leafId: entryId } : cur),
+        { revalidate: false },
+      );
+    },
+    [selection.openSessionId, slug],
+  );
 
-  const deleteNode = async (nodeId: string) => {
-    if (!selection.openSessionId || !slug) return;
-    await mutations.removeNode(selection.openSessionId, nodeId);
-  };
-
-  const setReplyTo = (nodeId: string | null) => {
+  const setReplyTo = (entryId: string | null) => {
     if (!slug) return;
-    sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, nodeId });
+    sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, entryId });
   };
 
   const compact = async () => {
@@ -81,12 +85,7 @@ export function useSession() {
     const sessionId = selection.openSessionId;
     agentDispatch({ type: "START", projectSlug: slug });
     try {
-      const result = await mutations.compact(sessionId);
-      sessionSelectionDispatch({
-        type: "SET_ACTIVE_SESSION",
-        projectSlug: slug,
-        sessionId: result.session.id,
-      });
+      await mutations.compact(sessionId, sessionData?.leafId);
       agentDispatch({ type: "STOP", projectSlug: slug });
     } catch (err) {
       agentDispatch({
@@ -104,7 +103,6 @@ export function useSession() {
     refresh,
     switchBranch,
     setReplyTo,
-    deleteNode,
     compact,
     activeSessionId: selection.openSessionId,
   };

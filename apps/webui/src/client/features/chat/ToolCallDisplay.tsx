@@ -1,4 +1,4 @@
-import type { ToolCallContent } from "@/client/entities/session/index.js";
+import type { ToolCall } from "@mariozechner/pi-ai";
 import { Indicator, ScrollArea } from "@/client/shared/ui/index.js";
 
 const SUMMARY_CLASS =
@@ -32,7 +32,7 @@ export function ToolCallDisplay({
   block,
   running = false,
 }: {
-  block: ToolCallContent;
+  block: ToolCall;
   running?: boolean;
 }) {
   return (

@@ -15,7 +15,6 @@ export {
   createSession,
   deleteSession,
   compactSession,
-  type CreatedSession,
   type CompactResult,
 } from "./lifecycle.js";
 
@@ -30,8 +29,6 @@ export {
 
 export {
   buildSkillInjectionContent,
-  buildUserNodeForPrompt,
-  joinUserNodeText,
+  buildUserDraftEntries,
+  joinUserMessageText,
 } from "./build.js";
-
-export { summarizeTurnUsage } from "./usage.js";

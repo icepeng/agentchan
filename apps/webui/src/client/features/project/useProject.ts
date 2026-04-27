@@ -17,7 +17,7 @@ import {
   useSessionSelectionDispatch,
   selectSessionSelection,
   abortProjectStream,
-  type Session,
+  type AgentchanSessionInfo,
 } from "@/client/entities/session/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 import { localStore } from "@/client/shared/storage.js";
@@ -43,7 +43,7 @@ export function useProject() {
   const sessionSelectionRef = useRef(sessionSelectionState);
   useEffect(() => { sessionSelectionRef.current = sessionSelectionState; });
 
-  const activateProject = async (slug: string): Promise<Session[]> => {
+  const activateProject = async (slug: string): Promise<AgentchanSessionInfo[]> => {
     projectSelectionDispatch({ type: "SET_ACTIVE_PROJECT", slug });
     // Clears stale output/error state, while the mounted renderer stays visible
     // until RenderedView's host state machine completes fade-out.
@@ -51,7 +51,7 @@ export function useProject() {
     // Single GET: SWR's fetcher runs, result seeds the cache atomically.
     // Calling `fetchSessions` separately risked a duplicate fetch when
     // `useSessions(slug)` mounted outside the dedupe window.
-    const sessions = await mutate<Session[]>(qk.sessions(slug));
+    const sessions = await mutate<AgentchanSessionInfo[]>(qk.sessions(slug));
     return sessions ?? [];
   };
 

@@ -15,7 +15,8 @@ system prompt 수정, 프로젝트 구조 정리 같은 메타 작업이 함께 
 ## Decision
 
 Session은 `mode: "creative" | "meta"`를 가진다. `mode`가 없으면 creative로
-간주한다.
+간주한다. 저장 위치는 ADR 0004 의 결정대로 세션 JSONL 파일 첫 줄 헤더의
+`mode` 필드다.
 
 Mode에 따라 다음을 분리한다.
 
