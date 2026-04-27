@@ -1,22 +1,27 @@
 export type {
   AgentchanSessionInfo,
-  AssistantContentBlock,
-  AssistantMessage,
-  ClientMessage,
   CompactionEntry,
   CustomMessageEntry,
-  ImageContent,
-  Message,
   SessionEntry,
   SessionInfoEntry,
   SessionMessageEntry,
   SessionMode,
+} from "@agentchan/creative-agent";
+
+export type {
+  AssistantMessage,
+  ImageContent,
+  Message,
   TextContent,
   ThinkingContent,
-  ToolCallContent,
   ToolResultMessage,
   UserMessage,
-} from "./session.types.js";
+} from "@mariozechner/pi-ai";
+
+import type { TextContent, ThinkingContent, ToolCall } from "@mariozechner/pi-ai";
+
+/** Content union for assistant messages — text, thinking, or tool call. */
+export type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 export {
   useSessions,
@@ -25,7 +30,7 @@ export {
 } from "./useSessions.js";
 export type { SessionData } from "./useSessions.js";
 
-export { insertEntries, replaceTempEntry } from "./tree.utils.js";
+export { insertEntries, replaceTempEntry } from "./entry.utils.js";
 
 export {
   fetchSession, fetchSessions, createSession, deleteSession,
@@ -46,7 +51,6 @@ export {
   selectMessageEntries,
   selectBranchMessages,
   defaultLeafId,
-  SKILL_LOAD_CUSTOM_TYPE,
 } from "./session.selectors.js";
 
 export {

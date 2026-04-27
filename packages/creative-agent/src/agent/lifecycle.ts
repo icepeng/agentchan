@@ -8,19 +8,17 @@
 
 import type { Message } from "@mariozechner/pi-ai";
 import {
+  branchFromLeaf,
   buildAgentHistory,
   type AgentchanSessionInfo,
   type CompactionEntry,
   type DraftEntry,
+  type SessionMessageEntry,
   type SessionMode,
 } from "../session/index.js";
-import { fullCompact } from "./compact.js";
+import { computeCompactionCutpoint, fullCompact } from "./compact.js";
 import { resolveModel, clearSessionAgentState } from "./orchestrator.js";
 import { type AgentContext } from "./context.js";
-
-export interface CreatedSession {
-  info: AgentchanSessionInfo;
-}
 
 export interface CompactResult {
   info: AgentchanSessionInfo;
@@ -28,13 +26,12 @@ export interface CompactResult {
   newLeafId: string;
 }
 
-export async function createSession(
+export function createSession(
   ctx: AgentContext,
   slug: string,
   mode?: SessionMode,
-): Promise<CreatedSession> {
-  const info = await ctx.storage.createSession(slug, mode ? { mode } : {});
-  return { info };
+): Promise<AgentchanSessionInfo> {
+  return ctx.storage.createSession(slug, mode ? { mode } : {});
 }
 
 export async function deleteSession(
@@ -75,13 +72,18 @@ export async function compactSession(
   });
 
   const tokensBefore = result.inputTokens + result.outputTokens;
-  // firstKeptEntryId = the leaf at compaction time. Pi's `buildSessionContext`
-  // will then emit summary first, then keep that single tail entry as anchor
-  // before any new turns appended after the compaction.
+  // Cutpoint mirrors Pi's `findCutPoint`: keep the most recent N tokens of
+  // the branch as anchors, summarize the prefix. Without this, a CompactionEntry
+  // whose firstKeptEntryId is the leaf would erase the in-progress thread —
+  // the LLM would only see "summary + leaf entry" on the next turn.
+  const branchMessageEntries = branchFromLeaf(data.entries, data.leafId).filter(
+    (e): e is SessionMessageEntry => e.type === "message",
+  );
+  const firstKeptEntryId = computeCompactionCutpoint(branchMessageEntries);
   const draft: DraftEntry = {
     type: "compaction",
     summary: result.summary,
-    firstKeptEntryId: data.leafId,
+    firstKeptEntryId,
     tokensBefore,
   };
 

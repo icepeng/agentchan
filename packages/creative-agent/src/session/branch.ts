@@ -6,8 +6,6 @@ import { buildSessionContext as piBuildSessionContext } from "@mariozechner/pi-c
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { SessionEntry } from "./types.js";
 
-export const SKILL_LOAD_CUSTOM_TYPE = "skill-load";
-
 /** Walk leaf → root by parentId. Returns the path in root-to-leaf order. Throws on invalid leafId. */
 export function branchFromLeaf(
   entries: ReadonlyArray<SessionEntry>,
@@ -49,21 +47,15 @@ export function siblingsOf(
 /**
  * Build the AgentMessage history Agentchan sends to the LLM.
  *
- * Wraps Pi `buildSessionContext` and drops `custom_message` entries with
- * `customType === "skill-load"` — those are UI-only markers; the skill body
- * itself is delivered as the prompt text on the turn that activated it,
- * never as recurring history.
+ * Thin pass-through over Pi `buildSessionContext`. Skill activations are
+ * embedded directly in the user message that triggered them (see
+ * `agent/build.ts`), so the persisted entry text and the LLM context
+ * match 1:1.
  */
 export function buildAgentHistory(
   entries: ReadonlyArray<SessionEntry>,
   leafId?: string | null,
 ): AgentMessage[] {
   const ctx = piBuildSessionContext(entries as SessionEntry[], leafId ?? undefined);
-  return ctx.messages.filter((m) => {
-    if (m.role === "custom") {
-      const customType = (m as { customType?: string }).customType;
-      if (customType === SKILL_LOAD_CUSTOM_TYPE) return false;
-    }
-    return true;
-  });
+  return ctx.messages;
 }

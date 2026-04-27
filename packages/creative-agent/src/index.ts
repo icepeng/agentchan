@@ -52,7 +52,6 @@ export {
   buildAgentHistory,
   getLatestCompactionEntry,
   CURRENT_SESSION_VERSION,
-  SKILL_LOAD_CUSTOM_TYPE,
 } from "./session/index.js";
 
 // Agent — context, config, and LLM-touching ops
@@ -65,7 +64,6 @@ export {
   runRegenerate,
   type AgentContext,
   type ResolvedAgentConfig,
-  type CreatedSession,
   type CompactResult,
   type SessionEvent,
 } from "./agent/index.js";

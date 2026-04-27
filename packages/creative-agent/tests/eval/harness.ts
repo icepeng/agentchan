@@ -90,7 +90,7 @@ export class EvalHarness {
       resolveAgentConfig: () => ({ provider, model, apiKey, temperature: 0 }),
     });
     const created = await createSession(ctx, fixture.slug);
-    const sessionId = created.info.id;
+    const sessionId = created.id;
     const history: AgentMessage[] = [];
 
     const { agent, systemPrompt } = await setupCreativeAgent(

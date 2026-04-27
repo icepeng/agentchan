@@ -3,7 +3,6 @@ import { AlignLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type {
   AssistantContentBlock,
   CompactionEntry,
-  CustomMessageEntry,
   ImageContent,
   Message,
   SessionMessageEntry,
@@ -17,7 +16,11 @@ import { MessageContent } from "./MessageContent.js";
 
 // ── Helpers ─────────────────────────────────────
 
-function getUserContentBlocks(entry: SessionMessageEntry): (TextContent | ImageContent)[] {
+function getUserContentBlocks(
+  entry: SessionMessageEntry,
+  override?: string,
+): (TextContent | ImageContent)[] {
+  if (override !== undefined) return [{ type: "text", text: override }];
   const msg = entry.message as Message;
   if (msg.role !== "user") return [];
   if (typeof msg.content === "string") return [{ type: "text", text: msg.content }];
@@ -132,50 +135,39 @@ export function CompactionBanner({
 // ── Skill Chip Bubble ────────────────────────
 
 export function SkillChipBubble({
-  entry,
+  skillText,
   variant = "compact",
 }: {
-  entry: CustomMessageEntry;
+  skillText: string;
   variant?: "compact" | "wide";
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
-  const text = typeof entry.content === "string"
-    ? entry.content
-    : entry.content
-        .filter((b): b is TextContent => b.type === "text")
-        .map((b) => b.text)
-        .join("\n");
-
-  const skillMatches = [...text.matchAll(/<skill_content name="([^"]+)"/g)].map(
-    (m) => m[1],
-  );
+  const skillMatches = [
+    ...skillText.matchAll(/<skill_content name="([^"]+)"/g),
+  ].map((m) => m[1]);
   const names = skillMatches.length > 0 ? skillMatches : ["unknown"];
-
-  const chipRow = (
-    <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-70">
-      <span>{"⚙"}</span>
-      <span>
-        {t("chat.skillLoaded")}:{" "}
-        <span className="text-accent/80">{names.join(", ")}</span>
-      </span>
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="text-accent/60 hover:text-accent transition-colors ml-1"
-      >
-        {expanded ? t("chat.hideBody") : t("chat.showBody")}
-      </button>
-    </div>
-  );
 
   return (
     <BubbleWrap variant={variant} padding="tight">
-      {chipRow}
+      <div className="flex items-center gap-2 text-xs text-fg-3 py-1 opacity-70">
+        <span>{"⚙"}</span>
+        <span>
+          {t("chat.skillLoaded")}:{" "}
+          <span className="text-accent/80">{names.join(", ")}</span>
+        </span>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-accent/60 hover:text-accent transition-colors ml-1"
+        >
+          {expanded ? t("chat.hideBody") : t("chat.showBody")}
+        </button>
+      </div>
       {expanded && (
         <div className="mt-1.5 pl-[22px] text-xs text-fg-3/70 border-l-2 border-edge/10 ml-[6px]">
           <ScrollArea className="max-h-[300px]" viewportClassName="whitespace-pre-wrap text-[11px] leading-relaxed p-2">
-            {text}
+            {skillText}
           </ScrollArea>
         </div>
       )}
@@ -198,6 +190,12 @@ export interface UserBubbleProps {
   isStreaming?: boolean;
   variant?: "compact" | "wide";
   footer?: ReactNode;
+  /**
+   * Override the text rendered inside the bubble. Used by `groupBranch`
+   * when a slash-skill activation is split into a `skillLoad` chip plus a
+   * trailing user bubble that should only show the command portion.
+   */
+  displayText?: string;
 }
 
 type BubbleKind =
@@ -288,8 +286,9 @@ export function UserBubble({
   isStreaming,
   variant = "compact",
   footer,
+  displayText,
 }: UserBubbleProps) {
-  const displayContent: AssistantContentBlock[] = getUserContentBlocks(entry).map(
+  const displayContent: AssistantContentBlock[] = getUserContentBlocks(entry, displayText).map(
     (b): AssistantContentBlock =>
       b.type === "text" ? { type: "text", text: b.text } : { type: "text", text: "[image]" },
   );

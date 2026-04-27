@@ -166,24 +166,26 @@ export function AgentPanel() {
           regenerate={regenerate}
           isStreaming={state.isStreaming}
         >
-          {groups.map((g) => {
+          {groups.map((g, idx) => {
             if (g.kind === "user") {
+              const key = g.displayText !== undefined ? `${g.entry.id}:user` : g.entry.id;
               return (
                 <UserBubble
-                  key={g.entry.id}
+                  key={key}
                   entry={g.entry}
                   siblings={siblingsOf(g.entry.id)}
                   actions={actions}
                   isStreaming={state.isStreaming}
                   variant="compact"
+                  displayText={g.displayText}
                 />
               );
             }
             if (g.kind === "skillLoad") {
               return (
                 <SkillChipBubble
-                  key={g.entry.id}
-                  entry={g.entry}
+                  key={`${g.entry.id}:skill:${idx}`}
+                  skillText={g.skillText}
                   variant="compact"
                 />
               );

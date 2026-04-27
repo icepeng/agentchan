@@ -1,10 +1,10 @@
-import type { AgentEvent } from "@agentchan/creative-agent";
-import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
 import type {
+  AgentEvent,
   AgentchanSessionInfo,
   SessionEntry,
   SessionMode,
-} from "./session.types.js";
+} from "@agentchan/creative-agent";
+import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
 
 export type { AgentEvent };
 

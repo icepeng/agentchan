@@ -7,7 +7,6 @@
 
 import type { Message, TextContent, UserMessage } from "@mariozechner/pi-ai";
 import type { DraftEntry } from "../session/index.js";
-import { SKILL_LOAD_CUSTOM_TYPE } from "../session/index.js";
 import { buildSkillContent } from "../skills/skill-content.js";
 import type { SkillRecord } from "../skills/types.js";
 import { parseSlashInput, serializeCommand } from "../slash/parse.js";
@@ -27,13 +26,11 @@ export function buildSkillInjectionContent(
 /**
  * Build draft session entries for a raw user prompt.
  *
- * Slash → [custom_message (skill-load), message (user command)].
- *   The custom_message records what skill was loaded (UI-only) and the
- *   user's message carries the command text the LLM sees in history.
- *   The skill body itself is sent to the LLM only for THIS turn via `llmText`.
- * Plain → [message (user)].
- *
- * `llmText` is the text fed to `agent.prompt()`.
+ * Slash → single user message whose content embeds the skill body followed
+ *   by the command text. The same combined text is fed to `agent.prompt()`,
+ *   so what we persist and what the LLM sees on this turn (and every later
+ *   turn rebuilt from history) match 1:1.
+ * Plain → single user message.
  */
 export function buildUserDraftEntries(
   rawText: string,
@@ -43,8 +40,7 @@ export function buildUserDraftEntries(
   const slash = tryBuildSlashSkillDrafts(rawText, projectDir, skills);
   if (slash) return slash;
 
-  const userMessageDraft = makeUserMessageDraft(rawText);
-  return { drafts: [userMessageDraft], llmText: rawText };
+  return { drafts: [makeUserMessageDraft(rawText)], llmText: rawText };
 }
 
 function tryBuildSlashSkillDrafts(
@@ -61,19 +57,11 @@ function tryBuildSlashSkillDrafts(
 
   const skillText = buildSkillInjectionContent([skill], projectDir);
   const userText = serializeCommand(parsed.name, parsed.args);
-
-  const skillLoadDraft: DraftEntry = {
-    type: "custom_message",
-    customType: SKILL_LOAD_CUSTOM_TYPE,
-    content: skillText,
-    display: true,
-  };
-
-  const userDraft = makeUserMessageDraft(userText);
+  const combined = `${skillText}\n\n${userText}`;
 
   return {
-    drafts: [skillLoadDraft, userDraft],
-    llmText: skillText + "\n" + userText,
+    drafts: [makeUserMessageDraft(combined)],
+    llmText: combined,
   };
 }
 

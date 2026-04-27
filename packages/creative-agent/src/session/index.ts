@@ -25,7 +25,6 @@ export {
   defaultLeafId,
   siblingsOf,
   buildAgentHistory,
-  SKILL_LOAD_CUSTOM_TYPE,
 } from "./branch.js";
 
 export {

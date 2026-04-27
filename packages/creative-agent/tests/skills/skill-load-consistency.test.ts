@@ -12,13 +12,17 @@ import {
   SYSTEM_REMINDER_CLOSE,
 } from "../../src/skills/catalog.js";
 import { createActivateSkillTool } from "../../src/skills/manager.js";
-import { SKILL_LOAD_CUSTOM_TYPE } from "../../src/session/index.js";
-import type { CustomMessageEntry, DraftEntry } from "../../src/session/index.js";
+import { buildAgentHistory } from "../../src/session/index.js";
+import { createSessionStorage } from "../../src/session/index.js";
+import type { DraftEntry } from "../../src/session/index.js";
 import type { TextContent, UserMessage } from "@mariozechner/pi-ai";
 
-// Two skill-injection paths must produce identical `<skill_content>` text:
-// 1. Slash command → buildUserDraftEntries emits a custom_message draft (skill-load) + user message
-// 2. activate_skill tool → execute() returns body in tool result
+// Two skill-injection paths must produce the same `<skill_content>` text:
+// 1. Slash command → buildUserDraftEntries embeds the skill body in the
+//    user message that is persisted and replayed every turn.
+// 2. activate_skill tool → execute() returns the body in a tool result
+//    that is persisted as part of the assistant turn and replayed every
+//    turn.
 
 const INVOCABLE_SKILL = `---
 name: invocable-character
@@ -54,14 +58,6 @@ afterEach(async () => {
   await rm(projectDir, { recursive: true, force: true });
 });
 
-function customMessageContent(draft: DraftEntry): string {
-  const ce = draft as CustomMessageEntry;
-  if (typeof ce.content === "string") return ce.content;
-  const block = ce.content[0];
-  if (!block || block.type !== "text") throw new Error("expected text block");
-  return (block as TextContent).text;
-}
-
 function userMessageText(draft: DraftEntry): string {
   const msg = (draft as { type: "message"; message: UserMessage }).message;
   if (typeof msg.content === "string") return msg.content;
@@ -77,7 +73,7 @@ function getToolResultText(result: { content: { type: string; text?: string }[] 
 }
 
 describe("skill-load shape — slash injection", () => {
-  test("slash invocation emits a custom_message + user message draft pair", async () => {
+  test("slash invocation emits a single user message that embeds the skill body", async () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const result = buildUserDraftEntries(
       "/invocable-character hello world",
@@ -85,23 +81,18 @@ describe("skill-load shape — slash injection", () => {
       skills,
     );
 
-    expect(result.drafts).toHaveLength(2);
-    const [skillDraft, userDraft] = result.drafts;
+    expect(result.drafts).toHaveLength(1);
+    const [draft] = result.drafts;
+    expect(draft.type).toBe("message");
 
-    expect(skillDraft.type).toBe("custom_message");
-    expect((skillDraft as CustomMessageEntry).customType).toBe(SKILL_LOAD_CUSTOM_TYPE);
-    const skillText = customMessageContent(skillDraft);
-    expect(skillText.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
-    expect(skillText).toContain('name="invocable-character"');
-    expect(skillText).toContain("</skill_content>");
+    const text = userMessageText(draft!);
+    expect(text.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
+    expect(text).toContain('name="invocable-character"');
+    expect(text).toContain("</skill_content>");
+    expect(text).toContain("<command-name>/invocable-character</command-name>");
+    expect(text).toContain("<command-args>hello world</command-args>");
 
-    expect(userDraft.type).toBe("message");
-    const userText = userMessageText(userDraft);
-    expect(userText).toContain("<command-name>/invocable-character</command-name>");
-    expect(userText).toContain("<command-args>hello world</command-args>");
-
-    expect(result.llmText).toContain(SKILL_CONTENT_PREFIX);
-    expect(result.llmText).toContain("<command-name>/invocable-character</command-name>");
+    expect(result.llmText).toBe(text);
   });
 });
 
@@ -114,13 +105,58 @@ describe("skill-load wire format consistency across paths", () => {
       projectDir,
       skills,
     );
-    const slashSkillText = customMessageContent(slashResult.drafts[0]!);
+    const slashText = userMessageText(slashResult.drafts[0]!);
+    const closeIdx = slashText.lastIndexOf("</skill_content>") + "</skill_content>".length;
+    const slashSkillText = slashText.slice(0, closeIdx);
 
     const tool = createActivateSkillTool(skills, projectDir);
     const toolResult = await tool.execute("test-call-id", { name: "invocable-character" });
     const activatedText = getToolResultText(toolResult);
 
     expect(slashSkillText).toBe(activatedText);
+  });
+});
+
+describe("skill body persists in LLM history across turns", () => {
+  test("buildAgentHistory replays the skill_content block on turn 2", async () => {
+    const projectsRoot = await mkdtemp(join(tmpdir(), "skill-history-"));
+    try {
+      const slug = "history-test";
+      await mkdir(join(projectsRoot, slug), { recursive: true });
+      const projectSkillsDir = join(projectsRoot, slug, "skills");
+      await mkdir(join(projectSkillsDir, "invocable-character"), { recursive: true });
+      await writeFile(join(projectSkillsDir, "invocable-character", "SKILL.md"), INVOCABLE_SKILL);
+
+      const storage = createSessionStorage(projectsRoot);
+      const info = await storage.createSession(slug, {});
+      const skills = await discoverProjectSkills(projectSkillsDir);
+
+      const slashResult = buildUserDraftEntries(
+        "/invocable-character hello",
+        join(projectsRoot, slug),
+        skills,
+      );
+      await storage.appendAtLeaf(slug, info.id, null, slashResult.drafts);
+
+      const after = await storage.readSession(slug, info.id);
+      if (!after) throw new Error("expected session to exist after append");
+      const history = buildAgentHistory(after.entries, after.leafId);
+
+      // The user message replayed on turn 2 must carry the skill body.
+      const userMsg = history.find((m) => m.role === "user");
+      expect(userMsg).toBeDefined();
+      const userText =
+        typeof userMsg!.content === "string"
+          ? userMsg!.content
+          : (userMsg!.content as { type: string; text?: string }[])
+              .filter((b) => b.type === "text")
+              .map((b) => b.text!)
+              .join("\n");
+      expect(userText).toContain(SKILL_CONTENT_PREFIX);
+      expect(userText).toContain('name="invocable-character"');
+    } finally {
+      await rm(projectsRoot, { recursive: true, force: true });
+    }
   });
 });
 

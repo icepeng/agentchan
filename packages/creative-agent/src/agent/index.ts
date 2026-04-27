@@ -15,7 +15,6 @@ export {
   createSession,
   deleteSession,
   compactSession,
-  type CreatedSession,
   type CompactResult,
 } from "./lifecycle.js";
 

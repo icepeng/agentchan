@@ -1,7 +1,5 @@
 import type { Message } from "@mariozechner/pi-ai";
-import type { SessionEntry, SessionMessageEntry } from "./session.types.js";
-
-export const SKILL_LOAD_CUSTOM_TYPE = "skill-load";
+import type { SessionEntry, SessionMessageEntry } from "@agentchan/creative-agent";
 
 /** root → leaf branch by following parentId from leafId. Returns [] for null leaf. */
 export function selectBranch(
@@ -54,9 +52,8 @@ export function buildSiblingsByEntry(
 
 /**
  * Visible Pi messages along a branch — used by hydrate paths that hand the
- * agent-state reducer a clean message stream. Drops `custom_message` entries
- * tagged as skill-load (UI markers, never replayed in LLM history) and the
- * compaction entry itself (the tail post-compaction is what users actually see).
+ * agent-state reducer a clean message stream. Filters down to plain
+ * message entries; compaction/session_info markers don't replay.
  */
 export function selectMessageEntries(
   branch: ReadonlyArray<SessionEntry>,
