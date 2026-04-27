@@ -1,0 +1,14 @@
+{
+  "name": "@agentchan/renderer-build",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@agentchan/renderer": "workspace:*",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "scheduler": "^0.27.0"
+  }
+}

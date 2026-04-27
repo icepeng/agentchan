@@ -101,6 +101,16 @@
         "@types/react-dom": "^19.2.3",
       },
     },
+    "packages/renderer-build": {
+      "name": "@agentchan/renderer-build",
+      "version": "0.1.0",
+      "dependencies": {
+        "@agentchan/renderer": "workspace:*",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "scheduler": "^0.27.0",
+      },
+    },
   },
   "packages": {
     "@agentchan/creative-agent": ["@agentchan/creative-agent@workspace:packages/creative-agent"],
@@ -110,6 +120,8 @@
     "@agentchan/grep": ["@agentchan/grep@workspace:packages/grep"],
 
     "@agentchan/renderer": ["@agentchan/renderer@workspace:packages/renderer"],
+
+    "@agentchan/renderer-build": ["@agentchan/renderer-build@workspace:packages/renderer-build"],
 
     "@agentchan/webui": ["@agentchan/webui@workspace:apps/webui"],
 
