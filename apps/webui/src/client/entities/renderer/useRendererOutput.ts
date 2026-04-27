@@ -1,6 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
-import type { AgentState } from "@/client/entities/agent-state/index.js";
 import {
   useProjectSelectionState,
   fetchWorkspaceFiles,
@@ -8,12 +7,8 @@ import {
 } from "@/client/entities/project/index.js";
 import { sameBundle } from "./bundle/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
-import type {
-  RendererAgentState,
-  RendererBundle,
-  RendererSnapshot,
-  ProjectFile,
-} from "./renderer.types.js";
+import { buildRendererSnapshot, toRendererAgentState } from "./snapshot/index.js";
+import type { RendererBundle, RendererSnapshot } from "./renderer.types.js";
 
 interface LoadedRenderer {
   slug: string;
@@ -24,34 +19,6 @@ interface LoadedRenderer {
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
-}
-
-function reuseStableFiles(
-  previous: readonly ProjectFile[] | undefined,
-  next: ProjectFile[],
-): readonly ProjectFile[] {
-  if (!previous) return next;
-  const previousByPath = new Map(previous.map((file) => [file.path, file]));
-  let changed = previous.length !== next.length;
-  const files = next.map((file) => {
-    const old = previousByPath.get(file.path);
-    if (old && old.digest === file.digest && old.modifiedAt === file.modifiedAt) {
-      return old;
-    }
-    changed = true;
-    return file;
-  });
-  return changed ? files : previous;
-}
-
-function toRendererAgentState(state: AgentState): RendererAgentState {
-  return {
-    messages: state.messages,
-    isStreaming: state.isStreaming,
-    streamingMessage: state.streamingMessage,
-    pendingToolCalls: Array.from(state.pendingToolCalls),
-    errorMessage: state.errorMessage,
-  };
 }
 
 export function useRendererOutput() {
@@ -93,13 +60,12 @@ export function useRendererOutput() {
       if (!isStillCurrentRefresh(slug, generation)) return;
       const previousFiles =
         loadedRef.current?.slug === slug ? loadedRef.current.snapshot.files : undefined;
-      const files = reuseStableFiles(previousFiles, filesResult.files);
-      const snapshot: RendererSnapshot = {
+      const snapshot = buildRendererSnapshot(
         slug,
-        baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
-        files,
-        state: stateRef.current,
-      };
+        stateRef.current,
+        filesResult.files,
+        previousFiles,
+      );
       const previous = loadedRef.current;
       if (previous?.slug === slug && sameBundle(previous.bundle, bundle)) {
         loadedRef.current = { slug, bundle: previous.bundle, snapshot };
