@@ -1,1 +1,1 @@
-export { RenderedView } from "./renderer-host/RenderedView.js";
+export { RenderedView } from "./renderer-surface/RenderedView.js";
