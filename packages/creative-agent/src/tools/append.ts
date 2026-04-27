@@ -4,6 +4,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
 import { resolveInProject } from "./_paths.js";
+import { withFileMutationQueue } from "./file-mutation-queue.js";
 
 const AppendParams = Type.Object({
   file_path: Type.String({
@@ -23,7 +24,7 @@ export function createAppendTool(cwd?: string): AgentTool<typeof AppendParams, v
   return {
     name: "append",
     description:
-      `Append content to the end of a file. Creates the file (and parent directories) if it doesn't exist. Use this instead of write when adding content to an existing file.`,
+      `Append content to the end of a file. Creates parent directories if needed. Use this instead of write when adding to an existing file. Batch appends to different files.`,
     parameters: AppendParams,
     label: "Append to file",
 
@@ -32,9 +33,11 @@ export function createAppendTool(cwd?: string): AgentTool<typeof AppendParams, v
       params: AppendInput,
     ): Promise<AgentToolResult<void>> {
       const filePath = resolveInProject(workDir, params.file_path);
-      await mkdir(dirname(filePath), { recursive: true });
-      await appendFile(filePath, params.content, "utf-8");
-      return textResult("Content appended successfully.");
+      return withFileMutationQueue(filePath, async () => {
+        await mkdir(dirname(filePath), { recursive: true });
+        await appendFile(filePath, params.content, "utf-8");
+        return textResult("Content appended successfully.");
+      });
     },
   };
 }
