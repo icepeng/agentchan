@@ -6,8 +6,10 @@ import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
   useSessionData,
   useActiveSessionSelection,
+  selectBranch,
+  buildSiblingsByEntry,
 } from "@/client/entities/session/index.js";
-import type { TreeNode } from "@/client/entities/session/index.js";
+import type { SessionMessageEntry } from "@/client/entities/session/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
@@ -15,60 +17,65 @@ import { MessageActionsProvider } from "./MessageActionsContext.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
-import { AssistantTurnBubble, MessageBubble } from "./MessageBubble.js";
+import {
+  AssistantTurnBubble,
+  CompactionBanner,
+  SkillChipBubble,
+  UserBubble,
+} from "./MessageBubble.js";
 import { StreamingMessage } from "./StreamingMessage.js";
-import { groupActivePath } from "./groupActivePath.js";
+import { groupBranch } from "./groupBranch.js";
 
 // ── Model Info Popover ───────────────────────
 
-function ModelInfoPopover({ node }: { node: TreeNode }) {
+function ModelInfoPopover({ entry }: { entry: SessionMessageEntry }) {
   const { t } = useI18n();
 
-  const msg = node.message;
+  const msg = entry.message;
   const model = msg.role === "assistant" ? msg.model : undefined;
   const provider = msg.role === "assistant" ? msg.provider : undefined;
 
-  const u = node.usage;
-  const hasUsage = !!(u?.inputTokens || u?.outputTokens);
-  const cost = u?.cost ?? null;
-  const cachedInput = u?.cachedInputTokens ?? 0;
-  const cacheCreation = u?.cacheCreationTokens ?? 0;
-  const totalInput = (u?.inputTokens ?? 0) + cachedInput + cacheCreation;
-  const cachePercent = totalInput > 0 && cachedInput > 0
-    ? Math.round((cachedInput / totalInput) * 100) : 0;
+  const usage = msg.role === "assistant" ? msg.usage : undefined;
+  const hasUsage = !!(usage?.input || usage?.output);
+  const cost = usage?.cost?.total ?? null;
+  const cacheRead = usage?.cacheRead ?? 0;
+  const cacheWrite = usage?.cacheWrite ?? 0;
+  const totalInput = (usage?.input ?? 0) + cacheRead + cacheWrite;
+  const cachePercent = totalInput > 0 && cacheRead > 0
+    ? Math.round((cacheRead / totalInput) * 100) : 0;
 
   return (
     <Popover.Root>
-      <Popover.Trigger className="text-[11px] text-fg-3 font-mono hover:text-accent transition-colors cursor-pointer">
+      <Popover.Trigger className="text-[11px] text-fg-3 hover:text-accent transition-colors cursor-pointer">
         {model}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="start" sideOffset={4}>
           <Popover.Popup className="bg-elevated border border-white/8 rounded-lg shadow-lg shadow-void/50 p-3 min-w-[220px] animate-fade text-[11px] z-50">
             <div className="text-fg-3 mb-2">
-              <div className="text-fg font-mono">{model}</div>
+              <div className="text-fg">{model}</div>
               {provider && (
                 <div className="text-fg-3/70 mt-0.5">{provider}</div>
               )}
             </div>
             {hasUsage && (
-              <div className="border-t border-white/6 pt-2 space-y-1 font-mono">
+              <div className="border-t border-white/6 pt-2 space-y-1">
                 <div className="flex justify-between gap-4">
                   <span className="text-fg-3">{t("input.tokenIn")}</span>
                   <span className="text-fg">
-                    {formatTokens(u?.inputTokens ?? 0)}
+                    {formatTokens(usage?.input ?? 0)}
                   </span>
                 </div>
                 {cachePercent > 0 && (
                   <div className="flex justify-between gap-4 text-fg-3/60">
                     <span>{t("input.cacheHit")}</span>
-                    <span>{formatTokens(cachedInput)} ({cachePercent}%)</span>
+                    <span>{formatTokens(cacheRead)} ({cachePercent}%)</span>
                   </div>
                 )}
                 <div className="flex justify-between gap-4">
                   <span className="text-fg-3">{t("input.tokenOut")}</span>
                   <span className="text-fg">
-                    {formatTokens(u?.outputTokens ?? 0)}
+                    {formatTokens(usage?.output ?? 0)}
                   </span>
                 </div>
                 {cost !== null && (
@@ -88,9 +95,6 @@ function ModelInfoPopover({ node }: { node: TreeNode }) {
 
 // ── Agent Panel ───────────────────────────────
 
-const EMPTY_NODES: readonly TreeNode[] = [];
-const EMPTY_PATH: readonly string[] = [];
-
 export function AgentPanel() {
   const selection = useActiveSessionSelection();
   const state = useAgentState();
@@ -99,27 +103,23 @@ export function AgentPanel() {
     activeProjectSlug,
     selection.openSessionId,
   );
-  const nodes = sessionData?.nodes ?? EMPTY_NODES;
-  const activePath = sessionData?.activePath ?? EMPTY_PATH;
-  const nodeMap = new Map<string, TreeNode>();
-  for (const n of nodes) nodeMap.set(n.id, n);
+
+  const entries = sessionData?.entries ?? [];
+  const leafId = sessionData?.leafId ?? null;
+  const branch = selectBranch(entries, leafId);
+  const siblingsByEntry = buildSiblingsByEntry(entries);
+  const siblingsOf = (id: string) => siblingsByEntry.get(id) ?? [id];
 
   const { t } = useI18n();
-  const { switchBranch, setReplyTo, deleteNode } = useSession();
+  const { switchBranch, setReplyTo } = useSession();
   const { regenerate } = useStreaming();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activePath, state.streamingMessage]);
+  }, [leafId, state.streamingMessage]);
 
-  const getSiblings = (node: TreeNode): string[] => {
-    if (!node.parentId) return [node.id];
-    const parent = nodeMap.get(node.parentId);
-    return parent?.children ?? [node.id];
-  };
-
-  const groups = groupActivePath(activePath, nodeMap);
+  const groups = groupBranch(branch);
 
   if (!selection.openSessionId) {
     return (
@@ -137,17 +137,14 @@ export function AgentPanel() {
   const actions = {
     onSwitchBranch: switchBranch,
     onBranchFrom: setReplyTo,
-    onDelete: deleteNode,
     onRegenerate: regenerate,
   };
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Session tabs */}
       <SessionTabs />
 
-      {/* Reply-to banner */}
-      {selection.replyToNodeId && (
+      {selection.replyToEntryId && (
         <div className="px-3 py-2 bg-accent/5 border-b border-accent/10 flex items-center justify-between">
           <span className="text-[11px] text-accent tracking-wide flex items-center gap-1.5">
             <CornerUpLeft size={10} strokeWidth={2} />
@@ -162,44 +159,60 @@ export function AgentPanel() {
         </div>
       )}
 
-      {/* Messages */}
       <ScrollArea className="flex-1">
         <MessageActionsProvider
           switchBranch={switchBranch}
           branchFrom={setReplyTo}
-          deleteNode={deleteNode}
           regenerate={regenerate}
           isStreaming={state.isStreaming}
         >
           {groups.map((g) => {
             if (g.kind === "user") {
               return (
-                <MessageBubble
-                  key={g.node.id}
-                  node={g.node}
-                  siblings={getSiblings(g.node)}
+                <UserBubble
+                  key={g.entry.id}
+                  entry={g.entry}
+                  siblings={siblingsOf(g.entry.id)}
                   actions={actions}
                   isStreaming={state.isStreaming}
                   variant="compact"
                 />
               );
             }
-            const first = g.nodes[0];
+            if (g.kind === "skillLoad") {
+              return (
+                <SkillChipBubble
+                  key={g.entry.id}
+                  entry={g.entry}
+                  variant="compact"
+                />
+              );
+            }
+            if (g.kind === "compaction") {
+              return (
+                <CompactionBanner
+                  key={g.entry.id}
+                  entry={g.entry}
+                  variant="compact"
+                />
+              );
+            }
+            const first = g.entries[0];
             if (!first) return null;
-            const lastAssistant = [...g.nodes]
+            const lastAssistant = [...g.entries]
               .reverse()
-              .find((n) => n.message.role === "assistant");
+              .find((e) => e.message.role === "assistant");
             return (
               <AssistantTurnBubble
                 key={first.id}
-                nodes={g.nodes}
-                siblings={getSiblings(first)}
+                entries={g.entries}
+                siblings={siblingsOf(first.id)}
                 actions={actions}
                 isStreaming={state.isStreaming}
                 variant="compact"
                 footer={
                   lastAssistant && lastAssistant.message.role === "assistant" && lastAssistant.message.model
-                    ? <ModelInfoPopover node={lastAssistant} />
+                    ? <ModelInfoPopover entry={lastAssistant} />
                     : undefined
                 }
               />
@@ -209,7 +222,7 @@ export function AgentPanel() {
 
         <StreamingMessage variant="compact" />
 
-        {activePath.length === 0 && !state.isStreaming && (
+        {branch.length === 0 && !state.isStreaming && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-fg-3 tracking-wide">
               {t("chat.awaitingInput")}

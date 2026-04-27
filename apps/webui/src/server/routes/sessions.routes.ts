@@ -11,21 +11,28 @@ export function createSessionRoutes() {
     return c.json(await c.get("sessionService").list(slug));
   });
 
-  // Create session
-  // Optional body { mode } — client specifies session mode directly.
+  // Create session — body { mode? }
   app.post("/", async (c) => {
     const slug = c.req.param("slug")!;
-    const body = await c.req.json<{ mode?: "meta" }>().catch((): { mode?: "meta" } => ({}));
+    const body = await c.req
+      .json<{ mode?: "creative" | "meta" }>()
+      .catch((): { mode?: "creative" | "meta" } => ({}));
     return c.json(await c.get("sessionService").create(slug, body.mode), 201);
   });
 
-  // Load session tree
+  // Read session — query ?leafId= optional. Returns { info, entries, leafId }.
   app.get("/:id", async (c) => {
     const slug = c.req.param("slug")!;
     const id = c.req.param("id");
-    const result = await c.get("sessionService").get(slug, id);
-    if (!result) return c.json({ error: "Session not found" }, 404);
-    return c.json(result);
+    const leafIdParam = c.req.query("leafId");
+    const leafId = leafIdParam === undefined ? undefined : leafIdParam;
+    try {
+      const result = await c.get("sessionService").read(slug, id, leafId);
+      if (!result) return c.json({ error: "Session not found" }, 404);
+      return c.json(result);
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
+    }
   });
 
   // Delete session
@@ -36,74 +43,57 @@ export function createSessionRoutes() {
     return c.json({ ok: true });
   });
 
-  // Delete node (and all descendants)
-  app.delete("/:id/nodes/:nodeId", async (c) => {
+  // Rename session — body { leafId, name }. Appends a session_info entry.
+  app.post("/:id/rename", async (c) => {
     const slug = c.req.param("slug")!;
     const sessionId = c.req.param("id");
-    const nodeId = c.req.param("nodeId");
-
+    const { leafId, name } = await c.req.json<{ leafId: string | null; name: string }>();
     try {
-      const result = await c.get("sessionService").deleteSubtree(slug, sessionId, nodeId);
-      return c.json(result);
+      const entry = await c.get("sessionService").rename(slug, sessionId, leafId, name);
+      return c.json({ entry });
     } catch (e) {
-      return c.json({ error: e instanceof Error ? e.message : String(e) }, 404);
+      return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
     }
   });
 
-  // Send message (SSE stream)
+  // Send message (SSE stream) — body { leafId, text }
   app.post("/:id/messages", async (c) => {
     const slug = c.req.param("slug")!;
     const sessionId = c.req.param("id");
-    const { parentNodeId, text } =
-      await c.req.json<{ parentNodeId: string | null; text: string }>();
-    // c.req.raw.signal fires when the underlying HTTP connection drops —
-    // e.g. tab close, navigation, explicit fetch abort. We propagate it so
-    // pi-agent-core can cancel the in-flight LLM request and stop billing.
+    const { leafId, text } = await c.req.json<{ leafId: string | null; text: string }>();
     const signal = c.req.raw.signal;
 
     return streamSSE(c, async (stream) => {
-      await c.get("agentService").sendMessage(
-        stream, slug, sessionId, parentNodeId, text, signal,
-      );
+      await c.get("agentService").sendMessage(stream, slug, sessionId, leafId, text, signal);
     });
   });
 
-  // Regenerate response (SSE stream)
+  // Regenerate (SSE stream) — body { entryId } pointing at an assistant entry
   app.post("/:id/regenerate", async (c) => {
     const slug = c.req.param("slug")!;
     const sessionId = c.req.param("id");
-    const { userNodeId } = await c.req.json<{ userNodeId: string }>();
+    const { entryId } = await c.req.json<{ entryId: string }>();
     const signal = c.req.raw.signal;
 
     return streamSSE(c, async (stream) => {
-      await c.get("agentService").regenerate(stream, slug, sessionId, userNodeId, signal);
+      await c.get("agentService").regenerate(stream, slug, sessionId, entryId, signal);
     });
   });
 
-  // Full compact — summarize and continue in new session
+  // Compact — body { leafId? } — appends a CompactionEntry in-file
   app.post("/:id/compact", async (c) => {
     const slug = c.req.param("slug")!;
     const sessionId = c.req.param("id");
-
+    const body = await c.req
+      .json<{ leafId?: string | null }>()
+      .catch((): { leafId?: string | null } => ({}));
     try {
-      const result = await c.get("sessionService").compact(slug, sessionId);
-      if (!result) return c.json({ error: "Session not found" }, 404);
+      const result = await c.get("sessionService").compact(slug, sessionId, body.leafId);
       return c.json(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return c.json({ error: message }, 400);
     }
-  });
-
-  // Switch branch
-  app.post("/:id/branch", async (c) => {
-    const slug = c.req.param("slug")!;
-    const sessionId = c.req.param("id");
-    const { nodeId } = await c.req.json<{ nodeId: string }>();
-
-    const result = await c.get("sessionService").switchBranch(slug, sessionId, nodeId);
-    if (!result) return c.json({ error: "Node not found" }, 404);
-    return c.json(result);
   });
 
   return app;

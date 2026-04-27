@@ -1,78 +1,53 @@
-import type { TreeNode } from "./session.types.js";
+import type { SessionEntry } from "./session.types.js";
 
 /**
- * Splice a single node into a session tree (array-form), re-linking the
- * parent's `children` + `activeChildId`. The input array is not mutated.
- *
- * Used by the optimistic/write-through paths in `useStreaming` to mirror the
- * server's insert shape inside the SWR cache, so that re-renders see the
- * same tree the server will eventually return from `/sessions/:id`.
- *
- * Array order is NOT topological — consumers must index by id (e.g. nodeMap)
- * and traverse via `activePath` / `children`, never assume parents precede
- * children in the returned array.
+ * Splice entries into the array, replacing any existing entry with the same
+ * id (idempotent for stream replays). Append in order — the server is the
+ * source of truth for parentId, so we trust whatever it sends.
  */
-export function insertNode(nodes: readonly TreeNode[], node: TreeNode): TreeNode[] {
-  const byId = new Map<string, TreeNode>();
-  for (const n of nodes) byId.set(n.id, n);
-  byId.set(node.id, node);
-  if (node.parentId) {
-    const parent = byId.get(node.parentId);
-    if (parent) {
-      const children = parent.children ? [...parent.children] : [];
-      if (!children.includes(node.id)) children.push(node.id);
-      byId.set(parent.id, { ...parent, children, activeChildId: node.id });
+export function insertEntries(
+  entries: ReadonlyArray<SessionEntry>,
+  toInsert: ReadonlyArray<SessionEntry>,
+): SessionEntry[] {
+  if (toInsert.length === 0) return [...entries];
+  const seen = new Map<string, SessionEntry>();
+  for (const e of toInsert) seen.set(e.id, e);
+  const out: SessionEntry[] = [];
+  for (const e of entries) {
+    if (seen.has(e.id)) {
+      out.push(seen.get(e.id)!);
+      seen.delete(e.id);
+    } else {
+      out.push(e);
     }
   }
-  return [...byId.values()];
+  for (const e of seen.values()) out.push(e);
+  return out;
 }
 
 /**
- * Batch-insert version — constructs one Map, splices every node into it, then
- * materializes once. O(n + m) instead of `insertNode` called in a loop (which
- * is O(n*m)). Use this in `onAssistantNodes` where tool chains can deliver
- * 10+ nodes at once on top of an already-long session.
+ * Swap a temp (optimistic) entry id for the real one the server echoed back.
+ * Re-points any entries whose `parentId` referenced the temp id.
  */
-export function insertNodes(nodes: readonly TreeNode[], toInsert: readonly TreeNode[]): TreeNode[] {
-  if (toInsert.length === 0) return [...nodes];
-  const byId = new Map<string, TreeNode>();
-  for (const n of nodes) byId.set(n.id, n);
-  for (const node of toInsert) {
-    byId.set(node.id, node);
-    if (!node.parentId) continue;
-    const parent = byId.get(node.parentId);
-    if (!parent) continue;
-    const children = parent.children ? [...parent.children] : [];
-    if (!children.includes(node.id)) children.push(node.id);
-    byId.set(parent.id, { ...parent, children, activeChildId: node.id });
-  }
-  return [...byId.values()];
-}
-
-/**
- * Swap a temp (optimistic) node for the real one the server echoed back.
- * Updates parent's `children` / `activeChildId` pointers so nothing dangles.
- */
-export function replaceTempNode(
-  nodes: readonly TreeNode[],
+export function replaceTempEntry(
+  entries: ReadonlyArray<SessionEntry>,
   tempId: string,
-  real: TreeNode,
-): TreeNode[] {
-  const byId = new Map<string, TreeNode>();
-  for (const n of nodes) {
-    if (n.id === tempId) continue;
-    byId.set(n.id, n);
-  }
-  byId.set(real.id, real);
-  if (real.parentId) {
-    const parent = byId.get(real.parentId);
-    if (parent) {
-      const children = (parent.children ?? []).map((cid) =>
-        cid === tempId ? real.id : cid,
-      );
-      if (!children.includes(real.id)) children.push(real.id);
-      byId.set(parent.id, { ...parent, children, activeChildId: real.id });
+  real: SessionEntry,
+): SessionEntry[] {
+  const out: SessionEntry[] = [];
+  let appended = false;
+  for (const e of entries) {
+    if (e.id === tempId) {
+      out.push(real);
+      appended = true;
+      continue;
+    }
+    if (e.parentId === tempId) {
+      out.push({ ...e, parentId: real.id });
+    } else {
+      out.push(e);
     }
   }
-  return [...byId.values()];
+  if (!appended) out.push(real);
+  return out;
 }

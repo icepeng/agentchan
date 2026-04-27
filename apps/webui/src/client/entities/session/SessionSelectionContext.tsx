@@ -9,13 +9,13 @@ import {
 // --- Types ---
 
 /**
- * Per-project session selection — which session tab is open and which node
- * the user has picked as reply anchor. Coupled because reply anchor is only
- * meaningful within the currently open session (SET_ACTIVE_SESSION clears it).
+ * Per-project session selection — which session tab is open and which entry
+ * the user has picked as reply anchor. Coupled because the reply anchor is
+ * only meaningful within the currently open session (SET_ACTIVE_SESSION clears it).
  */
 export interface SessionSelection {
   openSessionId: string | null;
-  replyToNodeId: string | null;
+  replyToEntryId: string | null;
 }
 
 export interface SessionSelectionState {
@@ -24,14 +24,14 @@ export interface SessionSelectionState {
 
 export type SessionSelectionAction =
   | { type: "SET_ACTIVE_SESSION"; projectSlug: string; sessionId: string | null }
-  | { type: "SET_REPLY_TO"; projectSlug: string; nodeId: string | null }
+  | { type: "SET_REPLY_TO"; projectSlug: string; entryId: string | null }
   | { type: "CLEAR"; projectSlug: string };
 
 // --- Helpers ---
 
 export const EMPTY_SELECTION: SessionSelection = {
   openSessionId: null,
-  replyToNodeId: null,
+  replyToEntryId: null,
 };
 
 function updateSelection(
@@ -56,21 +56,21 @@ function reducer(
   switch (action.type) {
     case "SET_ACTIVE_SESSION":
       return updateSelection(state, action.projectSlug, (sel) =>
-        sel.openSessionId === action.sessionId && sel.replyToNodeId === null
+        sel.openSessionId === action.sessionId && sel.replyToEntryId === null
           ? sel
           : {
               ...sel,
               openSessionId: action.sessionId,
               // Reply anchor is scoped to the current session — clear on switch.
-              replyToNodeId: null,
+              replyToEntryId: null,
             },
       );
 
     case "SET_REPLY_TO":
       return updateSelection(state, action.projectSlug, (sel) =>
-        sel.replyToNodeId === action.nodeId
+        sel.replyToEntryId === action.entryId
           ? sel
-          : { ...sel, replyToNodeId: action.nodeId },
+          : { ...sel, replyToEntryId: action.entryId },
       );
 
     case "CLEAR": {

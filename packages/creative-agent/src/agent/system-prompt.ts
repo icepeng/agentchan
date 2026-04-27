@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { generateCatalog } from "../skills/catalog.js";
 import type { SkillRecord } from "../skills/types.js";
-import type { SessionMode } from "../session/format.js";
+import type { SessionMode } from "../session/index.js";
 
 const DEFAULT_SYSTEM_PROMPT = `You are a creative AI assistant with access to file tools and a skill system. You help users write fiction, design characters, build worlds, and bring creative projects to life. You work within a project directory, using tools to read, write, and organize files.
 

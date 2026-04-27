@@ -33,7 +33,7 @@ export function useSentenceAnimation(
       for (let i = prevCount; i < currentCount; i++) {
         newIndices.add(i);
       }
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 새 문장 확정 시 애니메이션 상태를 즉시 반영한다.
+       
       setAnimatingIndices(newIndices);
       animatedCountRef.current = currentCount;
 

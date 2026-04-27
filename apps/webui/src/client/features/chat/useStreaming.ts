@@ -12,17 +12,16 @@ import {
   useSessionSelectionState,
   selectSessionSelection,
   useSessionData,
-  insertNode,
-  insertNodes,
-  replaceTempNode,
+  insertEntries,
+  replaceTempEntry,
+  selectBranchMessages,
   sendMessage,
   regenerateResponse,
   registerAbortController,
   clearAbortController,
-  flattenActivePathToMessages,
   type SessionData,
-  type TreeNode,
-  type ClientMessage,
+  type SessionEntry,
+  type SessionMessageEntry,
   type SSECallbacks,
 } from "@/client/entities/session/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
@@ -33,18 +32,18 @@ import {
 } from "@/client/shared/notifications.js";
 import { useProject } from "@/client/features/project/useProject.js";
 
-function makeTempUserNode(text: string, parentId: string | null): TreeNode {
+function makeTempUserEntry(text: string, parentId: string | null): SessionMessageEntry {
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const message: ClientMessage = {
-    role: "user",
-    content: text,
-    timestamp: Date.now(),
-  };
   return {
+    type: "message",
     id: tempId,
     parentId,
-    message,
-    createdAt: Date.now(),
+    timestamp: new Date().toISOString(),
+    message: {
+      role: "user",
+      content: text,
+      timestamp: Date.now(),
+    },
   };
 }
 
@@ -54,8 +53,6 @@ export function useStreaming() {
   const agentDispatch = useAgentStateDispatch();
   const sessionSelectionState = useSessionSelectionState();
   const { t } = useI18n();
-  // Notification onClick needs a full project switch (sessions + skills SWR
-  // warm-up), not just a slug flip.
   const { selectProject } = useProject();
 
   const activeSlug = projectSelection.activeProjectSlug;
@@ -84,12 +81,12 @@ export function useStreaming() {
     selectProjectRef.current = selectProject;
   });
 
-  // SWR activePath change ≡ re-init (session / branch / project switch).
+  // Hydrate AgentState whenever the underlying session/branch changes.
   // Reducer guards HYDRATE while streaming, so events stay authoritative.
   const hydrateFromSession = useCallback(
     (projectSlug: string, data: SessionData) => {
       if (activeStateRef.current.isStreaming && projectSlug === activeSlug) return;
-      const messages = flattenActivePathToMessages(data.nodes, data.activePath);
+      const messages = selectBranchMessages(data.entries, data.leafId);
       agentDispatch({ type: "HYDRATE", projectSlug, messages });
     },
     [activeSlug, agentDispatch],
@@ -99,10 +96,10 @@ export function useStreaming() {
     hydrateFromSession(activeSlug, activeSessionData);
   }, [activeSlug, activeSessionData, hydrateFromSession]);
 
-  // projectSlug + sessionId captured in closure so cache writes and agent-state
-  // dispatches stay routed to the originating stream after a project switch.
-  // tempUserId: optimistic user-node id to replace on server echo; null for
-  // regenerate (no temp node).
+  /**
+   * SSE callback factory. `tempUserId` (when non-null) is the optimistic temp
+   * entry id we want the server's first echoed entry to replace.
+   */
   const makeCallbacks = useCallback(
     (projectSlug: string, sessionId: string, tempUserId: string | null): SSECallbacks => {
       const key = qk.session(projectSlug, sessionId);
@@ -138,36 +135,31 @@ export function useStreaming() {
         });
       };
 
+      // Track whether we've already consumed the temp swap (only for the very
+      // first persisted entry of a send flow). Subsequent batches just append.
+      let tempConsumed = tempUserId === null;
+
       return {
-        onUserNode: (realUserNode) => {
-          if (tempUserId) {
-            void globalMutate<SessionData>(
-              key,
-              (cur) => {
-                if (!cur) return cur;
-                return {
-                  ...cur,
-                  nodes: replaceTempNode(cur.nodes, tempUserId, realUserNode),
-                  activePath: cur.activePath.map((id) =>
-                    id === tempUserId ? realUserNode.id : id,
-                  ),
-                };
-              },
-              { revalidate: false },
-            );
-            return;
-          }
-          // Regenerate path / first message with no temp anchor: insert fresh.
+        onEntries: (entries: SessionEntry[]) => {
+          if (entries.length === 0) return;
           void globalMutate<SessionData>(
             key,
             (cur) => {
               if (!cur) return cur;
+              let next = cur.entries;
+              if (!tempConsumed && tempUserId) {
+                next = replaceTempEntry(next, tempUserId, entries[0]!);
+                if (entries.length > 1) {
+                  next = insertEntries(next, entries.slice(1));
+                }
+                tempConsumed = true;
+              } else {
+                next = insertEntries(next, entries);
+              }
               return {
                 ...cur,
-                nodes: insertNode(cur.nodes, realUserNode),
-                activePath: cur.activePath.includes(realUserNode.id)
-                  ? cur.activePath
-                  : [...cur.activePath, realUserNode.id],
+                entries: next,
+                leafId: entries[entries.length - 1]!.id,
               };
             },
             { revalidate: false },
@@ -175,25 +167,7 @@ export function useStreaming() {
         },
         onAgentEvent: (event) =>
           agentDispatch({ type: "AGENT_EVENT", projectSlug, event }),
-        onAssistantNodes: (nodes) => {
-          // Write-through so activePath updates synchronously; the HYDRATE
-          // effect then re-keys state.messages to tree-backed references.
-          void globalMutate<SessionData>(
-            key,
-            (cur) => {
-              if (!cur) return cur;
-              return {
-                ...cur,
-                nodes: insertNodes(cur.nodes, nodes),
-                activePath: [...cur.activePath, ...nodes.map((n) => n.id)],
-              };
-            },
-            { revalidate: false },
-          );
-        },
         onDone: () => {
-          // Revalidate to pick up server-side side effects (title, compact, …).
-          void globalMutate(key);
           void globalMutate(qk.sessions(projectSlug));
           fireBackgroundNotification("done");
         },
@@ -217,25 +191,19 @@ export function useStreaming() {
       const selection = selectSessionSelection(sel, projectSlug);
       const sid = sessionId ?? selection.openSessionId;
       if (!sid) return;
-
-      // Per-project concurrency guard: one in-flight stream per project.
       if (activeStateRef.current.isStreaming) return;
 
-      // Parent: explicit reply-to > last activePath node > null. Freshly-created
-      // sessions (`sessionId` passed in) have no prior activePath.
+      // leafId resolution: explicit fresh-session create > reply-to override > current cached leaf.
       const data = activeSessionDataRef.current;
-      const sameSession = data?.session.id === sid;
-      const lastActive = sameSession
-        ? data?.activePath[data.activePath.length - 1] ?? null
-        : null;
-      const parentNodeId = sessionId
+      const sameSession = data?.info.id === sid;
+      const cachedLeaf = sameSession ? data?.leafId ?? null : null;
+      const leafId = sessionId
         ? null
-        : selection.replyToNodeId ?? lastActive ?? null;
+        : selection.replyToEntryId ?? cachedLeaf;
 
-      // Optimistic user bubble — server persists the real node before streaming;
-      // `onUserNode` echoes back and we splice in the real id.
-      // `rollbackOnError: false`: keep the bubble on SSE break (server wrote it).
-      const tempNode = makeTempUserNode(text, parentNodeId);
+      // Optimistic temp user entry. Server echoes the persisted version on
+      // the first `entries_persisted` SSE row, where we'll splice in the real id.
+      const tempEntry = makeTempUserEntry(text, leafId);
       const key = qk.session(projectSlug, sid);
       const updated = await globalMutate<SessionData>(
         key,
@@ -243,8 +211,8 @@ export function useStreaming() {
           if (!cur) return cur;
           return {
             ...cur,
-            nodes: insertNode(cur.nodes, tempNode),
-            activePath: [...cur.activePath, tempNode.id],
+            entries: insertEntries(cur.entries, [tempEntry]),
+            leafId: tempEntry.id,
           };
         },
         { revalidate: false, rollbackOnError: false },
@@ -261,9 +229,9 @@ export function useStreaming() {
         await sendMessage(
           projectSlug,
           sid,
-          parentNodeId,
+          leafId,
           text,
-          makeCallbacks(projectSlug, sid, tempNode.id),
+          makeCallbacks(projectSlug, sid, tempEntry.id),
           controller.signal,
         );
       } finally {
@@ -273,18 +241,17 @@ export function useStreaming() {
     [agentDispatch, hydrateFromSession, makeCallbacks],
   );
 
-  const regenerate = async (userNodeId: string) => {
+  const regenerate = async (entryId: string) => {
     const p = projectSelectionRef.current;
     const sel = sessionSelectionStateRef.current;
     if (!p.activeProjectSlug) return;
     const projectSlug = p.activeProjectSlug;
     const selection = selectSessionSelection(sel, projectSlug);
     if (!selection.openSessionId) return;
-
     if (activeStateRef.current.isStreaming) return;
 
     const data = activeSessionDataRef.current;
-    if (data?.session.id === selection.openSessionId) {
+    if (data?.info.id === selection.openSessionId) {
       hydrateFromSession(projectSlug, data);
     }
     agentDispatch({ type: "START", projectSlug });
@@ -295,7 +262,7 @@ export function useStreaming() {
       await regenerateResponse(
         projectSlug,
         selection.openSessionId,
-        userNodeId,
+        entryId,
         makeCallbacks(projectSlug, selection.openSessionId, null),
         controller.signal,
       );

@@ -1,10 +1,7 @@
 // Domain types from creative-agent — imported once so they can be both
 // re-exported and referenced locally (e.g. in ServerConfig).
 import type {
-  TokenUsage,
-  TreeNode,
-  TreeNodeWithChildren,
-  Session,
+  AgentchanSessionInfo,
   ModelInfo,
   CustomApiFormat,
   ProviderInfo,
@@ -13,10 +10,7 @@ import type {
 } from "@agentchan/creative-agent";
 
 export type {
-  TokenUsage,
-  TreeNode,
-  TreeNodeWithChildren,
-  Session,
+  AgentchanSessionInfo,
   ModelInfo,
   CustomApiFormat,
   ProviderInfo,

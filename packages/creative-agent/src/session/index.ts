@@ -1,15 +1,49 @@
 /**
- * Session surface — pure data layer (no pi-ai, no LLM).
+ * Session surface — Pi-compatible JSONL entry graph.
  *
- * LLM-touching operations live in ../agent.
+ * Storage owns id/parentId/timestamp assignment.
+ * Branch is derived from leafId at read time, never persisted.
  */
 
 export type {
-  SessionSnapshot,
-  DeleteSubtreeResult,
-  SwitchBranchResult,
-  SessionStorage,
-  LoadedSession,
+  SessionEntry,
+  SessionEntryBase,
+  SessionMessageEntry,
+  SessionInfoEntry,
+  CompactionEntry,
+  CustomMessageEntry,
+  ModelChangeEntry,
+  SessionHeader,
+  SessionInfo,
+  AgentchanSessionHeader,
+  AgentchanSessionInfo,
+  SessionMode,
+} from "./types.js";
+
+export {
+  branchFromLeaf,
+  defaultLeafId,
+  siblingsOf,
+  buildAgentHistory,
+  SKILL_LOAD_CUSTOM_TYPE,
+} from "./branch.js";
+
+export {
+  buildSessionContext,
+  getLatestCompactionEntry,
+  parseSessionEntries,
+  migrateSessionEntries,
+  CURRENT_SESSION_VERSION,
+} from "@mariozechner/pi-coding-agent";
+
+export type { SessionContext, FileEntry } from "@mariozechner/pi-coding-agent";
+
+export { readSessionFile, serializeEntry } from "./format.js";
+
+export {
+  createSessionStorage,
+  type SessionStorage,
+  type SessionFileSnapshot,
+  type DraftEntry,
+  type CreateSessionOpts,
 } from "./storage.js";
-export { createSessionStorage } from "./storage.js";
-export type { SessionMode } from "./format.js";

@@ -1,299 +1,282 @@
-import { appendFile, readFile, mkdir, unlink, writeFile, readdir } from "node:fs/promises";
+/**
+ * JSONL session storage — Pi-compatible header + entry lines.
+ *
+ * - Branch is derived from leafId at read time, never persisted.
+ * - Storage assigns id, parentId, timestamp; callers describe entries only.
+ * - List/read scan whole files; index/manifest is intentionally absent.
+ */
+
+import { appendFile, mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join, basename } from "node:path";
-import { nanoid } from "nanoid";
-import type { TreeNode, TreeNodeWithChildren, Session } from "../types.js";
-import {
-  computeActivePath,
-  switchBranch as switchBranchInTree,
-} from "./tree.js";
-import {
-  CURRENT_SESSION_VERSION,
-  type SessionHeader,
-  type SessionMode,
-  type BranchMarker,
-  type ParsedSession,
-  parseSessionFile,
-  buildTreeMap,
-  deriveSession,
-  serializeSession,
-} from "./format.js";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+
+import { CURRENT_SESSION_VERSION } from "@mariozechner/pi-coding-agent";
+import type { Message, TextContent } from "@mariozechner/pi-ai";
+
+import { readSessionFile, serializeEntry } from "./format.js";
+import type {
+  AgentchanSessionHeader,
+  AgentchanSessionInfo,
+  SessionEntry,
+  SessionEntryBase,
+  SessionMessageEntry,
+  SessionMode,
+} from "./types.js";
 
 // --- Public types ---
 
-export interface LoadedSession {
-  session: Session;
-  tree: Map<string, TreeNodeWithChildren>;
-  activePath: string[];
+export interface SessionFileSnapshot {
+  info: AgentchanSessionInfo;
+  entries: SessionEntry[];
 }
 
-export interface SessionSnapshot {
-  session: Session;
-  nodes: TreeNodeWithChildren[];
-  activePath: string[];
-}
+/** Caller-provided draft entry — storage assigns id, parentId, timestamp. */
+export type DraftEntry =
+  | Omit<SessionMessageEntry, keyof SessionEntryBase> & { type: "message" }
+  | Omit<SessionEntry, keyof SessionEntryBase>;
 
-export interface DeleteSubtreeResult {
-  rootNodeId: string;
-  activeLeafId: string;
-  activePath: string[];
+export interface CreateSessionOpts {
+  cwd?: string;
+  mode?: SessionMode;
+  parentSession?: string;
 }
-
-export interface SwitchBranchResult {
-  activePath: string[];
-  activeLeafId: string;
-}
-
-// --- Storage interface ---
 
 export interface SessionStorage {
-  // Session CRUD
-  listSessions(projectSlug: string): Promise<Session[]>;
-  getSession(projectSlug: string, id: string): Promise<Session | null>;
-  loadSessionWithTree(projectSlug: string, id: string): Promise<LoadedSession | null>;
-  loadSnapshot(projectSlug: string, id: string): Promise<SessionSnapshot | null>;
-  createSession(projectSlug: string, provider: string, model: string, compactedFrom?: string, mode?: SessionMode): Promise<Session>;
-  deleteSession(projectSlug: string, id: string): Promise<void>;
-
-  // Tree node operations
-  appendNode(projectSlug: string, sessionId: string, node: TreeNode): Promise<void>;
-  appendNodes(projectSlug: string, sessionId: string, nodes: TreeNode[]): Promise<void>;
-  deleteSubtree(
-    projectSlug: string,
+  listSessions(slug: string): Promise<AgentchanSessionInfo[]>;
+  readSession(slug: string, id: string, leafId?: string | null): Promise<{
+    info: AgentchanSessionInfo;
+    entries: SessionEntry[];
+    leafId: string | null;
+  } | null>;
+  createSession(slug: string, opts?: CreateSessionOpts): Promise<AgentchanSessionInfo>;
+  deleteSession(slug: string, id: string): Promise<void>;
+  /**
+   * Append entries as children of `leafId`. Storage assigns ids and links
+   * each entry's parentId to the previous one in the array (first entry's
+   * parent is `leafId`). Throws if `leafId` is non-null and not found.
+   */
+  appendAtLeaf(
+    slug: string,
     sessionId: string,
-    nodeId: string,
-  ): Promise<DeleteSubtreeResult>;
-  switchBranch(
-    projectSlug: string,
-    sessionId: string,
-    nodeId: string,
-  ): Promise<SwitchBranchResult | null>;
+    leafId: string | null,
+    drafts: ReadonlyArray<DraftEntry>,
+  ): Promise<SessionEntry[]>;
 }
 
-// --- JSONL Implementation ---
+// --- Implementation ---
 
 export function createSessionStorage(projectsDir: string): SessionStorage {
-  // Path helpers
-  function sessionsDir(projectSlug: string): string {
-    return join(projectsDir, projectSlug, "sessions");
-  }
+  const sessionsDir = (slug: string) => join(projectsDir, slug, "sessions");
+  const sessionPath = (slug: string, id: string) =>
+    join(sessionsDir(slug), `${id}.jsonl`);
 
-  function sessionPath(projectSlug: string, id: string): string {
-    return join(sessionsDir(projectSlug), `${id}.jsonl`);
-  }
-
-  async function ensureSessionsDir(slug: string): Promise<void> {
+  async function ensureDir(slug: string): Promise<void> {
     await mkdir(sessionsDir(slug), { recursive: true });
   }
 
-  async function appendJsonLines(path: string, items: unknown[]): Promise<void> {
-    const body = items.map((item) => JSON.stringify(item) + "\n").join("");
-    await appendFile(path, body);
-  }
-
-  async function writeNodeLines(
-    projectSlug: string,
-    sessionId: string,
-    nodes: TreeNode[],
-  ): Promise<void> {
-    await ensureSessionsDir(projectSlug);
-    await appendJsonLines(sessionPath(projectSlug, sessionId), nodes);
-  }
-
-  /** Read, parse, and build tree from a single session file. */
-  async function readFull(projectSlug: string, id: string): Promise<(ParsedSession & { tree: Map<string, TreeNodeWithChildren> }) | null> {
-    const path = sessionPath(projectSlug, id);
+  async function readWithStat(filePath: string): Promise<{
+    snapshot: { header: AgentchanSessionHeader; entries: SessionEntry[] };
+    modified: Date;
+  } | null> {
+    const snapshot = await readSessionFile(filePath);
+    if (!snapshot) return null;
+    let modified: Date;
     try {
-      const content = await readFile(path, "utf-8");
-      const parsed = parseSessionFile(content);
-      const tree = buildTreeMap(parsed.nodes);
-      return { ...parsed, tree };
+      modified = (await stat(filePath)).mtime;
     } catch {
-      return null;
+      modified = new Date();
     }
+    return { snapshot, modified };
+  }
+
+  function buildInfo(
+    filePath: string,
+    header: AgentchanSessionHeader,
+    entries: SessionEntry[],
+    statsMtime: Date,
+  ): AgentchanSessionInfo {
+    let messageCount = 0;
+    let firstMessageText = "";
+    const allMessageTexts: string[] = [];
+    let name: string | undefined;
+    let lastEntryTimestamp: string | undefined;
+
+    for (const entry of entries) {
+      lastEntryTimestamp = entry.timestamp;
+      if (entry.type === "session_info") {
+        const trimmed = (entry).name?.trim();
+        name = trimmed || undefined;
+        continue;
+      }
+      if (entry.type !== "message") continue;
+      messageCount++;
+      const message = (entry).message;
+      if (!message || typeof (message as { role?: unknown }).role !== "string") continue;
+      if ((message as Message).role !== "user" && (message as Message).role !== "assistant") continue;
+      const text = extractText(message as Message);
+      if (!text) continue;
+      allMessageTexts.push(text);
+      if (!firstMessageText && (message as Message).role === "user") {
+        firstMessageText = text;
+      }
+    }
+
+    const created = new Date(header.timestamp);
+    const modified = lastEntryTimestamp
+      ? new Date(lastEntryTimestamp)
+      : statsMtime;
+
+    const id = header.id;
+    const title = name ?? truncate(firstMessageText) ?? "New session";
+    const mode: SessionMode = header.mode === "meta" ? "meta" : "creative";
+
+    return {
+      path: filePath,
+      id,
+      cwd: header.cwd ?? "",
+      name,
+      ...(header.parentSession ? { parentSessionPath: header.parentSession } : {}),
+      created,
+      modified,
+      messageCount,
+      firstMessage: firstMessageText || "(no messages)",
+      allMessagesText: allMessageTexts.join(" "),
+      mode,
+      title,
+    };
+  }
+
+  function generateEntryId(byId: Map<string, unknown>): string {
+    for (let i = 0; i < 100; i++) {
+      const id = randomUUID().slice(0, 8);
+      if (!byId.has(id)) return id;
+    }
+    return randomUUID();
   }
 
   return {
-    async listSessions(projectSlug: string): Promise<Session[]> {
-      const dir = sessionsDir(projectSlug);
+    async listSessions(slug) {
+      const dir = sessionsDir(slug);
       if (!existsSync(dir)) return [];
-
-      const entries = await readdir(dir);
-      const jsonlFiles = entries.filter((f) => f.endsWith(".jsonl"));
-
+      const dirEntries = await readdir(dir);
+      const files = dirEntries.filter((f) => f.endsWith(".jsonl"));
       const results = await Promise.all(
-        jsonlFiles.map(async (file) => {
-          const id = basename(file, ".jsonl");
-          const data = await readFull(projectSlug, id);
+        files.map(async (file) => {
+          const filePath = join(dir, file);
+          const data = await readWithStat(filePath);
           if (!data) return null;
-          return deriveSession(id, data.header, data.nodes, data.tree);
+          return buildInfo(filePath, data.snapshot.header, data.snapshot.entries, data.modified);
         }),
       );
-
       return results
-        .filter((s): s is Session => s !== null)
-        .sort((a, b) => b.updatedAt - a.updatedAt);
+        .filter((s): s is AgentchanSessionInfo => s !== null)
+        .sort((a, b) => b.modified.getTime() - a.modified.getTime());
     },
 
-    async getSession(projectSlug: string, id: string): Promise<Session | null> {
-      const data = await readFull(projectSlug, id);
+    async readSession(slug, id, leafId) {
+      const filePath = sessionPath(slug, id);
+      const data = await readWithStat(filePath);
       if (!data) return null;
-      return deriveSession(id, data.header, data.nodes, data.tree);
-    },
+      const { header, entries } = data.snapshot;
+      const info = buildInfo(filePath, header, entries, data.modified);
 
-    async loadSessionWithTree(projectSlug: string, id: string): Promise<LoadedSession | null> {
-      const data = await readFull(projectSlug, id);
-      if (!data) return null;
-      const session = deriveSession(id, data.header, data.nodes, data.tree);
-      const activePath = session.rootNodeId ? computeActivePath(data.tree, session.rootNodeId) : [];
-      return { session, tree: data.tree, activePath };
-    },
-
-    async loadSnapshot(projectSlug: string, id: string): Promise<SessionSnapshot | null> {
-      const loaded = await this.loadSessionWithTree(projectSlug, id);
-      if (!loaded) return null;
-      return {
-        session: loaded.session,
-        nodes: [...loaded.tree.values()],
-        activePath: loaded.activePath,
-      };
-    },
-
-    async createSession(
-      projectSlug: string,
-      provider: string,
-      model: string,
-      compactedFrom?: string,
-      mode?: SessionMode,
-    ): Promise<Session> {
-      await ensureSessionsDir(projectSlug);
-      const id = nanoid(12);
-      const now = Date.now();
-
-      const header: SessionHeader = {
-        _header: true, version: CURRENT_SESSION_VERSION, createdAt: now, provider, model,
-        ...(compactedFrom ? { compactedFrom } : {}),
-        ...(mode ? { mode } : {}),
-      };
-      await writeFile(sessionPath(projectSlug, id), JSON.stringify(header) + "\n");
-
-      return {
-        id,
-        title: "New session",
-        createdAt: now,
-        updatedAt: now,
-        rootNodeId: "",
-        activeLeafId: "",
-        provider,
-        model,
-        ...(compactedFrom ? { compactedFrom } : {}),
-        ...(mode ? { mode } : {}),
-      };
-    },
-
-    async deleteSession(projectSlug: string, id: string): Promise<void> {
-      try {
-        await unlink(sessionPath(projectSlug, id));
-      } catch { /* ignore ENOENT */ }
-    },
-
-    async appendNode(projectSlug: string, sessionId: string, node: TreeNode): Promise<void> {
-      await writeNodeLines(projectSlug, sessionId, [node]);
-    },
-
-    async appendNodes(projectSlug: string, sessionId: string, nodes: TreeNode[]): Promise<void> {
-      if (nodes.length === 0) return;
-      await writeNodeLines(projectSlug, sessionId, nodes);
-    },
-
-    async deleteSubtree(
-      projectSlug: string,
-      sessionId: string,
-      nodeId: string,
-    ): Promise<{ rootNodeId: string; activeLeafId: string; activePath: string[] }> {
-      // Single file read: parse header + build tree
-      const path = sessionPath(projectSlug, sessionId);
-      const content = await readFile(path, "utf-8");
-      const { headerLine, nodes } = parseSessionFile(content);
-      const tree = buildTreeMap(nodes);
-
-      const target = tree.get(nodeId);
-      if (!target) throw new Error(`Node not found: ${nodeId}`);
-
-      const toRemove = collectDescendants(tree, nodeId);
-
-      if (target.parentId) {
-        const parent = tree.get(target.parentId);
-        if (parent) {
-          parent.children = parent.children.filter((id) => !toRemove.has(id));
-          if (parent.activeChildId && toRemove.has(parent.activeChildId)) {
-            parent.activeChildId =
-              parent.children.length > 0
-                ? parent.children[parent.children.length - 1]
-                : undefined;
-          }
+      let resolved: string | null;
+      if (leafId === undefined) {
+        resolved = entries.length > 0 ? entries[entries.length - 1]!.id : null;
+      } else if (leafId === null) {
+        resolved = null;
+      } else {
+        if (!entries.some((e) => e.id === leafId)) {
+          throw new Error(`Invalid leafId: ${leafId} not found in session ${id}`);
         }
+        resolved = leafId;
       }
-
-      for (const id of toRemove) {
-        tree.delete(id);
-      }
-
-      if (tree.size === 0) {
-        await writeFile(path, headerLine ? headerLine + "\n" : "", "utf-8");
-        return { rootNodeId: "", activeLeafId: "", activePath: [] };
-      }
-
-      await writeFile(path, serializeSession(headerLine, tree), "utf-8");
-
-      const rootNode = [...tree.values()].find((n) => !n.parentId);
-      const rootNodeId = rootNode?.id ?? "";
-
-      const activePath = rootNodeId ? computeActivePath(tree, rootNodeId) : [];
-      const activeLeafId = activePath[activePath.length - 1] ?? "";
-
-      return { rootNodeId, activeLeafId, activePath };
+      return { info, entries, leafId: resolved };
     },
 
-    async switchBranch(
-      projectSlug: string,
-      sessionId: string,
-      nodeId: string,
-    ): Promise<SwitchBranchResult | null> {
-      const loaded = await this.loadSessionWithTree(projectSlug, sessionId);
-      if (!loaded) return null;
-      const tree = loaded.tree;
-      if (!tree.has(nodeId)) return null;
+    async createSession(slug, opts = {}) {
+      await ensureDir(slug);
+      const id = randomUUID();
+      const now = new Date().toISOString();
+      const header: AgentchanSessionHeader = {
+        type: "session",
+        version: CURRENT_SESSION_VERSION,
+        id,
+        timestamp: now,
+        cwd: opts.cwd ?? "",
+        ...(opts.parentSession ? { parentSession: opts.parentSession } : {}),
+        ...(opts.mode ? { mode: opts.mode } : {}),
+      };
+      const filePath = sessionPath(slug, id);
+      await writeFile(filePath, serializeEntry(header));
+      const stats = await stat(filePath);
+      return buildInfo(filePath, header, [], stats.mtime);
+    },
 
-      const { updatedNodes, newLeafId } = switchBranchInTree(tree, nodeId);
-      const markers = updatedNodes
-        .filter((n) => n.activeChildId)
-        .map((n): BranchMarker => ({ _marker: "branch", nodeId: n.id, activeChildId: n.activeChildId! }));
-      if (markers.length > 0) {
-        const path = sessionPath(projectSlug, sessionId);
-        await appendJsonLines(path, markers);
+    async deleteSession(slug, id) {
+      try {
+        await unlink(sessionPath(slug, id));
+      } catch {
+        // ignore ENOENT
+      }
+    },
+
+    async appendAtLeaf(slug, sessionId, leafId, drafts) {
+      if (drafts.length === 0) return [];
+      const filePath = sessionPath(slug, sessionId);
+      const data = await readSessionFile(filePath);
+      if (!data) {
+        throw new Error(`Session not found: ${slug}/${sessionId}`);
+      }
+      const { entries } = data;
+
+      // Validate leaf exists if specified.
+      const byId = new Map<string, SessionEntry>();
+      for (const e of entries) byId.set(e.id, e);
+      if (leafId !== null && !byId.has(leafId)) {
+        throw new Error(`Invalid leafId: ${leafId} not found in session ${sessionId}`);
       }
 
-      const { rootNodeId } = loaded.session;
-      const activePath = rootNodeId ? computeActivePath(tree, rootNodeId) : [];
-      return { activePath, activeLeafId: newLeafId };
+      // Issue ids and link parent chain.
+      const persisted: SessionEntry[] = [];
+      let parentId: string | null = leafId;
+      const now = new Date().toISOString();
+      for (const draft of drafts) {
+        const entryId = generateEntryId(byId);
+        const persistedEntry = {
+          ...(draft as SessionEntry),
+          id: entryId,
+          parentId,
+          timestamp: now,
+        };
+        persisted.push(persistedEntry);
+        byId.set(entryId, persistedEntry);
+        parentId = entryId;
+      }
+
+      // Append all lines in one write.
+      const body = persisted.map((e) => serializeEntry(e)).join("");
+      await appendFile(filePath, body);
+      return persisted;
     },
   };
 }
 
-function collectDescendants(
-  nodes: Map<string, TreeNodeWithChildren>,
-  nodeId: string,
-): Set<string> {
-  const toRemove = new Set<string>();
-  const queue = [nodeId];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    toRemove.add(id);
-    const node = nodes.get(id);
-    if (node) {
-      queue.push(...node.children);
-    }
-  }
-  return toRemove;
+// --- Helpers ---
+
+function extractText(message: Message): string {
+  const content = message.content;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((b): b is TextContent => b.type === "text")
+    .map((b) => b.text)
+    .join(" ");
+}
+
+function truncate(text: string): string | undefined {
+  const trimmed = text.trim().replace(/\n+/g, " ");
+  if (!trimmed) return undefined;
+  return trimmed.length > 50 ? trimmed.slice(0, 50) + "..." : trimmed;
 }
