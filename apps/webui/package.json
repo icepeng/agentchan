@@ -14,8 +14,7 @@
     "build:exe": "bun run scripts/build-exe.ts",
     "build:exe:linux": "bun run scripts/build-exe.ts --target=bun-linux-x64",
     "build:exe:mac": "bun run scripts/build-exe.ts --target=bun-darwin-arm64",
-    "build:exe:win": "bun run scripts/build-exe.ts --target=bun-windows-x64",
-    "lint": "eslint src/"
+    "build:exe:win": "bun run scripts/build-exe.ts --target=bun-windows-x64"
   },
   "dependencies": {
     "@agentchan/creative-agent": "workspace:*",

@@ -31,6 +31,7 @@ export function useOnboarding() {
 
   // Decide once whether to open the wizard, the moment SWR resolves the status.
   // Re-firing on later refetches would reopen the wizard mid-session.
+  /* oxlint-disable react-hooks-js/set-state-in-effect -- onboarding opens once after persisted status resolves. */
   useEffect(() => {
     if (decided || status === undefined) return;
     const forceShow = new URLSearchParams(window.location.search).has("onboarding");
@@ -39,6 +40,7 @@ export function useOnboarding() {
     }
     setDecided(true);
   }, [status, decided]);
+  /* oxlint-enable react-hooks-js/set-state-in-effect */
 
   const ready = decided;
   const hasAnyKey = Object.values(apiKeys).some((v) => v !== "");
