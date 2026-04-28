@@ -7,7 +7,7 @@ webui 클라이언트가 프로젝트 페이지에서 renderer를 mount하고 li
 
 ```
 RenderedView (orchestrator)
-  ├── useRendererSurfaceMachine     ── State Machine
+  ├── useRendererSurfaceMachine     ── State Machine (use-surface-machine/)
   │       ├── transitions           ── status -> CSS class, fade timing
   │       └── theme-identity        ── theme 함수 평가 + identity 비교
   └── ShadowShell                   ── ShadowRoot Shell (DOM 격리 캡슐)
@@ -27,7 +27,7 @@ useRendererOutput (entities/renderer)
 | Snapshot Binder | `entities/renderer/snapshot/` | `buildRendererSnapshot`, `toRendererAgentState`, `reuseStableFiles` |
 | Theme Resolver | `entities/renderer/theme/` | `validateTheme`, `resolveThemeVars` |
 | ShadowRoot Shell | `features/project/renderer-surface/ShadowShell.tsx`, `shadow-runtime.ts` | `ShadowShell`, `ShadowShellHandle`, `getShadowRuntime` |
-| State Machine | `features/project/renderer-surface/use-host-machine/` | `useRendererSurfaceMachine` |
+| State Machine | `features/project/renderer-surface/use-surface-machine/` | `useRendererSurfaceMachine` |
 
 ## 어휘 규칙 (G1 이후)
 
@@ -52,7 +52,7 @@ stable -> fading-out -> waiting-for-import -> applying-theme -> mounting -> fadi
   뒤에 적용한다.
 - Mount는 `applying-theme` 윈도우(300ms) 후에 일어난다.
 - Fade duration은 `transitions.ts`의 `FADE_OUT_MS`(300), `THEME_TRANSITION_MS`(300),
-  `FADE_IN_MS`(180).
+  `FADE_IN_MS`(200). CSS `duration-200`과 동기화.
 
 ## 불변 사항
 
@@ -70,4 +70,5 @@ stable -> fading-out -> waiting-for-import -> applying-theme -> mounting -> fadi
 - `theme/__tests__/resolve.test.ts`
 - `theme/__tests__/validate.test.ts`
 - `bundle/__tests__/sameBundle.test.ts`
-- `use-host-machine/__tests__/transitions.test.ts`
+- `snapshot/__tests__/toSnapshot.test.ts`
+- `use-surface-machine/__tests__/class-for-status.test.ts`

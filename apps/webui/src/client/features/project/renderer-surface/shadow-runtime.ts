@@ -1,15 +1,12 @@
 import type {
   RendererActions,
-  RendererSnapshot,
-} from "@/client/entities/renderer/index.js";
-import type {
   RendererInstance,
   RendererModule,
-} from "@/client/entities/renderer/bundle/index.js";
+  RendererSnapshot,
+} from "@/client/entities/renderer/index.js";
 
 export interface ShadowShellHandle {
   clear: () => void;
-  hasContent: () => boolean;
   renderModule: (
     mod: RendererModule,
     actions: RendererActions,

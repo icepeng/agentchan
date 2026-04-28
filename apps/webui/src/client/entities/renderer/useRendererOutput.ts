@@ -5,6 +5,7 @@ import {
   fetchWorkspaceFiles,
   fetchRendererBundle,
 } from "@/client/entities/project/index.js";
+import { errorMessage } from "@/client/shared/errors.js";
 import { sameBundle } from "./bundle/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import { buildRendererSnapshot, toRendererAgentState } from "./snapshot/index.js";
@@ -14,11 +15,6 @@ interface LoadedRenderer {
   slug: string;
   bundle: RendererBundle;
   snapshot: RendererSnapshot;
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }
 
 export function useRendererOutput() {

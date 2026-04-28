@@ -1,5 +1,4 @@
 export {
-  FADE_DURATION_MS,
   importRendererModule,
   type RendererBridge,
   type RendererInstance,

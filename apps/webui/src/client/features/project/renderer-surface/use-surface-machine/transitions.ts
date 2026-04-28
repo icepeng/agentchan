@@ -1,4 +1,4 @@
-export type HostStatus =
+export type SurfaceStatus =
   | "stable"
   | "fading-out"
   | "waiting-for-import"
@@ -9,14 +9,9 @@ export type HostStatus =
 
 export const FADE_OUT_MS = 300;
 export const THEME_TRANSITION_MS = 300;
-export const FADE_IN_MS = 180;
+export const FADE_IN_MS = 200;
 
-export function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-export function classForStatus(status: HostStatus): string {
+export function classForStatus(status: SurfaceStatus): string {
   const base = "relative z-10 h-full min-h-full";
   switch (status) {
     case "fading-out":

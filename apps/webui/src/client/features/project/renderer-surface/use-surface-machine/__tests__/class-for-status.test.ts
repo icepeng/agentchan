@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { classForStatus, errorMessage, type HostStatus } from "../transitions.js";
+import { classForStatus, type SurfaceStatus } from "../transitions.js";
 
 describe("classForStatus", () => {
-  const STATUS_TABLE: Record<HostStatus, { opacity: string; transition: string }> = {
+  const STATUS_TABLE: Record<SurfaceStatus, { opacity: string; transition: string }> = {
     "stable": { opacity: "opacity-100", transition: "transition-none" },
     "fading-out": { opacity: "opacity-0", transition: "transition-opacity" },
     "waiting-for-import": { opacity: "opacity-0", transition: "transition-none" },
@@ -14,7 +14,7 @@ describe("classForStatus", () => {
 
   for (const [status, expected] of Object.entries(STATUS_TABLE)) {
     test(`${status} -> includes ${expected.opacity} and ${expected.transition}`, () => {
-      const cls = classForStatus(status as HostStatus);
+      const cls = classForStatus(status as SurfaceStatus);
       expect(cls).toContain(expected.opacity);
       expect(cls).toContain(expected.transition);
       expect(cls).toContain("relative z-10 h-full min-h-full");
@@ -33,17 +33,5 @@ describe("classForStatus", () => {
   test("non-fade statuses do not declare a transition duration", () => {
     expect(classForStatus("stable")).not.toContain("duration-");
     expect(classForStatus("mounting")).not.toContain("duration-");
-  });
-});
-
-describe("errorMessage", () => {
-  test("Error instance -> message", () => {
-    expect(errorMessage(new Error("boom"))).toBe("boom");
-  });
-
-  test("non-Error -> stringified", () => {
-    expect(errorMessage("oops")).toBe("oops");
-    expect(errorMessage(42)).toBe("42");
-    expect(errorMessage(null)).toBe("null");
   });
 });

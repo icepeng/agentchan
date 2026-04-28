@@ -28,7 +28,6 @@ export function ShadowShell({ className, register }: ShadowShellProps) {
       runtime.unmountTimer = null;
     }
     const { shadowRoot } = runtime;
-    let hasContent = false;
 
     const handle: ShadowShellHandle = {
       clear() {
@@ -36,10 +35,6 @@ export function ShadowShell({ className, register }: ShadowShellProps) {
         runtime.instance = null;
         runtime.mount.replaceChildren();
         clearRendererStyles(shadowRoot);
-        hasContent = false;
-      },
-      hasContent() {
-        return hasContent;
       },
       renderModule(mod, actions, snapshot) {
         runtime.instance?.unmount();
@@ -53,7 +48,6 @@ export function ShadowShell({ className, register }: ShadowShellProps) {
           );
         }
         runtime.instance = instance;
-        hasContent = true;
       },
       setCss(css) {
         clearRendererStyles(shadowRoot);

@@ -1,9 +1,9 @@
 import {
   validateTheme,
+  type RendererModule,
   type RendererSnapshot,
   type RendererTheme,
 } from "@/client/entities/renderer/index.js";
-import type { RendererModule } from "@/client/entities/renderer/bundle/index.js";
 
 export function evaluateTheme(
   mod: RendererModule,

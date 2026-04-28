@@ -11,7 +11,7 @@ import {
 } from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { ShadowShell, type ShadowShellHandle } from "./ShadowShell.js";
-import { useRendererSurfaceMachine } from "./use-host-machine/index.js";
+import { useRendererSurfaceMachine } from "./use-surface-machine/index.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 
@@ -23,13 +23,8 @@ export function RenderedView() {
   const { refresh, refreshState } = useRendererOutput();
   const actionDispatch = useRendererActionDispatch();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [layerHandle, setLayerHandle] = useState<ShadowShellHandle | null>(null);
+  const [shellHandle, setShellHandle] = useState<ShadowShellHandle | null>(null);
   const stateRef = useRef(state);
-
-  // Stable identity here is semantic: child ShadowRoot effects depend on it.
-  const registerLayer = useCallback((handle: ShadowShellHandle | null) => {
-    setLayerHandle(handle);
-  }, []);
 
   const onTheme = useCallback(
     (theme: RendererTheme | null) => rendererViewDispatch({ type: "SET_THEME", theme }),
@@ -93,32 +88,30 @@ export function RenderedView() {
     return () => cancelAnimationFrame(raf);
   }, [state.isStreaming, refreshState]);
 
-  const host = useRendererSurfaceMachine({
+  const { shellClassName, visibleError } = useRendererSurfaceMachine({
     actions,
     activeProjectSlug: project.activeProjectSlug,
     bundle: rendererView.bundle,
     snapshot: rendererView.snapshot,
     error: rendererView.error,
-    layerHandle,
+    shellHandle,
     onImportError: handleRendererError,
     onTheme,
   });
-
-  const error = host.visibleError;
 
   return (
     <div data-renderer-surface className="relative flex-1 flex flex-col min-h-0">
       <ScrollArea ref={containerRef} className="flex-1">
         <div className="relative h-full min-h-full">
           <ShadowShell
-            register={registerLayer}
-            className={host.layerClassName}
+            register={setShellHandle}
+            className={shellClassName}
           />
         </div>
-        {error ? (
+        {visibleError ? (
           <div className="p-4 text-sm text-danger font-mono whitespace-pre-wrap">
             <p>Renderer error:</p>
-            <pre className="mt-2 text-xs whitespace-pre-wrap">{error}</pre>
+            <pre className="mt-2 text-xs whitespace-pre-wrap">{visibleError}</pre>
           </div>
         ) : null}
       </ScrollArea>
