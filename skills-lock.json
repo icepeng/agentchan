@@ -12,6 +12,12 @@
       "skillPath": "design-an-interface/SKILL.md",
       "computedHash": "f3f225914515407b8224e8ec6187db337c5e65bad0703936a0acb3f802947a7d"
     },
+    "diagnose": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/diagnose/SKILL.md",
+      "computedHash": "1c3c85517ac42116fe5f2bfb5150f7b3e38ad23808e40b33fbb01f1afb611983"
+    },
     "domain-model": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -21,14 +27,20 @@
     "grill-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "grill-me/SKILL.md",
+      "skillPath": "skills/productivity/grill-me/SKILL.md",
       "computedHash": "daf64ca15f4fa081a6747766db538e2dbd1131725ed4fcdd3d538dc62c7035ba"
+    },
+    "grill-with-docs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
+      "computedHash": "9af5586344afb431269b49915947218c06852781ddaa4f6d65f746240f645703"
     },
     "improve-codebase-architecture": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "improve-codebase-architecture/SKILL.md",
-      "computedHash": "2828d4c948b234731c11322985f05f2ba02f5816ed0c48b6dd5914b025d63ff1"
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "2da1d23b8f53cfe67f2e0b68924ab9f4ec400bb6480de097007eeaeb517d1722"
     },
     "request-refactor-plan": {
       "source": "mattpocock/skills",
@@ -36,23 +48,35 @@
       "skillPath": "request-refactor-plan/SKILL.md",
       "computedHash": "6811250488d1dafcb111e7ef0dc1124211369c5f6f47ce820b7527c255489178"
     },
+    "setup-matt-pocock-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/setup-matt-pocock-skills/SKILL.md",
+      "computedHash": "26206e97677a272c2bfa7b8cc5045c51d07d6f5a64dbf8ec21fd0b29e4c20755"
+    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "tdd/SKILL.md",
-      "computedHash": "e4453d2f51a009f6b49876cc4d46ce452194c54ea931d4a552a0eb0e9dd24c27"
+      "skillPath": "skills/engineering/tdd/SKILL.md",
+      "computedHash": "78b31b2120c5fe7aced1cebfd4c7c94acb0037fd4f89c83c67584414aa4173bd"
     },
     "to-issues": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "to-issues/SKILL.md",
-      "computedHash": "8af055921fd37e0899835f414b5275e39d75bb7eac2e93ca0f5982732b0319ba"
+      "skillPath": "skills/engineering/to-issues/SKILL.md",
+      "computedHash": "7b35050573981106debeb743de355fb18b898660bd643b646aa61a43c3fe1cef"
     },
     "to-prd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "to-prd/SKILL.md",
-      "computedHash": "da4a7760ff808a68b0eae1ec270fd574b84f8560136ae1f9534f9150797f89cb"
+      "skillPath": "skills/engineering/to-prd/SKILL.md",
+      "computedHash": "b3ebbc8aad6e91d04aa1b5c0387ce556b32adc8d60d130d61f90a2b84a38addc"
+    },
+    "triage": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/triage/SKILL.md",
+      "computedHash": "56ff15b41bbebfa4cb329d96150d9b297c1d919ce30784d883b8755b4bfd8e7e"
     },
     "vercel-composition-patterns": {
       "source": "vercel-labs/agent-skills",
@@ -63,6 +87,18 @@
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
       "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
+    },
+    "write-a-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/write-a-skill/SKILL.md",
+      "computedHash": "3b58a16bde08f84ed490cd449ecdc40289216d660e070c485f53bc2d1ed2b843"
+    },
+    "zoom-out": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/zoom-out/SKILL.md",
+      "computedHash": "a8b8ed45609fdfa9f184d0c9f69326e43822a42eebea14db2792d777373de562"
     }
   }
 }

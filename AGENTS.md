@@ -151,3 +151,17 @@
 ## Browser Automation
 - Web UI 확인이나 브라우저 자동화가 필요하면 `agent-browser`를 사용한다.
 - 기본 흐름은 `agent-browser open <url>`, `agent-browser snapshot -i`, `agent-browser click @e1` / `agent-browser fill @e2 "text"` 순서다.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues — `gh` CLI로 `icepeng/agentchan` 저장소를 조작한다. 자세한 명령은 `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical 라벨 5종을 그대로 사용한다 (override 없음). 매핑은 `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context 레이아웃: 루트 `CONTEXT.md` + `docs/adr/`. 소비 규칙은 `docs/agents/domain.md`.
