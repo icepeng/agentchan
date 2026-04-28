@@ -1,5 +1,105 @@
 # Changelog
 
+## [0.4.0](https://github.com/icepeng/agentchan/compare/v0.3.0...v0.4.0) (2026-04-28)
+
+
+### Features
+
+* **config:** context window/max tokens 기본값을 모델 메타데이터에 연동 ([0b2fec9](https://github.com/icepeng/agentchan/commit/0b2fec9716023dd75deec6a10b4df415c0c4501a))
+* **config:** 기본 추론 effort를 medium으로, off는 명시 영구화 ([#109](https://github.com/icepeng/agentchan/issues/109)) ([ceaa4dc](https://github.com/icepeng/agentchan/commit/ceaa4dcb5fb8c3054dd4168daad6cab43f5c24b4))
+* **creative-agent:** session header에 version 필드 추가 ([#117](https://github.com/icepeng/agentchan/issues/117)) ([68cf0e2](https://github.com/icepeng/agentchan/commit/68cf0e239dbc1a987ceb24e38eee7abc9ceb049b))
+* **i18n:** 슬래시 커맨드 description 다국어 적용 ([#107](https://github.com/icepeng/agentchan/issues/107)) ([3971b4a](https://github.com/icepeng/agentchan/commit/3971b4ab77864db34949e83ef6930915105afefe))
+* **onboarding:** 3단계 확장 — 첫 프로젝트 템플릿 선택 + Templates 방어선 ([3675b86](https://github.com/icepeng/agentchan/commit/3675b8650178bb3bd7b7ec9cc5085b7d7bd3e781))
+* **onboarding:** featured 템플릿을 three-winds-ledger → tides-of-moonhaven으로 교체 ([37ac517](https://github.com/icepeng/agentchan/commit/37ac517de62905da9290c7812921b432c6891861))
+* **playtest:** 템플릿 자가검증 skill 추가 ([b46b313](https://github.com/icepeng/agentchan/commit/b46b31301e65cfdfeb9f48d1a7dbc2b4f12afb2c))
+* **providers:** zai whitelist + GitHub Copilot subscription 연동 ([fcc983e](https://github.com/icepeng/agentchan/commit/fcc983eb81e2d963d7bb2a8bcced452811844138))
+* **renderer:** make v1 contract React-first ([#123](https://github.com/icepeng/agentchan/issues/123)) ([7c0ea13](https://github.com/icepeng/agentchan/commit/7c0ea13789c06c65f56f1b95b6e7a0f2ef746e9e))
+* **renderer:** 스트리밍 중 pending 상태를 렌더러에 주입 ([#80](https://github.com/icepeng/agentchan/issues/80)) ([2b77c80](https://github.com/icepeng/agentchan/commit/2b77c80cec030f5eed9b7cace42e5954d68ee264))
+* **renderer:** 프로젝트 전환 시 렌더러 cross-fade + 테마 transition 300ms 통일 ([ddf8644](https://github.com/icepeng/agentchan/commit/ddf8644ec49e90b760359dde310da7d97457d137))
+* **rpg-chat:** Scriptorium Ritual 대기 UI + 템플릿 전면 개편 ([#102](https://github.com/icepeng/agentchan/issues/102)) ([770e39b](https://github.com/icepeng/agentchan/commit/770e39bd9ab0920616478b419fc3e42dfcdd832a))
+* **rpg-chat:** Vellum Day 렌더러 재디자인 + 캐릭터 색 교정 ([2f311cb](https://github.com/icepeng/agentchan/commit/2f311cb0130f312ff63ada815e4d3ab5e06ce4b5))
+* **rpg-chat:** 살레른 항구 3막 서사 RPG로 템플릿 개편 ([fdd90ad](https://github.com/icepeng/agentchan/commit/fdd90ad776e13f9cd27188d03e95d0a516aa8097))
+* **rpg-chat:** 우측 appendix 카드 margin gloss 재디자인 ([2792874](https://github.com/icepeng/agentchan/commit/27928745e0efd4640d1dcd276f4b74006ae7e937))
+* **script-tool:** sqlite/stat capability 추가 + journal-search 마이그레이션 ([4107424](https://github.com/icepeng/agentchan/commit/4107424eb4d15e9bc9b248c49e0b0967e1086250))
+* **sentinel:** 수사극 깊이 강화 — 반전·단서 게이트·엔딩 분기 도입 ([551d375](https://github.com/icepeng/agentchan/commit/551d375f810e2a37c833254270d07f99ce6b54d9))
+* **template:** rpg-chat을 Tides of Moonhaven으로 리브랜딩 ([#106](https://github.com/icepeng/agentchan/issues/106)) ([33a06d3](https://github.com/icepeng/agentchan/commit/33a06d3995092da95512c47c5b489a6a2671ed97))
+* **template:** three-winds-ledger pending UI를 채팅바 위 sentinel로 고정 + RPG 문구 치환 ([5b22ba8](https://github.com/icepeng/agentchan/commit/5b22ba8b1c04c658c422e262ca998ac892850e64))
+* **tides-of-moonhaven:** append 도구 ritual scene 추가 ([08c006d](https://github.com/icepeng/agentchan/commit/08c006d03e8b9d6011bf6e8a78031e50bc46ee73))
+* **webui:** 외부 템플릿 신뢰 동의 시스템 추가 ([#120](https://github.com/icepeng/agentchan/issues/120)) ([bc36cfa](https://github.com/icepeng/agentchan/commit/bc36cfaa33bee878e5f3f5d3bcd682acbc11b130))
+* 새 버전 출시 알림 기능 추가 ([91e1ba7](https://github.com/icepeng/agentchan/commit/91e1ba77de9ec2da5c0973d176dba9dcce88506a))
+
+
+### Bug Fixes
+
+* **agent:** convert Pi custom message roles to LLM-compatible messages ([b305b2d](https://github.com/icepeng/agentchan/commit/b305b2de93aabad2bf910f44af90acb7c923c314))
+* **config:** thinkingLevel을 서버 DTO로 내려보내 client runtime import 제거 ([e939223](https://github.com/icepeng/agentchan/commit/e93922361be950e791bae6b27df4e5f577e7316c))
+* **editor:** SWR 이주 이후 발생한 회귀 버그 수정 ([d53d683](https://github.com/icepeng/agentchan/commit/d53d683a050e4dcf994b5e097e90a62fa80ab987))
+* **hooks:** husky 훅에 shebang 추가로 Windows Exec format error 대응 ([7d1e64d](https://github.com/icepeng/agentchan/commit/7d1e64d9c5f3aa6c87630d22ca3b7054141d3b99))
+* **project:** off-screen 전환 시 stale 렌더러 출력 회귀 방지 ([e12a067](https://github.com/icepeng/agentchan/commit/e12a0670b26d91302a48424d5164f566e08a8723))
+* **project:** 스트리밍 중 pending UI 갱신으로 스크롤이 끌려내려가는 문제 수정 ([338a9ad](https://github.com/icepeng/agentchan/commit/338a9ad05b7e93c0149f49d491a8dbbe8d69457a))
+* **script-tool:** description을 LLM 호출 인터페이스로 복원 ([#110](https://github.com/icepeng/agentchan/issues/110)) ([8bcbb5d](https://github.com/icepeng/agentchan/commit/8bcbb5dd4c847ae56884e73dbdf5317f075e6750))
+* **stream:** pi AgentState subset으로 AgentPanel + Renderer 인터페이스 통일 ([#108](https://github.com/icepeng/agentchan/issues/108)) ([eeef624](https://github.com/icepeng/agentchan/commit/eeef624e658a80b8ad202cd005385900dc82b5d6))
+* **three-winds-ledger:** 전투 모드 테마를 렌더러 바깥까지 확장 ([#71](https://github.com/icepeng/agentchan/issues/71)) ([23d58ad](https://github.com/icepeng/agentchan/commit/23d58add4b04a26d1d070892527f61d059b7720a))
+* **tides-of-moonhaven:** character builder listener 누적 버그 국소 패치 ([6fb1000](https://github.com/icepeng/agentchan/commit/6fb100033d62dfb4e72bdf894f75b2c31228c1e6))
+* **tides-of-moonhaven:** core cast eager read + 첫 장면 등장 유보 ([5aa45e9](https://github.com/icepeng/agentchan/commit/5aa45e96e36a6b3e59ba54cd04d1eda4bf0e0be5))
+* **webui:** StreamingMessage 멀티스텝 툴 호출 플리커 제거 ([#119](https://github.com/icepeng/agentchan/issues/119)) ([c5c33f6](https://github.com/icepeng/agentchan/commit/c5c33f6e43a6e859d60aa5ebf64be408c1185917))
+* **webui:** 알림 클릭 시 탭 배지 즉시 해제 ([#116](https://github.com/icepeng/agentchan/issues/116)) ([3c7c5b0](https://github.com/icepeng/agentchan/commit/3c7c5b0b6d465ddbf7da0fb7de5675efa56b8bfc))
+* 프로젝트 전환 시 테마 flash 제거 + 부드러운 색상 전환 ([#67](https://github.com/icepeng/agentchan/issues/67)) ([3b76e94](https://github.com/icepeng/agentchan/commit/3b76e945129635e45663942faf672157d6acde20))
+
+
+### Performance
+
+* **editor:** CodeMirror로 buffer 승격해 keystroke당 리렌더 제거 ([c9155c8](https://github.com/icepeng/agentchan/commit/c9155c8898b522a44919e76de6d501fe4a8ce207))
+
+
+### Refactoring
+
+* **agent:** split orchestration helpers ([cdbc4fb](https://github.com/icepeng/agentchan/commit/cdbc4fbdc8add8e5ceaa6b1d50584f57f5657738))
+* **agent:** split orchestration helpers ([92564dc](https://github.com/icepeng/agentchan/commit/92564dc92ae607402ae85d7160a7ace4ab2305b5))
+* **appshell:** resolvedTheme useMemo 제거 ([60bfd72](https://github.com/icepeng/agentchan/commit/60bfd7241bf6e4c6fea06b746a60808977c64f5e))
+* **chat,settings:** chat 보조 훅 + useTheme 수동 메모 제거 ([b649290](https://github.com/icepeng/agentchan/commit/b6492903f5b0ffe4b585fcd7c0d90e3dd5759cd7))
+* **chat:** AgentPanel useMemo 제거 (React Compiler 위임) ([73acc91](https://github.com/icepeng/agentchan/commit/73acc91343ea8d7e8b2557f7c1c2d784622a0be6))
+* **chat:** MessageBubble useMemo 3개 제거 (React Compiler) ([62f8825](https://github.com/icepeng/agentchan/commit/62f88259c9eba8380d4b90f913306409c2894916))
+* **chat:** stream 종료 후에도 multi-tool agent 턴을 단일 bubble로 유지 ([#79](https://github.com/icepeng/agentchan/issues/79)) ([170b18c](https://github.com/icepeng/agentchan/commit/170b18c48ac21ac5ef4bc208ee8942cabe9746e9))
+* **chat:** useSession의 수동 메모이제이션 제거 ([b440b20](https://github.com/icepeng/agentchan/commit/b440b2053df7d3a4c9f7f15aa466cc9623465e21))
+* **chat:** useStreaming ref-sync effect 7개 통합 + 하드코딩 i18n 처리 ([9ac06f1](https://github.com/icepeng/agentchan/commit/9ac06f1ab86c25dfc5cf5cd2ad3561140a68f379))
+* **chat:** useStreaming regenerate useCallback 제거 ([5c2d780](https://github.com/icepeng/agentchan/commit/5c2d780feff0ee64e99d0700242481db884e4681))
+* **client:** SWR로 서버-상태 캐싱 이주 ([9d84021](https://github.com/icepeng/agentchan/commit/9d840215da35c35593ca0589dbc4842dd1490520))
+* Conversation → Session, Session(runtime) → ProjectRuntime ([#81](https://github.com/icepeng/agentchan/issues/81)) ([f952db7](https://github.com/icepeng/agentchan/commit/f952db726e9457db28cf86d38f954546ea2a0610))
+* **editor:** client-first 동기 모델로 회귀 — SWR 읽기 경로 제거 ([442b601](https://github.com/icepeng/agentchan/commit/442b601c7a9bb1b6d00688d472d87c29761ab4fa))
+* **editor:** FileEditor/EditModePanel 수동 useCallback 제거 ([3a9fc95](https://github.com/icepeng/agentchan/commit/3a9fc955b393e2a8688c74d050cc087c97639310))
+* **editor:** FileTree 수동 메모이제이션 제거 ([fde8ec3](https://github.com/icepeng/agentchan/commit/fde8ec3296658a8abaf2a38cf5e0fef3fc6bb687))
+* **editor:** SWR을 단일 source of truth로 — 파생 dirty/fileContent ([2323dec](https://github.com/icepeng/agentchan/commit/2323decf6ff7509caa13ccff467fb6416fa9015c))
+* **entities:** project-runtime을 stream/renderer/selection으로 분해 ([#82](https://github.com/icepeng/agentchan/issues/82)) ([942af3f](https://github.com/icepeng/agentchan/commit/942af3fa1c17dd2c0a3b9b6978a723dec413a80f))
+* **oauth:** features/oauth 모듈 추출 + 온보딩 GitHub Copilot 지원 ([9e0b7e5](https://github.com/icepeng/agentchan/commit/9e0b7e5034ff62f890cc4ccb430d74f48b058a0d))
+* **project,editor:** useProject / useEditMode의 useCallback 23개 제거 ([49fe1e9](https://github.com/icepeng/agentchan/commit/49fe1e95b40fdf13f40f29fed2d4ffabfc36fc8c))
+* **ProjectPage:** React Compiler 적용으로 불필요한 useCallback 제거 ([c748f60](https://github.com/icepeng/agentchan/commit/c748f60e0f97b287580cd51033aafcd72d2b8cb3))
+* **project:** ProjectTabs useCallback 제거 (React Compiler 위임) ([b7297a8](https://github.com/icepeng/agentchan/commit/b7297a8c5e292b2211c8aa2c1352dcebd5695929))
+* **project:** SaveAsTemplateModal 수동 메모이제이션 제거 ([67686a3](https://github.com/icepeng/agentchan/commit/67686a34445fb22e674479b0d492ed959da61fb5))
+* **ResizeHandle:** remove unnecessary useCallback for handleMouseDown ([61e73e3](https://github.com/icepeng/agentchan/commit/61e73e3feab02e70b8c95347ca01e55ab4d9aef6))
+* **script-tool:** (args, ctx) 패턴으로 주입 인터페이스 확정 ([#105](https://github.com/icepeng/agentchan/issues/105)) ([93ccf73](https://github.com/icepeng/agentchan/commit/93ccf73c3beb1c58c034cdc6067fe7128040fc9f))
+* **sentinel:** 스킬 분리 + 감정 삽화 파이프라인 정리 ([8cb1f73](https://github.com/icepeng/agentchan/commit/8cb1f7398a88a16ab5be2865cde663baef6927d4))
+* **session:** SessionState 대칭화 + conversation 엔티티 분리 ([#76](https://github.com/icepeng/agentchan/issues/76)) ([a74882c](https://github.com/icepeng/agentchan/commit/a74882c2bdb542db9627d3880fbf3bc115905cb2))
+* **stream:** reducer 헬퍼 + rAF tick guard + 죽은 export 정리 ([49da6ee](https://github.com/icepeng/agentchan/commit/49da6ee2cfb9d96898d7f0ba556f7212c71a1f76))
+* **stream:** tool call 수명주기를 선형 phase markers + result sentinel로 재정비 ([01f1d59](https://github.com/icepeng/agentchan/commit/01f1d59a49dac31df61c0a10bee493df260a43f7))
+* **stream:** tool call의 dead `parallel` 축 제거 ([869243e](https://github.com/icepeng/agentchan/commit/869243ea6f74eaaa835486f73e17ec676f939607))
+* **swr:** selectProject 중복 GET 제거 + invariant 코멘트 ([f7be69b](https://github.com/icepeng/agentchan/commit/f7be69be3f1ee176b429344d6a4ddd5b724a036e))
+* **templates:** 불필요한 useCallback/useMemo 제거 (React Compiler) ([2e1932b](https://github.com/icepeng/agentchan/commit/2e1932be29eb6ce974673a574efe372d3643610d))
+* **template:** three-winds-ledger SYSTEM.md UI 어휘 제거 + 턴 전체 트레이스 예시로 교체 ([a0dc5ee](https://github.com/icepeng/agentchan/commit/a0dc5ee149301eb0e007a1d3e5ef1d5ceb9f1f80))
+* **template:** three-winds-ledger 상태 원천화 + intent 분할 + 문서 축약 ([90fa17d](https://github.com/icepeng/agentchan/commit/90fa17df33ac9d443a0d1969a204a0a90923f1a1))
+* **three-winds-ledger:** XML 마커 전환 + 프롬프트 재구조 + references 분리 ([#75](https://github.com/icepeng/agentchan/issues/75)) ([d3dd94b](https://github.com/icepeng/agentchan/commit/d3dd94bd2c56b7147fd43af2c0726226b7e707d0))
+* UpdateBanner 접근성 수정 + useUpdateStatus fetch 공유 ([c9ccdc6](https://github.com/icepeng/agentchan/commit/c9ccdc6656d99ed8c37f68feb0ed527dffa5c58c))
+* **webui:** edit mode localStorage persist 제거 ([74a2af2](https://github.com/icepeng/agentchan/commit/74a2af27260494c07d34086aef3b8f780d23024d))
+* **webui:** localStorage를 shared/storage.ts로 중앙집중 + ESLint rule로 강제 ([0b9fe61](https://github.com/icepeng/agentchan/commit/0b9fe613d3c93f90bc0e14c68bedcbb35aff1782))
+* **webui:** move project file serving into service ([ce524f8](https://github.com/icepeng/agentchan/commit/ce524f8c8c2527b9ee00af8c799b966fde19d958))
+* **webui:** move project file serving into service ([8339a4d](https://github.com/icepeng/agentchan/commit/8339a4d2cb70905cd93fd090e589c9b3e66b2ba8))
+* **webui:** onboarding/oauth useMemo 제거 ([7751b65](https://github.com/icepeng/agentchan/commit/7751b65ab081f41f389c4ff21b9d64f23d007968))
+* **webui:** split config service helpers ([35ae783](https://github.com/icepeng/agentchan/commit/35ae783f6d06b1ae7c7a2a6aad35617f99eb4666))
+* **webui:** split config service helpers ([56832d5](https://github.com/icepeng/agentchan/commit/56832d59df785cb5e0b8512289e1966849c2fdd0))
+* **webui:** split settings view components ([79a7e9b](https://github.com/icepeng/agentchan/commit/79a7e9bf083d771e3b071879b9de5f21ac6b2c80))
+* **webui:** split settings view components ([7a4cd9e](https://github.com/icepeng/agentchan/commit/7a4cd9eebe01db0341b9ec6c94dfe52ed63a2666))
+* **webui:** 좌하단 스킬 목록 UI 제거 ([fc6a30d](https://github.com/icepeng/agentchan/commit/fc6a30d118e5500a6e3f712b48c179c63052868a))
+
 ## [0.3.0](https://github.com/icepeng/agentchan/compare/v0.2.0...v0.3.0) (2026-04-14)
 
 
