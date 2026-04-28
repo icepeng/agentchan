@@ -2,8 +2,6 @@
  * Branch derivation from leafId — pure functions over `SessionEntry[]`.
  */
 
-import { buildSessionContext as piBuildSessionContext } from "@mariozechner/pi-coding-agent";
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { SessionEntry } from "./types.js";
 
 /** Walk leaf → root by parentId. Returns the path in root-to-leaf order. Throws on invalid leafId. */
@@ -42,20 +40,4 @@ export function siblingsOf(
   return entries
     .filter((e) => e.parentId === target.parentId)
     .map((e) => e.id);
-}
-
-/**
- * Build the AgentMessage history Agentchan sends to the LLM.
- *
- * Thin pass-through over Pi `buildSessionContext`. Skill activations are
- * embedded directly in the user message that triggered them (see
- * `agent/build.ts`), so the persisted entry text and the LLM context
- * match 1:1.
- */
-export function buildAgentHistory(
-  entries: ReadonlyArray<SessionEntry>,
-  leafId?: string | null,
-): AgentMessage[] {
-  const ctx = piBuildSessionContext(entries as SessionEntry[], leafId ?? undefined);
-  return ctx.messages;
 }

@@ -11,7 +11,6 @@ import { readFile } from "node:fs/promises";
 import {
   parseSessionEntries,
   migrateSessionEntries,
-  type FileEntry,
 } from "@mariozechner/pi-coding-agent";
 
 import type {
@@ -45,9 +44,4 @@ export async function readSessionFile(filePath: string): Promise<ReadSessionFile
   // After migration, drop the header entry — header lives separately.
   const entries = fileEntries.slice(1) as SessionEntry[];
   return { header: header, entries };
-}
-
-/** Serialize a single entry as one JSONL line (with trailing newline). */
-export function serializeEntry(entry: FileEntry): string {
-  return JSON.stringify(entry) + "\n";
 }

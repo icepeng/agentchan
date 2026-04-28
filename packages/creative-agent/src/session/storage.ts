@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import { CURRENT_SESSION_VERSION } from "@mariozechner/pi-coding-agent";
 import type { Message, TextContent } from "@mariozechner/pi-ai";
 
-import { readSessionFile, serializeEntry } from "./format.js";
+import { readSessionFile } from "./format.js";
 import type {
   AgentchanSessionHeader,
   AgentchanSessionInfo,
@@ -209,7 +209,7 @@ export function createSessionStorage(projectsDir: string): SessionStorage {
         ...(opts.mode ? { mode: opts.mode } : {}),
       };
       const filePath = sessionPath(slug, id);
-      await writeFile(filePath, serializeEntry(header));
+      await writeFile(filePath, JSON.stringify(header) + "\n");
       const stats = await stat(filePath);
       return buildInfo(filePath, header, [], stats.mtime);
     },
@@ -256,7 +256,7 @@ export function createSessionStorage(projectsDir: string): SessionStorage {
       }
 
       // Append all lines in one write.
-      const body = persisted.map((e) => serializeEntry(e)).join("");
+      const body = persisted.map((e) => JSON.stringify(e) + "\n").join("");
       await appendFile(filePath, body);
       return persisted;
     },

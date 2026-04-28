@@ -24,7 +24,6 @@ export {
   branchFromLeaf,
   defaultLeafId,
   siblingsOf,
-  buildAgentHistory,
 } from "./branch.js";
 
 export {
@@ -37,7 +36,7 @@ export {
 
 export type { SessionContext, FileEntry } from "@mariozechner/pi-coding-agent";
 
-export { readSessionFile, serializeEntry } from "./format.js";
+export { readSessionFile } from "./format.js";
 
 export {
   createSessionStorage,

@@ -9,7 +9,7 @@
 import type { Message } from "@mariozechner/pi-ai";
 import {
   branchFromLeaf,
-  buildAgentHistory,
+  buildSessionContext,
   type AgentchanSessionInfo,
   type CompactionEntry,
   type DraftEntry,
@@ -58,7 +58,7 @@ export async function compactSession(
     throw new Error(`API key not configured for provider: ${cfg.provider}`);
   }
 
-  const history = buildAgentHistory(data.entries, data.leafId);
+  const history = buildSessionContext(data.entries, data.leafId ?? undefined).messages;
   const result = await fullCompact({
     messages: history as Message[],
     model: resolveModel(

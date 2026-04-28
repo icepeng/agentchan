@@ -3,7 +3,7 @@ import type { Message } from "@mariozechner/pi-ai";
 import type { AgentEvent, AgentMessage } from "@mariozechner/pi-agent-core";
 
 import {
-  buildAgentHistory,
+  buildSessionContext,
   type DraftEntry,
   type SessionEntry,
   type SessionMode,
@@ -64,7 +64,7 @@ export function runPrompt(
     );
     emit({ type: "entries_persisted", entries: userEntries });
 
-    const history = buildAgentHistory(data.entries, data.leafId);
+    const history = buildSessionContext(data.entries, data.leafId ?? undefined).messages;
     const lastUserId = userEntries[userEntries.length - 1]!.id;
 
     await runAgentTurn({
@@ -123,7 +123,7 @@ export function runRegenerate(
 
     // History: pre-existing branch up to (but not including) the parent user.
     // agent.prompt(userText) re-appends the parent user message, then LLM runs.
-    const history = buildAgentHistory(data.entries, parent.parentId);
+    const history = buildSessionContext(data.entries, parent.parentId ?? undefined).messages;
 
     await runAgentTurn({
       ctx,

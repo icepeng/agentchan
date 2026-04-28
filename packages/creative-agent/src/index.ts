@@ -49,7 +49,6 @@ export {
   defaultLeafId,
   siblingsOf,
   buildSessionContext,
-  buildAgentHistory,
   getLatestCompactionEntry,
   CURRENT_SESSION_VERSION,
 } from "./session/index.js";

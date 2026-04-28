@@ -12,7 +12,7 @@ import {
   SYSTEM_REMINDER_CLOSE,
 } from "../../src/skills/catalog.js";
 import { createActivateSkillTool } from "../../src/skills/manager.js";
-import { buildAgentHistory } from "../../src/session/index.js";
+import { buildSessionContext } from "../../src/session/index.js";
 import { createSessionStorage } from "../../src/session/index.js";
 import type { DraftEntry } from "../../src/session/index.js";
 import type { TextContent, UserMessage } from "@mariozechner/pi-ai";
@@ -118,7 +118,7 @@ describe("skill-load wire format consistency across paths", () => {
 });
 
 describe("skill body persists in LLM history across turns", () => {
-  test("buildAgentHistory replays the skill_content block on turn 2", async () => {
+  test("buildSessionContext replays the skill_content block on turn 2", async () => {
     const projectsRoot = await mkdtemp(join(tmpdir(), "skill-history-"));
     try {
       const slug = "history-test";
@@ -140,7 +140,7 @@ describe("skill body persists in LLM history across turns", () => {
 
       const after = await storage.readSession(slug, info.id);
       if (!after) throw new Error("expected session to exist after append");
-      const history = buildAgentHistory(after.entries, after.leafId);
+      const history = buildSessionContext(after.entries, after.leafId ?? undefined).messages;
 
       // The user message replayed on turn 2 must carry the skill body.
       const userMsg = history.find((m) => m.role === "user");

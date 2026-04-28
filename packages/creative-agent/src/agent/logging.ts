@@ -1,8 +1,7 @@
 import type { Agent, AgentEvent } from "@mariozechner/pi-agent-core";
 import { streamSimple, type AssistantMessage } from "@mariozechner/pi-ai";
-import { formatTokens } from "@agentchan/estimate-tokens";
+import { estimateJsonTokens, estimateTokens, formatTokens } from "@agentchan/estimate-tokens";
 
-import { analyzeContext } from "./context-analysis.js";
 import * as log from "../logger.js";
 
 function truncateArgs(args: unknown): string | undefined {
@@ -17,11 +16,15 @@ export function createLoggedStreamFn(model: { contextWindow: number }) {
     ctx: Parameters<typeof streamSimple>[1],
     opts: Parameters<typeof streamSimple>[2],
   ) => {
-    const a = analyzeContext(ctx, model.contextWindow);
-    const pct = a.contextWindow > 0 ? Math.round((a.total / a.contextWindow) * 100) : 0;
+    const system = ctx.systemPrompt ? estimateTokens(ctx.systemPrompt) : 0;
+    const tools = estimateJsonTokens(ctx.tools);
+    const messages = estimateJsonTokens(ctx.messages);
+    const total = system + tools + messages;
+    const contextWindow = model.contextWindow;
+    const pct = contextWindow > 0 ? Math.round((total / contextWindow) * 100) : 0;
     log.info(
       "context",
-      `system ${formatTokens(a.system)} + tools ${formatTokens(a.tools)} + msgs ${formatTokens(a.messages)} = ${formatTokens(a.total)} / ${formatTokens(a.contextWindow)} (${pct}%)`,
+      `system ${formatTokens(system)} + tools ${formatTokens(tools)} + msgs ${formatTokens(messages)} = ${formatTokens(total)} / ${formatTokens(contextWindow)} (${pct}%)`,
     );
     return streamSimple(m, ctx, opts);
   };
