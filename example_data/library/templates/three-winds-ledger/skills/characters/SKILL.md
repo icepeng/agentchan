@@ -37,7 +37,7 @@ metadata:
 - `display-name` — 표시 이름 (예: `Elara Brightwell`)
 - `color` — 캐릭터 테마 색상, hex (예: `"#fbbf24"`)
 - `avatar-image` — `assets/avatar` (고정값)
-- `names` — 쉼표 구분 이름 변형 목록, 한국어+영어 (예: `"엘라라 브라이트웰, 엘라라, Elara Brightwell, Elara"`)
+- `names` — 쉼표 구분 이름 변형 목록, 한국어+영어 (예: `"비아, 비아 원장, Via"`)
 
 ### 4. 감정 삽화 (선택)
 

@@ -1,0 +1,9 @@
+hp:
+  current: 85
+  max: 100
+mp:
+  current: 30
+  max: 40
+emotion: 😐
+location: 서쪽 부두
+conditions: []

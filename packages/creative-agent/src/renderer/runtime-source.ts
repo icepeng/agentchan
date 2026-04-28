@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BunPlugin } from "bun";
 import { isInside, RENDERER_CORE_IMPORT, RENDERER_REACT_IMPORT } from "./policy.js";
@@ -9,6 +9,36 @@ import {
   rendererRuntimeDir,
 } from "./runtime-deps.js";
 const SDK_NAMESPACE = "agentchan-renderer-sdk";
+const NODE_BUILTIN_STUB_NAMESPACE = "agentchan-renderer-builtin-stub";
+const NODE_BUILTIN_STUB_SOURCE = `
+export const __agentchanRendererBuiltinStub = true;
+const handler = {
+  get(target, prop) {
+    if (prop === Symbol.toPrimitive || prop === "toJSON") return undefined;
+    if (prop === "__esModule" || prop === "default") return target[prop];
+    if (prop in target) return target[prop];
+    throw new Error("Renderer attempted to use Node builtin in browser bundle.");
+  },
+};
+const stub = new Proxy({ default: undefined, __esModule: true }, handler);
+export default stub;
+export function createRequire() {
+  return function require() {
+    throw new Error("Renderer attempted to use require() in browser bundle.");
+  };
+}
+`;
+
+const NODE_BUILTINS = new Set([
+  "assert", "async_hooks", "buffer", "child_process", "cluster", "console",
+  "constants", "crypto", "dgram", "diagnostics_channel", "dns", "domain",
+  "events", "fs", "fs/promises", "http", "http2", "https", "inspector",
+  "module", "net", "os", "path", "path/posix", "path/win32", "perf_hooks",
+  "process", "punycode", "querystring", "readline", "repl", "stream",
+  "stream/consumers", "stream/promises", "stream/web", "string_decoder",
+  "sys", "timers", "timers/promises", "tls", "trace_events", "tty", "url",
+  "util", "util/types", "v8", "vm", "worker_threads", "zlib",
+]);
 const HOST_RUNTIME_PATH_CACHE = new Map<string, string | null>();
 const TRANSFORMED_RUNTIME_SOURCE_CACHE = new Map<string, Promise<string>>();
 
@@ -128,12 +158,28 @@ export function createRendererRuntimePlugin(): BunPlugin {
         namespace: SDK_NAMESPACE,
       }));
       build.onResolve({ filter: /^[^./].*/ }, (args) => {
+        if (
+          args.path.startsWith("data:") ||
+          args.path.startsWith("http:") ||
+          args.path.startsWith("https:") ||
+          args.path.startsWith("blob:") ||
+          args.path.startsWith("file:")
+        ) {
+          return { path: args.path, external: true };
+        }
+        if (args.path.startsWith("node:") || NODE_BUILTINS.has(args.path)) {
+          return { path: "node-builtin-stub", namespace: NODE_BUILTIN_STUB_NAMESPACE };
+        }
         const runtimePath = resolveRendererRuntimeDependency(args.path);
-        if (runtimePath) return { path: runtimePath };
+        if (runtimePath && isAbsolute(runtimePath)) return { path: runtimePath };
         const hostRuntimePath = resolveHostRuntimePath(args.path);
-        if (hostRuntimePath) return { path: hostRuntimePath };
+        if (hostRuntimePath && isAbsolute(hostRuntimePath)) return { path: hostRuntimePath };
         return undefined;
       });
+      build.onLoad({ filter: /.*/, namespace: NODE_BUILTIN_STUB_NAMESPACE }, () => ({
+        contents: NODE_BUILTIN_STUB_SOURCE,
+        loader: "js",
+      }));
       build.onLoad({ filter: /node_modules[\\/](?:react|react-dom|scheduler)[\\/].*\.(?:js|cjs|mjs)$/ }, async (args) => {
         return {
           contents: await loadTransformedRuntimeSource(args.path),

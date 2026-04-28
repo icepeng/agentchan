@@ -3,8 +3,14 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.0",
+    "@react-three/postprocessing": "^3.0.4",
+    "motion": "^12.38.0",
+    "postprocessing": "^6.39.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "scheduler": "^0.27.0"
+    "scheduler": "^0.27.0",
+    "three": "^0.184.0"
   }
 }

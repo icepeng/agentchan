@@ -1,19 +1,6 @@
-# === World State — 공개 상태 ===
-# 현재 시각·장소·막·날씨·모드. 렌더러가 HUD에 표시.
-# travel.ts가 time/location, combat.ts가 mode, act-transition이 act 갱신.
-
-act: 1                          # 1 | 2 | 3
-current_scene: act1_arrival     # campaign.yaml의 beat slug
-scene_count: 0                  # 누적 씬 수 (compact 후에도 유지)
-
-time: "10:24"                   # HH:MM (24시간). 분 단위 누적
-day: 1                          # 도착한 날 = 1일째
-weather: "잿빛 구름. 옅은 안개."
-mode: peace                     # peace | combat (combat.ts --start/--end로 전환)
-
-location: pier                  # 현재 장소 slug (locations/*.md 참조)
-party_status: ready             # ready | resting | in_combat | traveling
-
-# 세션 간 컨텍스트 이어가기용. compact 시에도 보존.
+mode: peace
+act: 1
+current: 서쪽 부두
+weather: 잿빛 구름과 낮은 안개
 last_summary: |
-  플레이어가 살레른 항구에 도착했다. 아직 아무것도 일어나지 않았다.
+  아직 첫 장면이 열리지 않았다. 살레른 항구의 세 바람과 젖은 장부가 기다리고 있다.
