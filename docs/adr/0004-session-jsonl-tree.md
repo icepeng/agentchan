@@ -27,8 +27,10 @@ compaction/session_info/custom_message entry, free function `buildSessionContext
 - 이후 줄은 Pi `SessionEntry` union (`message`, `compaction`, `session_info`,
   `custom_message`, `model_change`, `label` 등). Agentchan-only entry variant나
   projection은 추가하지 않는다.
-- skill-load 같은 UI 마커는 `custom_message` entry로 저장한다 (`customType: "skill-load"`,
-  `display: true`). Agentchan은 LLM history 재구성 시 해당 customType을 필터한다.
+- skill-load는 별도 entry variant가 아니다. slash 명령과 `activate_skill` tool은
+  모두 user message 본문에 `<skill_content name="...">…</skill_content>` 태그를
+  임베드해 저장한다. LLM은 그 message를 그대로 replay하므로 history 재구성 시
+  필터가 필요 없다. UI는 message prefix로 split해 별도 chip으로 렌더한다.
 - branch는 파일에 영속화된 pointer가 아니다. 현재 branch는 `leafId`에서
   `parentId` chain을 따라 root까지 계산한 derived view다. `leafId`는 storage
   연산 입력일 뿐이며 영속 selection 상태가 아니다. 명시적 `leafId` 없이 세션을
