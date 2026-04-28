@@ -1,3 +1,4 @@
+import type { RendererBundle } from "@agentchan/renderer/core";
 import { json } from "@/client/shared/api.js";
 import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import type { Project, ProjectFile } from "./project.types.js";
@@ -45,7 +46,7 @@ export function fetchWorkspaceFiles(projectSlug: string): Promise<{ files: Proje
   return json(`/projects/${encodeURIComponent(projectSlug)}/workspace/files`);
 }
 
-export function fetchRendererBundle(projectSlug: string): Promise<{ js: string; css: string[] }> {
+export function fetchRendererBundle(projectSlug: string): Promise<RendererBundle> {
   return json(`/projects/${encodeURIComponent(projectSlug)}/renderer-bundle`, {
     cache: "no-store",
   });

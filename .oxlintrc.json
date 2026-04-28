@@ -79,7 +79,8 @@
     {
       "files": ["apps/webui/src/client/**/*.{ts,tsx}"],
       "rules": {
-        "agentchan/no-direct-local-storage": "error"
+        "agentchan/no-direct-local-storage": "error",
+        "agentchan/no-renderer-build-import": "error"
       }
     }
   ]

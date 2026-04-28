@@ -74,6 +74,11 @@ export interface RendererInstance {
   unmount(): void;
 }
 
+export interface RendererBundle {
+  js: string;
+  css: string[];
+}
+
 export interface RendererRuntime {
   mount(container: HTMLElement, bridge: RendererBridge): RendererInstance;
   theme?(snapshot: RendererSnapshot): RendererTheme | null;

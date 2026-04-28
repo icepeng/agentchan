@@ -9,7 +9,7 @@ Renderer V1의 **빌드 타임 도구**. 프로젝트 디렉토리의 `renderer/
 - `validateRendererImportPolicy(entrypoint, rendererDir)`: 허용 specifier
   whitelist + host leak 방지.
 - `buildRendererBundle(projectDir)`: Bun.build로 ESM 단일 번들 생성. 결과
-  shape `{ js: string; css: string[] }`.
+  shape는 `@agentchan/renderer/core`의 `RendererBundle` (`{ js: string; css: string[] }`).
 
 호출처는 webui server `apps/webui/src/server/services/project.service.ts`
 하나뿐이다. agent runtime은 이 패키지를 import하지 않는다.
@@ -31,7 +31,7 @@ SDK ↔ 원본 equivalence 테스트가 잡는다. SDK 원본을 수정한 PR은
 ```
 src/
   index.ts          # 외부 export 진입점
-  builder.ts        # findRendererEntrypoint, buildRendererBundle, RendererBundle
+  builder.ts        # findRendererEntrypoint, buildRendererBundle
   errors.ts         # RendererV1Error, RendererBuildError
   policy.ts         # validateRendererImportPolicy + import specifier 검사
   runtime-deps.ts   # AGENTCHAN_RENDERER_RUNTIME_DIR / _EXPERIMENTAL_DEPS env
