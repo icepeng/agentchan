@@ -32,10 +32,7 @@ export interface RendererActions {
   fill(text: string): void | Promise<void>;
 }
 
-export interface RendererBundle {
-  js: string;
-  css: string[];
-}
+export type { RendererBundle } from "@agentchan/renderer/core";
 
 export interface RendererProps {
   snapshot: RendererSnapshot;

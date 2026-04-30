@@ -11,10 +11,6 @@ export type {
   RendererRuntime,
 } from "@agentchan/renderer/core";
 
-export const FADE_DURATION_MS = 300;
-
-export type RendererLayerId = 0 | 1;
-
 export interface RendererModule {
   renderer: RendererRuntime;
 }

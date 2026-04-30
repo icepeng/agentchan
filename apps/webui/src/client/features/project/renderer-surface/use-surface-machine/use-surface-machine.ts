@@ -1,34 +1,24 @@
-/* oxlint-disable react-hooks-js/set-state-in-effect -- This hook is an explicit renderer host state machine driven by external project/output events. */
+/* oxlint-disable react-hooks-js/set-state-in-effect -- This hook is an explicit renderer surface state machine driven by external project/output events. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  validateTheme,
+  importRendererModule,
   type RendererActions,
   type RendererBundle,
+  type RendererModule,
   type RendererSnapshot,
   type RendererTheme,
 } from "@/client/entities/renderer/index.js";
-import type { RendererLayerHandle } from "./RendererLayer.js";
+import { errorMessage } from "@/client/shared/errors.js";
+import type { ShadowShellHandle } from "../ShadowShell.js";
+import { evaluateTheme, themeIdentity } from "./theme-identity.js";
 import {
-  importRendererModule,
-  type RendererModule,
-} from "./rendererRuntime.js";
+  classForStatus,
+  FADE_IN_MS,
+  FADE_OUT_MS,
+  THEME_TRANSITION_MS,
+  type SurfaceStatus,
+} from "./transitions.js";
 
-type HostStatus =
-  | "stable"
-  | "fading-out"
-  | "waiting-for-import"
-  | "applying-theme"
-  | "mounting"
-  | "fading-in"
-  | "showing-error";
-
-/*
- * Project switch statechart:
- * stable -> fading-out -> waiting-for-import -> applying-theme -> mounting -> fading-in -> stable
- *
- * Import may finish early, but the pending theme is not applied until fade-out
- * is done. The next renderer is mounted only after the theme transition window.
- */
 interface PreparedRenderer {
   slug: string;
   module: RendererModule;
@@ -37,94 +27,41 @@ interface PreparedRenderer {
   theme: RendererTheme | null;
 }
 
-interface RendererHostMachineOptions {
+interface RendererSurfaceMachineOptions {
   actions: RendererActions;
   activeProjectSlug: string | null;
   bundle: RendererBundle | null;
   snapshot: RendererSnapshot | null;
   error: string | null;
-  layerHandle: RendererLayerHandle | null;
+  shellHandle: ShadowShellHandle | null;
   onImportError: (message: string) => void;
   onTheme: (theme: RendererTheme | null) => void;
 }
 
-interface RendererHostMachine {
-  layerClassName: string;
+interface RendererSurfaceMachine {
+  shellClassName: string;
   visibleError: string | null;
 }
 
-const FADE_OUT_MS = 300;
-const THEME_TRANSITION_MS = 300;
-const FADE_IN_MS = 180;
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-function evaluateTheme(
-  mod: RendererModule,
-  snapshot: RendererSnapshot,
-): RendererTheme | null {
-  try {
-    return validateTheme(mod.renderer.theme?.(snapshot) ?? null);
-  } catch (error) {
-    console.warn("[renderer.theme] theme function threw", error);
-    return null;
-  }
-}
-
-function themeIdentity(theme: RendererTheme | null): string {
-  if (theme === null) return "null";
-  return JSON.stringify({
-    base: sortedTokens(theme.base),
-    dark: sortedTokens(theme.dark ?? {}),
-    prefersScheme: theme.prefersScheme ?? null,
-  });
-}
-
-function sortedTokens(tokens: Partial<RendererTheme["base"]>): [string, string][] {
-  return Object.entries(tokens)
-    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
-    .sort(([a], [b]) => a.localeCompare(b));
-}
-
-function classForStatus(status: HostStatus): string {
-  const base = "relative z-10 h-full min-h-full";
-  switch (status) {
-    case "fading-out":
-      return `${base} opacity-0 transition-opacity duration-300 ease-out motion-reduce:duration-0`;
-    case "waiting-for-import":
-    case "applying-theme":
-    case "mounting":
-      return `${base} opacity-0 transition-none`;
-    case "fading-in":
-    case "showing-error":
-      return `${base} opacity-100 transition-opacity duration-200 ease-out motion-reduce:duration-0`;
-    case "stable":
-      return `${base} opacity-100 transition-none`;
-  }
-}
-
-export function useRendererHostMachine({
+export function useRendererSurfaceMachine({
   actions,
   activeProjectSlug,
   bundle,
   snapshot,
   error,
-  layerHandle,
+  shellHandle,
   onImportError,
   onTheme,
-}: RendererHostMachineOptions): RendererHostMachine {
+}: RendererSurfaceMachineOptions): RendererSurfaceMachine {
   const visibleSlugRef = useRef<string | null>(snapshot?.slug ?? null);
-  const statusRef = useRef<HostStatus>("stable");
+  const statusRef = useRef<SurfaceStatus>("stable");
   const generationRef = useRef(0);
   const preparedRef = useRef<PreparedRenderer | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedBundleRef = useRef<RendererBundle | null>(null);
   const mountedModuleRef = useRef<RendererModule | null>(null);
   const themeIdentityRef = useRef<string>("null");
-  const [status, setStatusState] = useState<HostStatus>("stable");
+  const [status, setStatusState] = useState<SurfaceStatus>("stable");
   const [visibleError, setVisibleError] = useState<string | null>(null);
 
   const clearTimer = useCallback(() => {
@@ -133,7 +70,7 @@ export function useRendererHostMachine({
     timerRef.current = null;
   }, []);
 
-  const setStatus = useCallback((next: HostStatus) => {
+  const setStatus = useCallback((next: SurfaceStatus) => {
     if (statusRef.current === next) return;
     statusRef.current = next;
     setStatusState(next);
@@ -147,12 +84,12 @@ export function useRendererHostMachine({
   }, [onTheme]);
 
   const mountPrepared = useCallback((prepared: PreparedRenderer) => {
-    if (!layerHandle) return;
+    if (!shellHandle) return;
     setVisibleError(null);
-    layerHandle.clear();
-    layerHandle.setCss(prepared.bundle.css);
+    shellHandle.clear();
+    shellHandle.setCss(prepared.bundle.css);
     try {
-      layerHandle.renderModule(prepared.module, actions, prepared.snapshot);
+      shellHandle.renderModule(prepared.module, actions, prepared.snapshot);
     } catch (mountError: unknown) {
       const message = errorMessage(mountError);
       clearTimer();
@@ -172,7 +109,7 @@ export function useRendererHostMachine({
       setStatus("stable");
       timerRef.current = null;
     }, FADE_IN_MS);
-  }, [actions, clearTimer, layerHandle, onImportError, setStatus]);
+  }, [actions, clearTimer, shellHandle, onImportError, setStatus]);
 
   const applyPreparedTheme = useCallback((prepared: PreparedRenderer) => {
     emitTheme(prepared.theme);
@@ -189,7 +126,7 @@ export function useRendererHostMachine({
     timerRef.current = null;
 
     if (error) {
-      layerHandle?.clear();
+      shellHandle?.clear();
       mountedBundleRef.current = null;
       mountedModuleRef.current = null;
       visibleSlugRef.current = activeProjectSlug;
@@ -202,10 +139,10 @@ export function useRendererHostMachine({
     if (prepared) {
       applyPreparedTheme(prepared);
     } else {
-      layerHandle?.clear();
+      shellHandle?.clear();
       setStatus("waiting-for-import");
     }
-  }, [activeProjectSlug, applyPreparedTheme, error, layerHandle, setStatus]);
+  }, [activeProjectSlug, applyPreparedTheme, error, shellHandle, setStatus]);
 
   const startProjectTransition = useCallback(() => {
     clearTimer();
@@ -231,7 +168,7 @@ export function useRendererHostMachine({
       visibleSlugRef.current = null;
       mountedBundleRef.current = null;
       mountedModuleRef.current = null;
-      layerHandle?.clear();
+      shellHandle?.clear();
       emitTheme(null);
       setVisibleError(null);
       setStatus("stable");
@@ -241,7 +178,7 @@ export function useRendererHostMachine({
     if (visibleSlugRef.current !== null && visibleSlugRef.current !== activeProjectSlug) {
       startProjectTransition();
     }
-  }, [activeProjectSlug, clearTimer, emitTheme, layerHandle, setStatus, startProjectTransition]);
+  }, [activeProjectSlug, clearTimer, emitTheme, shellHandle, setStatus, startProjectTransition]);
 
   useEffect(() => {
     if (!error) return;
@@ -249,13 +186,13 @@ export function useRendererHostMachine({
     clearTimer();
     generationRef.current += 1;
     preparedRef.current = null;
-    layerHandle?.clear();
+    shellHandle?.clear();
     mountedBundleRef.current = null;
     mountedModuleRef.current = null;
     visibleSlugRef.current = activeProjectSlug;
     setVisibleError(error);
     setStatus("showing-error");
-  }, [activeProjectSlug, clearTimer, error, layerHandle, setStatus]);
+  }, [activeProjectSlug, clearTimer, error, shellHandle, setStatus]);
 
   useEffect(() => {
     if (!bundle || !snapshot || snapshot.slug !== activeProjectSlug) return;
@@ -305,8 +242,8 @@ export function useRendererHostMachine({
   useEffect(() => {
     const mod = mountedModuleRef.current;
     if (!mod || !snapshot || snapshot.slug !== visibleSlugRef.current) return;
-    layerHandle?.updateSnapshot(snapshot);
-  }, [layerHandle, snapshot]);
+    shellHandle?.updateSnapshot(snapshot);
+  }, [shellHandle, snapshot]);
 
   useEffect(() => {
     const mod = mountedModuleRef.current;
@@ -318,7 +255,7 @@ export function useRendererHostMachine({
   useEffect(() => clearTimer, [clearTimer]);
 
   return {
-    layerClassName: classForStatus(status),
+    shellClassName: classForStatus(status),
     visibleError,
   };
 }

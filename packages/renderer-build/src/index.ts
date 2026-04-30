@@ -6,7 +6,6 @@ export {
 export {
   buildRendererBundle,
   findRendererEntrypoint,
-  type RendererBundle,
 } from "./builder.js";
 export {
   RENDERER_CORE_IMPORT,
@@ -18,4 +17,4 @@ export {
 export {
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
-} from "./runtime-source.js";
+} from "./plugins/index.js";

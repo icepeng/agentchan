@@ -12,7 +12,6 @@
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/grep": "workspace:*",
-    "@agentchan/renderer": "workspace:*",
     "@google/genai": "^1.50.1",
     "@mariozechner/pi-agent-core": "^0.70.2",
     "@mariozechner/pi-ai": "^0.70.2",

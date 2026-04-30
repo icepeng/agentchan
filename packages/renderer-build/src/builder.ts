@@ -1,16 +1,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import type { RendererBundle } from "@agentchan/renderer/core";
 import { RendererBuildError } from "./errors.js";
 import { validateRendererImportPolicy } from "./policy.js";
 import {
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
-} from "./runtime-source.js";
-
-export interface RendererBundle {
-  js: string;
-  css: string[];
-}
+} from "./plugins/index.js";
 
 export function findRendererEntrypoint(projectDir: string): string | null {
   const tsEntry = join(projectDir, "renderer", "index.ts");

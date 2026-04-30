@@ -23,6 +23,7 @@
         "@agentchan/creative-agent": "workspace:*",
         "@agentchan/estimate-tokens": "workspace:*",
         "@agentchan/renderer": "workspace:*",
+        "@agentchan/renderer-build": "workspace:*",
         "@base-ui/react": "^1.4.1",
         "@codemirror/autocomplete": "^6.20.1",
         "@codemirror/commands": "^6.10.3",
@@ -65,7 +66,6 @@
       "dependencies": {
         "@agentchan/estimate-tokens": "workspace:*",
         "@agentchan/grep": "workspace:*",
-        "@agentchan/renderer": "workspace:*",
         "@google/genai": "^1.50.1",
         "@mariozechner/pi-agent-core": "^0.70.2",
         "@mariozechner/pi-ai": "^0.70.2",
@@ -103,6 +103,16 @@
         "@types/react-dom": "^19.2.3",
       },
     },
+    "packages/renderer-build": {
+      "name": "@agentchan/renderer-build",
+      "version": "0.1.0",
+      "dependencies": {
+        "@agentchan/renderer": "workspace:*",
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "scheduler": "^0.27.0",
+      },
+    },
   },
   "packages": {
     "@agentchan/creative-agent": ["@agentchan/creative-agent@workspace:packages/creative-agent"],
@@ -112,6 +122,8 @@
     "@agentchan/grep": ["@agentchan/grep@workspace:packages/grep"],
 
     "@agentchan/renderer": ["@agentchan/renderer@workspace:packages/renderer"],
+
+    "@agentchan/renderer-build": ["@agentchan/renderer-build@workspace:packages/renderer-build"],
 
     "@agentchan/webui": ["@agentchan/webui@workspace:apps/webui"],
 

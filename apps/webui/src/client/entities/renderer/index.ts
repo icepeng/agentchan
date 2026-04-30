@@ -10,9 +10,15 @@ export type {
 } from "./renderer.types.js";
 
 export {
+  importRendererModule,
+  type RendererInstance,
+  type RendererModule,
+} from "./bundle/index.js";
+
+export {
   validateTheme,
   resolveThemeVars,
-} from "./projectTheme.js";
+} from "./theme/index.js";
 
 export {
   RendererViewProvider,

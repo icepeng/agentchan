@@ -14,12 +14,14 @@
     "build:exe": "bun run scripts/build-exe.ts",
     "build:exe:linux": "bun run scripts/build-exe.ts --target=bun-linux-x64",
     "build:exe:mac": "bun run scripts/build-exe.ts --target=bun-darwin-arm64",
-    "build:exe:win": "bun run scripts/build-exe.ts --target=bun-windows-x64"
+    "build:exe:win": "bun run scripts/build-exe.ts --target=bun-windows-x64",
+    "test": "bun test src"
   },
   "dependencies": {
     "@agentchan/creative-agent": "workspace:*",
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/renderer": "workspace:*",
+    "@agentchan/renderer-build": "workspace:*",
     "@base-ui/react": "^1.4.1",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",

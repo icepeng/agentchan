@@ -1,5 +1,5 @@
 import { dirname, join } from "node:path";
-import { buildRendererBundle } from "@agentchan/creative-agent";
+import { buildRendererBundle } from "@agentchan/renderer-build";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 import { TrustRequiredError, type TemplateTrustService } from "./template-trust.service.js";
