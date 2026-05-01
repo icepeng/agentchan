@@ -146,13 +146,22 @@ export function useRendererHostMachine({
     onTheme(theme);
   }, [onTheme]);
 
+  // Read layerHandle via ref so deferred callbacks (setTimeout chain in
+  // applyPreparedTheme → mountPrepared) see the current handle, not the one
+  // captured at useCallback creation time.
+  const layerHandleRef = useRef(layerHandle);
+  useEffect(() => {
+    layerHandleRef.current = layerHandle;
+  });
+
   const mountPrepared = useCallback((prepared: PreparedRenderer) => {
-    if (!layerHandle) return;
+    const handle = layerHandleRef.current;
+    if (!handle) return;
     setVisibleError(null);
-    layerHandle.clear();
-    layerHandle.setCss(prepared.bundle.css);
+    handle.clear();
+    handle.setCss(prepared.bundle.css);
     try {
-      layerHandle.renderModule(prepared.module, actions, prepared.snapshot);
+      handle.renderModule(prepared.module, actions, prepared.snapshot);
     } catch (mountError: unknown) {
       const message = errorMessage(mountError);
       clearTimer();
@@ -172,7 +181,7 @@ export function useRendererHostMachine({
       setStatus("stable");
       timerRef.current = null;
     }, FADE_IN_MS);
-  }, [actions, clearTimer, layerHandle, onImportError, setStatus]);
+  }, [actions, clearTimer, onImportError, setStatus]);
 
   const applyPreparedTheme = useCallback((prepared: PreparedRenderer) => {
     emitTheme(prepared.theme);
