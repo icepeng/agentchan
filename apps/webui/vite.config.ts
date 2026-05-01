@@ -39,6 +39,17 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
+    // CodeMirror facets/decorations rely on module identity. Without dedupe,
+    // monorepo hoisting can produce two `@codemirror/view` instances (one for
+    // the app, one nested under lang-* packages) and `state.facet(...)` returns
+    // an empty set — token spans never get emitted.
+    dedupe: [
+      "@codemirror/state",
+      "@codemirror/view",
+      "@codemirror/language",
+      "@lezer/common",
+      "@lezer/highlight",
+    ],
   },
   server: {
     watch: {
