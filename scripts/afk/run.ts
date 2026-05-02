@@ -761,6 +761,18 @@ async function main(): Promise<void> {
   console.log("\nAll done.");
 }
 
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+  if (reason instanceof Error && reason.stack) console.error(reason.stack);
+  process.exit(1);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+  if (err instanceof Error && err.stack) console.error(err.stack);
+  process.exit(1);
+});
+
 process.on("SIGINT", () => {
   if (shuttingDown) {
     console.error("\nForce exiting.");
@@ -781,5 +793,6 @@ process.on("SIGINT", () => {
 const entrypoint = isInit ? initMode : main;
 entrypoint().catch((err: unknown) => {
   console.error(err);
+  if (err instanceof Error && err.stack) console.error(err.stack);
   process.exit(1);
 });
