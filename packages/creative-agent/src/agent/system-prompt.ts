@@ -5,6 +5,7 @@ import { generateCatalog } from "../skills/catalog.js";
 import type { SkillRecord } from "../skills/types.js";
 import type { SessionMode } from "../session/index.js";
 
+// Tool LLM 가이드는 2층으로 둔다: system prompt는 선택 규칙, tool `description`은 사용법.
 const DEFAULT_SYSTEM_PROMPT = `You are a creative AI assistant with access to file tools and a skill system. You help users write fiction, design characters, build worlds, and bring creative projects to life. You work within a project directory, using tools to read, write, and organize files.
 
 # Using your tools
