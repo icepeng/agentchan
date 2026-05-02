@@ -4,25 +4,14 @@
     "agent-browser": {
       "source": "vercel-labs/agent-browser",
       "sourceType": "github",
+      "skillPath": "skills/agent-browser/SKILL.md",
       "computedHash": "c19a532a3777698b80b35270939a1dc559da451381971b3e1e78174d1ab54863"
-    },
-    "design-an-interface": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "design-an-interface/SKILL.md",
-      "computedHash": "f3f225914515407b8224e8ec6187db337c5e65bad0703936a0acb3f802947a7d"
     },
     "diagnose": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/diagnose/SKILL.md",
       "computedHash": "1c3c85517ac42116fe5f2bfb5150f7b3e38ad23808e40b33fbb01f1afb611983"
-    },
-    "domain-model": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "domain-model/SKILL.md",
-      "computedHash": "1b8c9eece3d3629cf845cae1e46e13ee00a4ed39c05ef8fb63eec9e1ced0fed7"
     },
     "grill-me": {
       "source": "mattpocock/skills",
@@ -42,11 +31,11 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "2da1d23b8f53cfe67f2e0b68924ab9f4ec400bb6480de097007eeaeb517d1722"
     },
-    "request-refactor-plan": {
-      "source": "mattpocock/skills",
+    "portless": {
+      "source": "vercel-labs/portless",
       "sourceType": "github",
-      "skillPath": "request-refactor-plan/SKILL.md",
-      "computedHash": "6811250488d1dafcb111e7ef0dc1124211369c5f6f47ce820b7527c255489178"
+      "skillPath": "skills/portless/SKILL.md",
+      "computedHash": "47c88e1e39eda1c18f31ca40b6e175483d8d36dbcf0672e240dcb1bd3ad554a4"
     },
     "setup-matt-pocock-skills": {
       "source": "mattpocock/skills",

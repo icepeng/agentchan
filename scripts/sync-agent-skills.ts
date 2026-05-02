@@ -9,7 +9,14 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import {
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 
 type SkillRoot = "agents" | "claude";
@@ -19,12 +26,9 @@ const SKILLS = [
   "agent-browser",
   "character-images",
   "cover-image",
-  "interview",
   "playtest",
   "portless",
   "update-deps",
-  "vercel-composition-patterns",
-  "vercel-react-best-practices",
 ];
 
 const TEXT_EXTENSIONS = new Set([
@@ -63,8 +67,14 @@ for (let i = 0; i < args.length; i++) {
 }
 
 const to: SkillRoot = from === "agents" ? "claude" : "agents";
-const sourceRoot = resolve(ROOT, from === "agents" ? ".agents/skills" : ".claude/skills");
-const targetRoot = resolve(ROOT, to === "agents" ? ".agents/skills" : ".claude/skills");
+const sourceRoot = resolve(
+  ROOT,
+  from === "agents" ? ".agents/skills" : ".claude/skills",
+);
+const targetRoot = resolve(
+  ROOT,
+  to === "agents" ? ".agents/skills" : ".claude/skills",
+);
 
 function assertUnderRoot(path: string) {
   const rel = relative(ROOT, path);
