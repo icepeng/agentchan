@@ -45,6 +45,8 @@ function parsePositiveIntegerOption(
 const PARALLEL = Number(process.env.PARALLEL ?? 1);
 const RATE_LIMIT_MAX_RETRIES = Number(process.env.RATE_LIMIT_MAX_RETRIES ?? 3);
 const RATE_LIMIT_BACKOFF_MS = Number(process.env.RATE_LIMIT_BACKOFF_MS ?? 60_000);
+const WORKTREE_REMOVE_MAX_ATTEMPTS = 3;
+const WORKTREE_REMOVE_RETRY_DELAY_MS = 500;
 const MAX_ITERATIONS = parsePositiveIntegerOption(
   ["--iterations", "--iteration"],
   Number(process.env.MAX_ITERATIONS ?? 10),
@@ -63,6 +65,15 @@ const WORKTREES_DIR = join(dirname(REPO_ROOT), `${basename(REPO_ROOT)}-wt`);
 const LOGS_DIR = join(REPO_ROOT, ".claude", "automate", "logs");
 const ISSUE_BRANCH_PREFIX = "afk/issue-";
 const ISSUE_DIR_PREFIX = "issue-";
+
+// Strip API auth so spawned claude falls back to the Max subscription login
+// instead of billing the API key.
+const CLAUDE_AGENT_ENV: Record<string, string | undefined> = (() => {
+  const env = { ...process.env };
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  return env;
+})();
 
 interface PlannedIssue {
   number: number;
@@ -210,6 +221,7 @@ async function runAgent(opts: {
     ],
     {
       cwd: opts.cwd,
+      env: CLAUDE_AGENT_ENV,
       stdin: new TextEncoder().encode(promptText),
       stdout: "pipe",
       stderr: "pipe",
@@ -321,8 +333,105 @@ async function isWorktreeDirty(path: string): Promise<boolean> {
   return out.length > 0;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function terminateWindowsProcessesHoldingPath(path: string): Promise<void> {
+  if (process.platform !== "win32" || !existsSync(path)) return;
+
+  const script = String.raw`
+$ErrorActionPreference = "SilentlyContinue"
+$root = (Resolve-Path -LiteralPath $args[0]).Path.TrimEnd("\")
+$self = $PID
+$locked = @{}
+
+Get-CimInstance Win32_Process |
+  Where-Object {
+    $_.ProcessId -ne $self -and
+    $_.CommandLine -and
+    $_.CommandLine.Contains($root)
+  } |
+  ForEach-Object {
+    $locked[[int]$_.ProcessId] = "command line"
+  }
+
+Get-Process | ForEach-Object {
+  $proc = $_
+  if ($proc.Id -eq $self -or $locked.ContainsKey([int]$proc.Id)) {
+    return
+  }
+
+  try {
+    foreach ($module in $proc.Modules) {
+      if (
+        $module.FileName -and
+        $module.FileName.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)
+      ) {
+        $locked[[int]$proc.Id] = "loaded module"
+        break
+      }
+    }
+  } catch {}
+}
+
+foreach ($id in $locked.Keys) {
+  try {
+    $proc = Get-Process -Id $id -ErrorAction Stop
+    Write-Output ("stopping {0} ({1}) via {2}" -f $proc.ProcessName, $id, $locked[$id])
+    Stop-Process -Id $id -Force -ErrorAction Stop
+  } catch {}
+}
+`;
+
+  const proc = Bun.spawn(
+    [
+      "powershell",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      script,
+      path,
+    ],
+    {
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
+  const exitCode = await proc.exited;
+  if (stdout.trim()) {
+    console.log(`[worktree cleanup] ${stdout.trim().replace(/\r?\n/g, "; ")}`);
+  }
+  if (exitCode !== 0 && stderr.trim()) {
+    console.warn(
+      `[worktree cleanup] process scan failed (${exitCode}): ${stderr.trim().slice(0, 300)}`,
+    );
+  }
+}
+
 async function removeWorktree(path: string): Promise<void> {
-  await runGit(["worktree", "remove", "--force", path]);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= WORKTREE_REMOVE_MAX_ATTEMPTS; attempt++) {
+    try {
+      await runGit(["worktree", "remove", "--force", path]);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt === WORKTREE_REMOVE_MAX_ATTEMPTS) break;
+
+      await terminateWindowsProcessesHoldingPath(path);
+      await delay(WORKTREE_REMOVE_RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  throw lastError;
 }
 
 async function commitsOnBranch(
