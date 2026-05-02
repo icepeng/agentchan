@@ -1,0 +1,9 @@
+quests:
+  - id: missing-children
+    status: active
+    title: 사라진 아이들
+    note: 성 엘렌 고아원에서 세 아이가 사라졌다는 소문이 돈다
+  - id: three-winds-ledger
+    status: active
+    title: 세 바람의 장부
+    note: 젖은 장부 조각이 항구의 세 세력과 이어져 있을지 모른다
