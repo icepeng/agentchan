@@ -648,14 +648,32 @@ async function removeWorktree(path: string): Promise<void> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= WORKTREE_REMOVE_MAX_ATTEMPTS; attempt++) {
+    // Release any lingering descendant processes that might hold a file
+    // handle inside the worktree before git tries to delete it. git removes
+    // the admin entry before the dir contents — if a locked file blocks the
+    // dir deletion we'd end up with admin gone + dir present, and every
+    // subsequent attempt returns "is not a working tree".
+    await terminateWindowsProcessesHoldingPath(path);
+
     try {
       await runGit(["worktree", "remove", "--force", path]);
       return;
     } catch (err) {
       lastError = err;
-      if (attempt === WORKTREE_REMOVE_MAX_ATTEMPTS) break;
+      const msg = err instanceof Error ? err.message : String(err);
 
-      await terminateWindowsProcessesHoldingPath(path);
+      // Partial-fail recovery: admin entry already removed, only the
+      // directory remains. Re-running git worktree remove cannot succeed;
+      // clean the leftover dir ourselves.
+      if (/not a working tree/i.test(msg)) {
+        if (existsSync(path)) {
+          await terminateWindowsProcessesHoldingPath(path);
+          await rm(path, { recursive: true, force: true, maxRetries: 10 });
+        }
+        return;
+      }
+
+      if (attempt === WORKTREE_REMOVE_MAX_ATTEMPTS) break;
       await delay(WORKTREE_REMOVE_RETRY_DELAY_MS * attempt);
     }
   }
