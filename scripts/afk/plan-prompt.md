@@ -20,6 +20,8 @@ An issue B is **blocked by** issue A if:
 
 An issue is **unblocked** if it has zero blocking dependencies on other open issues.
 
+For each unblocked issue, assign a branch name using the format `afk/issue-{number}-{slug}`.
+
 If the issue appears to be a PRD and it has implementation issues which link to it, the PRD cannot be worked on.
 
 # OUTPUT
@@ -27,7 +29,7 @@ If the issue appears to be a PRD and it has implementation issues which link to 
 Output your plan as a JSON object wrapped in `<plan>` tags:
 
 <plan>
-{"issues": [{"number": 42, "title": "Fix auth bug"]}
+{"issues": [{"number": 42, "title": "Fix auth bug", "branch": "afk/issue-42-fix-auth-bug"}]}
 </plan>
 
 Include only unblocked issues. If every issue is blocked, include the single highest-priority candidate (the one with the fewest or weakest dependencies).

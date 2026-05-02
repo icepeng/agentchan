@@ -9,7 +9,9 @@ const cliArgs = process.argv.slice(2);
 const isInit = cliArgs.includes("--init");
 const forceReset = cliArgs.includes("--force-reset");
 
-const PARALLEL = Number(process.env.PARALLEL ?? 4);
+const PARALLEL = Number(process.env.PARALLEL ?? 1);
+const RATE_LIMIT_MAX_RETRIES = Number(process.env.RATE_LIMIT_MAX_RETRIES ?? 3);
+const RATE_LIMIT_BACKOFF_MS = Number(process.env.RATE_LIMIT_BACKOFF_MS ?? 60_000);
 const MAX_ITERATIONS = Number(process.env.MAX_ITERATIONS ?? 10);
 const AGENT_MODEL = process.env.AGENT_MODEL ?? "claude-opus-4-7";
 const SHELL_TIMEOUT_MS = 30_000;
@@ -21,13 +23,16 @@ const REPO_ROOT = await runGit(["rev-parse", "--show-toplevel"]);
 const GIT_DIR = await runGit(["rev-parse", "--git-dir"]);
 const GIT_COMMON_DIR = await runGit(["rev-parse", "--git-common-dir"]);
 const IS_MAIN_CHECKOUT = GIT_DIR === GIT_COMMON_DIR;
-const WORKTREES_DIR = join(REPO_ROOT, ".claude", "worktrees");
+const WORKTREES_DIR = join(dirname(REPO_ROOT), `${basename(REPO_ROOT)}-wt`);
 const LOGS_DIR = join(REPO_ROOT, ".claude", "automate", "logs");
+const ISSUE_BRANCH_PREFIX = "afk/issue-";
+const ISSUE_DIR_PREFIX = "issue-";
 
 interface PlannedIssue {
   number: number;
   title: string;
   branch: string;
+  worktreeDir: string;
 }
 
 const inflight: Set<Bun.Subprocess> = new Set();
@@ -74,15 +79,6 @@ async function runShell(
     );
   }
   return result.stdout.toString().trim();
-}
-
-function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40)
-    .replace(/-+$/, "");
 }
 
 async function preprocessPrompt(
@@ -223,20 +219,59 @@ async function runAgent(opts: {
   const exitCode = await proc.exited;
   if (exitCode !== 0 && !shuttingDown) {
     const stderr = await new Response(proc.stderr).text();
+    const outputTail = combinedText.trim().slice(-500);
     throw new Error(
-      `[${opts.name}] claude exited ${exitCode}: ${stderr.trim().slice(0, 500)}`,
+      `[${opts.name}] claude exited ${exitCode}: stderr=${stderr.trim().slice(0, 300)} | output_tail=${outputTail}`,
     );
   }
   process.stdout.write(`[${opts.name}] ◀ done (exit=${exitCode})\n`);
   return { combinedText, exitCode };
 }
 
+function isRateLimitError(text: string): boolean {
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("429") ||
+    lower.includes("rate limit") ||
+    lower.includes("rate_limit")
+  );
+}
+
+async function runAgentWithRetry(opts: {
+  name: string;
+  promptFile: string;
+  promptArgs: Record<string, string>;
+  cwd: string;
+  logFile: string;
+}): Promise<AgentResult> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RATE_LIMIT_MAX_RETRIES; attempt++) {
+    try {
+      return await runAgent(opts);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!isRateLimitError(msg) || attempt === RATE_LIMIT_MAX_RETRIES) {
+        throw err;
+      }
+      const jitter = Math.random() * 30_000;
+      const delay = RATE_LIMIT_BACKOFF_MS * Math.pow(2, attempt) + jitter;
+      console.log(
+        `[${opts.name}] rate limited, retry in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${RATE_LIMIT_MAX_RETRIES})`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 async function createWorktree(
   branch: string,
+  worktreeDir: string,
   baseBranch: string,
 ): Promise<string> {
   await mkdir(WORKTREES_DIR, { recursive: true });
-  const path = join(WORKTREES_DIR, branch);
+  const path = join(WORKTREES_DIR, worktreeDir);
   try {
     await runGit(["worktree", "add", "-b", branch, path, baseBranch]);
   } catch {
@@ -262,10 +297,10 @@ async function commitsOnBranch(
   return out ? out.split("\n").filter(Boolean) : [];
 }
 
-async function listExistingAutomateBranches(): Promise<Set<string>> {
+async function listExistingAutomateDirs(): Promise<Set<string>> {
   if (!existsSync(WORKTREES_DIR)) return new Set();
   const entries = await readdir(WORKTREES_DIR);
-  return new Set(entries.filter((e) => e.startsWith("automate-issue-")));
+  return new Set(entries.filter((e) => e.startsWith(ISSUE_DIR_PREFIX)));
 }
 
 function makeSemaphore(max: number): {
@@ -407,7 +442,7 @@ async function main(): Promise<void> {
 
     console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
 
-    const planResult = await runAgent({
+    const planResult = await runAgentWithRetry({
       name: `plan/${iteration}`,
       promptFile: join(SCRIPT_DIR, "plan-prompt.md"),
       promptArgs: {},
@@ -423,21 +458,35 @@ async function main(): Promise<void> {
     }
 
     const parsed = JSON.parse(planMatch[1]!) as {
-      issues: Array<{ number: number; title: string }>;
+      issues: Array<{ number: number; title: string; branch: string }>;
     };
     if (parsed.issues.length === 0) {
       console.log("No issues to work on. Exiting.");
       break;
     }
 
-    const existing = await listExistingAutomateBranches();
+    const existing = await listExistingAutomateDirs();
     const todo: PlannedIssue[] = parsed.issues
-      .map((i) => ({
-        number: i.number,
-        title: i.title,
-        branch: `automate-issue-${i.number}-${slugify(i.title)}`,
-      }))
-      .filter((i) => !existing.has(i.branch));
+      .map((i) => {
+        const expectedPrefix = `${ISSUE_BRANCH_PREFIX}${i.number}-`;
+        if (!i.branch || !i.branch.startsWith(expectedPrefix)) {
+          throw new Error(
+            `Planner returned invalid branch name for issue #${i.number}: ${JSON.stringify(i.branch)}. Expected to start with "${expectedPrefix}".`,
+          );
+        }
+        if (!/^afk\/issue-\d+-[a-z0-9-]+$/.test(i.branch)) {
+          throw new Error(
+            `Planner returned non-conforming branch name: ${i.branch}. Must match /^afk\\/issue-\\d+-[a-z0-9-]+$/.`,
+          );
+        }
+        return {
+          number: i.number,
+          title: i.title,
+          branch: i.branch,
+          worktreeDir: `${ISSUE_DIR_PREFIX}${i.number}`,
+        };
+      })
+      .filter((i) => !existing.has(i.worktreeDir));
 
     if (todo.length === 0) {
       console.log(
@@ -456,7 +505,11 @@ async function main(): Promise<void> {
         await sem.acquire();
         let wtPath: string | undefined;
         try {
-          wtPath = await createWorktree(issue.branch, baseBranch);
+          wtPath = await createWorktree(
+            issue.branch,
+            issue.worktreeDir,
+            baseBranch,
+          );
 
           const installProc = Bun.spawn(["bun", "install"], {
             cwd: wtPath,
@@ -470,7 +523,7 @@ async function main(): Promise<void> {
             );
           }
 
-          await runAgent({
+          await runAgentWithRetry({
             name: `impl/#${issue.number}`,
             promptFile: join(SCRIPT_DIR, "implement-prompt.md"),
             promptArgs: {
@@ -479,13 +532,13 @@ async function main(): Promise<void> {
               BRANCH: issue.branch,
             },
             cwd: wtPath,
-            logFile: join(LOGS_DIR, `${issue.branch}__implement.jsonl`),
+            logFile: join(LOGS_DIR, `${issue.worktreeDir}__implement.jsonl`),
           });
 
           const afterImpl = await commitsOnBranch(issue.branch, baseBranch);
           if (afterImpl.length > 0) {
             try {
-              await runAgent({
+              await runAgentWithRetry({
                 name: `review/#${issue.number}`,
                 promptFile: join(SCRIPT_DIR, "review-prompt.md"),
                 promptArgs: {
@@ -495,7 +548,7 @@ async function main(): Promise<void> {
                   BASE_BRANCH: baseBranch,
                 },
                 cwd: wtPath,
-                logFile: join(LOGS_DIR, `${issue.branch}__review.jsonl`),
+                logFile: join(LOGS_DIR, `${issue.worktreeDir}__review.jsonl`),
               });
             } catch (err) {
               console.error(
@@ -546,7 +599,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    await runAgent({
+    await runAgentWithRetry({
       name: `merge/${iteration}`,
       promptFile: join(SCRIPT_DIR, "merge-prompt.md"),
       promptArgs: {
