@@ -9,10 +9,46 @@ const cliArgs = process.argv.slice(2);
 const isInit = cliArgs.includes("--init");
 const forceReset = cliArgs.includes("--force-reset");
 
+function parsePositiveIntegerOption(
+  names: string[],
+  fallback: number,
+): number {
+  for (const name of names) {
+    const equalsPrefix = `${name}=`;
+    const equalsValue = cliArgs.find((arg) => arg.startsWith(equalsPrefix));
+    const index = cliArgs.indexOf(name);
+    const value = equalsValue?.slice(equalsPrefix.length) ?? cliArgs[index + 1];
+
+    if (equalsValue === undefined && index === -1) {
+      continue;
+    }
+    if (value === undefined || value.startsWith("--")) {
+      throw new Error(`${name} requires a positive integer value`);
+    }
+
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new Error(`${name} must be a positive integer, got: ${value}`);
+    }
+    return parsed;
+  }
+
+  if (!Number.isInteger(fallback) || fallback < 1) {
+    throw new Error(
+      `MAX_ITERATIONS must be a positive integer, got: ${fallback}`,
+    );
+  }
+
+  return fallback;
+}
+
 const PARALLEL = Number(process.env.PARALLEL ?? 1);
 const RATE_LIMIT_MAX_RETRIES = Number(process.env.RATE_LIMIT_MAX_RETRIES ?? 3);
 const RATE_LIMIT_BACKOFF_MS = Number(process.env.RATE_LIMIT_BACKOFF_MS ?? 60_000);
-const MAX_ITERATIONS = Number(process.env.MAX_ITERATIONS ?? 10);
+const MAX_ITERATIONS = parsePositiveIntegerOption(
+  ["--iterations", "--iteration"],
+  Number(process.env.MAX_ITERATIONS ?? 10),
+);
 const AGENT_MODEL = process.env.AGENT_MODEL ?? "claude-opus-4-7";
 const SHELL_TIMEOUT_MS = 30_000;
 const MAIN_BRANCH = process.env.MAIN_BRANCH ?? "main";
