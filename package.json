@@ -20,7 +20,9 @@
     "prepare": "husky",
     "example-data:copy": "bun scripts/copy-example-data.ts",
     "skills:check": "bun scripts/sync-agent-skills.ts --check",
-    "skills:sync": "bun scripts/sync-agent-skills.ts"
+    "skills:sync": "bun scripts/sync-agent-skills.ts",
+    "afk": "bun run scripts/afk/run.ts",
+    "afk:init": "bun run scripts/afk/run.ts --init"
   },
   "devDependencies": {
     "@types/bun": "^1.3.13",
