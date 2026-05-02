@@ -13,12 +13,20 @@ export type {
   CompactionEntry,
   CustomMessageEntry,
   ModelChangeEntry,
+  ThinkingLevelChangeEntry,
+  BranchSummaryEntry,
+  CustomEntry,
+  LabelEntry,
   SessionHeader,
   SessionInfo,
+  SessionContext,
+  FileEntry,
   AgentchanSessionHeader,
   AgentchanSessionInfo,
   SessionMode,
 } from "./types.js";
+
+export { CURRENT_SESSION_VERSION } from "./types.js";
 
 export {
   branchFromLeaf,
@@ -26,15 +34,18 @@ export {
   siblingsOf,
 } from "./branch.js";
 
-export {
-  buildSessionContext,
-  getLatestCompactionEntry,
-  parseSessionEntries,
-  migrateSessionEntries,
-  CURRENT_SESSION_VERSION,
-} from "@mariozechner/pi-coding-agent";
+export { buildSessionContext } from "./context.js";
+export { parseSessionEntries, getLatestCompactionEntry } from "./parse.js";
 
-export type { SessionContext, FileEntry } from "@mariozechner/pi-coding-agent";
+export {
+  type BashExecutionMessage,
+  type CustomMessage,
+  type BranchSummaryMessage,
+  type CompactionSummaryMessage,
+  createBranchSummaryMessage,
+  createCompactionSummaryMessage,
+  createCustomMessage,
+} from "./messages.js";
 
 export { readSessionFile } from "./format.js";
 

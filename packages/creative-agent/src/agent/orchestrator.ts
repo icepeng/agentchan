@@ -7,7 +7,7 @@
 
 import { Agent, type AgentMessage } from "@mariozechner/pi-agent-core";
 import { getEnvApiKey, type Message } from "@mariozechner/pi-ai";
-import { convertToLlm } from "@mariozechner/pi-coding-agent";
+import { convertToLlm } from "./llm-conversion.js";
 import type { SkillMetadata } from "../skills/types.js";
 import type { SessionMode } from "../session/index.js";
 import { microCompact, clearCompactState } from "./compact.js";

@@ -11,17 +11,17 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { CURRENT_SESSION_VERSION } from "@mariozechner/pi-coding-agent";
 import type { Message, TextContent } from "@mariozechner/pi-ai";
 
 import { readSessionFile } from "./format.js";
-import type {
-  AgentchanSessionHeader,
-  AgentchanSessionInfo,
-  SessionEntry,
-  SessionEntryBase,
-  SessionMessageEntry,
-  SessionMode,
+import {
+  CURRENT_SESSION_VERSION,
+  type AgentchanSessionHeader,
+  type AgentchanSessionInfo,
+  type SessionEntry,
+  type SessionEntryBase,
+  type SessionMessageEntry,
+  type SessionMode,
 } from "./types.js";
 
 // --- Public types ---

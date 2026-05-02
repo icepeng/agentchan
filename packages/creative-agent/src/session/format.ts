@@ -1,21 +1,17 @@
 /**
  * Session file IO + parse — Pi-compatible JSONL header + entry lines.
  *
- * No fs in here beyond what the storage layer needs; no LLM calls.
- * Pi's `parseSessionEntries` is reused verbatim — it tolerates unknown
- * header fields (single JSON.parse per line), so Agentchan's `mode`
- * extension on the header survives round-trip without custom parsing.
+ * Agentchan reads/writes v3 only (ADR-0010). Files with a non-v3 header are
+ * rejected so unknown formats don't silently appear as headerless entries.
  */
 
 import { readFile } from "node:fs/promises";
-import {
-  parseSessionEntries,
-  migrateSessionEntries,
-} from "@mariozechner/pi-coding-agent";
 
-import type {
-  AgentchanSessionHeader,
-  SessionEntry,
+import { parseSessionEntries } from "./parse.js";
+import {
+  CURRENT_SESSION_VERSION,
+  type AgentchanSessionHeader,
+  type SessionEntry,
 } from "./types.js";
 
 export interface ReadSessionFile {
@@ -23,7 +19,7 @@ export interface ReadSessionFile {
   entries: SessionEntry[];
 }
 
-/** Read + parse + migrate a session file. Returns null if file missing or invalid. */
+/** Read + parse a v3 session file. Returns null if missing, malformed, or non-v3. */
 export async function readSessionFile(filePath: string): Promise<ReadSessionFile | null> {
   let content: string;
   try {
@@ -37,11 +33,10 @@ export async function readSessionFile(filePath: string): Promise<ReadSessionFile
   if (header.type !== "session" || typeof (header as { id?: unknown }).id !== "string") {
     return null;
   }
+  if ((header as AgentchanSessionHeader).version !== CURRENT_SESSION_VERSION) {
+    return null;
+  }
 
-  // In-place migrate to current version (mutates entries to new shape).
-  migrateSessionEntries(fileEntries);
-
-  // After migration, drop the header entry — header lives separately.
   const entries = fileEntries.slice(1) as SessionEntry[];
-  return { header: header, entries };
+  return { header: header as AgentchanSessionHeader, entries };
 }
