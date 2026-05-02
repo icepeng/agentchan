@@ -35,16 +35,19 @@ If applicable, use RGR to complete the task.
 
 # FEEDBACK LOOPS
 
-Before committing, run `bun run typecheck`, `bun run lint`, and `bun run test` to ensure type checks, lint, and tests all pass. Do not substitute `npm`/`npx`; this repo is Bun-only.
+Before committing, run `bun run typecheck`, `bun run lint`, and `bun run test` to ensure type checks, lint, and tests all pass.
 
 # COMMIT
 
 Make a git commit following Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:` etc. — pick whichever matches the change). The message must:
 
-1. Subject: conventional prefix + concise summary. Match the existing commit style in `git log`.
-2. Body: task completed (with PRD reference if any), key decisions, blockers or notes for next iteration. Keep it concise.
-3. Body must include `Closes #{{ISSUE_NUMBER}}` so GitHub auto-closes the issue when this lands on the default branch.
-4. Body must end with a `[AFK]` trailer on its own line, marking this commit as produced by the AFK pipeline.
+1. Include task completed + PRD reference
+2. Key decisions made
+3. Files changed
+4. Blockers or notes for next iteration
+5. End with `[AFK]` suffix
+
+Keep it concise.
 
 # THE ISSUE
 

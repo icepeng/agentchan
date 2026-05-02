@@ -340,6 +340,9 @@ function delay(ms: number): Promise<void> {
 async function terminateWindowsProcessesHoldingPath(path: string): Promise<void> {
   if (process.platform !== "win32" || !existsSync(path)) return;
 
+  // Match by command line only. A module-scan pass was tried earlier but it
+  // killed the parent bun.exe when it had any DLL loaded from the worktree's
+  // node_modules, ending the run silently right after review.
   const script = String.raw`
 $ErrorActionPreference = "SilentlyContinue"
 $root = (Resolve-Path -LiteralPath $args[0]).Path.TrimEnd("\")
@@ -355,25 +358,6 @@ Get-CimInstance Win32_Process |
   ForEach-Object {
     $locked[[int]$_.ProcessId] = "command line"
   }
-
-Get-Process | ForEach-Object {
-  $proc = $_
-  if ($proc.Id -eq $self -or $locked.ContainsKey([int]$proc.Id)) {
-    return
-  }
-
-  try {
-    foreach ($module in $proc.Modules) {
-      if (
-        $module.FileName -and
-        $module.FileName.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)
-      ) {
-        $locked[[int]$proc.Id] = "loaded module"
-        break
-      }
-    }
-  } catch {}
-}
 
 foreach ($id in $locked.Keys) {
   try {
