@@ -1,6 +1,6 @@
 # ADR 0004: 세션은 Pi-compatible SessionEntry JSONL로 저장한다
 
-Status: Accepted
+Status: Accepted (dependency clause amended by ADR-0010)
 Date: 2026-04-27
 
 ## Context
