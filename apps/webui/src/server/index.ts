@@ -132,7 +132,7 @@ Bun.serve({
 
 console.log(`agentchan webui server running on ${url}`);
 
-if (!isDev) {
+if (!isDev && !process.env.AGENTCHAN_NO_AUTO_OPEN) {
   const cmd =
     process.platform === "win32"
       ? ["cmd", "/c", "start", url]
