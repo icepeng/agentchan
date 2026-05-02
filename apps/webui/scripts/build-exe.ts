@@ -130,7 +130,7 @@ async function runStartupSmoke(): Promise<void> {
 
   const consumeStream = async (
     stream: ReadableStream<Uint8Array>,
-    isStderr: boolean,
+    onChunk: (chunk: string) => void,
   ): Promise<void> => {
     const decoder = new TextDecoder();
     const reader = stream.getReader();
@@ -138,28 +138,30 @@ async function runStartupSmoke(): Promise<void> {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        if (isStderr) {
-          stderrBuf += chunk;
-          for (const kw of REGRESSION_KEYWORDS) {
-            if (regressionSeen === null && stderrBuf.includes(kw)) {
-              regressionSeen = kw;
-            }
-          }
-        } else {
-          stdoutBuf += chunk;
-          if (!bootSeen && stdoutBuf.includes(BOOT_SIGNAL)) {
-            bootSeen = true;
-          }
-        }
+        onChunk(decoder.decode(value, { stream: true }));
       }
     } finally {
       reader.releaseLock();
     }
   };
 
-  const stdoutPromise = consumeStream(proc.stdout as ReadableStream<Uint8Array>, false);
-  const stderrPromise = consumeStream(proc.stderr as ReadableStream<Uint8Array>, true);
+  const stdoutPromise = consumeStream(proc.stdout as ReadableStream<Uint8Array>, (chunk) => {
+    stdoutBuf += chunk;
+    if (!bootSeen && stdoutBuf.includes(BOOT_SIGNAL)) {
+      bootSeen = true;
+    }
+  });
+  const stderrPromise = consumeStream(proc.stderr as ReadableStream<Uint8Array>, (chunk) => {
+    stderrBuf += chunk;
+    if (regressionSeen === null) {
+      for (const kw of REGRESSION_KEYWORDS) {
+        if (stderrBuf.includes(kw)) {
+          regressionSeen = kw;
+          break;
+        }
+      }
+    }
+  });
 
   const timer = new Promise<"timer">((resolve) => {
     setTimeout(() => resolve("timer"), TIMEOUT_MS);
