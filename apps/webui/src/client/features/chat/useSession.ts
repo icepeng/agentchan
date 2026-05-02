@@ -4,6 +4,7 @@ import {
   useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
 import {
+  pickDefaultCreativeSessionId,
   useSessionMutations,
   useSessionData,
   useActiveSessionSelection,
@@ -43,9 +44,12 @@ export function useSession() {
 
   const remove = async (id: string) => {
     if (!slug) return;
-    await mutations.remove(id);
+    const sessions = await mutations.remove(id);
     if (selection.openSessionId === id) {
-      viewDispatch({ type: "OPEN_SESSION", sessionId: null });
+      // Drop to the most recent surviving creative; null when none remain so
+      // BottomInput's "no session → create" fallback handles the next input.
+      const next = pickDefaultCreativeSessionId(sessions);
+      viewDispatch({ type: "OPEN_SESSION", sessionId: next });
     }
   };
 

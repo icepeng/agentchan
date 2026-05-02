@@ -1,5 +1,9 @@
 import type { Message } from "@mariozechner/pi-ai";
-import type { SessionEntry, SessionMessageEntry } from "@agentchan/creative-agent";
+import type {
+  AgentchanSessionInfo,
+  SessionEntry,
+  SessionMessageEntry,
+} from "@agentchan/creative-agent";
 
 /** root → leaf branch by following parentId from leafId. Returns [] for null leaf. */
 export function selectBranch(
@@ -67,6 +71,18 @@ export function selectMessageEntries(
 export function defaultLeafId(entries: ReadonlyArray<SessionEntry>): string | null {
   if (entries.length === 0) return null;
   return entries[entries.length - 1]!.id;
+}
+
+/**
+ * Most recent creative session id from a server-sorted list, or null if no
+ * creative session exists. Server lists `modified desc` (ADR-0004), so the
+ * first creative entry is the right default — meta sessions are skipped per
+ * ADR-0005's "meta is an explicit auxiliary workspace".
+ */
+export function pickDefaultCreativeSessionId(
+  sessions: ReadonlyArray<AgentchanSessionInfo>,
+): string | null {
+  return sessions.find((s) => s.mode === "creative")?.id ?? null;
 }
 
 /** Pi `Message[]` for the agent-state hydrate stream. */

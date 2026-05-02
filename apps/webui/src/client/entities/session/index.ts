@@ -51,6 +51,7 @@ export {
   selectMessageEntries,
   selectBranchMessages,
   defaultLeafId,
+  pickDefaultCreativeSessionId,
 } from "./session.selectors.js";
 
 export {

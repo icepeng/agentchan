@@ -51,11 +51,12 @@ export function useSessionMutations(projectSlug: string | null) {
     return info;
   };
 
-  const remove = async (id: string) => {
+  const remove = async (id: string): Promise<AgentchanSessionInfo[]> => {
     if (!projectSlug) throw new Error("remove: projectSlug required");
     await apiDelete(projectSlug, id);
-    await mutate(qk.sessions(projectSlug));
+    const sessions = await mutate<AgentchanSessionInfo[]>(qk.sessions(projectSlug));
     await mutate(qk.session(projectSlug, id), undefined, { revalidate: false });
+    return sessions ?? [];
   };
 
   const rename = async (sessionId: string, leafId: string | null, name: string) => {

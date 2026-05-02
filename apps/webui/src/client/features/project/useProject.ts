@@ -11,6 +11,7 @@ import {
 } from "@/client/entities/renderer/index.js";
 import {
   abortProjectStream,
+  pickDefaultCreativeSessionId,
   type AgentchanSessionInfo,
 } from "@/client/entities/session/index.js";
 import {
@@ -76,7 +77,7 @@ export function useProject() {
     const sessionToOpen =
       rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)
         ? rememberedSessionId
-        : null;
+        : pickDefaultCreativeSessionId(sessions);
     openProject(slug, sessionToOpen);
   };
 
@@ -114,7 +115,7 @@ export function useProject() {
         const sessionToOpen =
           rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)
             ? rememberedSessionId
-            : null;
+            : pickDefaultCreativeSessionId(sessions);
         openProject(fallback.slug, sessionToOpen);
       } else {
         viewDispatch({ type: "FORGET_PROJECT", slug });
