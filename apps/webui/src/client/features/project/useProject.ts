@@ -11,6 +11,8 @@ import {
 } from "@/client/entities/renderer/index.js";
 import {
   abortProjectStream,
+  fetchSession,
+  fetchSessions,
   pickDefaultCreativeSessionId,
   type AgentchanSessionInfo,
 } from "@/client/entities/session/index.js";
@@ -51,10 +53,13 @@ export function useProject() {
   const activeProjectSlug = selectActiveProjectSlug(view);
 
   const fetchSessionsFor = async (slug: string): Promise<AgentchanSessionInfo[]> => {
-    // Single GET: SWR's fetcher runs, result seeds the cache atomically.
-    // Calling `fetchSessions` separately risked a duplicate fetch when
-    // `useSessions(slug)` mounted outside the dedupe window.
-    const sessions = await mutate<AgentchanSessionInfo[]>(qk.sessions(slug));
+    // Pass the fetch promise as the data argument so SWR's mutate awaits it
+    // and populates the cache regardless of subscriber state. `mutate(key)`
+    // alone routes through `startRevalidate`, which only invokes the fetcher
+    // when there's a mounted `useSWR(key)` — so for a slug that's never been
+    // subscribed (e.g. cross-project switch before SessionTabs remounts) it
+    // would silently return cached `undefined`.
+    const sessions = await mutate(qk.sessions(slug), fetchSessions(slug));
     return sessions ?? [];
   };
 
@@ -76,12 +81,16 @@ export function useProject() {
 
     // Sessions list + remembered detail fetch in parallel. The detail fetch
     // is speculative (we don't yet know the remembered id is valid); if the
-    // session was deleted server-side, SWR's 404 leaves the cache untouched
-    // and we'll fall through to no session below.
+    // session was 404'd server-side, the rejected promise leaves the cache
+    // untouched and `resolveSessionToOpen`'s id validation drops us to the
+    // default creative below.
     const [sessions] = await Promise.all([
       fetchSessionsFor(slug),
       rememberedSessionId
-        ? mutate(qk.session(slug, rememberedSessionId))
+        ? mutate(
+            qk.session(slug, rememberedSessionId),
+            fetchSession(slug, rememberedSessionId),
+          )
         : Promise.resolve(null),
     ]);
 
