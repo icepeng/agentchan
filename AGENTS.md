@@ -7,6 +7,8 @@
 - Agentchan skill: Agentchan 프로젝트/템플릿의 `skills/*/SKILL.md`.
 - 이 문서의 지시는 Codex에게 적용된다. Agentchan 런타임 규칙은 제품 코드를 수정할 때 보존해야 할 계약으로 읽는다.
 
+용어에 관한 질문은 [./CONTEXT.md](./CONTEXT.md)를 확인한다.
+
 ## Codex 작업 원칙
 - 작업 전 관련 코드를 먼저 읽고 기존 패턴과 경계를 확인한다.
 - 완료 전 diff를 자체 검토해 버그, 회귀, 누락된 검증, 지침 위반을 확인한다.
