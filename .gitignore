@@ -5,6 +5,7 @@ dist/
 *.tsbuildinfo
 
 apps/webui/data/
+.afk/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .claude/settings.local.json

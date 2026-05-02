@@ -1,13 +1,25 @@
 #!/usr/bin/env bun
 import { $ } from "bun";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, readdir } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// ----------------------------------------------------------------------------
+// CLI args
+// ----------------------------------------------------------------------------
 
 const cliArgs = process.argv.slice(2);
 const isInit = cliArgs.includes("--init");
 const forceReset = cliArgs.includes("--force-reset");
+const isResume = cliArgs.includes("--resume");
 
 function parsePositiveIntegerOption(
   names: string[],
@@ -42,6 +54,10 @@ function parsePositiveIntegerOption(
   return fallback;
 }
 
+// ----------------------------------------------------------------------------
+// Constants
+// ----------------------------------------------------------------------------
+
 const PARALLEL = Number(process.env.PARALLEL ?? 1);
 const RATE_LIMIT_MAX_RETRIES = Number(process.env.RATE_LIMIT_MAX_RETRIES ?? 3);
 const RATE_LIMIT_BACKOFF_MS = Number(process.env.RATE_LIMIT_BACKOFF_MS ?? 60_000);
@@ -53,8 +69,14 @@ const MAX_ITERATIONS = parsePositiveIntegerOption(
 );
 const AGENT_MODEL = process.env.AGENT_MODEL ?? "claude-opus-4-7";
 const SHELL_TIMEOUT_MS = 30_000;
+const AGENT_IDLE_TIMEOUT_MS = Number(
+  process.env.AGENT_IDLE_TIMEOUT_MS ?? 10 * 60 * 1000,
+);
+const STDERR_TAIL_LIMIT = 8_192;
+const PLAN_BUFFER_LIMIT = 256 * 1024;
 const MAIN_BRANCH = process.env.MAIN_BRANCH ?? "main";
 const AFK_BRANCH = "afk/integration";
+const STATE_VERSION = 1;
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = await runGit(["rev-parse", "--show-toplevel"]);
@@ -63,6 +85,8 @@ const GIT_COMMON_DIR = await runGit(["rev-parse", "--git-common-dir"]);
 const IS_MAIN_CHECKOUT = GIT_DIR === GIT_COMMON_DIR;
 const WORKTREES_DIR = join(dirname(REPO_ROOT), `${basename(REPO_ROOT)}-wt`);
 const LOGS_DIR = join(REPO_ROOT, ".claude", "automate", "logs");
+const AFK_DIR = join(REPO_ROOT, ".afk");
+const STATE_FILE = join(AFK_DIR, "state.json");
 const ISSUE_BRANCH_PREFIX = "afk/issue-";
 const ISSUE_DIR_PREFIX = "issue-";
 
@@ -75,15 +99,64 @@ const CLAUDE_AGENT_ENV: Record<string, string | undefined> = (() => {
   return env;
 })();
 
+// ----------------------------------------------------------------------------
+// Types
+// ----------------------------------------------------------------------------
+
 interface PlannedIssue {
   number: number;
   title: string;
   branch: string;
-  worktreeDir: string;
 }
 
-const inflight: Set<Bun.Subprocess> = new Set();
-let shuttingDown = false;
+type TodoStatus =
+  | "planned"
+  | "impl_done"
+  | "review_done"
+  | "merged"
+  | "failed";
+
+interface AfkTodo {
+  number: number;
+  title: string;
+  branch: string;
+  worktreeDir: string;
+  status: TodoStatus;
+  commits: number;
+  error?: string;
+}
+
+interface AfkState {
+  version: typeof STATE_VERSION;
+  iteration: number;
+  baseBranch: string;
+  startedAt: string;
+  updatedAt: string;
+  todos: AfkTodo[];
+}
+
+interface AgentRunResult {
+  /** Captured output: <plan> body for capture="plan", final result text for "result", "" for "none". */
+  output: string;
+  exitCode: number;
+}
+
+type CaptureMode = "plan" | "result" | "none";
+
+// ----------------------------------------------------------------------------
+// Cancellation
+// ----------------------------------------------------------------------------
+
+const abortController = new AbortController();
+let sigintCount = 0;
+
+function isAborted(): boolean {
+  return abortController.signal.aborted;
+}
+
+// ----------------------------------------------------------------------------
+// git / shell helpers
+// ----------------------------------------------------------------------------
 
 async function runGit(
   args: string[],
@@ -159,6 +232,10 @@ async function preprocessPrompt(
   return content;
 }
 
+// ----------------------------------------------------------------------------
+// Stream parsing — produces typed events without buffering full transcript
+// ----------------------------------------------------------------------------
+
 interface StreamEvent {
   type: "text" | "result";
   text: string;
@@ -189,22 +266,28 @@ function parseStreamLine(line: string): StreamEvent[] {
   return events;
 }
 
-interface AgentResult {
-  combinedText: string;
-  exitCode: number;
-}
+// ----------------------------------------------------------------------------
+// runAgent — bounded memory, stderr drain, idle timeout, AbortSignal
+// ----------------------------------------------------------------------------
 
-async function runAgent(opts: {
+interface RunAgentOpts {
   name: string;
   promptFile: string;
   promptArgs: Record<string, string>;
   cwd: string;
   logFile: string;
-}): Promise<AgentResult> {
+  capture: CaptureMode;
+  signal: AbortSignal;
+  idleTimeoutMs?: number;
+}
+
+async function runAgent(opts: RunAgentOpts): Promise<AgentRunResult> {
   const promptText = await preprocessPrompt(opts.promptFile, opts.promptArgs);
 
   await mkdir(dirname(opts.logFile), { recursive: true });
   const logSink = Bun.file(opts.logFile).writer();
+
+  const idleTimeoutMs = opts.idleTimeoutMs ?? AGENT_IDLE_TIMEOUT_MS;
 
   const proc = Bun.spawn(
     [
@@ -227,23 +310,70 @@ async function runAgent(opts: {
       stderr: "pipe",
     },
   );
-  inflight.add(proc);
 
-  const decoder = new TextDecoder();
-  let buf = "";
-  let combinedText = "";
+  // Drain stderr in the background and keep only a tail. An undrained pipe
+  // can fill the OS buffer and stall or crash the parent.
+  let stderrTail = "";
+  const stderrPromise = (async () => {
+    const decoder = new TextDecoder();
+    try {
+      for await (const chunk of proc.stderr as ReadableStream<Uint8Array>) {
+        stderrTail += decoder.decode(chunk, { stream: true });
+        if (stderrTail.length > STDERR_TAIL_LIMIT) {
+          stderrTail = stderrTail.slice(-STDERR_TAIL_LIMIT);
+        }
+      }
+    } catch {
+      // Ignore — process tear-down may close the stream mid-read.
+    }
+  })();
+
+  // Termination reason wins over exit code so we report meaningfully.
+  let killReason: "abort" | "idle" | null = null;
+  const killProc = (reason: "abort" | "idle") => {
+    if (killReason !== null) return;
+    killReason = reason;
+    try {
+      proc.kill("SIGTERM");
+    } catch {
+      // already dead
+    }
+  };
+
+  const onAbort = () => killProc("abort");
+  if (opts.signal.aborted) {
+    killProc("abort");
+  } else {
+    opts.signal.addEventListener("abort", onAbort, { once: true });
+  }
+
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  const armIdle = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => killProc("idle"), idleTimeoutMs);
+  };
+  armIdle();
 
   process.stdout.write(`[${opts.name}] ▶ started (cwd=${opts.cwd})\n`);
 
+  // Capture state — bounded.
+  let planBuf = ""; // only when capture === "plan"
+  let planMatch: string | undefined;
+  let resultText = ""; // only when capture === "result"
+
+  const decoder = new TextDecoder();
+  let lineBuf = "";
+
   try {
     for await (const chunk of proc.stdout as ReadableStream<Uint8Array>) {
+      armIdle();
       const str = decoder.decode(chunk, { stream: true });
       logSink.write(str);
-      buf += str;
+      lineBuf += str;
       let nl: number;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl);
-        buf = buf.slice(nl + 1);
+      while ((nl = lineBuf.indexOf("\n")) >= 0) {
+        const line = lineBuf.slice(0, nl);
+        lineBuf = lineBuf.slice(nl + 1);
         for (const evt of parseStreamLine(line)) {
           if (evt.type === "text") {
             const trimmed = evt.text.trim();
@@ -251,29 +381,61 @@ async function runAgent(opts: {
               const firstLine = trimmed.split("\n")[0]!.slice(0, 200);
               process.stdout.write(`[${opts.name}] ${firstLine}\n`);
             }
-            combinedText += evt.text;
+            if (opts.capture === "plan" && planMatch === undefined) {
+              planBuf += evt.text;
+              if (planBuf.length > PLAN_BUFFER_LIMIT) {
+                planBuf = planBuf.slice(-PLAN_BUFFER_LIMIT);
+              }
+              const m = planBuf.match(/<plan>([\s\S]*?)<\/plan>/);
+              if (m) {
+                planMatch = m[1]!;
+                planBuf = ""; // free memory
+              }
+            }
           } else if (evt.type === "result") {
-            combinedText += evt.text;
+            if (opts.capture === "result") resultText = evt.text;
           }
         }
       }
     }
   } finally {
-    inflight.delete(proc);
-    await logSink.flush();
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
+    }
+    opts.signal.removeEventListener("abort", onAbort);
+    try {
+      await logSink.flush();
+    } catch {}
     logSink.end();
   }
 
+  await stderrPromise;
   const exitCode = await proc.exited;
-  if (exitCode !== 0 && !shuttingDown) {
-    const stderr = await new Response(proc.stderr).text();
-    const outputTail = combinedText.trim().slice(-500);
+
+  if (killReason === "abort") {
+    throw new Error(`[${opts.name}] aborted`);
+  }
+  if (killReason === "idle") {
     throw new Error(
-      `[${opts.name}] claude exited ${exitCode}: stderr=${stderr.trim().slice(0, 300)} | output_tail=${outputTail}`,
+      `[${opts.name}] idle timeout — no output for ${Math.round(
+        idleTimeoutMs / 1000,
+      )}s`,
     );
   }
+  if (exitCode !== 0) {
+    throw new Error(
+      `[${opts.name}] claude exited ${exitCode}: stderr=${stderrTail.trim().slice(-300)}`,
+    );
+  }
+
   process.stdout.write(`[${opts.name}] ◀ done (exit=${exitCode})\n`);
-  return { combinedText, exitCode };
+
+  let output = "";
+  if (opts.capture === "plan") output = planMatch ?? "";
+  else if (opts.capture === "result") output = resultText;
+
+  return { output, exitCode };
 }
 
 function isRateLimitError(text: string): boolean {
@@ -285,15 +447,10 @@ function isRateLimitError(text: string): boolean {
   );
 }
 
-async function runAgentWithRetry(opts: {
-  name: string;
-  promptFile: string;
-  promptArgs: Record<string, string>;
-  cwd: string;
-  logFile: string;
-}): Promise<AgentResult> {
+async function runAgentWithRetry(opts: RunAgentOpts): Promise<AgentRunResult> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= RATE_LIMIT_MAX_RETRIES; attempt++) {
+    if (isAborted()) throw new Error(`[${opts.name}] aborted before start`);
     try {
       return await runAgent(opts);
     } catch (err) {
@@ -303,29 +460,96 @@ async function runAgentWithRetry(opts: {
         throw err;
       }
       const jitter = Math.random() * 30_000;
-      const delay = RATE_LIMIT_BACKOFF_MS * Math.pow(2, attempt) + jitter;
+      const delayMs = RATE_LIMIT_BACKOFF_MS * Math.pow(2, attempt) + jitter;
       console.log(
-        `[${opts.name}] rate limited, retry in ${Math.round(delay / 1000)}s (attempt ${attempt + 1}/${RATE_LIMIT_MAX_RETRIES})`,
+        `[${opts.name}] rate limited, retry in ${Math.round(delayMs / 1000)}s (attempt ${attempt + 1}/${RATE_LIMIT_MAX_RETRIES})`,
       );
-      await new Promise((r) => setTimeout(r, delay));
+      await sleepInterruptible(delayMs);
     }
   }
   throw lastErr;
 }
 
-async function createWorktree(
+function sleepInterruptible(ms: number): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      abortController.signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new Error("aborted"));
+    };
+    abortController.signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+// ----------------------------------------------------------------------------
+// State persistence — atomic JSON writes
+// ----------------------------------------------------------------------------
+
+async function loadState(): Promise<AfkState | null> {
+  if (!existsSync(STATE_FILE)) return null;
+  try {
+    const raw = await readFile(STATE_FILE, "utf8");
+    const parsed = JSON.parse(raw) as AfkState;
+    if (parsed.version !== STATE_VERSION) {
+      console.warn(
+        `state.json has version ${parsed.version}, expected ${STATE_VERSION}. Treating as missing.`,
+      );
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.warn(`Failed to read ${STATE_FILE}: ${err}. Treating as missing.`);
+    return null;
+  }
+}
+
+async function saveState(state: AfkState): Promise<void> {
+  state.updatedAt = new Date().toISOString();
+  await mkdir(AFK_DIR, { recursive: true });
+  const tmp = `${STATE_FILE}.tmp`;
+  await writeFile(tmp, JSON.stringify(state, null, 2), "utf8");
+  await rename(tmp, STATE_FILE);
+}
+
+async function clearState(): Promise<void> {
+  await rm(STATE_FILE, { force: true });
+}
+
+// ----------------------------------------------------------------------------
+// Worktree management
+// ----------------------------------------------------------------------------
+
+async function createOrReuseWorktree(
   branch: string,
   worktreeDir: string,
   baseBranch: string,
 ): Promise<string> {
   await mkdir(WORKTREES_DIR, { recursive: true });
   const path = join(WORKTREES_DIR, worktreeDir);
+
+  // If the directory already exists and is registered as a worktree on the
+  // expected branch, reuse it.
+  if (existsSync(path)) {
+    try {
+      const head = await runGit(["symbolic-ref", "--short", "HEAD"], path);
+      if (head === branch) return path;
+      // Different branch — fall through to forced re-add below.
+    } catch {
+      // Not a valid git worktree; will retry add.
+    }
+  }
+
   try {
     await runGit(["worktree", "add", "-b", branch, path, baseBranch]);
+    return path;
   } catch {
+    // Branch already exists — attach without -b.
     await runGit(["worktree", "add", path, branch]);
+    return path;
   }
-  return path;
 }
 
 async function isWorktreeDirty(path: string): Promise<boolean> {
@@ -426,11 +650,18 @@ async function commitsOnBranch(
   return out ? out.split("\n").filter(Boolean) : [];
 }
 
-async function listExistingAutomateDirs(): Promise<Set<string>> {
-  if (!existsSync(WORKTREES_DIR)) return new Set();
-  const entries = await readdir(WORKTREES_DIR);
-  return new Set(entries.filter((e) => e.startsWith(ISSUE_DIR_PREFIX)));
+async function listAfkIssueBranches(): Promise<string[]> {
+  const out = await runGit([
+    "for-each-ref",
+    "--format=%(refname:short)",
+    "refs/heads/afk/issue-",
+  ]);
+  return out ? out.split("\n").filter(Boolean) : [];
 }
+
+// ----------------------------------------------------------------------------
+// Concurrency
+// ----------------------------------------------------------------------------
 
 function makeSemaphore(max: number): {
   acquire: () => Promise<void>;
@@ -456,6 +687,10 @@ function makeSemaphore(max: number): {
     },
   };
 }
+
+// ----------------------------------------------------------------------------
+// Init mode
+// ----------------------------------------------------------------------------
 
 async function initMode(): Promise<void> {
   if (!IS_MAIN_CHECKOUT) {
@@ -503,6 +738,10 @@ async function initMode(): Promise<void> {
   console.log("  bun scripts/afk/run.ts");
 }
 
+// ----------------------------------------------------------------------------
+// Preflight — validates host repo state
+// ----------------------------------------------------------------------------
+
 async function preflight(): Promise<{ baseBranch: string }> {
   if (IS_MAIN_CHECKOUT) {
     throw new Error(
@@ -536,14 +775,24 @@ async function preflight(): Promise<{ baseBranch: string }> {
 
   await runGit(["rev-parse", "--verify", MAIN_BRANCH]);
 
+  if (isResume) {
+    // Resume mode: keep whatever state integration branch is in. We rely on
+    // state.json (or live afk/issue-* branches) to decide what to do next.
+    console.log(
+      `Resume mode: skipping ${AFK_BRANCH} reset. Existing commits/worktrees will be picked up.`,
+    );
+    return { baseBranch: AFK_BRANCH };
+  }
+
   const ahead = await runGit(["log", `${MAIN_BRANCH}..HEAD`, "--format=%H"]);
   const aheadCount = ahead ? ahead.split("\n").filter(Boolean).length : 0;
   if (aheadCount > 0 && !forceReset) {
     throw new Error(
       `${AFK_BRANCH} has ${aheadCount} commit(s) not in ${MAIN_BRANCH}.\n` +
         `These may be unreviewed work, or commits you discarded after squash-merging selected ones.\n` +
-        `If you've reviewed and merged what you wanted, pass --force-reset to discard the rest:\n` +
-        `  bun scripts/afk/run.ts --force-reset\n\n` +
+        `Options:\n` +
+        `  - bun scripts/afk/run.ts --resume       (continue the previous run)\n` +
+        `  - bun scripts/afk/run.ts --force-reset  (discard the commits)\n\n` +
         `Unmerged commits (${MAIN_BRANCH}..${AFK_BRANCH}):\n${ahead}`,
     );
   }
@@ -559,191 +808,316 @@ async function preflight(): Promise<{ baseBranch: string }> {
   return { baseBranch: AFK_BRANCH };
 }
 
+// ----------------------------------------------------------------------------
+// Iteration body — works against an AfkState so it's resumable
+// ----------------------------------------------------------------------------
+
+async function planIteration(
+  iteration: number,
+  baseBranch: string,
+): Promise<AfkState | null> {
+  const planResult = await runAgentWithRetry({
+    name: `plan/${iteration}`,
+    promptFile: join(SCRIPT_DIR, "plan-prompt.md"),
+    promptArgs: {},
+    cwd: REPO_ROOT,
+    logFile: join(LOGS_DIR, `iteration-${iteration}__plan.jsonl`),
+    capture: "plan",
+    signal: abortController.signal,
+  });
+
+  if (!planResult.output) {
+    throw new Error(`Planner produced no <plan> tag in iteration ${iteration}.`);
+  }
+
+  const parsed = JSON.parse(planResult.output) as { issues: PlannedIssue[] };
+  if (parsed.issues.length === 0) {
+    return null;
+  }
+
+  const todos: AfkTodo[] = parsed.issues.map((i) => {
+    const expectedPrefix = `${ISSUE_BRANCH_PREFIX}${i.number}-`;
+    if (!i.branch || !i.branch.startsWith(expectedPrefix)) {
+      throw new Error(
+        `Planner returned invalid branch name for issue #${i.number}: ${JSON.stringify(i.branch)}. Expected prefix "${expectedPrefix}".`,
+      );
+    }
+    if (!/^afk\/issue-\d+-[a-z0-9-]+$/.test(i.branch)) {
+      throw new Error(
+        `Planner returned non-conforming branch name: ${i.branch}.`,
+      );
+    }
+    return {
+      number: i.number,
+      title: i.title,
+      branch: i.branch,
+      worktreeDir: `${ISSUE_DIR_PREFIX}${i.number}`,
+      status: "planned",
+      commits: 0,
+    };
+  });
+
+  const now = new Date().toISOString();
+  const state: AfkState = {
+    version: STATE_VERSION,
+    iteration,
+    baseBranch,
+    startedAt: now,
+    updatedAt: now,
+    todos,
+  };
+  await saveState(state);
+  return state;
+}
+
+/** Drives one todo from its current status toward review_done or failed. */
+async function progressTodo(
+  state: AfkState,
+  todo: AfkTodo,
+  baseBranch: string,
+): Promise<void> {
+  const wtPath = join(WORKTREES_DIR, todo.worktreeDir);
+
+  if (todo.status === "planned") {
+    await createOrReuseWorktree(todo.branch, todo.worktreeDir, baseBranch);
+
+    const installProc = Bun.spawn(["bun", "install"], {
+      cwd: wtPath,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    if ((await installProc.exited) !== 0) {
+      const stderr = await new Response(installProc.stderr).text();
+      throw new Error(
+        `bun install failed in ${todo.branch}: ${stderr.trim().slice(0, 500)}`,
+      );
+    }
+
+    await runAgentWithRetry({
+      name: `impl/#${todo.number}`,
+      promptFile: join(SCRIPT_DIR, "implement-prompt.md"),
+      promptArgs: {
+        ISSUE_NUMBER: String(todo.number),
+        ISSUE_TITLE: todo.title,
+        BRANCH: todo.branch,
+      },
+      cwd: wtPath,
+      logFile: join(LOGS_DIR, `${todo.worktreeDir}__implement.jsonl`),
+      capture: "none",
+      signal: abortController.signal,
+    });
+
+    todo.commits = (await commitsOnBranch(todo.branch, baseBranch)).length;
+    todo.status = "impl_done";
+    await saveState(state);
+  }
+
+  if (todo.status === "impl_done") {
+    if (todo.commits === 0) {
+      todo.status = "failed";
+      todo.error = "implementation produced no commits";
+      await saveState(state);
+      return;
+    }
+
+    try {
+      await runAgentWithRetry({
+        name: `review/#${todo.number}`,
+        promptFile: join(SCRIPT_DIR, "review-prompt.md"),
+        promptArgs: {
+          ISSUE_NUMBER: String(todo.number),
+          ISSUE_TITLE: todo.title,
+          BRANCH: todo.branch,
+          BASE_BRANCH: baseBranch,
+        },
+        cwd: wtPath,
+        logFile: join(LOGS_DIR, `${todo.worktreeDir}__review.jsonl`),
+        capture: "none",
+        signal: abortController.signal,
+      });
+    } catch (err) {
+      console.error(
+        `[review/#${todo.number}] failed (continuing to merge): ${err}`,
+      );
+    }
+
+    todo.commits = (await commitsOnBranch(todo.branch, baseBranch)).length;
+    todo.status = "review_done";
+    await saveState(state);
+  }
+}
+
+async function executeTodos(
+  state: AfkState,
+  baseBranch: string,
+): Promise<void> {
+  const sem = makeSemaphore(PARALLEL);
+  const settled = await Promise.allSettled(
+    state.todos.map(async (todo) => {
+      if (todo.status === "merged" || todo.status === "failed") return;
+      if (todo.status === "review_done") return; // already past worker stage
+      await sem.acquire();
+      try {
+        if (isAborted()) return;
+        await progressTodo(state, todo, baseBranch);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`  ✗ #${todo.number} (${todo.branch}): ${msg}`);
+        todo.status = "failed";
+        todo.error = msg.slice(0, 500);
+        try {
+          await saveState(state);
+        } catch {}
+      } finally {
+        sem.release();
+      }
+    }),
+  );
+
+  for (const outcome of settled) {
+    if (outcome.status === "rejected") {
+      console.error(`Worker rejected: ${outcome.reason}`);
+    }
+  }
+}
+
+async function mergeStep(
+  state: AfkState,
+  iteration: number,
+): Promise<void> {
+  const toMerge = state.todos.filter(
+    (t) => t.status === "review_done" && t.commits > 0,
+  );
+  if (toMerge.length === 0) {
+    console.log("No reviewed branches with commits. Skipping merge.");
+    return;
+  }
+
+  console.log(`\nMerging ${toMerge.length} branch(es):`);
+  for (const t of toMerge) console.log(`  ${t.branch}`);
+
+  await runAgentWithRetry({
+    name: `merge/${iteration}`,
+    promptFile: join(SCRIPT_DIR, "merge-prompt.md"),
+    promptArgs: {
+      BRANCHES: toMerge.map((c) => `- ${c.branch}`).join("\n"),
+      ISSUES: toMerge.map((c) => `- #${c.number}: ${c.title}`).join("\n"),
+    },
+    cwd: REPO_ROOT,
+    logFile: join(LOGS_DIR, `iteration-${iteration}__merge.jsonl`),
+    capture: "none",
+    signal: abortController.signal,
+  });
+
+  for (const t of toMerge) {
+    t.status = "merged";
+  }
+  await saveState(state);
+  console.log("Branches merged.");
+}
+
+async function batchCleanup(state: AfkState): Promise<void> {
+  for (const todo of state.todos) {
+    if (todo.status !== "merged" && todo.status !== "failed") continue;
+    const wtPath = join(WORKTREES_DIR, todo.worktreeDir);
+    if (!existsSync(wtPath)) continue;
+
+    try {
+      if (await isWorktreeDirty(wtPath)) {
+        console.log(`[${todo.branch}] preserved (dirty)`);
+      } else {
+        await removeWorktree(wtPath);
+      }
+    } catch (err) {
+      console.error(`[${todo.branch}] cleanup failed: ${err}`);
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Main loop
+// ----------------------------------------------------------------------------
+
+async function runIteration(
+  iteration: number,
+  baseBranch: string,
+  resumedState: AfkState | null,
+): Promise<"continue" | "stop"> {
+  console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
+
+  let state: AfkState;
+  if (resumedState) {
+    console.log(
+      `Resuming iteration ${resumedState.iteration} with ${resumedState.todos.length} todo(s):`,
+    );
+    for (const t of resumedState.todos) {
+      console.log(`  [${t.status}] #${t.number}: ${t.title} (${t.branch})`);
+    }
+    state = resumedState;
+  } else {
+    const planned = await planIteration(iteration, baseBranch);
+    if (planned === null) {
+      console.log("No issues to work on. Exiting.");
+      return "stop";
+    }
+    state = planned;
+    console.log(`${state.todos.length} issue(s) to work in parallel:`);
+    for (const t of state.todos)
+      console.log(`  #${t.number}: ${t.title} → ${t.branch}`);
+  }
+
+  await executeTodos(state, baseBranch);
+  if (isAborted()) return "stop";
+
+  await mergeStep(state, iteration);
+  if (isAborted()) return "stop";
+
+  await batchCleanup(state);
+  await clearState();
+  return "continue";
+}
+
 async function main(): Promise<void> {
   const { baseBranch } = await preflight();
 
   console.log(`Base branch: ${baseBranch}`);
   console.log(`Model: ${AGENT_MODEL}`);
   console.log(`Parallel: ${PARALLEL} | Max iterations: ${MAX_ITERATIONS}`);
+  console.log(`Idle timeout: ${Math.round(AGENT_IDLE_TIMEOUT_MS / 1000)}s`);
 
-  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
-    if (shuttingDown) break;
-
-    console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
-
-    const planResult = await runAgentWithRetry({
-      name: `plan/${iteration}`,
-      promptFile: join(SCRIPT_DIR, "plan-prompt.md"),
-      promptArgs: {},
-      cwd: REPO_ROOT,
-      logFile: join(LOGS_DIR, `iteration-${iteration}__plan.jsonl`),
-    });
-
-    const planMatch = planResult.combinedText.match(/<plan>([\s\S]*?)<\/plan>/);
-    if (!planMatch) {
-      throw new Error(
-        `Planner produced no <plan> tag.\n\n${planResult.combinedText.slice(-2000)}`,
-      );
-    }
-
-    const parsed = JSON.parse(planMatch[1]!) as {
-      issues: Array<{ number: number; title: string; branch: string }>;
-    };
-    if (parsed.issues.length === 0) {
-      console.log("No issues to work on. Exiting.");
-      break;
-    }
-
-    const existing = await listExistingAutomateDirs();
-    const todo: PlannedIssue[] = parsed.issues
-      .map((i) => {
-        const expectedPrefix = `${ISSUE_BRANCH_PREFIX}${i.number}-`;
-        if (!i.branch || !i.branch.startsWith(expectedPrefix)) {
-          throw new Error(
-            `Planner returned invalid branch name for issue #${i.number}: ${JSON.stringify(i.branch)}. Expected to start with "${expectedPrefix}".`,
-          );
-        }
-        if (!/^afk\/issue-\d+-[a-z0-9-]+$/.test(i.branch)) {
-          throw new Error(
-            `Planner returned non-conforming branch name: ${i.branch}. Must match /^afk\\/issue-\\d+-[a-z0-9-]+$/.`,
-          );
-        }
-        return {
-          number: i.number,
-          title: i.title,
-          branch: i.branch,
-          worktreeDir: `${ISSUE_DIR_PREFIX}${i.number}`,
-        };
-      })
-      .filter((i) => !existing.has(i.worktreeDir));
-
-    if (todo.length === 0) {
+  let resumedState: AfkState | null = null;
+  if (isResume) {
+    resumedState = await loadState();
+    if (!resumedState) {
       console.log(
-        "All planned issues already have preserved worktrees. Skipping iteration.",
+        "No state.json to resume. Falling through to a fresh planning iteration.",
       );
-      continue;
+    } else {
+      console.log(
+        `Loaded state.json: iteration ${resumedState.iteration}, ${resumedState.todos.length} todo(s).`,
+      );
     }
+  }
 
-    console.log(`${todo.length} issue(s) to work in parallel:`);
-    for (const i of todo)
-      console.log(`  #${i.number}: ${i.title} → ${i.branch}`);
+  let iteration = resumedState?.iteration ?? 1;
+  for (; iteration <= MAX_ITERATIONS; iteration++) {
+    if (isAborted()) break;
 
-    const sem = makeSemaphore(PARALLEL);
-    const settled = await Promise.allSettled(
-      todo.map(async (issue): Promise<PlannedIssue & { commits: number }> => {
-        await sem.acquire();
-        let wtPath: string | undefined;
-        try {
-          wtPath = await createWorktree(
-            issue.branch,
-            issue.worktreeDir,
-            baseBranch,
-          );
-
-          const installProc = Bun.spawn(["bun", "install"], {
-            cwd: wtPath,
-            stdout: "ignore",
-            stderr: "pipe",
-          });
-          if ((await installProc.exited) !== 0) {
-            const stderr = await new Response(installProc.stderr).text();
-            throw new Error(
-              `bun install failed in ${issue.branch}: ${stderr.trim().slice(0, 500)}`,
-            );
-          }
-
-          await runAgentWithRetry({
-            name: `impl/#${issue.number}`,
-            promptFile: join(SCRIPT_DIR, "implement-prompt.md"),
-            promptArgs: {
-              ISSUE_NUMBER: String(issue.number),
-              ISSUE_TITLE: issue.title,
-              BRANCH: issue.branch,
-            },
-            cwd: wtPath,
-            logFile: join(LOGS_DIR, `${issue.worktreeDir}__implement.jsonl`),
-          });
-
-          const afterImpl = await commitsOnBranch(issue.branch, baseBranch);
-          if (afterImpl.length > 0) {
-            try {
-              await runAgentWithRetry({
-                name: `review/#${issue.number}`,
-                promptFile: join(SCRIPT_DIR, "review-prompt.md"),
-                promptArgs: {
-                  ISSUE_NUMBER: String(issue.number),
-                  ISSUE_TITLE: issue.title,
-                  BRANCH: issue.branch,
-                  BASE_BRANCH: baseBranch,
-                },
-                cwd: wtPath,
-                logFile: join(LOGS_DIR, `${issue.worktreeDir}__review.jsonl`),
-              });
-            } catch (err) {
-              console.error(
-                `[review/#${issue.number}] failed (continuing to merge): ${err}`,
-              );
-            }
-          }
-
-          const finalCommits = await commitsOnBranch(issue.branch, baseBranch);
-          return { ...issue, commits: finalCommits.length };
-        } finally {
-          if (wtPath) {
-            try {
-              if (await isWorktreeDirty(wtPath)) {
-                console.log(`[${issue.branch}] preserved (dirty)`);
-              } else {
-                await removeWorktree(wtPath);
-              }
-            } catch (err) {
-              console.error(`[${issue.branch}] cleanup failed: ${err}`);
-            }
-          }
-          sem.release();
-        }
-      }),
+    const decision = await runIteration(
+      iteration,
+      baseBranch,
+      iteration === (resumedState?.iteration ?? -1) ? resumedState : null,
     );
-
-    const completed: PlannedIssue[] = [];
-    for (let i = 0; i < settled.length; i++) {
-      const outcome = settled[i]!;
-      const issue = todo[i]!;
-      if (outcome.status === "rejected") {
-        console.error(
-          `  ✗ #${issue.number} (${issue.branch}): ${outcome.reason}`,
-        );
-      } else if (outcome.value.commits > 0) {
-        completed.push(issue);
-      }
-    }
-
-    console.log(
-      `\nExecution complete. ${completed.length} branch(es) with commits:`,
-    );
-    for (const c of completed) console.log(`  ${c.branch}`);
-
-    if (completed.length === 0) {
-      console.log("No commits produced. Skipping merge.");
-      continue;
-    }
-
-    await runAgentWithRetry({
-      name: `merge/${iteration}`,
-      promptFile: join(SCRIPT_DIR, "merge-prompt.md"),
-      promptArgs: {
-        BRANCHES: completed.map((c) => `- ${c.branch}`).join("\n"),
-        ISSUES: completed.map((c) => `- #${c.number}: ${c.title}`).join("\n"),
-      },
-      cwd: REPO_ROOT,
-      logFile: join(LOGS_DIR, `iteration-${iteration}__merge.jsonl`),
-    });
-
-    console.log("\nBranches merged.");
+    if (decision === "stop") break;
+    resumedState = null; // only the first iteration of this run resumes
   }
 
   console.log("\nAll done.");
 }
+
+// ----------------------------------------------------------------------------
+// Signal / error handlers
+// ----------------------------------------------------------------------------
 
 process.on("unhandledRejection", (reason) => {
   console.error("UNHANDLED REJECTION:", reason);
@@ -758,20 +1132,17 @@ process.on("uncaughtException", (err) => {
 });
 
 process.on("SIGINT", () => {
-  if (shuttingDown) {
+  sigintCount++;
+  if (sigintCount >= 2) {
     console.error("\nForce exiting.");
     process.exit(130);
   }
-  shuttingDown = true;
   console.error(
-    "\nSIGINT — terminating in-flight agents (Ctrl-C again to force exit)...",
+    "\nSIGINT — aborting in-flight agents cooperatively (Ctrl-C again to force exit)...",
   );
-  for (const proc of inflight) {
-    try {
-      proc.kill("SIGTERM");
-    } catch {}
-  }
-  setTimeout(() => process.exit(130), 2000);
+  abortController.abort(new Error("SIGINT received"));
+  // Hard deadline so a stuck agent doesn't block forever.
+  setTimeout(() => process.exit(130), 10_000).unref();
 });
 
 const entrypoint = isInit ? initMode : main;
@@ -780,3 +1151,6 @@ entrypoint().catch((err: unknown) => {
   if (err instanceof Error && err.stack) console.error(err.stack);
   process.exit(1);
 });
+
+// keep listAfkIssueBranches reachable for future resume-from-branches mode
+void listAfkIssueBranches;
