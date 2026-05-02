@@ -22,12 +22,4 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
   },
-  "exclude": [
-    "node_modules",
-    ".claude/worktrees",
-    "apps",
-    "example_data",
-    "packages",
-    "research"
-  ],
 }

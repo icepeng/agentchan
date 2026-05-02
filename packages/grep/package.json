@@ -4,5 +4,8 @@
   "license": "MIT",
   "type": "module",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsgo --noEmit"
+  }
 }

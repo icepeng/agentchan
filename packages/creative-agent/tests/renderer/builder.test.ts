@@ -382,8 +382,8 @@ describe("Renderer V1 bundle", () => {
 
     expect(bundledRuntime.theme?.(snapshot)).toEqual(packageRuntime.theme?.(snapshot));
 
-    const bundledInstance = bundledRuntime.mount({ name: "node" } as HTMLElement, bridge);
-    const packageInstance = packageRuntime.mount({ name: "node" } as HTMLElement, bridge);
+    const bundledInstance = bundledRuntime.mount({ name: "node" } as unknown as HTMLElement, bridge);
+    const packageInstance = packageRuntime.mount({ name: "node" } as unknown as HTMLElement, bridge);
     bundledInstance.update({ ...snapshot, slug: "after" });
     packageInstance.update({ ...snapshot, slug: "after" });
     bundledInstance.unmount();

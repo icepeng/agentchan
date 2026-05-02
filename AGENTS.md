@@ -23,7 +23,7 @@
 - `bun run build` - Turbo production build
 - `bun run build:exe` - Web UI client build 후 Bun single executable과 sidecar 생성
 - `bun run example-data:copy -- --force` - `example_data/`를 `apps/webui/data/` 런타임 데이터로 강제 반영
-- `bunx tsc --noEmit` - 타입 체크. `npx tsc`는 사용하지 않는다.
+- `bun run typecheck` - 타입 체크 (tsgo 기반). 슬라이스: `typecheck:packages`, `typecheck:scripts`. 주의: `npx tsc`는 사용하지 않는다.
 - `bun run lint` - 전체 oxlint
 - `bun run test` - 기본 테스트. 실질 범위는 `packages/creative-agent`의 tools 테스트 중심이다.
 - `cd packages/creative-agent && bun test tests/<dir>` - 개별 테스트

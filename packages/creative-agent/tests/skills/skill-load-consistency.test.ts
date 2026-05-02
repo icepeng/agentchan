@@ -82,10 +82,10 @@ describe("skill-load shape — slash injection", () => {
     );
 
     expect(result.drafts).toHaveLength(1);
-    const [draft] = result.drafts;
-    expect(draft.type).toBe("message");
+    const draft = result.drafts[0]!;
+    expect((draft as { type?: string }).type).toBe("message");
 
-    const text = userMessageText(draft!);
+    const text = userMessageText(draft);
     expect(text.startsWith(SKILL_CONTENT_PREFIX)).toBe(true);
     expect(text).toContain('name="invocable-character"');
     expect(text).toContain("</skill_content>");
@@ -189,7 +189,7 @@ describe("slash invocation negative cases", () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const result = buildUserDraftEntries("just a regular message", projectDir, skills);
     expect(result.drafts).toHaveLength(1);
-    expect(result.drafts[0]!.type).toBe("message");
+    expect((result.drafts[0]! as { type?: string }).type).toBe("message");
     expect(userMessageText(result.drafts[0]!)).toBe("just a regular message");
     expect(result.llmText).toBe("just a regular message");
   });
@@ -198,7 +198,7 @@ describe("slash invocation negative cases", () => {
     const skills = await discoverProjectSkills(join(projectDir, "skills"));
     const result = buildUserDraftEntries("/no-such-skill arg", projectDir, skills);
     expect(result.drafts).toHaveLength(1);
-    expect(result.drafts[0]!.type).toBe("message");
+    expect((result.drafts[0]! as { type?: string }).type).toBe("message");
     expect(userMessageText(result.drafts[0]!)).toBe("/no-such-skill arg");
   });
 });

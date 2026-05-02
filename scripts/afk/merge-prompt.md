@@ -8,7 +8,7 @@ For each branch:
 
 1. Run `git merge <branch> --no-edit`
 2. If there are merge conflicts, resolve them intelligently by reading both sides and choosing the correct resolution
-3. After resolving conflicts, run `bunx tsc --noEmit`, `bun run lint`, and `bun run test` to verify everything works
+3. After resolving conflicts, run `bun run typecheck`, `bun run lint`, and `bun run test` to verify everything works
 4. If tests fail, fix the issues before proceeding to the next branch
 
 After all branches are merged, make a single summary commit using Conventional Commits (`chore:` typically). Body must end with a `[AFK]` trailer on its own line.

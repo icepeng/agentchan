@@ -87,3 +87,4 @@ export {
 
 // Re-export pi-ai model registry functions for consumers (webui config)
 export { getProviders, getModels } from "@mariozechner/pi-ai";
+export type { KnownProvider } from "@mariozechner/pi-ai";

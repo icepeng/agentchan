@@ -42,7 +42,7 @@ function assistantDraft(text: string): DraftEntry {
     model: "claude-x",
     stopReason: "stop",
     usage: {
-      input: 10, output: 5, cacheRead: 0, cacheWrite: 0,
+      input: 10, output: 5, cacheRead: 0, cacheWrite: 0, totalTokens: 15,
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
     },
     timestamp: Date.now(),

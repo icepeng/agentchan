@@ -112,8 +112,7 @@ bun update
 빠른 검증:
 
 ```bash
-cd apps/webui && bunx tsc --noEmit
-cd packages/creative-agent && bunx tsc --noEmit
+bun run typecheck
 ```
 
 실패 시 원인 분석 후 수정.
@@ -130,7 +129,7 @@ bun add @mariozechner/pi-ai@latest @mariozechner/pi-agent-core@latest --cwd pack
 각 업데이트 후 즉시 type-check:
 
 ```bash
-cd packages/creative-agent && bunx tsc --noEmit
+bun run typecheck:packages
 ```
 
 실패 시:
@@ -147,9 +146,8 @@ cd packages/creative-agent && bunx tsc --noEmit
 ### 검증
 
 ```bash
-# Type-check (빌드 있는 패키지별)
-cd apps/webui && bunx tsc --noEmit
-cd packages/creative-agent && bunx tsc --noEmit
+# Type-check (전체 슬라이스: packages + scripts)
+bun run typecheck
 
 # Lint
 bun run lint
@@ -180,7 +178,8 @@ chore(deps): update {package-name} {current} → {latest}
 
 ## 주의사항
 
-- `bunx tsc`만 사용. `npx tsc` 사용 금지
+- 타입 체크는 `bun run typecheck` (tsgo 기반). `npx tsc` 사용 금지
+- `@typescript/native-preview`는 exact pin 유지. bump는 별도 PR로 분리해서 회귀 추적 용이하게 한다.
 - `workspace:*` 내부 패키지는 업데이트 대상 아님
 - devDependencies도 동일하게 처리 (type 안전성에 영향)
 - `bun.lock` 변경은 자동으로 따라옴 — 별도 처리 불필요

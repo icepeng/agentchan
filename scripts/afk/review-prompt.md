@@ -55,7 +55,7 @@ Here are the last 10 commits:
 If you find improvements to make:
 
 1. Make the changes directly on this branch
-2. Run `bunx tsc --noEmit`, `bun run lint`, and `bun run test` to ensure nothing is broken
+2. Run `bun run typecheck`, `bun run lint`, and `bun run test` to ensure nothing is broken
 3. Commit using Conventional Commits (`refactor:` or `chore:` typically) describing the refinements. Body must end with a `[AFK]` trailer on its own line.
 
 If the code is already clean and well-structured, do nothing.

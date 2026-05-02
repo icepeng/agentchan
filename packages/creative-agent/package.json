@@ -7,7 +7,8 @@
   "types": "src/index.ts",
   "scripts": {
     "test": "bun test --filter tests/tools/",
-    "eval": "bun test tests/eval/"
+    "eval": "bun test tests/eval/",
+    "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",

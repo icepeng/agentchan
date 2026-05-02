@@ -48,7 +48,7 @@ cp -r example_data/ apps/webui/data/
 
 ```bash
 bun run build                # 프로덕션 빌드
-cd apps/webui && bunx tsc --noEmit  # 타입 체크
+bun run typecheck            # 타입 체크 (tsgo)
 
 bun run build:exe            # 현재 플랫폼
 bun run build:exe:win        # Windows

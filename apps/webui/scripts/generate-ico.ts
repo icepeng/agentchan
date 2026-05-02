@@ -49,20 +49,22 @@ function createIco(pngs: Buffer[], sizes: number[]): Buffer {
   // ICONDIRENTRY for each image
   for (let i = 0; i < pngs.length; i++) {
     const pos = HEADER_SIZE + i * DIR_ENTRY_SIZE;
-    const size = sizes[i];
+    const size = sizes[i]!;
+    const png = pngs[i]!;
+    const off = offsets[i]!;
     buf.writeUInt8(size >= 256 ? 0 : size, pos); // width (0 = 256)
     buf.writeUInt8(size >= 256 ? 0 : size, pos + 1); // height
     buf.writeUInt8(0, pos + 2); // color count
     buf.writeUInt8(0, pos + 3); // reserved
     buf.writeUInt16LE(1, pos + 4); // color planes
     buf.writeUInt16LE(32, pos + 6); // bits per pixel
-    buf.writeUInt32LE(pngs[i].length, pos + 8); // image data size
-    buf.writeUInt32LE(offsets[i], pos + 12); // image data offset
+    buf.writeUInt32LE(png.length, pos + 8); // image data size
+    buf.writeUInt32LE(off, pos + 12); // image data offset
   }
 
   // Write PNG data
   for (let i = 0; i < pngs.length; i++) {
-    pngs[i].copy(buf, offsets[i]);
+    pngs[i]!.copy(buf, offsets[i]!);
   }
 
   return buf;

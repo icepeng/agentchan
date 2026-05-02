@@ -109,7 +109,7 @@ describe("grep", () => {
     });
 
     expect(result.matchCount).toBe(1);
-    expect(result.matches[0].text).toContain("$10.00");
+    expect(result.matches[0]!.text).toContain("$10.00");
 
     // Without literal, $10.00 would be interpreted as regex and might not match correctly
     const regexResult = await grep({
@@ -119,7 +119,7 @@ describe("grep", () => {
       glob: "special.txt",
     });
     expect(regexResult.matchCount).toBe(1);
-    expect(regexResult.matches[0].text).toContain("[a-z]+");
+    expect(regexResult.matches[0]!.text).toContain("[a-z]+");
   });
 
   test("glob filtering (*.ts only)", async () => {
@@ -156,7 +156,7 @@ describe("grep", () => {
     // The match itself should not be marked as context
     const matchLines = result.matches.filter((m) => !m.isContext);
     expect(matchLines.length).toBe(1);
-    expect(matchLines[0].text).toContain("sayHello");
+    expect(matchLines[0]!.text).toContain("sayHello");
   });
 
   test("max matches limit", async () => {
@@ -227,8 +227,8 @@ describe("grep", () => {
 
     expect(result.matchCount).toBe(1);
     // The matched text should not contain \r
-    expect(result.matches[0].text).toBe("Hello CRLF");
-    expect(result.matches[0].text).not.toContain("\r");
+    expect(result.matches[0]!.text).toBe("Hello CRLF");
+    expect(result.matches[0]!.text).not.toContain("\r");
   });
 
   test("search single file directly", async () => {

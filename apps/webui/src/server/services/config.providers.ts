@@ -1,4 +1,4 @@
-import { getProviders, getModels, type ModelInfo } from "@agentchan/creative-agent";
+import { getProviders, getModels, type ModelInfo, type KnownProvider } from "@agentchan/creative-agent";
 import type { ProviderInfo, CustomProviderDef } from "../types.js";
 import type { SettingsRepo } from "../repositories/settings.repo.js";
 
@@ -85,7 +85,7 @@ export function createProviderRegistry(
     return settingsRepo.getOAuthCredentials(provider) != null;
   }
 
-  function toBuiltInProviderInfo(name: string): ProviderInfo {
+  function toBuiltInProviderInfo(name: KnownProvider): ProviderInfo {
     if (isOAuthProviderName(name)) {
       const models = hasOAuthCredentials(name) ? getModels(name).map(toModelInfo) : [];
       return { name, defaultModel: models[0]?.id ?? "", models, oauth: true };

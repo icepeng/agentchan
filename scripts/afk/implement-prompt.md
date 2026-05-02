@@ -35,7 +35,7 @@ If applicable, use RGR to complete the task.
 
 # FEEDBACK LOOPS
 
-Before committing, run `bunx tsc --noEmit`, `bun run lint`, and `bun run test` to ensure type checks, lint, and tests all pass. Do not substitute `npm`/`npx`; this repo is Bun-only and has no `typecheck` script.
+Before committing, run `bun run typecheck`, `bun run lint`, and `bun run test` to ensure type checks, lint, and tests all pass. Do not substitute `npm`/`npx`; this repo is Bun-only.
 
 # COMMIT
 
