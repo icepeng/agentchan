@@ -5,7 +5,7 @@ import {
   useOnboarding as useOnboardingStatus,
   useConfigMutations,
 } from "@/client/entities/config/index.js";
-import { useUIDispatch } from "@/client/entities/ui/index.js";
+import { useViewDispatch } from "@/client/entities/view/index.js";
 import { useProject } from "@/client/features/project/index.js";
 
 export type OnboardingStep = 0 | 1 | 2;
@@ -20,7 +20,7 @@ export function useOnboarding() {
     updateApiKey: mutateApiKey,
     completeOnboarding: mutateCompleteOnboarding,
   } = useConfigMutations();
-  const uiDispatch = useUIDispatch();
+  const viewDispatch = useViewDispatch();
   const { createProject } = useProject();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>(0);
@@ -63,17 +63,18 @@ export function useOnboarding() {
   const dismiss = async () => {
     await mutateCompleteOnboarding();
     setWizardOpen(false);
-    uiDispatch({ type: "NAVIGATE", route: { page: "templates" } });
+    viewDispatch({ type: "OPEN_TEMPLATES" });
   };
 
   const startWithTemplate = async (slug: string, name: string) => {
     if (creatingSlug) return;
     setCreatingSlug(slug);
     try {
+      // createProject opens the new project view as part of useProject's
+      // orchestration; no separate navigation is required here.
       await createProject(name, slug);
       await mutateCompleteOnboarding();
       setWizardOpen(false);
-      uiDispatch({ type: "NAVIGATE", route: { page: "main" } });
     } finally {
       setCreatingSlug(null);
     }

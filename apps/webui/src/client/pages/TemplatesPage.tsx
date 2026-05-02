@@ -19,7 +19,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useI18n } from "@/client/i18n/index.js";
-import { useUIDispatch } from "@/client/entities/ui/index.js";
 import {
   saveTemplateOrder,
   useTemplates,
@@ -121,8 +120,7 @@ function SortableTemplateItem({
 
 export function TemplatesPage() {
   const { t } = useI18n();
-  const uiDispatch = useUIDispatch();
-  const { createProject } = useProject();
+  const { createProject, projects, selectProject, activeProjectSlug } = useProject();
   const { setTrust } = useTemplateMutations();
   const { mutate } = useSWRConfig();
 
@@ -157,12 +155,19 @@ export function TemplatesPage() {
   const proceedCreate = async (slug: string, name: string) => {
     setCreating(true);
     try {
+      // createProject opens the new project view as part of the orchestration
+      // (useProject), so no separate navigation is required here.
       await createProject(name, slug);
-      uiDispatch({ type: "NAVIGATE", route: { page: "main" } });
     } finally {
       setCreating(false);
     }
   };
+
+  const handleBack = () => {
+    const lastSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
+    if (lastSlug) void selectProject(lastSlug);
+  };
+  const canGoBack = (activeProjectSlug ?? projects[0]?.slug) != null;
 
   const handleCreate = async () => {
     if (!effectiveSelectedSlug || !selectedTemplate || creating) return;
@@ -248,12 +253,11 @@ export function TemplatesPage() {
       }}
     >
       <div className="flex items-center gap-4 px-6 py-4 border-b border-edge/6 bg-base/40 backdrop-blur-sm shrink-0">
-        <IconButton
-          onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "main" } })}
-          title={t("settings.back")}
-        >
-          <ArrowLeft size={16} strokeWidth={2} />
-        </IconButton>
+        {canGoBack && (
+          <IconButton onClick={handleBack} title={t("settings.back")}>
+            <ArrowLeft size={16} strokeWidth={2} />
+          </IconButton>
+        )}
         <h2 className="font-display text-lg font-bold tracking-tight">
           {t("templates.title")}
         </h2>

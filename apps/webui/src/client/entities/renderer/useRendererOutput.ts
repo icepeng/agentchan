@@ -2,10 +2,13 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
 import type { AgentState } from "@/client/entities/agent-state/index.js";
 import {
-  useProjectSelectionState,
   fetchWorkspaceFiles,
   fetchRendererBundle,
 } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import type {
   RendererAgentState,
@@ -59,7 +62,7 @@ function toRendererAgentState(state: AgentState): RendererAgentState {
 }
 
 export function useRendererOutput() {
-  const { activeProjectSlug } = useProjectSelectionState();
+  const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const rendererViewDispatch = useRendererViewDispatch();
   const agentState = useAgentState();
   const activeProjectSlugRef = useRef(activeProjectSlug);

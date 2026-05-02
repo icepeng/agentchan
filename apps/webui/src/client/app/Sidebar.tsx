@@ -1,15 +1,33 @@
 import { BookOpen, PanelLeftClose, Settings } from "lucide-react";
-import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import { useUIDispatch } from "@/client/entities/ui/index.js";
+import { useViewState, useViewDispatch } from "@/client/entities/view/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
-import { ProjectTabs } from "@/client/features/project/index.js";
+import { ProjectTabs, useProject } from "@/client/features/project/index.js";
 import { ModelBar } from "@/client/features/settings/index.js";
 import { UpdateBanner } from "@/client/features/update/index.js";
+import { localStore } from "@/client/shared/storage.js";
 
 export function Sidebar() {
-  const ui = useUIState();
+  const view = useViewState().view;
+  const viewDispatch = useViewDispatch();
   const uiDispatch = useUIDispatch();
+  const { projects, selectProject } = useProject();
   const { t } = useI18n();
+
+  // "Home" = last-active project view, falling back to templates when there
+  // is no project to return to. There is no longer a separate "main" kind.
+  const goHome = () => {
+    if (view.kind === "project") return;
+    const lastSlug = localStore.lastProject.read();
+    const target =
+      (lastSlug && projects.find((p) => p.slug === lastSlug)) ?? projects[0];
+    if (target) {
+      void selectProject(target.slug);
+    } else {
+      viewDispatch({ type: "OPEN_TEMPLATES" });
+    }
+  };
 
   return (
     <div className="flex flex-col w-72 h-full bg-base border-r border-edge/6 transition-colors duration-300">
@@ -18,15 +36,15 @@ export function Sidebar() {
         <div>
           <h1
             className="font-display text-lg font-bold tracking-tight cursor-pointer"
-            onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "main" } })}
+            onClick={goHome}
           >
             agent<span className="text-accent">chan</span>
           </h1>
         </div>
         <div className="flex items-center gap-0.5">
           <IconButton
-            active={ui.currentPage.page === "settings"}
-            onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "settings" } })}
+            active={view.kind === "settings"}
+            onClick={() => viewDispatch({ type: "OPEN_SETTINGS" })}
             title={t("globalSettings.title")}
           >
             <Settings size={15} strokeWidth={1.8} />
@@ -43,9 +61,9 @@ export function Sidebar() {
       {/* Templates */}
       <div className="px-2 border-t border-edge/6 pt-2 pb-1">
         <button
-          onClick={() => uiDispatch({ type: "NAVIGATE", route: { page: "templates" } })}
+          onClick={() => viewDispatch({ type: "OPEN_TEMPLATES" })}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left transition-all duration-150 ${
-            ui.currentPage.page === "templates"
+            view.kind === "templates"
               ? "bg-elevated text-accent"
               : "text-fg-2 hover:text-fg hover:bg-elevated/50"
           }`}

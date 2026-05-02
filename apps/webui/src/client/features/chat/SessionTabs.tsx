@@ -3,7 +3,10 @@ import {
   useSessions,
   useActiveSessionSelection,
 } from "@/client/entities/session/index.js";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
@@ -11,7 +14,8 @@ import { useSession } from "./useSession.js";
 
 export function SessionTabs() {
   const selection = useActiveSessionSelection();
-  const { activeProjectSlug } = useProjectSelectionState();
+  const view = useViewState();
+  const activeProjectSlug = selectActiveProjectSlug(view);
   const { data: sessions = [] } = useSessions(activeProjectSlug);
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();

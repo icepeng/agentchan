@@ -6,24 +6,11 @@ import {
   type Dispatch,
 } from "react";
 
-// --- PageRoute ---
-
-export type PageRoute =
-  | { page: "main" }
-  | { page: "templates" }
-  | { page: "settings"; tab?: "appearance" | "api-keys" };
-
-// --- ViewMode ---
-
-export type ViewMode = "chat" | "edit";
-
 // --- State ---
 
 export interface UIState {
   sidebarOpen: boolean;
   agentPanelOpen: boolean;
-  currentPage: PageRoute;
-  viewMode: ViewMode;
   readmeOpen: boolean;
 }
 
@@ -32,8 +19,6 @@ export interface UIState {
 export type UIAction =
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "TOGGLE_AGENT_PANEL" }
-  | { type: "NAVIGATE"; route: PageRoute }
-  | { type: "SET_VIEW_MODE"; mode: ViewMode }
   | { type: "OPEN_README" }
   | { type: "CLOSE_README" };
 
@@ -45,10 +30,6 @@ function uiReducer(state: UIState, action: UIAction): UIState {
       return { ...state, sidebarOpen: !state.sidebarOpen };
     case "TOGGLE_AGENT_PANEL":
       return { ...state, agentPanelOpen: !state.agentPanelOpen };
-    case "NAVIGATE":
-      return { ...state, currentPage: action.route };
-    case "SET_VIEW_MODE":
-      return { ...state, viewMode: action.mode };
     case "OPEN_README":
       return { ...state, readmeOpen: true };
     case "CLOSE_README":
@@ -63,8 +44,6 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 const initialState: UIState = {
   sidebarOpen: true,
   agentPanelOpen: true,
-  currentPage: { page: "main" },
-  viewMode: "chat",
   readmeOpen: false,
 };
 

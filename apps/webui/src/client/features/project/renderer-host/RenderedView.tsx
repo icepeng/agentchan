@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
 import {
   useRendererOutput,
@@ -17,7 +20,7 @@ import type { RendererLayerId } from "./rendererRuntime.js";
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 
 export function RenderedView() {
-  const project = useProjectSelectionState();
+  const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const rendererView = useRendererViewState();
   const rendererViewDispatch = useRendererViewDispatch();
   const state = useAgentState();
@@ -59,24 +62,24 @@ export function RenderedView() {
 
   useEffect(() => {
     void refresh();
-  }, [project.activeProjectSlug, refresh]);
+  }, [activeProjectSlug, refresh]);
 
   useEffect(() => {
     const handleFilesChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ slug?: string }>).detail;
-      if (detail?.slug === project.activeProjectSlug) {
+      if (detail?.slug === activeProjectSlug) {
         void refresh();
       }
     };
     window.addEventListener(PROJECT_FILES_CHANGED, handleFilesChanged);
     return () => window.removeEventListener(PROJECT_FILES_CHANGED, handleFilesChanged);
-  }, [project.activeProjectSlug, refresh]);
+  }, [activeProjectSlug, refresh]);
 
   useEffect(() => {
-    if (!state.isStreaming && project.activeProjectSlug) {
+    if (!state.isStreaming && activeProjectSlug) {
       void refresh();
     }
-  }, [state.isStreaming, project.activeProjectSlug, refresh]);
+  }, [state.isStreaming, activeProjectSlug, refresh]);
 
   useEffect(() => {
     if (!state.isStreaming) return;
@@ -96,7 +99,7 @@ export function RenderedView() {
 
   const host = useRendererHostMachine({
     actions,
-    activeProjectSlug: project.activeProjectSlug,
+    activeProjectSlug,
     bundle: rendererView.bundle,
     snapshot: rendererView.snapshot,
     error: rendererView.error,

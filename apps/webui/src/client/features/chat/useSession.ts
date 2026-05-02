@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { mutate as globalMutate, useSWRConfig } from "swr";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
 import {
   useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
@@ -12,14 +11,20 @@ import {
   type SessionData,
   type SessionMode,
 } from "@/client/entities/session/index.js";
+import {
+  useViewState,
+  useViewDispatch,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 
 export function useSession() {
-  const projectSelection = useProjectSelectionState();
+  const view = useViewState();
+  const viewDispatch = useViewDispatch();
   const selection = useActiveSessionSelection();
   const sessionSelectionDispatch = useSessionSelectionDispatch();
   const agentDispatch = useAgentStateDispatch();
-  const slug = projectSelection.activeProjectSlug;
+  const slug = selectActiveProjectSlug(view);
   const mutations = useSessionMutations(slug);
   const { mutate } = useSWRConfig();
   const { data: sessionData } = useSessionData(slug, selection.openSessionId);
@@ -27,32 +32,20 @@ export function useSession() {
   const create = useCallback(async (mode?: SessionMode) => {
     if (!slug) return;
     const info = await mutations.create(mode);
-    sessionSelectionDispatch({
-      type: "SET_ACTIVE_SESSION",
-      projectSlug: slug,
-      sessionId: info.id,
-    });
+    viewDispatch({ type: "OPEN_SESSION", sessionId: info.id });
     return info;
-  }, [slug, mutations, sessionSelectionDispatch]);
+  }, [slug, mutations, viewDispatch]);
 
   const load = (id: string) => {
     if (!slug) return;
-    sessionSelectionDispatch({
-      type: "SET_ACTIVE_SESSION",
-      projectSlug: slug,
-      sessionId: id,
-    });
+    viewDispatch({ type: "OPEN_SESSION", sessionId: id });
   };
 
   const remove = async (id: string) => {
     if (!slug) return;
     await mutations.remove(id);
     if (selection.openSessionId === id) {
-      sessionSelectionDispatch({
-        type: "SET_ACTIVE_SESSION",
-        projectSlug: slug,
-        sessionId: null,
-      });
+      viewDispatch({ type: "OPEN_SESSION", sessionId: null });
     }
   };
 
@@ -77,7 +70,7 @@ export function useSession() {
 
   const setReplyTo = (entryId: string | null) => {
     if (!slug) return;
-    sessionSelectionDispatch({ type: "SET_REPLY_TO", projectSlug: slug, entryId });
+    sessionSelectionDispatch({ type: "SET_REPLY_TO", entryId });
   };
 
   const compact = async () => {

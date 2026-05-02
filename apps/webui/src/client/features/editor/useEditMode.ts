@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useSWRConfig } from "swr";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
-import { useUIState } from "@/client/entities/ui/index.js";
 import {
   useEditorState,
   useEditorDispatch,
@@ -15,15 +17,14 @@ import { qk } from "@/client/shared/queryKeys.js";
 import { useLatestRef } from "@/client/shared/useLatestRef.js";
 
 export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
-  const ui = useUIState();
-  const project = useProjectSelectionState();
+  const view = useViewState();
   const state = useAgentState();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
   const { mutate } = useSWRConfig();
 
-  const slug = project.activeProjectSlug;
-  const isEdit = ui.viewMode === "edit";
+  const slug = selectActiveProjectSlug(view);
+  const isEdit = view.view.kind === "project" && view.view.mode === "edit";
 
   // Tree only loads while the editor is open — no point pulling on every
   // project switch when the user is just chatting.

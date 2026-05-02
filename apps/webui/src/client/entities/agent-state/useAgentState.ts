@@ -1,4 +1,7 @@
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import type { AgentState } from "./agentState.js";
 import { EMPTY_AGENT_STATE } from "./agentState.js";
 import { useAgentStateMap } from "./AgentStateContext.js";
@@ -11,7 +14,7 @@ import { useAgentStateMap } from "./AgentStateContext.js";
  * projects.
  */
 export function useAgentState(projectSlug?: string | null): AgentState {
-  const { activeProjectSlug } = useProjectSelectionState();
+  const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const slug = projectSlug ?? activeProjectSlug;
   const map = useAgentStateMap();
   if (!slug) return EMPTY_AGENT_STATE;

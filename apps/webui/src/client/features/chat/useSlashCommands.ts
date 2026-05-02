@@ -4,8 +4,12 @@ import {
   useSessions,
   useActiveSessionSelection,
 } from "@/client/entities/session/index.js";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import {
+  useViewState,
+  useViewDispatch,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
+import { useUIDispatch } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
@@ -15,10 +19,11 @@ import { useCommandPalette } from "./useCommandPalette.js";
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const { update: updateConfig } = useConfigMutations();
   const selection = useActiveSessionSelection();
-  const { activeProjectSlug } = useProjectSelectionState();
+  const view = useViewState();
+  const viewDispatch = useViewDispatch();
+  const activeProjectSlug = selectActiveProjectSlug(view);
   const { data: skills = [] } = useSkills(activeProjectSlug);
   const { data: sessions = [] } = useSessions(activeProjectSlug);
-  const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { create, compact } = useSession();
   const { send } = useStreaming();
@@ -35,7 +40,12 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
         await compact();
         break;
       case "edit":
-        uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
+        if (view.view.kind === "project") {
+          viewDispatch({
+            type: "SET_VIEW_MODE",
+            mode: view.view.mode === "edit" ? "chat" : "edit",
+          });
+        }
         break;
       case "readme":
         uiDispatch({ type: "OPEN_README" });

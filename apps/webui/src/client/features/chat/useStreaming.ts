@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { mutate as globalMutate } from "swr";
 import {
-  useProjectSelectionState,
   useProjects,
 } from "@/client/entities/project/index.js";
 import {
@@ -9,8 +8,7 @@ import {
   useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
 import {
-  useSessionSelectionState,
-  selectSessionSelection,
+  useActiveSessionSelection,
   useSessionData,
   insertEntries,
   replaceTempEntry,
@@ -24,6 +22,11 @@ import {
   type SessionMessageEntry,
   type SSECallbacks,
 } from "@/client/entities/session/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+  selectActiveSessionId,
+} from "@/client/entities/view/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
 import { useI18n } from "@/client/i18n/index.js";
 import {
@@ -48,15 +51,14 @@ function makeTempUserEntry(text: string, parentId: string | null): SessionMessag
 }
 
 export function useStreaming() {
-  const projectSelection = useProjectSelectionState();
+  const view = useViewState();
   const { data: projects } = useProjects();
   const agentDispatch = useAgentStateDispatch();
-  const sessionSelectionState = useSessionSelectionState();
+  const activeSelection = useActiveSessionSelection();
   const { t } = useI18n();
   const { selectProject } = useProject();
 
-  const activeSlug = projectSelection.activeProjectSlug;
-  const activeSelection = selectSessionSelection(sessionSelectionState, activeSlug);
+  const activeSlug = selectActiveProjectSlug(view);
   const activeState = useAgentState(activeSlug);
 
   const { data: activeSessionData } = useSessionData(
@@ -64,18 +66,18 @@ export function useStreaming() {
     activeSelection.openSessionId,
   );
 
-  const projectSelectionRef = useRef(projectSelection);
+  const viewRef = useRef(view);
   const projectsRef = useRef(projects);
   const activeStateRef = useRef(activeState);
-  const sessionSelectionStateRef = useRef(sessionSelectionState);
+  const activeSelectionRef = useRef(activeSelection);
   const activeSessionDataRef = useRef(activeSessionData);
   const tRef = useRef(t);
   const selectProjectRef = useRef(selectProject);
   useEffect(() => {
-    projectSelectionRef.current = projectSelection;
+    viewRef.current = view;
     projectsRef.current = projects;
     activeStateRef.current = activeState;
-    sessionSelectionStateRef.current = sessionSelectionState;
+    activeSelectionRef.current = activeSelection;
     activeSessionDataRef.current = activeSessionData;
     tRef.current = t;
     selectProjectRef.current = selectProject;
@@ -108,12 +110,12 @@ export function useStreaming() {
         kind: "done" | "error",
         errorMessage?: string,
       ) => {
-        const p = projectSelectionRef.current;
-        const sel = sessionSelectionStateRef.current;
+        const v = viewRef.current;
+        const activeSlugNow = selectActiveProjectSlug(v);
+        const activeSessionIdNow = selectActiveSessionId(v);
         const projectName =
           projectsRef.current?.find((pr) => pr.slug === projectSlug)?.name ?? projectSlug;
-        const activeSessionId = selectSessionSelection(sel, p.activeProjectSlug).openSessionId;
-        if (!isBackgroundStream(projectSlug, sessionId, p.activeProjectSlug, activeSessionId)) return;
+        if (!isBackgroundStream(projectSlug, sessionId, activeSlugNow, activeSessionIdNow)) return;
         notifyBackgroundCompletion({
           projectSlug,
           projectName,
@@ -128,7 +130,7 @@ export function useStreaming() {
             kind === "done" ? "notifications.sessionCompleteBody" : "notifications.sessionErrorBody",
           ),
           onClick: () => {
-            if (projectSelectionRef.current.activeProjectSlug !== projectSlug) {
+            if (selectActiveProjectSlug(viewRef.current) !== projectSlug) {
               void selectProjectRef.current(projectSlug);
             }
           },
@@ -184,11 +186,10 @@ export function useStreaming() {
 
   const send = useCallback(
     async (text: string, sessionId?: string) => {
-      const p = projectSelectionRef.current;
-      const sel = sessionSelectionStateRef.current;
-      if (!p.activeProjectSlug) return;
-      const projectSlug = p.activeProjectSlug;
-      const selection = selectSessionSelection(sel, projectSlug);
+      const v = viewRef.current;
+      const projectSlug = selectActiveProjectSlug(v);
+      if (!projectSlug) return;
+      const selection = activeSelectionRef.current;
       const sid = sessionId ?? selection.openSessionId;
       if (!sid) return;
       if (activeStateRef.current.isStreaming) return;
@@ -242,11 +243,10 @@ export function useStreaming() {
   );
 
   const regenerate = async (entryId: string) => {
-    const p = projectSelectionRef.current;
-    const sel = sessionSelectionStateRef.current;
-    if (!p.activeProjectSlug) return;
-    const projectSlug = p.activeProjectSlug;
-    const selection = selectSessionSelection(sel, projectSlug);
+    const v = viewRef.current;
+    const projectSlug = selectActiveProjectSlug(v);
+    if (!projectSlug) return;
+    const selection = activeSelectionRef.current;
     if (!selection.openSessionId) return;
     if (activeStateRef.current.isStreaming) return;
 

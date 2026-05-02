@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import {
   useSessionData,
   useActiveSessionSelection,
@@ -98,7 +101,7 @@ function ModelInfoPopover({ entry }: { entry: SessionMessageEntry }) {
 export function AgentPanel() {
   const selection = useActiveSessionSelection();
   const state = useAgentState();
-  const { activeProjectSlug } = useProjectSelectionState();
+  const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const { data: sessionData } = useSessionData(
     activeProjectSlug,
     selection.openSessionId,

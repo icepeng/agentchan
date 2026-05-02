@@ -1,7 +1,12 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  useViewDispatch,
+  selectActiveProjectSlug,
+  type View,
+} from "@/client/entities/view/index.js";
 import {
   useRendererViewState,
   resolveThemeVars,
@@ -20,17 +25,17 @@ const TemplatesPage = lazy(() =>
   import("@/client/pages/TemplatesPage.js").then((m) => ({ default: m.TemplatesPage })),
 );
 
-function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
-  page: string;
+function PageContent({ view, agentPanelOpen, onToggleAgentPanel }: {
+  view: View;
   agentPanelOpen: boolean;
   onToggleAgentPanel: () => void;
 }) {
-  switch (page) {
+  switch (view.kind) {
     case "templates":
       return <TemplatesPage />;
     case "settings":
       return <AppSettingsPage />;
-    default:
+    case "project":
       return <ProjectPage agentPanelOpen={agentPanelOpen} onToggleAgentPanel={onToggleAgentPanel} />;
   }
 }
@@ -38,40 +43,47 @@ function PageContent({ page, agentPanelOpen, onToggleAgentPanel }: {
 export function AppShell() {
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
-  const project = useProjectSelectionState();
+  const viewState = useViewState();
+  const viewDispatch = useViewDispatch();
   const rendererView = useRendererViewState();
   const { resolved: userScheme } = useTheme();
   const { t } = useI18n();
 
-  // Ctrl+E / Cmd+E to toggle edit mode (main page only)
+  const view = viewState.view;
+  const activeProjectSlug = selectActiveProjectSlug(viewState);
+
+  // Ctrl+E / Cmd+E to toggle edit mode (project view only).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "e" && ui.currentPage.page === "main") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "e" && view.kind === "project") {
         e.preventDefault();
-        uiDispatch({ type: "SET_VIEW_MODE", mode: ui.viewMode === "edit" ? "chat" : "edit" });
+        viewDispatch({
+          type: "SET_VIEW_MODE",
+          mode: view.mode === "edit" ? "chat" : "edit",
+        });
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [ui.currentPage.page, ui.viewMode, uiDispatch]);
+  }, [view, viewDispatch]);
 
   // Clear tab title badge for the currently-viewed project.
   // Runs on: project switch, visibility change (user returns to tab).
   useEffect(() => {
     const sync = () => {
-      if (!document.hidden) markSeen(project.activeProjectSlug);
+      if (!document.hidden) markSeen(activeProjectSlug);
     };
     sync();
     document.addEventListener("visibilitychange", sync);
     return () => document.removeEventListener("visibilitychange", sync);
-  }, [project.activeProjectSlug]);
+  }, [activeProjectSlug]);
 
   // Renderer-owned theme is active only on the project page in chat mode.
   // Edit mode / Settings / Templates stay neutral on the base Obsidian Teal palette.
   const themeActive =
     rendererView.theme !== null &&
-    ui.currentPage.page === "main" &&
-    ui.viewMode === "chat";
+    view.kind === "project" &&
+    view.mode === "chat";
 
   const resolvedTheme =
     themeActive && rendererView.theme
@@ -126,7 +138,7 @@ export function AppShell() {
       <div className="flex-1 flex flex-col min-w-0 relative">
         <Suspense fallback={<div className="flex-1" />}>
           <PageContent
-            page={ui.currentPage.page}
+            view={view}
             agentPanelOpen={ui.agentPanelOpen}
             onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
           />

@@ -1,5 +1,8 @@
 import type { Message } from "@mariozechner/pi-ai";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import {
   useSessionData,
   useActiveSessionSelection,
@@ -67,7 +70,7 @@ function computeUsageFromBranch(
 
 /** Cumulative usage derived from persisted assistant message entries on the active branch. */
 export function useActiveUsage(): SessionUsage {
-  const { activeProjectSlug } = useProjectSelectionState();
+  const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const { openSessionId } = useActiveSessionSelection();
   const { data } = useSessionData(activeProjectSlug, openSessionId);
   return data ? computeUsageFromBranch(data.entries, data.leafId) : EMPTY_USAGE;

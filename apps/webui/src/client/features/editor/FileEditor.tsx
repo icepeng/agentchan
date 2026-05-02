@@ -23,7 +23,10 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { useI18n } from "@/client/i18n/index.js";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
 import { isImagePath, type EditorAPI } from "@/client/entities/editor/index.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
 import { useLatestRef } from "@/client/shared/useLatestRef.js";
@@ -242,7 +245,7 @@ interface FileEditorProps {
 
 export function FileEditor({ path, baseline, dirty, onMarkDirty, onSave, editorRef }: FileEditorProps) {
   const { t } = useI18n();
-  const project = useProjectSelectionState();
+  const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onMarkDirtyRef = useLatestRef(onMarkDirty);
@@ -378,7 +381,7 @@ export function FileEditor({ path, baseline, dirty, onMarkDirty, onSave, editorR
 
   // Image preview
   if (isImagePath(path)) {
-    const slug = project.activeProjectSlug;
+    const slug = activeProjectSlug;
     // Strip "files/" prefix for the serving route
     const servePath = path.startsWith("files/") ? path.slice(6) : path;
     const imageUrl = `/api/projects/${encodeURIComponent(slug ?? "")}/files/${servePath}`;

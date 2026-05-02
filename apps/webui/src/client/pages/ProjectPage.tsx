@@ -1,7 +1,7 @@
 import { useState, useRef, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
-import { useProjectSelectionState } from "@/client/entities/project/index.js";
-import { useUIState, useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
+import { useViewState } from "@/client/entities/view/index.js";
+import { EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 import { RenderedView } from "@/client/features/project/index.js";
 import { AgentPanel, BottomInput } from "@/client/features/chat/index.js";
@@ -23,15 +23,16 @@ interface ProjectPageProps {
 }
 
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
-  const project = useProjectSelectionState();
-  const ui = useUIState();
-  const uiDispatch = useUIDispatch();
+  const viewState = useViewState();
   const { t } = useI18n();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef(0);
 
-  const isEdit = ui.viewMode === "edit";
+  // ProjectPage is rendered by AppShell only when view.kind is "project", so
+  // narrowing here is safe.
+  if (viewState.view.kind !== "project") return null;
+  const isEdit = viewState.view.mode === "edit";
 
   const handlePanelResize = (delta: number) => {
     const container = containerRef.current;
@@ -61,15 +62,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
         ) : (
           // Chat mode: Rendered View
           <div className={`flex-1 flex flex-col min-w-0 transition-colors duration-300 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
-            {project.activeProjectSlug ? (
-              <RenderedView />
-            ) : (
-              <EmptyState
-                onBrowseTemplates={() =>
-                  uiDispatch({ type: "NAVIGATE", route: { page: "templates" } })
-                }
-              />
-            )}
+            <RenderedView />
           </div>
         )}
 
@@ -108,37 +101,5 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
       {/* Bottom: Input (chat mode only) */}
       {!isEdit && <BottomInput variant="standalone" />}
     </>
-  );
-}
-
-function EmptyState({ onBrowseTemplates }: { onBrowseTemplates: () => void }) {
-  const { t } = useI18n();
-  return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="text-center animate-fade">
-        <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-accent/8 border border-accent/15 flex items-center justify-center">
-          <div className="w-5 h-5 rounded-lg bg-accent/20 animate-glow" />
-        </div>
-        <h2 className="font-display text-3xl font-bold tracking-tight text-fg mb-2">
-          agent<span className="text-accent">chan</span>
-        </h2>
-        <p className="text-sm text-fg-3 mb-2 tracking-wide">
-          {t("empty.subtitle")}
-        </p>
-        <p className="text-sm text-fg-2 mb-8 tracking-wide">
-          {t("empty.noProjectTitle")}
-        </p>
-        <button
-          type="button"
-          onClick={onBrowseTemplates}
-          className="group inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent/10 border border-accent/20 text-accent text-sm font-medium hover:bg-accent/15 hover:border-accent/30 active:scale-[0.98] transition-all duration-200"
-        >
-          {t("empty.browseTemplates")}
-          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-            →
-          </span>
-        </button>
-      </div>
-    </div>
   );
 }
