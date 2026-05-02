@@ -22,6 +22,17 @@ import {
 import { qk } from "@/client/shared/queryKeys.js";
 import { localStore } from "@/client/shared/storage.js";
 
+/** Remembered session wins if still in the list; otherwise fall back to the default creative. */
+function resolveSessionToOpen(
+  sessions: AgentchanSessionInfo[],
+  rememberedSessionId: string | null,
+): string | null {
+  if (rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)) {
+    return rememberedSessionId;
+  }
+  return pickDefaultCreativeSessionId(sessions);
+}
+
 export function useProject() {
   const view = useViewState();
   const viewDispatch = useViewDispatch();
@@ -74,11 +85,7 @@ export function useProject() {
         : Promise.resolve(null),
     ]);
 
-    const sessionToOpen =
-      rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)
-        ? rememberedSessionId
-        : pickDefaultCreativeSessionId(sessions);
-    openProject(slug, sessionToOpen);
+    openProject(slug, resolveSessionToOpen(sessions, rememberedSessionId));
   };
 
   const createProject = async (name: string, fromTemplate?: string) => {
@@ -112,11 +119,7 @@ export function useProject() {
         localStore.lastProject.write(fallback.slug);
         const rememberedSessionId = view.sessionMemory.get(fallback.slug) ?? null;
         const sessions = await fetchSessionsFor(fallback.slug);
-        const sessionToOpen =
-          rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)
-            ? rememberedSessionId
-            : pickDefaultCreativeSessionId(sessions);
-        openProject(fallback.slug, sessionToOpen);
+        openProject(fallback.slug, resolveSessionToOpen(sessions, rememberedSessionId));
       } else {
         viewDispatch({ type: "FORGET_PROJECT", slug });
         rendererViewDispatch({ type: "CLEAR" });
