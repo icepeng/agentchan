@@ -62,7 +62,7 @@
 - i18n 키를 추가하면 `i18n/en.ts`와 `i18n/ko.ts`를 함께 갱신한다.
 - `localStorage`는 `shared/storage.ts`의 `localStore` 레지스트리만 사용한다.
 - 서버 SQLite(`settings.db`)는 에이전트가 읽는 설정·시크릿·서버 권한 상태에 사용하고, `localStorage`는 UI 상태·디바이스 preference·dismissal 같은 브라우저별 값에만 사용한다.
-- Routing은 `currentPage` 기반이며 react-router를 도입하지 않는다.
+- Navigation은 단일 view discriminated union 기반이며 라우터 라이브러리/history API를 도입하지 않는다.
 - ViewMode는 `"chat" | "edit"`이고 `UIContext`에서 관리한다.
 - Cross-domain orchestration은 features hook에서 처리한다.
 - React Compiler가 켜져 있으므로 성능 목적의 `useMemo`/`useCallback`/`React.memo`를 습관적으로 추가하지 않는다. 예외는 외부 구독의 안정 key, effect deps 계약, 명시적 캐시 같은 의미적 메모화뿐이다.

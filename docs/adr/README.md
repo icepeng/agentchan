@@ -16,3 +16,4 @@ ADR이 supersede하기 전까지 accepted ADR이 우선한다.
 - [0006. Web UI는 server 3-layer와 client FSD 계층을 유지한다](0006-webui-layering.md)
 - [0007. 에이전트는 prompt 계약과 project-scoped tools로 동작한다](0007-agent-prompt-tool-boundary.md)
 - [0008. Renderer presentation machine은 pure reducer로 구현한다](0008-renderer-presentation-pure-reducer.md)
+- [0009. Web UI navigation은 단일 view discriminated union으로 한다](0009-webui-view-state.md)
