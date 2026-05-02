@@ -163,11 +163,11 @@ export function TemplatesPage() {
     }
   };
 
+  const fallbackSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
+  const canGoBack = fallbackSlug !== null;
   const handleBack = () => {
-    const lastSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
-    if (lastSlug) void selectProject(lastSlug);
+    if (fallbackSlug) void selectProject(fallbackSlug);
   };
-  const canGoBack = (activeProjectSlug ?? projects[0]?.slug) != null;
 
   const handleCreate = async () => {
     if (!effectiveSelectedSlug || !selectedTemplate || creating) return;

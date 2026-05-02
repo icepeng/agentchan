@@ -36,6 +36,24 @@ export function initialViewState(): ViewState {
   return { view: { kind: "templates" }, sessionMemory: new Map() };
 }
 
+type SessionMemory = ReadonlyMap<string, string>;
+
+function rememberSession(
+  memory: SessionMemory,
+  slug: string,
+  sessionId: string | null,
+): SessionMemory {
+  if (sessionId === null || memory.get(slug) === sessionId) return memory;
+  return new Map(memory).set(slug, sessionId);
+}
+
+function forgetSession(memory: SessionMemory, slug: string): SessionMemory {
+  if (!memory.has(slug)) return memory;
+  const next = new Map(memory);
+  next.delete(slug);
+  return next;
+}
+
 export function viewReducer(state: ViewState, action: ViewAction): ViewState {
   switch (action.type) {
     case "OPEN_TEMPLATES":
@@ -53,32 +71,18 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
         action.session !== undefined
           ? action.session
           : (state.sessionMemory.get(action.slug) ?? null);
-      const nextSessionMemory =
-        session !== null && state.sessionMemory.get(action.slug) !== session
-          ? new Map(state.sessionMemory).set(action.slug, session)
-          : state.sessionMemory;
       return {
-        view: {
-          kind: "project",
-          slug: action.slug,
-          session,
-          mode: "chat",
-        },
-        sessionMemory: nextSessionMemory,
+        view: { kind: "project", slug: action.slug, session, mode: "chat" },
+        sessionMemory: rememberSession(state.sessionMemory, action.slug, session),
       };
     }
 
     case "OPEN_SESSION": {
       if (state.view.kind !== "project") return state;
       if (state.view.session === action.sessionId) return state;
-      const nextSessionMemory =
-        action.sessionId !== null &&
-        state.sessionMemory.get(state.view.slug) !== action.sessionId
-          ? new Map(state.sessionMemory).set(state.view.slug, action.sessionId)
-          : state.sessionMemory;
       return {
         view: { ...state.view, session: action.sessionId },
-        sessionMemory: nextSessionMemory,
+        sessionMemory: rememberSession(state.sessionMemory, state.view.slug, action.sessionId),
       };
     }
 
@@ -89,17 +93,10 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
     }
 
     case "FORGET_PROJECT": {
-      const memoryHas = state.sessionMemory.has(action.slug);
       const isActive =
         state.view.kind === "project" && state.view.slug === action.slug;
-      if (!memoryHas && !isActive) return state;
-      const nextMemory = memoryHas
-        ? (() => {
-            const m = new Map(state.sessionMemory);
-            m.delete(action.slug);
-            return m;
-          })()
-        : state.sessionMemory;
+      const nextMemory = forgetSession(state.sessionMemory, action.slug);
+      if (!isActive && nextMemory === state.sessionMemory) return state;
       return {
         view: isActive ? { kind: "templates" } : state.view,
         sessionMemory: nextMemory,

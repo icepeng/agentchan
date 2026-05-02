@@ -17,14 +17,15 @@ import { qk } from "@/client/shared/queryKeys.js";
 import { useLatestRef } from "@/client/shared/useLatestRef.js";
 
 export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
-  const view = useViewState();
+  const viewState = useViewState();
   const state = useAgentState();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
   const { mutate } = useSWRConfig();
 
-  const slug = selectActiveProjectSlug(view);
-  const isEdit = view.view.kind === "project" && view.view.mode === "edit";
+  const slug = selectActiveProjectSlug(viewState);
+  const view = viewState.view;
+  const isEdit = view.kind === "project" && view.mode === "edit";
 
   // Tree only loads while the editor is open — no point pulling on every
   // project switch when the user is just chatting.

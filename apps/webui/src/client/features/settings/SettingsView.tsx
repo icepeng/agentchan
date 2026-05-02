@@ -26,11 +26,11 @@ export function SettingsView() {
     "api-keys": t("globalSettings.apiKeys"),
   };
 
+  const fallbackSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
+  const canGoBack = fallbackSlug !== null;
   const handleBack = () => {
-    const fallbackSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
     if (fallbackSlug) void selectProject(fallbackSlug);
   };
-  const canGoBack = (activeProjectSlug ?? projects[0]?.slug) != null;
 
   return (
     <div className="flex flex-col h-full bg-void">

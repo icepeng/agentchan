@@ -19,9 +19,10 @@ import { useCommandPalette } from "./useCommandPalette.js";
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const { update: updateConfig } = useConfigMutations();
   const selection = useActiveSessionSelection();
-  const view = useViewState();
+  const viewState = useViewState();
+  const view = viewState.view;
   const viewDispatch = useViewDispatch();
-  const activeProjectSlug = selectActiveProjectSlug(view);
+  const activeProjectSlug = selectActiveProjectSlug(viewState);
   const { data: skills = [] } = useSkills(activeProjectSlug);
   const { data: sessions = [] } = useSessions(activeProjectSlug);
   const uiDispatch = useUIDispatch();
@@ -40,10 +41,10 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
         await compact();
         break;
       case "edit":
-        if (view.view.kind === "project") {
+        if (view.kind === "project") {
           viewDispatch({
             type: "SET_VIEW_MODE",
-            mode: view.view.mode === "edit" ? "chat" : "edit",
+            mode: view.mode === "edit" ? "chat" : "edit",
           });
         }
         break;

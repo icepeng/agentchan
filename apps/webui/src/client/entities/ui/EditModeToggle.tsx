@@ -7,13 +7,13 @@ import {
 import { useI18n } from "@/client/i18n/index.js";
 
 export function EditModeToggle() {
-  const view = useViewState();
+  const view = useViewState().view;
   const dispatch = useViewDispatch();
   const { t } = useI18n();
 
-  if (view.view.kind !== "project") return null;
+  if (view.kind !== "project") return null;
 
-  const isEdit = view.view.mode === "edit";
+  const isEdit = view.mode === "edit";
   const nextMode: ViewMode = isEdit ? "chat" : "edit";
   const Icon = isEdit ? Eye : PenLine;
   const label = isEdit ? t("editMode.switchToChat") : t("editMode.switchToEdit");
