@@ -21,7 +21,7 @@
 - React Compiler가 켜져 있으므로 성능 목적의 `useMemo`/`useCallback`/`React.memo`를 습관적으로 추가하지 않는다. 예외는 외부 구독의 안정 key, effect deps 계약, 명시적 캐시 같은 의미적 메모화뿐이다.
 - 스킬 파일(`SKILL.md` 등) 편집 시 colored emoji(`❌`, `✅`, `⚠️`, `📁` 같은 글머리 색 강조용 기호)를 쓰지 않는다. 기존 스킬에 있으면 편집 시 함께 제거한다.
 - 한국어가 표시되는 UI 영역에서는 `font-style: italic`과 `font-family: monospace`를 typographic 강조 수단으로 사용하지 않는다.
-- 사용자 응답, 문서, PR 설명은 한국어로 작성한다.
+- 사용자 응답, 문서, 이슈, PR (코멘트 포함)은 한국어로 작성한다.
 - example_data의 템플릿 편집시 `docs/agents/writing-templates.md`의 규칙을 먼저 읽는다.
 
 ## Browser Automation

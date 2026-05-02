@@ -564,23 +564,43 @@ function delay(ms: number): Promise<void> {
 async function terminateWindowsProcessesHoldingPath(path: string): Promise<void> {
   if (process.platform !== "win32" || !existsSync(path)) return;
 
-  // Match by command line only. A module-scan pass was tried earlier but it
-  // killed the parent bun.exe when it had any DLL loaded from the worktree's
-  // node_modules, ending the run silently right after review.
+  // Only kill processes that are transitive descendants of this bun process AND
+  // reference the worktree path in their CommandLine. Earlier attempts matched
+  // CommandLine globally, which killed explorer.exe / user shells when those
+  // had the worktree path in their args, taking the whole desktop session down.
   const script = String.raw`
 $ErrorActionPreference = "SilentlyContinue"
 $root = (Resolve-Path -LiteralPath $args[0]).Path.TrimEnd("\")
+$bunPid = [int]$args[1]
 $self = $PID
-$locked = @{}
 
+# Walk the process tree from the bun parent and collect all descendants.
+$descendants = New-Object 'System.Collections.Generic.HashSet[int]'
+$queue = New-Object 'System.Collections.Generic.Queue[int]'
+$queue.Enqueue($bunPid)
+while ($queue.Count -gt 0) {
+  $parent = $queue.Dequeue()
+  Get-CimInstance Win32_Process -Filter "ParentProcessId = $parent" |
+    ForEach-Object {
+      $childPid = [int]$_.ProcessId
+      if ($descendants.Add($childPid)) {
+        $queue.Enqueue($childPid)
+      }
+    }
+}
+
+# Among descendants, target those whose CommandLine references the worktree.
+$locked = @{}
 Get-CimInstance Win32_Process |
   Where-Object {
+    $descendants.Contains([int]$_.ProcessId) -and
     $_.ProcessId -ne $self -and
+    $_.ProcessId -ne $bunPid -and
     $_.CommandLine -and
     $_.CommandLine.Contains($root)
   } |
   ForEach-Object {
-    $locked[[int]$_.ProcessId] = "command line"
+    $locked[[int]$_.ProcessId] = "descendant command line"
   }
 
 foreach ($id in $locked.Keys) {
@@ -602,6 +622,7 @@ foreach ($id in $locked.Keys) {
       "-Command",
       script,
       path,
+      String(process.pid),
     ],
     {
       stdout: "pipe",
