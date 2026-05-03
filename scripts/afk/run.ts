@@ -1,14 +1,7 @@
 #!/usr/bin/env bun
 import { $ } from "bun";
 import { existsSync } from "node:fs";
-import {
-  mkdir,
-  readFile,
-  readdir,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,8 +10,6 @@ import { fileURLToPath } from "node:url";
 // ----------------------------------------------------------------------------
 
 const cliArgs = process.argv.slice(2);
-const isInit = cliArgs.includes("--init");
-const forceReset = cliArgs.includes("--force-reset");
 const isResume = cliArgs.includes("--resume");
 
 function parsePositiveIntegerOption(names: string[], fallback: number): number {
@@ -74,7 +65,6 @@ const AGENT_IDLE_TIMEOUT_MS = Number(
 const STDERR_TAIL_LIMIT = 8_192;
 const PLAN_BUFFER_LIMIT = 256 * 1024;
 const MAIN_BRANCH = process.env.MAIN_BRANCH ?? "main";
-const AFK_BRANCH = "afk/integration";
 const STATE_VERSION = 1;
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -725,79 +715,29 @@ function makeSemaphore(max: number): {
 }
 
 // ----------------------------------------------------------------------------
-// Init mode
+// Preflight — validates host repo state
 // ----------------------------------------------------------------------------
 
-async function initMode(): Promise<void> {
+async function preflight(): Promise<{ baseBranch: string }> {
   if (!IS_MAIN_CHECKOUT) {
     throw new Error(
-      `--init must run from the main checkout, not from a worktree.\n` +
+      `AFK pipeline must run from the main checkout, not from a worktree.\n` +
         `Current toplevel: ${REPO_ROOT}\n` +
         `git-dir:          ${GIT_DIR}`,
     );
   }
 
-  const afkPath = join(dirname(REPO_ROOT), `${basename(REPO_ROOT)}-afk`);
-  if (existsSync(afkPath)) {
-    throw new Error(
-      `AFK worktree path already exists: ${afkPath}\n` +
-        `Remove the directory and run \`git worktree prune\` if you want to recreate it,\n` +
-        `or just \`cd ${afkPath}\` and \`bun scripts/afk/run.ts\` to use it.`,
-    );
-  }
-
-  await runGit(["rev-parse", "--verify", MAIN_BRANCH]);
-
-  try {
-    await runGit(["worktree", "add", "-b", AFK_BRANCH, afkPath, MAIN_BRANCH]);
-  } catch {
-    await runGit(["worktree", "add", afkPath, AFK_BRANCH]);
-  }
-
-  console.log(`Running bun install in ${afkPath} ...`);
-  const installProc = Bun.spawn(["bun", "install"], {
-    cwd: afkPath,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  if ((await installProc.exited) !== 0) {
-    throw new Error(`bun install failed in ${afkPath}`);
-  }
-
-  console.log("");
-  console.log("AFK worktree initialized.");
-  console.log(`  path:   ${afkPath}`);
-  console.log(`  branch: ${AFK_BRANCH} (forked from ${MAIN_BRANCH})`);
-  console.log("");
-  console.log("Next steps:");
-  console.log(`  cd ${afkPath}`);
-  console.log("  bun scripts/afk/run.ts");
-}
-
-// ----------------------------------------------------------------------------
-// Preflight — validates host repo state
-// ----------------------------------------------------------------------------
-
-async function preflight(): Promise<{ baseBranch: string }> {
-  if (IS_MAIN_CHECKOUT) {
-    throw new Error(
-      `Refusing to run from the main checkout. AFK pipeline must run from its dedicated worktree.\n` +
-        `Bootstrap with \`bun scripts/afk/run.ts --init\` from the main checkout, then run from the AFK worktree.\n` +
-        `Current toplevel: ${REPO_ROOT}`,
-    );
-  }
-
   const currentBranch = await runGit(["symbolic-ref", "--short", "HEAD"]);
-  if (currentBranch !== AFK_BRANCH) {
+  if (currentBranch !== MAIN_BRANCH) {
     throw new Error(
-      `Current branch is "${currentBranch}", expected "${AFK_BRANCH}". AFK pipeline only runs on the integration branch.`,
+      `Current branch is "${currentBranch}", expected "${MAIN_BRANCH}". AFK pipeline only runs on the main branch.`,
     );
   }
 
   const dirty = await runGit(["status", "--porcelain", "--untracked-files=no"]);
   if (dirty) {
     throw new Error(
-      `AFK worktree has uncommitted changes on ${AFK_BRANCH}. Stash or commit before running.`,
+      `Main checkout has uncommitted changes. Stash or commit before running — the merge step lands commits directly on ${MAIN_BRANCH}.`,
     );
   }
 
@@ -809,39 +749,43 @@ async function preflight(): Promise<{ baseBranch: string }> {
     throw new Error("gh CLI not authenticated. Run `gh auth login`.");
   }
 
-  await runGit(["rev-parse", "--verify", MAIN_BRANCH]);
+  // Fetch so issue worktrees branch off the freshest origin tip and so the
+  // local main can be safely fast-forwarded if it's behind.
+  await runGit(["fetch", "origin", MAIN_BRANCH]);
+
+  const localTip = await runGit(["rev-parse", "HEAD"]);
+  const remoteTip = await runGit(["rev-parse", `origin/${MAIN_BRANCH}`]);
+  if (localTip !== remoteTip) {
+    const ahead = await runGit([
+      "rev-list",
+      "--count",
+      `origin/${MAIN_BRANCH}..HEAD`,
+    ]);
+    const behind = await runGit([
+      "rev-list",
+      "--count",
+      `HEAD..origin/${MAIN_BRANCH}`,
+    ]);
+    if (Number(ahead) > 0) {
+      throw new Error(
+        `${MAIN_BRANCH} is ahead of origin/${MAIN_BRANCH} by ${ahead} commit(s). Push or rewind before running — AFK won't merge on top of unpushed local work.`,
+      );
+    }
+    if (Number(behind) > 0) {
+      console.log(
+        `Fast-forwarding ${MAIN_BRANCH} by ${behind} commit(s) from origin.`,
+      );
+      await runGit(["merge", "--ff-only", `origin/${MAIN_BRANCH}`]);
+    }
+  }
 
   if (isResume) {
-    // Resume mode: keep whatever state integration branch is in. We rely on
-    // state.json (or live afk/issue-* branches) to decide what to do next.
     console.log(
-      `Resume mode: skipping ${AFK_BRANCH} reset. Existing commits/worktrees will be picked up.`,
-    );
-    return { baseBranch: AFK_BRANCH };
-  }
-
-  const ahead = await runGit(["log", `${MAIN_BRANCH}..HEAD`, "--format=%H"]);
-  const aheadCount = ahead ? ahead.split("\n").filter(Boolean).length : 0;
-  if (aheadCount > 0 && !forceReset) {
-    throw new Error(
-      `${AFK_BRANCH} has ${aheadCount} commit(s) not in ${MAIN_BRANCH}.\n` +
-        `These may be unreviewed work, or commits you discarded after squash-merging selected ones.\n` +
-        `Options:\n` +
-        `  - bun scripts/afk/run.ts --resume       (continue the previous run)\n` +
-        `  - bun scripts/afk/run.ts --force-reset  (discard the commits)\n\n` +
-        `Unmerged commits (${MAIN_BRANCH}..${AFK_BRANCH}):\n${ahead}`,
-    );
-  }
-  if (aheadCount > 0) {
-    console.log(
-      `Discarding ${aheadCount} commit(s) on ${AFK_BRANCH} (--force-reset).`,
+      `Resume mode: existing afk/issue-* branches and worktrees will be picked up.`,
     );
   }
 
-  await runGit(["reset", "--hard", MAIN_BRANCH]);
-  console.log(`Reset ${AFK_BRANCH} to ${MAIN_BRANCH}.`);
-
-  return { baseBranch: AFK_BRANCH };
+  return { baseBranch: MAIN_BRANCH };
 }
 
 // ----------------------------------------------------------------------------
@@ -1180,8 +1124,7 @@ process.on("SIGINT", () => {
   setTimeout(() => process.exit(130), 10_000).unref();
 });
 
-const entrypoint = isInit ? initMode : main;
-entrypoint().catch((err: unknown) => {
+main().catch((err: unknown) => {
   console.error(err);
   if (err instanceof Error && err.stack) console.error(err.stack);
   process.exit(1);
