@@ -19,14 +19,13 @@ interface RendererViewState {
   error: string | null;
 }
 
-// CLEAR_RENDERER keeps the last theme to avoid a two-step palette flash on switch;
-// CLEAR drops both (used when there's no active project).
+// Server-driven data store. Host lifecycle (fade/mount/error visibility) is
+// owned by the renderer-host presentation machine, not this reducer.
 type RendererViewAction =
   | { type: "SET_RENDERER"; bundle: RendererBundle; snapshot: RendererSnapshot }
   | { type: "SET_SNAPSHOT"; snapshot: RendererSnapshot }
   | { type: "SET_THEME"; theme: RendererTheme | null }
   | { type: "SET_ERROR"; error: string }
-  | { type: "CLEAR_RENDERER" }
   | { type: "CLEAR" };
 
 function reducer(state: RendererViewState, action: RendererViewAction): RendererViewState {
@@ -49,8 +48,6 @@ function reducer(state: RendererViewState, action: RendererViewAction): Renderer
         snapshot: null,
         error: action.error,
       };
-    case "CLEAR_RENDERER":
-      return { ...state, bundle: null, snapshot: null, error: null };
     case "CLEAR":
       return { bundle: null, snapshot: null, theme: null, error: null };
     default:

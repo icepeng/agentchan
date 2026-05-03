@@ -74,6 +74,11 @@ export function useRendererOutput() {
   useLayoutEffect(() => {
     if (activeProjectSlugRef.current !== activeProjectSlug) {
       loadedRef.current = null;
+      // No active project means there is no server-driven data to hold.
+      // The presentation machine handles its own clearing via REQUEST_SLUG.
+      if (activeProjectSlug === null) {
+        rendererViewDispatch({ type: "CLEAR" });
+      }
     }
     activeProjectSlugRef.current = activeProjectSlug;
     stateRef.current = currentState;
