@@ -7,9 +7,6 @@ import {
   useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
 import {
-  useRendererViewDispatch,
-} from "@/client/entities/renderer/index.js";
-import {
   abortProjectStream,
   fetchSession,
   fetchSessions,
@@ -39,7 +36,6 @@ export function useProject() {
   const view = useViewState();
   const viewDispatch = useViewDispatch();
   const agentDispatch = useAgentStateDispatch();
-  const rendererViewDispatch = useRendererViewDispatch();
   const { mutate } = useSWRConfig();
 
   const { data: projects = [] } = useProjects();
@@ -65,15 +61,9 @@ export function useProject() {
 
   const openProject = (slug: string, session?: string | null) => {
     viewDispatch({ type: "OPEN_PROJECT", slug, session });
-    // Clears stale output/error state, while the mounted renderer stays visible
-    // until RenderedView's host state machine completes fade-out.
-    rendererViewDispatch({ type: "CLEAR_RENDERER" });
   };
 
   const selectProject = async (slug: string) => {
-    // No-op if already active. Otherwise OPEN_PROJECT would re-fire and clear
-    // the renderer, but the slug-keyed useEffect in RenderedView wouldn't
-    // re-run (primitive equality), leaving the renderer blank.
     if (activeProjectSlug === slug) return;
 
     localStore.lastProject.write(slug);
@@ -129,11 +119,9 @@ export function useProject() {
         const rememberedSessionId = view.sessionMemory.get(fallback.slug) ?? null;
         const sessions = await fetchSessionsFor(fallback.slug);
         openProject(fallback.slug, resolveSessionToOpen(sessions, rememberedSessionId));
-      } else {
-        viewDispatch({ type: "FORGET_PROJECT", slug });
-        rendererViewDispatch({ type: "CLEAR" });
-        return;
       }
+      // No fallback: useRendererOutput's slug=null layout effect handles the
+      // entity-state CLEAR (the presentation machine fades the layer out).
     }
     // Always drop the deleted slug's session memory.
     viewDispatch({ type: "FORGET_PROJECT", slug });

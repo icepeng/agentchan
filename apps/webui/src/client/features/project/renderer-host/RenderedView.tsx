@@ -14,7 +14,7 @@ import {
 } from "@/client/entities/renderer/index.js";
 import { ScrollArea } from "@/client/shared/ui/index.js";
 import { RendererLayer, type RendererLayerHandle } from "./RendererLayer.js";
-import { useRendererHostMachine } from "./useRendererHostMachine.js";
+import { useRendererPresentation } from "./useRendererPresentation.js";
 import type { RendererLayerId } from "./rendererRuntime.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
@@ -50,10 +50,6 @@ export function RenderedView() {
       },
     }),
     [actionDispatch],
-  );
-  const handleRendererError = useCallback(
-    (error: string) => rendererViewDispatch({ type: "SET_ERROR", error }),
-    [rendererViewDispatch],
   );
 
   useEffect(() => {
@@ -97,14 +93,13 @@ export function RenderedView() {
     return () => cancelAnimationFrame(raf);
   }, [state.isStreaming, refreshState]);
 
-  const host = useRendererHostMachine({
+  const host = useRendererPresentation({
     actions,
     activeProjectSlug,
     bundle: rendererView.bundle,
     snapshot: rendererView.snapshot,
     error: rendererView.error,
     layerHandle,
-    onImportError: handleRendererError,
     onTheme,
   });
 
