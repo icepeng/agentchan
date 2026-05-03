@@ -16,4 +16,14 @@ export {
 
 export { useAgentState } from "./useAgentState.js";
 
-export { useActiveUsage, EMPTY_USAGE, type SessionUsage } from "./useActiveUsage.js";
+export {
+  aggregateUsage,
+  EMPTY_AGGREGATED_USAGE,
+  type AggregatedUsage,
+} from "./aggregateUsage.js";
+export { useSessionUsage } from "./useSessionUsage.js";
+export {
+  useContextUsage,
+  EMPTY_CONTEXT_USAGE,
+  type ContextUsage,
+} from "./useContextUsage.js";

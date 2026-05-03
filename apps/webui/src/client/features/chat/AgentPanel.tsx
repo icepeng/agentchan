@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import { useAgentState } from "@/client/entities/agent-state/index.js";
+import {
+  aggregateUsage,
+  useAgentState,
+} from "@/client/entities/agent-state/index.js";
 import {
   useViewState,
   selectActiveProjectSlug,
@@ -31,21 +34,28 @@ import { groupBranch } from "./groupBranch.js";
 
 // ── Model Info Popover ───────────────────────
 
-function ModelInfoPopover({ entry }: { entry: SessionMessageEntry }) {
+function ModelInfoPopover({ entries }: { entries: SessionMessageEntry[] }) {
   const { t } = useI18n();
 
-  const msg = entry.message;
-  const model = msg.role === "assistant" ? msg.model : undefined;
-  const provider = msg.role === "assistant" ? msg.provider : undefined;
+  // Model name comes from the last assistant entry (a tool-using turn may
+  // span multiple assistant entries; the trailing one is what just produced
+  // the final reply). Token + cost totals aggregate across the whole turn.
+  const lastAssistant = [...entries]
+    .reverse()
+    .find((e) => e.message.role === "assistant");
+  const lastMsg = lastAssistant?.message;
+  const model = lastMsg?.role === "assistant" ? lastMsg.model : undefined;
+  const provider = lastMsg?.role === "assistant" ? lastMsg.provider : undefined;
 
-  const usage = msg.role === "assistant" ? msg.usage : undefined;
-  const hasUsage = !!(usage?.input || usage?.output);
-  const cost = usage?.cost?.total ?? null;
-  const cacheRead = usage?.cacheRead ?? 0;
-  const cacheWrite = usage?.cacheWrite ?? 0;
-  const totalInput = (usage?.input ?? 0) + cacheRead + cacheWrite;
-  const cachePercent = totalInput > 0 && cacheRead > 0
-    ? Math.round((cacheRead / totalInput) * 100) : 0;
+  const turnUsage = aggregateUsage(entries);
+  const hasUsage = turnUsage.inputTokens > 0 || turnUsage.outputTokens > 0;
+  const totalInput =
+    turnUsage.inputTokens + turnUsage.cachedInputTokens + turnUsage.cacheCreationTokens;
+  const cachePercent =
+    totalInput > 0 && turnUsage.cachedInputTokens > 0
+      ? Math.round((turnUsage.cachedInputTokens / totalInput) * 100)
+      : 0;
+  const cost = turnUsage.cost > 0 ? turnUsage.cost : null;
 
   return (
     <Popover.Root>
@@ -66,19 +76,19 @@ function ModelInfoPopover({ entry }: { entry: SessionMessageEntry }) {
                 <div className="flex justify-between gap-4">
                   <span className="text-fg-3">{t("input.tokenIn")}</span>
                   <span className="text-fg">
-                    {formatTokens(usage?.input ?? 0)}
+                    {formatTokens(turnUsage.inputTokens)}
                   </span>
                 </div>
                 {cachePercent > 0 && (
                   <div className="flex justify-between gap-4 text-fg-3/60">
                     <span>{t("input.cacheHit")}</span>
-                    <span>{formatTokens(cacheRead)} ({cachePercent}%)</span>
+                    <span>{formatTokens(turnUsage.cachedInputTokens)} ({cachePercent}%)</span>
                   </div>
                 )}
                 <div className="flex justify-between gap-4">
                   <span className="text-fg-3">{t("input.tokenOut")}</span>
                   <span className="text-fg">
-                    {formatTokens(usage?.output ?? 0)}
+                    {formatTokens(turnUsage.outputTokens)}
                   </span>
                 </div>
                 {cost !== null && (
@@ -207,6 +217,9 @@ export function AgentPanel() {
             const lastAssistant = [...g.entries]
               .reverse()
               .find((e) => e.message.role === "assistant");
+            const showFooter =
+              lastAssistant?.message.role === "assistant" &&
+              !!lastAssistant.message.model;
             return (
               <AssistantTurnBubble
                 key={first.id}
@@ -216,9 +229,7 @@ export function AgentPanel() {
                 isStreaming={state.isStreaming}
                 variant="compact"
                 footer={
-                  lastAssistant && lastAssistant.message.role === "assistant" && lastAssistant.message.model
-                    ? <ModelInfoPopover entry={lastAssistant} />
-                    : undefined
+                  showFooter ? <ModelInfoPopover entries={g.entries} /> : undefined
                 }
               />
             );

@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
-import { useActiveUsage } from "@/client/entities/agent-state/index.js";
+import {
+  useSessionUsage,
+  useContextUsage,
+} from "@/client/entities/agent-state/index.js";
 import { useActiveSessionSelection } from "@/client/entities/session/index.js";
 import {
   notificationPermission,
@@ -26,7 +29,8 @@ interface BottomInputProps {
 
 export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const selection = useActiveSessionSelection();
-  const usage = useActiveUsage();
+  const sessionUsage = useSessionUsage();
+  const contextUsage = useContextUsage();
   const { data: config } = useConfig();
   const { model: currentModel } = useCurrentModel();
   const ui = useUIState();
@@ -40,7 +44,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashCommands(text, setText);
 
-  const contextTokens = usage.contextTokens;
+  const contextTokens = contextUsage.contextTokens;
   const contextWindow = config?.contextWindow ?? currentModel?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
   const contextPercent = contextTokens > 0
     ? Math.round((contextTokens / contextWindow) * 100)
@@ -171,11 +175,11 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
         {config?.provider ?? ""}/{config?.model ?? ""}
         {config?.temperature !== undefined && ` · t=${config.temperature}`}
         {config?.thinkingLevel && config.thinkingLevel !== "off" && ` · think=${config.thinkingLevel}`}
-        {(usage.inputTokens > 0 || usage.outputTokens > 0) && (
+        {(sessionUsage.inputTokens > 0 || sessionUsage.outputTokens > 0) && (
           <span>
             {" · "}
-            {formatTokens(usage.inputTokens)} {t("input.tokenIn")} / {formatTokens(usage.outputTokens)} {t("input.tokenOut")}
-            {usage.cost ? ` · ${formatCost(usage.cost)}` : ""}
+            {formatTokens(sessionUsage.inputTokens)} {t("input.tokenIn")} / {formatTokens(sessionUsage.outputTokens)} {t("input.tokenOut")}
+            {sessionUsage.cost ? ` · ${formatCost(sessionUsage.cost)}` : ""}
           </span>
         )}
         {contextPercent !== null && (
