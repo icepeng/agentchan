@@ -128,7 +128,7 @@ _Avoid_: theme 단독, app theme, global theme
 
 **Renderer presentation machine**:
 **Renderer**가 화면에 들어오고 사라지는 host 측 전이 규칙을 소유하는 개념이다.
-_Avoid_: renderer host, host machine, host state machine — "presentation machine"으로 지칭
+_Avoid_: host machine, host state machine — "presentation machine"으로 지칭
 
 **Renderer layer**:
 **Renderer** module을 실제 DOM에 mount/update/unmount하는 host adapter다.

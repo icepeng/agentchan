@@ -17,7 +17,7 @@ import {
  * **Session usage** — token + cost totals over *every* persisted assistant
  * **Session entry** in the active **Session** file. **Branch** selection is
  * irrelevant; discarded **Branch** entries still count because their LLM
- * calls were already billed (ADR-0012).
+ * calls were already billed.
  */
 export function useSessionUsage(): AggregatedUsage {
   const activeProjectSlug = selectActiveProjectSlug(useViewState());

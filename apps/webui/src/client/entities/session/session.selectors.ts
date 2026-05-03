@@ -75,9 +75,9 @@ export function defaultLeafId(entries: ReadonlyArray<SessionEntry>): string | nu
 
 /**
  * Most recent creative session id from a server-sorted list, or null if no
- * creative session exists. Server lists `modified desc` (ADR-0004), so the
- * first creative entry is the right default — meta sessions are skipped per
- * ADR-0005's "meta is an explicit auxiliary workspace".
+ * creative session exists. Server lists `modified desc`, so the first creative
+ * entry is the right default. Meta sessions are explicit auxiliary workspaces
+ * and are not selected automatically on project entry.
  */
 export function pickDefaultCreativeSessionId(
   sessions: ReadonlyArray<AgentchanSessionInfo>,
