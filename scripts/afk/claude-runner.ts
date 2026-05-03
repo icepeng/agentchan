@@ -8,10 +8,9 @@ export interface ClaudeRunnerDeps {
   stderrTailLimit?: number;
 }
 
-interface StreamEvent {
-  type: "text";
-  text: string;
-}
+type StreamEvent =
+  | { type: "text"; text: string }
+  | { type: "result" };
 
 function parseStreamLine(line: string): StreamEvent[] {
   if (!line.trim()) return [];
@@ -32,6 +31,8 @@ function parseStreamLine(line: string): StreamEvent[] {
         events.push({ type: "text", text: block.text });
       }
     }
+  } else if (o.type === "result") {
+    events.push({ type: "result" });
   }
   return events;
 }
@@ -114,9 +115,10 @@ export function createClaudeRunner(deps: ClaudeRunnerDeps): AgentRunner {
 
       const decoder = new TextDecoder();
       let lineBuf = "";
+      let completed = false;
 
       try {
-        for await (const chunk of proc.stdout as ReadableStream<Uint8Array>) {
+        outer: for await (const chunk of proc.stdout as ReadableStream<Uint8Array>) {
           const str = decoder.decode(chunk, { stream: true });
           opts.onRaw(str);
           lineBuf += str;
@@ -126,7 +128,20 @@ export function createClaudeRunner(deps: ClaudeRunnerDeps): AgentRunner {
             lineBuf = lineBuf.slice(nl + 1);
             for (const evt of parseStreamLine(line)) {
               if (evt.type === "text") opts.onText(evt.text);
+              else if (evt.type === "result") completed = true;
             }
+          }
+          if (completed) {
+            // stream-json `result` is the terminal frame. Don't wait for
+            // the CLI to close stdout on its own — it has been observed to
+            // linger 10+ minutes post-result on Windows, tripping the idle
+            // timer. Cooperatively tear it down.
+            try {
+              proc.kill("SIGTERM");
+            } catch {
+              // already dead
+            }
+            break outer;
           }
         }
       } finally {
@@ -140,7 +155,7 @@ export function createClaudeRunner(deps: ClaudeRunnerDeps): AgentRunner {
         throw new AgentRateLimitError(stderrTail.trim().slice(-300));
       }
 
-      return { exitCode, stderrTail };
+      return { exitCode, stderrTail, completed };
     },
   };
 }

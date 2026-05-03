@@ -22,6 +22,10 @@ export interface AgentRunOpts {
 export interface AgentRunResult {
   exitCode: number;
   stderrTail: string;
+  /** True if the runner observed the agent's terminal completion frame
+   * (e.g. stream-json `type:"result"`). Lets the caller distinguish
+   * "idle timer fired but agent already finished" from a real stall. */
+  completed: boolean;
 }
 
 export interface AgentRunner {
@@ -260,17 +264,22 @@ async function runPhase(
   if (opts.signal.aborted) {
     throw new Error(`[${opts.name}] aborted`);
   }
-  if (idleAc.signal.aborted) {
-    throw new Error(
-      `[${opts.name}] idle timeout — no output for ${Math.round(
-        config.agentIdleTimeoutMs / 1000,
-      )}s`,
-    );
-  }
-  if (result.exitCode !== 0) {
-    throw new Error(
-      `[${opts.name}] runner exited ${result.exitCode}: stderr=${result.stderrTail.trim().slice(-300)}`,
-    );
+  // Once the runner has seen the agent's terminal frame, the work is done.
+  // Don't fail on idle abort or non-zero exit — both can be artifacts of the
+  // cooperative SIGTERM we send after `result` to unstick a lingering CLI.
+  if (!result.completed) {
+    if (idleAc.signal.aborted) {
+      throw new Error(
+        `[${opts.name}] idle timeout — no output for ${Math.round(
+          config.agentIdleTimeoutMs / 1000,
+        )}s`,
+      );
+    }
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `[${opts.name}] runner exited ${result.exitCode}: stderr=${result.stderrTail.trim().slice(-300)}`,
+      );
+    }
   }
 
   logger.info(`[${opts.name}] ◀ done (exit=${result.exitCode})`);
