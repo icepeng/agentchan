@@ -21,10 +21,7 @@ const isInit = cliArgs.includes("--init");
 const forceReset = cliArgs.includes("--force-reset");
 const isResume = cliArgs.includes("--resume");
 
-function parsePositiveIntegerOption(
-  names: string[],
-  fallback: number,
-): number {
+function parsePositiveIntegerOption(names: string[], fallback: number): number {
   for (const name of names) {
     const equalsPrefix = `${name}=`;
     const equalsValue = cliArgs.find((arg) => arg.startsWith(equalsPrefix));
@@ -58,9 +55,11 @@ function parsePositiveIntegerOption(
 // Constants
 // ----------------------------------------------------------------------------
 
-const PARALLEL = Number(process.env.PARALLEL ?? 1);
+const PARALLEL = Number(process.env.PARALLEL ?? 3);
 const RATE_LIMIT_MAX_RETRIES = Number(process.env.RATE_LIMIT_MAX_RETRIES ?? 3);
-const RATE_LIMIT_BACKOFF_MS = Number(process.env.RATE_LIMIT_BACKOFF_MS ?? 60_000);
+const RATE_LIMIT_BACKOFF_MS = Number(
+  process.env.RATE_LIMIT_BACKOFF_MS ?? 60_000,
+);
 const WORKTREE_REMOVE_MAX_ATTEMPTS = 3;
 const WORKTREE_REMOVE_RETRY_DELAY_MS = 500;
 const MAX_ITERATIONS = parsePositiveIntegerOption(
@@ -109,12 +108,7 @@ interface PlannedIssue {
   branch: string;
 }
 
-type TodoStatus =
-  | "planned"
-  | "impl_done"
-  | "review_done"
-  | "merged"
-  | "failed";
+type TodoStatus = "planned" | "impl_done" | "review_done" | "merged" | "failed";
 
 interface AfkTodo {
   number: number;
@@ -186,7 +180,8 @@ async function runShell(
   const shellPromise = $`${{ raw: cmd }}`.cwd(cwd).quiet().nothrow();
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(
-      () => reject(new Error(`shell \`${cmd}\` timed out after ${timeoutMs}ms`)),
+      () =>
+        reject(new Error(`shell \`${cmd}\` timed out after ${timeoutMs}ms`)),
       timeoutMs,
     ),
   );
@@ -561,7 +556,9 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function terminateWindowsProcessesHoldingPath(path: string): Promise<void> {
+async function terminateWindowsProcessesHoldingPath(
+  path: string,
+): Promise<void> {
   if (process.platform !== "win32" || !existsSync(path)) return;
 
   // Only kill processes that are transitive descendants of this bun process AND
@@ -866,7 +863,9 @@ async function planIteration(
   });
 
   if (!planResult.output) {
-    throw new Error(`Planner produced no <plan> tag in iteration ${iteration}.`);
+    throw new Error(
+      `Planner produced no <plan> tag in iteration ${iteration}.`,
+    );
   }
 
   const parsed = JSON.parse(planResult.output) as { issues: PlannedIssue[] };
@@ -1020,10 +1019,7 @@ async function executeTodos(
   }
 }
 
-async function mergeStep(
-  state: AfkState,
-  iteration: number,
-): Promise<void> {
+async function mergeStep(state: AfkState, iteration: number): Promise<void> {
   const toMerge = state.todos.filter(
     (t) => t.status === "review_done" && t.commits > 0,
   );
