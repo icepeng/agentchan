@@ -15,6 +15,7 @@ export {
   expectNoWriteDuplication,
   expectAppendNewlineSeparation,
   expectAssistantText,
+  expectToolCallsInSameBatch,
 } from "./assertions.js";
 
 export interface TokenStats {
@@ -102,9 +103,16 @@ export class EvalHarness {
 
     const harness = new EvalHarness(fixture, agent, sessionId, timeoutMs, systemPrompt.length);
 
+    let nextToolBatchId = 0;
+    let activeToolBatchId: number | undefined;
+
     agent.subscribe((event: AgentEvent) => {
       if (event.type === "tool_execution_start") {
-        const entry: CollectedToolCall = { toolName: event.toolName, args: event.args };
+        const entry: CollectedToolCall = {
+          toolName: event.toolName,
+          args: event.args,
+          batchId: activeToolBatchId,
+        };
         harness.toolCalls.push(entry);
         harness.toolCallMap.set(event.toolCallId, entry);
       }
@@ -118,6 +126,9 @@ export class EvalHarness {
       if (event.type === "message_end") {
         const msg = event.message as AssistantMessage;
         if (msg.role === "assistant") {
+          if (msg.content.some((block) => block.type === "toolCall")) {
+            activeToolBatchId = ++nextToolBatchId;
+          }
           for (const block of msg.content) {
             if (block.type === "text" && block.text.trim()) {
               harness.assistantTexts.push(block.text);
@@ -130,6 +141,9 @@ export class EvalHarness {
             harness.tokenStats.turns++;
           }
         }
+      }
+      if (event.type === "turn_end") {
+        activeToolBatchId = undefined;
       }
     });
 
@@ -202,7 +216,8 @@ export class EvalHarness {
         }
       }
       const status = tc.isError ? " [ERROR]" : "";
-      console.log(`  ${tc.toolName}${status}: ${JSON.stringify(args)}`);
+      const batch = tc.batchId ? `#${tc.batchId} ` : "";
+      console.log(`  ${batch}${tc.toolName}${status}: ${JSON.stringify(args)}`);
     }
     console.log("---\n");
   }

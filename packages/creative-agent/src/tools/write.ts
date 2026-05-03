@@ -4,6 +4,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { textResult } from "../tool-result.js";
 import { resolveInProject } from "./_paths.js";
+import { withFileMutationQueue } from "./file-mutation-queue.js";
 
 const WriteParams = Type.Object({
   file_path: Type.String({
@@ -21,7 +22,8 @@ export function createWriteTool(cwd?: string): AgentTool<typeof WriteParams, voi
 
   return {
     name: "write",
-    description: "Write content to a file. Creates parent directories if needed.",
+    description:
+      "Write content to a file. Creates parent directories if needed. Batch writes to different files.",
     parameters: WriteParams,
     label: "Write file",
 
@@ -30,9 +32,11 @@ export function createWriteTool(cwd?: string): AgentTool<typeof WriteParams, voi
       params: WriteInput,
     ): Promise<AgentToolResult<void>> {
       const filePath = resolveInProject(workDir, params.file_path);
-      await mkdir(dirname(filePath), { recursive: true });
-      await writeFile(filePath, params.content, "utf-8");
-      return textResult("File written successfully.");
+      return withFileMutationQueue(filePath, async () => {
+        await mkdir(dirname(filePath), { recursive: true });
+        await writeFile(filePath, params.content, "utf-8");
+        return textResult("File written successfully.");
+      });
     },
   };
 }

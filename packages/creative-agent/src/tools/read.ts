@@ -29,7 +29,7 @@ export function createReadTool(cwd?: string): AgentTool<typeof ReadParams, void>
   return {
     name: "read",
     description:
-      `Read a file's contents with line numbers. Output is truncated to ${MAX_LINES} lines or ${MAX_OUTPUT_BYTES / 1024}KB. Use offset/limit for large files.`,
+      `Read a file's contents with line numbers. Output is truncated to ${MAX_LINES} lines or ${MAX_OUTPUT_BYTES / 1024}KB. Use offset/limit for large files. Batch independent reads.`,
     parameters: ReadParams,
     label: "Read file",
 
