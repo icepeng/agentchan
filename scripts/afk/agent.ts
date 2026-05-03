@@ -3,7 +3,34 @@ import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Config } from "./config.ts";
 import type { Logger } from "./logger.ts";
-import type { AfkTodo, PlannedIssue } from "./state.ts";
+
+// ---------------------------------------------------------------------------
+// AFK domain types — in-memory only. State is reconstructed from git on each
+// run, so there is no persistent state file.
+// ---------------------------------------------------------------------------
+
+export type TodoStatus =
+  | "planned"
+  | "impl_done"
+  | "review_done"
+  | "merged"
+  | "failed";
+
+export interface PlannedIssue {
+  number: number;
+  title: string;
+  branch: string;
+}
+
+export interface AfkTodo {
+  number: number;
+  title: string;
+  branch: string;
+  worktreeDir: string;
+  status: TodoStatus;
+  commits: number;
+  error?: string;
+}
 
 // ---------------------------------------------------------------------------
 // AgentRunner — swappable backend (Claude / Codex / Gemini / etc.)
@@ -353,15 +380,10 @@ export function createPhases(deps: PhasesDeps): Phases {
 
       const parsed = JSON.parse(result.output) as { issues: PlannedIssue[] };
       for (const i of parsed.issues) {
-        const expectedPrefix = `${config.issueBranchPrefix}${i.number}-`;
-        if (!i.branch || !i.branch.startsWith(expectedPrefix)) {
+        const expected = `${config.issueBranchPrefix}${i.number}`;
+        if (i.branch !== expected) {
           throw new Error(
-            `Planner returned invalid branch name for issue #${i.number}: ${JSON.stringify(i.branch)}. Expected prefix "${expectedPrefix}".`,
-          );
-        }
-        if (!/^afk\/issue-\d+-[a-z0-9-]+$/.test(i.branch)) {
-          throw new Error(
-            `Planner returned non-conforming branch name: ${i.branch}.`,
+            `Planner returned invalid branch name for issue #${i.number}: ${JSON.stringify(i.branch)}. Expected exactly "${expected}".`,
           );
         }
       }

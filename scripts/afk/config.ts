@@ -11,8 +11,6 @@ export interface Config {
   scriptDir: string;
   worktreesDir: string;
   logsDir: string;
-  afkDir: string;
-  stateFile: string;
 
   // Branch / dir naming
   mainBranch: string;
@@ -28,9 +26,6 @@ export interface Config {
   agentIdleTimeoutMs: number;
   rateLimitMaxRetries: number;
   rateLimitBackoffMs: number;
-
-  // State
-  stateVersion: number;
 
   // Internal limits
   shellTimeoutMs: number;
@@ -54,7 +49,6 @@ export async function loadConfig(
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   const worktreesDir = join(dirname(repoRoot), `${basename(repoRoot)}-wt`);
   const logsDir = join(repoRoot, ".claude", "automate", "logs");
-  const afkDir = join(repoRoot, ".afk");
 
   const maxIterations =
     overrides.maxIterations ?? Number(process.env.MAX_ITERATIONS ?? 10);
@@ -72,8 +66,6 @@ export async function loadConfig(
     scriptDir,
     worktreesDir,
     logsDir,
-    afkDir,
-    stateFile: join(afkDir, "state.json"),
 
     mainBranch: process.env.MAIN_BRANCH ?? "main",
     issueBranchPrefix: "afk/issue-",
@@ -88,8 +80,6 @@ export async function loadConfig(
     ),
     rateLimitMaxRetries: Number(process.env.RATE_LIMIT_MAX_RETRIES ?? 3),
     rateLimitBackoffMs: Number(process.env.RATE_LIMIT_BACKOFF_MS ?? 60_000),
-
-    stateVersion: 1,
 
     shellTimeoutMs: 30_000,
     stderrTailLimit: 8_192,

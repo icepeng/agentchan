@@ -1,9 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { Phases } from "./agent.ts";
+import type { AfkTodo, Phases, PlannedIssue } from "./agent.ts";
 import type { Config } from "./config.ts";
 import type { Logger } from "./logger.ts";
-import type { AfkState, AfkTodo, StateStore } from "./state.ts";
 import type { WorktreeOps } from "./worktree.ts";
 
 export interface PipelineGitDeps {
@@ -15,18 +14,13 @@ export interface PipelineDeps {
   phases: Phases;
   git: PipelineGitDeps;
   worktree: WorktreeOps;
-  state: StateStore;
   config: Config;
   logger: Logger;
   signal: AbortSignal;
 }
 
-export interface PipelineRunOpts {
-  resume: boolean;
-}
-
 export interface Pipeline {
-  run(opts: PipelineRunOpts): Promise<void>;
+  run(): Promise<void>;
 }
 
 interface Semaphore {
@@ -56,8 +50,22 @@ function makeSemaphore(max: number): Semaphore {
   };
 }
 
+function todosFromPlanned(
+  planned: PlannedIssue[],
+  config: Config,
+): AfkTodo[] {
+  return planned.map((i) => ({
+    number: i.number,
+    title: i.title,
+    branch: i.branch,
+    worktreeDir: `${config.issueDirPrefix}${i.number}`,
+    status: "planned",
+    commits: 0,
+  }));
+}
+
 export function createPipeline(deps: PipelineDeps): Pipeline {
-  const { phases, git, worktree, state, config, logger, signal } = deps;
+  const { phases, git, worktree, config, logger, signal } = deps;
 
   async function preflight(): Promise<{ baseBranch: string }> {
     if (!config.isMainCheckout) {
@@ -130,19 +138,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     return { baseBranch: config.mainBranch };
   }
 
-  async function planIteration(
-    iteration: number,
-    baseBranch: string,
-  ): Promise<AfkState | null> {
-    const planned = await phases.runPlanner({ iteration, signal });
-    if (planned.length === 0) return null;
-    const initial = state.createInitial({ iteration, baseBranch, planned });
-    await state.save(initial);
-    return initial;
-  }
-
   async function progressTodo(
-    afkState: AfkState,
     todo: AfkTodo,
     baseBranch: string,
   ): Promise<void> {
@@ -168,14 +164,12 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       todo.commits = (await git.commitsOnBranch(todo.branch, baseBranch))
         .length;
       todo.status = "impl_done";
-      await state.save(afkState);
     }
 
     if (todo.status === "impl_done") {
       if (todo.commits === 0) {
         todo.status = "failed";
         todo.error = "implementation produced no commits";
-        await state.save(afkState);
         return;
       }
 
@@ -195,31 +189,25 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       todo.commits = (await git.commitsOnBranch(todo.branch, baseBranch))
         .length;
       todo.status = "review_done";
-      await state.save(afkState);
     }
   }
 
   async function executeTodos(
-    afkState: AfkState,
+    todos: AfkTodo[],
     baseBranch: string,
   ): Promise<void> {
     const sem = makeSemaphore(config.parallel);
     const settled = await Promise.allSettled(
-      afkState.todos.map(async (todo) => {
-        if (todo.status === "merged" || todo.status === "failed") return;
-        if (todo.status === "review_done") return;
+      todos.map(async (todo) => {
         await sem.acquire();
         try {
           if (signal.aborted) return;
-          await progressTodo(afkState, todo, baseBranch);
+          await progressTodo(todo, baseBranch);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           logger.error(`  ✗ #${todo.number} (${todo.branch}): ${msg}`);
           todo.status = "failed";
           todo.error = msg.slice(0, 500);
-          try {
-            await state.save(afkState);
-          } catch {}
         } finally {
           sem.release();
         }
@@ -234,10 +222,10 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   }
 
   async function mergeStep(
-    afkState: AfkState,
+    todos: AfkTodo[],
     iteration: number,
   ): Promise<void> {
-    const toMerge = afkState.todos.filter(
+    const toMerge = todos.filter(
       (t) => t.status === "review_done" && t.commits > 0,
     );
     if (toMerge.length === 0) {
@@ -253,13 +241,20 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     for (const t of toMerge) {
       t.status = "merged";
     }
-    await state.save(afkState);
     logger.info("Branches merged.");
   }
 
-  async function batchCleanup(afkState: AfkState): Promise<void> {
-    for (const todo of afkState.todos) {
-      if (todo.status !== "merged" && todo.status !== "failed") continue;
+  async function batchCleanup(todos: AfkTodo[]): Promise<void> {
+    // Only touch worktrees we successfully merged. Failed worktrees are left
+    // on disk so the next run can pick the same issue back up and reuse the
+    // existing branch+worktree (the planner re-picks open issues, and
+    // `worktree.createOrReuse` matches by branch). Avoiding `git worktree
+    // remove` on the failure path also sidesteps Windows EBUSY: zombie
+    // descendants from a crashed agent can hold node_modules handles, which
+    // turns the rm -rf inside `git worktree remove` into a partial failure
+    // that desynchronizes git's admin entry from the directory.
+    for (const todo of todos) {
+      if (todo.status !== "merged") continue;
       const wtPath = join(config.worktreesDir, todo.worktreeDir);
       if (!existsSync(wtPath)) continue;
 
@@ -270,7 +265,9 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           await worktree.remove(wtPath);
         }
       } catch (err) {
-        logger.error(`[${todo.branch}] cleanup failed: ${err}`);
+        logger.error(
+          `[${todo.branch}] cleanup failed (leaving on disk): ${err}`,
+        );
       }
     }
   }
@@ -278,44 +275,33 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
   async function runIteration(
     iteration: number,
     baseBranch: string,
-    resumedState: AfkState | null,
   ): Promise<"continue" | "stop"> {
     logger.info(`\n=== Iteration ${iteration}/${config.maxIterations} ===\n`);
 
-    let afkState: AfkState;
-    if (resumedState) {
-      logger.info(
-        `Resuming iteration ${resumedState.iteration} with ${resumedState.todos.length} todo(s):`,
-      );
-      for (const t of resumedState.todos) {
-        logger.info(`  [${t.status}] #${t.number}: ${t.title} (${t.branch})`);
-      }
-      afkState = resumedState;
-    } else {
-      const planned = await planIteration(iteration, baseBranch);
-      if (planned === null) {
-        logger.info("No issues to work on. Exiting.");
-        return "stop";
-      }
-      afkState = planned;
-      logger.info(`${afkState.todos.length} issue(s) to work in parallel:`);
-      for (const t of afkState.todos)
-        logger.info(`  #${t.number}: ${t.title} → ${t.branch}`);
+    const planned = await phases.runPlanner({ iteration, signal });
+    if (planned.length === 0) {
+      logger.info("No issues to work on. Exiting.");
+      return "stop";
     }
 
-    await executeTodos(afkState, baseBranch);
+    const todos = todosFromPlanned(planned, config);
+    logger.info(`${todos.length} issue(s) to work in parallel:`);
+    for (const t of todos) {
+      logger.info(`  #${t.number}: ${t.title} → ${t.branch}`);
+    }
+
+    await executeTodos(todos, baseBranch);
     if (signal.aborted) return "stop";
 
-    await mergeStep(afkState, iteration);
+    await mergeStep(todos, iteration);
     if (signal.aborted) return "stop";
 
-    await batchCleanup(afkState);
-    await state.clear();
+    await batchCleanup(todos);
     return "continue";
   }
 
   return {
-    async run({ resume }: PipelineRunOpts): Promise<void> {
+    async run(): Promise<void> {
       const { baseBranch } = await preflight();
 
       logger.info(`Base branch: ${baseBranch}`);
@@ -327,34 +313,10 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
         `Idle timeout: ${Math.round(config.agentIdleTimeoutMs / 1000)}s`,
       );
 
-      let resumedState: AfkState | null = null;
-      if (resume) {
-        logger.info(
-          `Resume mode: existing afk/issue-* branches and worktrees will be picked up.`,
-        );
-        resumedState = await state.load();
-        if (!resumedState) {
-          logger.info(
-            "No state.json to resume. Falling through to a fresh planning iteration.",
-          );
-        } else {
-          logger.info(
-            `Loaded state.json: iteration ${resumedState.iteration}, ${resumedState.todos.length} todo(s).`,
-          );
-        }
-      }
-
-      let iteration = resumedState?.iteration ?? 1;
-      for (; iteration <= config.maxIterations; iteration++) {
+      for (let iteration = 1; iteration <= config.maxIterations; iteration++) {
         if (signal.aborted) break;
-
-        const decision = await runIteration(
-          iteration,
-          baseBranch,
-          iteration === (resumedState?.iteration ?? -1) ? resumedState : null,
-        );
+        const decision = await runIteration(iteration, baseBranch);
         if (decision === "stop") break;
-        resumedState = null;
       }
 
       logger.info("\nAll done.");

@@ -11,8 +11,6 @@ For each branch:
 3. After resolving conflicts, run `bun run typecheck`, `bun run lint`, and `bun run test` to verify everything works
 4. If tests fail, fix the issues before proceeding to the next branch
 
-After all branches are merged, make a single summary commit using Conventional Commits (`chore:` typically). Body must end with a `[AFK]` trailer on its own line.
-
 # CLOSE ISSUES
 
 For each branch that was merged, close its issue. If there are any parent issues (such as PRD's) which closing the issue would complete, close those too.

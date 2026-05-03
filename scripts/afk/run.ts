@@ -6,7 +6,6 @@ import { commitsOnBranch, runGit } from "./git.ts";
 import { consoleLogger } from "./logger.ts";
 import { createPipeline } from "./pipeline.ts";
 import { terminateWindowsProcessesHoldingPath } from "./process-cleanup.ts";
-import { createStateStore } from "./state.ts";
 import { createWorktreeOps } from "./worktree.ts";
 
 function parsePositiveIntegerOption(
@@ -33,12 +32,8 @@ function parsePositiveIntegerOption(
   return undefined;
 }
 
-function parseArgs(argv: string[]): {
-  resume: boolean;
-  overrides: ConfigOverrides;
-} {
+function parseArgs(argv: string[]): { overrides: ConfigOverrides } {
   return {
-    resume: argv.includes("--resume"),
     overrides: {
       maxIterations: parsePositiveIntegerOption(argv, [
         "--iterations",
@@ -49,7 +44,7 @@ function parseArgs(argv: string[]): {
 }
 
 async function main(): Promise<void> {
-  const { resume, overrides } = parseArgs(process.argv.slice(2));
+  const { overrides } = parseArgs(process.argv.slice(2));
   const config = await loadConfig(overrides);
   const logger = consoleLogger();
 
@@ -87,19 +82,16 @@ async function main(): Promise<void> {
     config,
   });
 
-  const state = createStateStore(config);
-
   const pipeline = createPipeline({
     phases,
     git: { runGit, commitsOnBranch },
     worktree,
-    state,
     config,
     logger,
     signal: ac.signal,
   });
 
-  await pipeline.run({ resume });
+  await pipeline.run();
 }
 
 process.on("unhandledRejection", (reason) => {
