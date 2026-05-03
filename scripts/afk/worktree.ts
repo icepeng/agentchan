@@ -26,18 +26,44 @@ function delay(ms: number): Promise<void> {
 export function createWorktreeOps(deps: WorktreeOpsDeps): WorktreeOps {
   const { runGit, terminateProcesses, config } = deps;
 
-  return {
+  const ops: WorktreeOps = {
     async createOrReuse(branch, worktreeDir, baseBranch) {
       await mkdir(config.worktreesDir, { recursive: true });
       const path = join(config.worktreesDir, worktreeDir);
 
       if (existsSync(path)) {
+        let head: string | null = null;
         try {
-          const head = await runGit(["symbolic-ref", "--short", "HEAD"], path);
-          if (head === branch) return path;
+          head = await runGit(["symbolic-ref", "--short", "HEAD"], path);
         } catch {
-          // Not a valid git worktree; fall through to forced re-add.
+          // Orphan dir or invalid worktree state — handled below.
         }
+
+        if (head === branch) return path;
+
+        if (head !== null) {
+          throw new Error(
+            `Worktree at ${path} is on branch "${head}", expected "${branch}". ` +
+              `Remove it manually before retrying.`,
+          );
+        }
+
+        // Orphan dir (path exists, not a registered worktree). Try to remove
+        // it; if Windows file locks block deletion, surface a clear error so
+        // the user can clean up manually rather than escalating to a process
+        // sweep that risks killing user-owned processes.
+        try {
+          await ops.remove(path);
+        } catch (err) {
+          throw new Error(
+            `Orphan worktree dir at ${path} could not be removed ` +
+              `(likely a file lock from a leaked process of a previous AFK run). ` +
+              `Close any holders (IDE/terminal pointing into it, or lingering ` +
+              `node/bun/claude processes) and delete the directory manually, ` +
+              `then retry.\nUnderlying: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+        await runGit(["worktree", "prune"]);
       }
 
       try {
@@ -94,4 +120,6 @@ export function createWorktreeOps(deps: WorktreeOpsDeps): WorktreeOps {
       throw lastError;
     },
   };
+
+  return ops;
 }

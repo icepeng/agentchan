@@ -67,75 +67,15 @@ function todosFromPlanned(
 export function createPipeline(deps: PipelineDeps): Pipeline {
   const { phases, git, worktree, config, logger, signal } = deps;
 
-  async function preflight(): Promise<{ baseBranch: string }> {
-    if (!config.isMainCheckout) {
+  async function resolveBaseBranch(): Promise<string> {
+    try {
+      return await git.runGit(["symbolic-ref", "--short", "HEAD"]);
+    } catch {
       throw new Error(
-        `AFK pipeline must run from the main checkout, not from a worktree.\n` +
-          `Current toplevel: ${config.repoRoot}\n` +
-          `git-dir:          ${config.gitDir}`,
+        "AFK requires a checked-out branch as the merge target. " +
+          "Current HEAD is detached — checkout a branch and try again.",
       );
     }
-
-    const currentBranch = await git.runGit(["symbolic-ref", "--short", "HEAD"]);
-    if (currentBranch !== config.mainBranch) {
-      throw new Error(
-        `Current branch is "${currentBranch}", expected "${config.mainBranch}". AFK pipeline only runs on the main branch.`,
-      );
-    }
-
-    const dirty = await git.runGit([
-      "status",
-      "--porcelain",
-      "--untracked-files=no",
-    ]);
-    if (dirty) {
-      throw new Error(
-        `Main checkout has uncommitted changes. Stash or commit before running — the merge step lands commits directly on ${config.mainBranch}.`,
-      );
-    }
-
-    const ghProc = Bun.spawn(["gh", "auth", "status"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    if ((await ghProc.exited) !== 0) {
-      throw new Error("gh CLI not authenticated. Run `gh auth login`.");
-    }
-
-    // Fetch so issue worktrees branch off the freshest origin tip and so the
-    // local main can be safely fast-forwarded if it's behind.
-    await git.runGit(["fetch", "origin", config.mainBranch]);
-
-    const localTip = await git.runGit(["rev-parse", "HEAD"]);
-    const remoteTip = await git.runGit([
-      "rev-parse",
-      `origin/${config.mainBranch}`,
-    ]);
-    if (localTip !== remoteTip) {
-      const ahead = await git.runGit([
-        "rev-list",
-        "--count",
-        `origin/${config.mainBranch}..HEAD`,
-      ]);
-      const behind = await git.runGit([
-        "rev-list",
-        "--count",
-        `HEAD..origin/${config.mainBranch}`,
-      ]);
-      if (Number(ahead) > 0) {
-        throw new Error(
-          `${config.mainBranch} is ahead of origin/${config.mainBranch} by ${ahead} commit(s). Push or rewind before running — AFK won't merge on top of unpushed local work.`,
-        );
-      }
-      if (Number(behind) > 0) {
-        logger.info(
-          `Fast-forwarding ${config.mainBranch} by ${behind} commit(s) from origin.`,
-        );
-        await git.runGit(["merge", "--ff-only", `origin/${config.mainBranch}`]);
-      }
-    }
-
-    return { baseBranch: config.mainBranch };
   }
 
   async function progressTodo(
@@ -302,7 +242,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
 
   return {
     async run(): Promise<void> {
-      const { baseBranch } = await preflight();
+      const baseBranch = await resolveBaseBranch();
 
       logger.info(`Base branch: ${baseBranch}`);
       logger.info(`Model: ${config.agentModel}`);

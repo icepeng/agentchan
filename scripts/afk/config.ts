@@ -5,15 +5,11 @@ import { runGit } from "./git.ts";
 export interface Config {
   // Repo layout
   repoRoot: string;
-  gitDir: string;
-  gitCommonDir: string;
-  isMainCheckout: boolean;
   scriptDir: string;
   worktreesDir: string;
   logsDir: string;
 
   // Branch / dir naming
-  mainBranch: string;
   issueBranchPrefix: string;
   issueDirPrefix: string;
 
@@ -43,11 +39,19 @@ export async function loadConfig(
   overrides: ConfigOverrides = {},
 ): Promise<Config> {
   const repoRoot = await runGit(["rev-parse", "--show-toplevel"]);
-  const gitDir = await runGit(["rev-parse", "--git-dir"]);
-  const gitCommonDir = await runGit(["rev-parse", "--git-common-dir"]);
+  // Anchor worktreesDir to the main checkout's parent so issue worktrees land
+  // in the same place regardless of which worktree AFK was invoked from.
+  const worktreeList = await runGit(["worktree", "list", "--porcelain"]);
+  const mainWorktree = worktreeList.split("\n")[0]?.replace(/^worktree /, "");
+  if (!mainWorktree) {
+    throw new Error("Could not determine main worktree path");
+  }
 
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const worktreesDir = join(dirname(repoRoot), `${basename(repoRoot)}-wt`);
+  const worktreesDir = join(
+    dirname(mainWorktree),
+    `${basename(mainWorktree)}-wt`,
+  );
   const logsDir = join(repoRoot, ".claude", "automate", "logs");
 
   const maxIterations =
@@ -60,14 +64,10 @@ export async function loadConfig(
 
   return {
     repoRoot,
-    gitDir,
-    gitCommonDir,
-    isMainCheckout: gitDir === gitCommonDir,
     scriptDir,
     worktreesDir,
     logsDir,
 
-    mainBranch: process.env.MAIN_BRANCH ?? "main",
     issueBranchPrefix: "afk/issue-",
     issueDirPrefix: "issue-",
 
