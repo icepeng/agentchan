@@ -166,7 +166,7 @@ _Avoid_: conversation, chat — "session"으로 지칭
 
 **Session entry**:
 **Session** JSONL의 append-only 기록 단위이며, id와 parent link는 저장 시점에 배정된다.
-_Avoid_: log line, history item, turn — 기록 단위는 "entry"로 통일
+_Avoid_: log line, history item, message 단독 — 기록 단위는 "entry"로 통일
 
 **Branch**:
 한 **Session entry**에서 갈라지는 대화 흐름이며, 파일에 영속화하지 않는 derived view다.
@@ -176,8 +176,12 @@ _Avoid_: thread, fork — derived view라는 점이 핵심
 한 entry graph 안에서 **Branch**를 derive할 끝 지점을 가리키는 임시 selection이다.
 _Avoid_: cursor, selection, head — leafId는 path derive의 출발점일 뿐, 영속 상태가 아님
 
+**Turn**:
+한 user **Session entry**에 대한 응답으로 묶이는 연속된 assistant **Session entry** 묶음이며, 파일에 저장하지 않는 derived UI grouping이다.
+_Avoid_: assistant message 단독, response group, bubble — 한 turn 안에 assistant entry가 여러 개 들어갈 수 있다는 점이 핵심
+
 **Compaction**:
-이전 대화를 summary로 대체하는 같은 entry graph 안의 **Session entry**다.
+이전 대화를 LLM 호출 결과 summary로 대체하는 같은 entry graph 안의 **Session entry**다.
 _Avoid_: summarization, archive — agentchan 도메인에서 "compaction"은 entry 그래프 내 in-place 연산
 
 **Creative session**:
@@ -198,9 +202,21 @@ _Avoid_: "mode" 단독 사용 — 항상 "session mode"로 지칭
 프로젝트별 in-memory agent runtime 상태이며, persisted **Session entry**와 in-flight row가 섞인 render-facing view를 포함한다.
 _Avoid_: state 단독, agent runtime, conversation state
 
+**Usage**:
+한 LLM 호출의 token·cost 사실 묶음이며, `@mariozechner/pi-ai`의 `Usage` 타입을 그대로 받는다.
+_Avoid_: usage 단독으로 derive view를 가리키지 않는다 — derive view는 **Session usage**·**Turn usage**·**Context usage**다
+
 **Session usage**:
-활성 **Branch**의 persisted assistant **Session entry**에서 derive하는 token/cost 누적 view다.
-_Avoid_: usage 단독, token usage, billing
+**Session** 파일 안 모든 persisted assistant **Session entry**의 **Usage** 누적 view이며, **Branch** 선택과 무관하다.
+_Avoid_: usage 단독, token usage, billing, branch usage 단독, "cost 합산"으로 환원
+
+**Turn usage**:
+한 **Turn** 안 모든 assistant **Session entry**의 **Usage** 누적 view다.
+_Avoid_: turn cost 단독, message usage, last-entry usage
+
+**Context usage**:
+활성 **Branch**의 마지막 assistant **Session entry**의 **Usage**에서 derive한 다음 LLM 호출 input 크기 추정이며, 합산이 아닌 단일 entry view다.
+_Avoid_: usage 단독, context tokens 단독, context percent
 
 ## Relationships
 
@@ -213,6 +229,8 @@ _Avoid_: usage 단독, token usage, billing
 - **Session mode**(creative/meta)와 **View mode**(chat/edit)는 직교한다. 네 조합 모두 의미 있다 — creative+chat, creative+edit, meta+chat, meta+edit.
 - **Project view** 재진입 시 마지막 **Session**은 기억하지만 **View mode**는 기억하지 않는다. 세션 선택은 작업 연속성이고, chat/edit 토글은 view를 떠나면 끝나는 작업 의도다.
 - **Branch**는 `entries`에서 **LeafId**를 입력으로 *derive*하는 view라, "branch를 저장한다"는 표현은 자체 모순이다. 저장되는 것은 entries와 그 `parentId` chain뿐이고, **Compaction**도 별도 파일이 아닌 같은 그래프의 한 entry로 머문다.
+- **Turn**은 활성 **Branch**에서 user→assistant 경계를 입력으로 *derive*하는 grouping이다 — **Branch**와 같은 카테고리(저장되지 않는 view)이고, **Session entry**(append-only 기록 단위)와는 다른 카테고리다. "turn을 저장한다"는 표현은 자체 모순이다.
+- 한 **Turn** 안에 LLM round-trip이 여러 번 일어날 수 있다 — tool 호출이 끼면 assistant **Session entry**가 두 개 이상 생기고 모두 같은 **Turn**에 들어간다. 그래서 **Turn usage**는 그 turn 안 *모든* assistant entry **Usage**의 합이지, 마지막 한 entry의 값이 아니다.
 - **Project**의 시스템 계약 영역(`_project.json`, `SYSTEM.md`, `skills/`, `renderer/`, `sessions/`)과 **Workspace**의 사용자 콘텐츠 영역은 분리된 결정이다 — 전자는 *시스템이 다루는* 인프라 파일, 후자는 *시스템이 해석하지 않는* 사용자 콘텐츠다.
 - **Template** → **Project** 복사는 일회성이다. README를 가진 **Template** 디렉터리가 복사 단위이며, 이후 template 변경은 기존 **Project**에 자동 반영되지 않는다.
 - **Trusted template**만 **Project** 생성에 쓸 수 있다. Trust 결정의 출처는 두 가지 — built-in 등록과 사용자 명시 동의 — 이며 같은 카테고리에 모인다. "Save as template"으로 만들어진 template은 사용자 본인 출처라 자동 trusted가 된다.
@@ -229,7 +247,9 @@ _Avoid_: usage 단독, token usage, billing
 - 같은 값을 **Server settings**와 **Browser preferences** 양쪽에 중복 저장하지 않는다. 경계가 애매하면 agent가 읽는지 먼저 묻고, 읽는다면 **Server settings**가 source of truth다.
 - 모든 **Browser preferences** key는 **localStore registry**를 통해 추가한다. feature code에서 registry를 우회해 browser storage를 직접 읽고 쓰면 **Browser preferences** 경계가 깨진다.
 - **Custom provider**·**Built-in provider**의 API key와 OAuth credential은 **Server settings**에 산다 — agent가 호출 시 읽기 때문에 **Browser preferences** 카테고리가 아니다.
-- **Agent state**(runtime, in-memory)와 **Session usage**(persistence-derived)는 다른 source 위에 산다 — 같은 store에 합치지 않는다. "지금 streaming 중인가"는 **Agent state**, "지금까지 누적 사용량"은 **Session usage**다.
+- **Agent state**(runtime, in-memory)와 **Session usage**(persistence-derived)는 다른 source 위에 산다 — 같은 store에 합치지 않는다. "지금 streaming 중인가"는 **Agent state**, "세션에서 지금까지 청구된 사용량"은 **Session usage**다.
+- 한 assistant **Session entry**는 한 LLM 호출에 대응하며 그 호출의 **Usage**를 들고 있다.
+- **Session usage**는 **Branch** 전환에 따라 변하면 잘못된 신호다. 폐기된 **Branch**의 **Session entry**도 파일에 남고 비용은 이미 청구됐다 — UI에서 안 보일 뿐 합산에서 빠지지 않는다.
 - **Agent state**의 `messages`는 persisted **Session entry** rebuild와 in-flight tool result row가 한 배열에 섞인 형태다. *"agent state가 곧 session 데이터"라는 등치*는 깨진다 — consumer는 `role` 분기로 in-flight인지 확인해야 한다.
 - **Edit mode**의 편집 대상은 **Project** root에서 **Hidden root**를 뺀 전체이며, 이 범위에는 시스템 계약 파일(`SYSTEM.md`, `skills/`, `renderer/` 등)도 포함된다. "edit mode가 **Workspace**로 한정된다"는 가정은 ADR-0002의 결정과 어긋난다.
 - **Hidden root**의 멤버는 file API와 **edit mode** 양쪽이 동시에 가린다 — "edit에서 안 보이는데 agent tool로는 보인다" 같은 비대칭은 없다.
@@ -266,3 +286,4 @@ _Avoid_: usage 단독, token usage, billing
 - "provider"는 단독으로 쓰지 않는다 — **Custom provider** 또는 **Built-in provider**로 명시한다.
 - "setting"/"settings"는 단독으로 쓰지 않는다. 서버 측은 **Server settings**, 브라우저 측은 **Browser preferences**로 명시한다 — 둘은 영속 위치도 다르고 agent가 읽는지 여부도 다르다.
 - "edit"는 단독으로 쓰지 않는다. **View mode**의 값(`edit`)과 **Edit mode**(작업 표면)는 다른 카테고리지만 단어가 겹친다 — 표면을 가리킬 땐 항상 "edit mode"로 명시한다.
+- **Session usage**가 LLM provider 청구액과 일치하는지는 미해결이다. **Compaction**은 LLM 호출이라 **Usage**가 발생하지만 현재 `CompactionEntry`(pi-coding-agent와 동일)에 `usage` 필드가 없어 합산에서 누락된다. pi 측 디자인 의도 확인 후 schema 처리 방향을 결정한다 — 그때까지 "**Session usage** = 청구액"이라고 단정하지 않는다.
