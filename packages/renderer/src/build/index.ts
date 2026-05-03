@@ -2,20 +2,20 @@ export {
   RendererV1Error,
   RendererBuildError,
   type RendererV1ErrorPhase,
-} from "./errors.js";
+} from "./errors.ts";
 export {
   buildRendererBundle,
   findRendererEntrypoint,
   type RendererBundle,
-} from "./builder.js";
+} from "./builder.ts";
 export {
   RENDERER_CORE_IMPORT,
   RENDERER_REACT_IMPORT,
   findImportSpecifiers,
   isInside,
   validateRendererImportPolicy,
-} from "./policy.js";
+} from "./policy.ts";
 export {
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
-} from "./runtime-source.js";
+} from "./runtime-source.ts";

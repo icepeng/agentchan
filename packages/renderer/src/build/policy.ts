@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { RendererV1Error } from "./errors.js";
+import { RendererV1Error } from "./errors.ts";
 import {
   experimentalRendererDepsEnabled,
   packageRootName,
   rendererRuntimeDir,
-} from "./runtime-deps.js";
+} from "./runtime-deps.ts";
 
 export const RENDERER_CORE_IMPORT = "@agentchan/renderer/core";
 export const RENDERER_REACT_IMPORT = "@agentchan/renderer/react";

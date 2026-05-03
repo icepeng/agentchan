@@ -1,11 +1,13 @@
 export type {
-  ProjectFile,
-  RendererAgentState,
   RendererActions,
-  RendererBundle,
-  RendererProps,
   RendererSnapshot,
   RendererTheme,
+} from "@agentchan/renderer/core";
+export type { RendererBundle } from "@agentchan/renderer/build";
+export type {
+  ProjectFile,
+  RendererAgentState,
+  RendererProps,
   RendererAction,
 } from "./renderer.types.js";
 

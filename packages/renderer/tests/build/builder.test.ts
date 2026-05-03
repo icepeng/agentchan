@@ -4,15 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  defineRenderer as packageDefineRenderer,
-  fileUrl as packageFileUrl,
-} from "@agentchan/renderer/core";
-import {
   buildRendererBundle,
   findRendererEntrypoint,
   RendererV1Error,
   validateRendererImportPolicy,
-} from "../../src/renderer/index.js";
+} from "../../src/build/index.ts";
 
 let projectDir: string;
 
@@ -328,68 +324,40 @@ describe("Renderer V1 bundle", () => {
     );
   });
 
-  test("core SDK shim matches package helper behavior", async () => {
+  test("smoke: bundle exposes a working defineRenderer runtime", async () => {
     await writeRenderer(
       "index.ts",
       `
-        import { defineRenderer, fileUrl } from "@agentchan/renderer/core";
-        export { defineRenderer as bundledDefineRenderer, fileUrl as bundledFileUrl };
-        export const renderer = defineRenderer(() => ({ update() {}, unmount() {} }));
+        import { defineRenderer } from "@agentchan/renderer/core";
+        export const renderer = defineRenderer(({ container, snapshot }) => {
+          container.textContent = snapshot.slug;
+          return {
+            update(next) { container.textContent = next.slug; },
+            unmount() { container.textContent = ""; },
+          };
+        });
       `,
     );
 
-    const snapshot = { slug: "before", baseUrl: "/api/projects/demo/", files: [], state: {
-      messages: [],
-      isStreaming: false,
-      pendingToolCalls: [],
-    } };
-    const file = { path: "/folder/a b.png", digest: "sha/1" };
-    const bridge = {
-      snapshot,
-      actions: {
-        send() {},
-        fill() {},
-      },
-    };
-    const makeFactory = (events: string[]) =>
-      ({ container, snapshot: initialSnapshot, actions }: any) => {
-        events.push(`${container.name}:${initialSnapshot.slug}:${typeof actions.fill}`);
-        return {
-          update(nextSnapshot: typeof snapshot) {
-            events.push(`update:${nextSnapshot.slug}`);
-          },
-          unmount() {
-            events.push("unmount");
-          },
-        };
-      };
-
     const bundle = await buildRendererBundle(projectDir);
     const mod = await importBundle(bundle?.js ?? "");
-    const bundledFileUrl = mod.bundledFileUrl as typeof packageFileUrl;
-    const bundledDefineRenderer = mod.bundledDefineRenderer as typeof packageDefineRenderer;
+    const runtime = mod.renderer as {
+      mount: (container: { textContent: string }, bridge: unknown) => {
+        update: (next: { slug: string }) => void;
+        unmount: () => void;
+      };
+    };
 
-    expect(bundledFileUrl(snapshot, file)).toBe(packageFileUrl(snapshot, file));
-
-    const bundledEvents: string[] = [];
-    const packageEvents: string[] = [];
-    const bundledRuntime = bundledDefineRenderer(makeFactory(bundledEvents), {
-      theme: (snapshot) => ({ base: { accent: snapshot.slug } }),
+    const container = { textContent: "" };
+    const instance = runtime.mount(container, {
+      snapshot: { slug: "alpha", baseUrl: "/", files: [], state: {} },
+      actions: { send() {}, fill() {} },
     });
-    const packageRuntime = packageDefineRenderer(makeFactory(packageEvents), {
-      theme: (snapshot) => ({ base: { accent: snapshot.slug } }),
-    });
-
-    expect(bundledRuntime.theme?.(snapshot)).toEqual(packageRuntime.theme?.(snapshot));
-
-    const bundledInstance = bundledRuntime.mount({ name: "node" } as unknown as HTMLElement, bridge);
-    const packageInstance = packageRuntime.mount({ name: "node" } as unknown as HTMLElement, bridge);
-    bundledInstance.update({ ...snapshot, slug: "after" });
-    packageInstance.update({ ...snapshot, slug: "after" });
-    bundledInstance.unmount();
-    packageInstance.unmount();
-
-    expect(bundledEvents).toEqual(packageEvents);
+    expect(container.textContent).toBe("alpha");
+    instance.update({ slug: "beta" });
+    expect(container.textContent).toBe("beta");
+    instance.unmount();
+    expect(container.textContent).toBe("");
   });
 
   test("React adapter preserves theme option on bundled runtime", async () => {

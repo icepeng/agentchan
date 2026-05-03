@@ -13,16 +13,12 @@
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/grep": "workspace:*",
-    "@agentchan/renderer": "workspace:*",
     "@google/genai": "^1.50.1",
     "@mariozechner/pi-agent-core": "^0.70.2",
     "@mariozechner/pi-ai": "^0.70.2",
     "@sinclair/typebox": "^0.34.49",
     "nanoid": "^5.1.9",
     "picocolors": "^1.1.1",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "scheduler": "^0.27.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {

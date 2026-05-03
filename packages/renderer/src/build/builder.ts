@@ -1,11 +1,11 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { RendererBuildError } from "./errors.js";
-import { validateRendererImportPolicy } from "./policy.js";
+import { RendererBuildError } from "./errors.ts";
+import { validateRendererImportPolicy } from "./policy.ts";
 import {
   createRendererRuntimePlugin,
   createRendererSourcePlugin,
-} from "./runtime-source.js";
+} from "./runtime-source.ts";
 
 export interface RendererBundle {
   js: string;

@@ -1,8 +1,8 @@
 import type {
   RendererTheme,
   RendererThemeTokens,
-  ResolvedThemeVars,
-} from "./renderer.types.js";
+} from "@agentchan/renderer/core";
+import type { ResolvedThemeVars } from "./renderer.types.js";
 
 /**
  * Renderer-owned theme: 렌더러가 프로젝트 페이지 한정으로 전역 CSS custom property를

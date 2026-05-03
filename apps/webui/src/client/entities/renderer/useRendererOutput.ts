@@ -11,9 +11,11 @@ import {
 } from "@/client/entities/view/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import type {
-  RendererAgentState,
-  RendererBundle,
   RendererSnapshot,
+} from "@agentchan/renderer/core";
+import type { RendererBundle } from "@agentchan/renderer/build";
+import type {
+  RendererAgentState,
   ProjectFile,
 } from "./renderer.types.js";
 

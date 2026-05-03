@@ -12,14 +12,20 @@
     "./react": {
       "types": "./src/react.tsx",
       "default": "./src/react.tsx"
+    },
+    "./build": {
+      "types": "./src/build/index.ts",
+      "default": "./src/build/index.ts"
     }
   },
   "scripts": {
+    "test": "bun test tests/",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "scheduler": "^0.27.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
