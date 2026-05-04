@@ -1,0 +1,350 @@
+# Agentchan
+
+Agentchan은 사용자가 만든 **Project**(작품)를 위해 LLM agent를 호스팅하고, **Project**별 **Renderer**를 화면에 띄우는 데스크톱-스타일 web app이다.
+
+## Language
+
+### Project
+
+**Project**:
+agentchan의 작품 단위인 파일시스템 디렉터리.
+_Avoid_: work, story, document
+
+**Template**:
+새 **Project** 생성의 출발점이 되는 README-backed 복사 원본.
+_Avoid_: starter, base, blueprint
+
+**Trusted template**:
+**Project** 생성에 사용할 수 있도록 origin trust가 확인된 **Template** 상태.
+_Avoid_: approved, allowed, verified
+
+**Slug**:
+filesystem-backed **Project** 또는 **Template**의 단일 식별자.
+_Avoid_: id, name, project key
+
+**Cover**:
+**Project** 또는 **Template** 루트의 대표 이미지.
+_Avoid_: thumbnail, image, hero
+
+**System prompt file**:
+agent system prompt 합성에 쓰이는 **Project** 루트의 prompt 파일.
+_Avoid_: prompt file (단독), instructions
+
+### Workspace
+
+**Workspace**:
+한 **Project** 안의 사용자 콘텐츠 영역.
+_Avoid_: files (단독), content, assets
+
+**ProjectFile**:
+**Workspace** 안의 파일을 **Renderer**와 **Skill**에 전달하기 위한 표현 단위.
+_Avoid_: file (단독), asset
+
+**Digest**:
+**ProjectFile** 내용을 구분하기 위한 opaque cache identity.
+_Avoid_: hash, checksum, fingerprint
+
+### Creative Agent
+
+**Skill**:
+Creative Agent가 필요시 로드하거나 사용자가 **Slash command**로 호출할 수 있는 추가 지침. https://agentskills.io/specification을 따른다.
+_Avoid_: instruction, plugin, command
+
+**Skill catalog**:
+**Session mode**에 노출되는 **Skill** 목록.
+_Avoid_: skill list, manifest
+
+**Skill body**:
+활성화 시점에만 conversation context에 주입되는 **Skill**의 본문.
+_Avoid_: skill content, activation payload
+
+**Slash command**:
+사용자가 `/` 접두사로 입력해 즉시 효과를 일으키는 conversation-time 명령.
+_Avoid_: command (단독), /-command
+
+**Local slash command**:
+agentchan 코드가 직접 처리하고 LLM에는 도달하지 않는 **slash command**.
+_Avoid_: builtin command, system command
+
+**Skill slash command**:
+사용자 입력으로 **Skill body**를 conversation에 주입하는 **slash command**.
+_Avoid_: skill command, /skill
+
+**Project-scoped tool**:
+**Project** 디렉터리 경계 안에서만 agent에게 제공되는 등록 도구.
+_Avoid_: tool (단독), agent tool, shell tool
+
+**Script tool**:
+**Project** 또는 **Skill**의 helper code를 실행하는 **Project-scoped tool**.
+_Avoid_: exec, run script, helper tool
+
+### Settings
+
+**Custom provider**:
+사용자가 **Server settings**에 추가한 LLM provider.
+_Avoid_: external provider, user provider
+
+**Built-in provider**:
+agentchan UI에 제품이 기본 노출하는 LLM provider.
+_Avoid_: stock provider, default provider
+
+**Server settings**:
+agent가 읽는 설정·시크릿·install-scoped 상태를 서버 측에 영속한 값.
+_Avoid_: settings (단독), config, server config
+
+**Browser preferences**:
+agent가 읽지 않는 per-browser UI state와 device preference.
+_Avoid_: localStorage (단독), UI settings, client settings
+
+### Renderer
+
+**Renderer**:
+**Project**의 시각 표면을 구성하는 사용자 작성 코드.
+_Avoid_: view, template, theme
+
+**Renderer surface**:
+Renderer 작성자가 의존할 수 있는 안정 작성 계약.
+_Avoid_: API, contract
+
+**Renderer bundle**:
+**Renderer** source를 host가 import 가능한 형태로 빌드한 결과물.
+_Avoid_: build, output
+
+**Renderer snapshot**:
+host가 **Renderer**에 전달하는 선언적 **Project** 상태.
+_Avoid_: data, props, view-model
+
+**Renderer actions**:
+**Renderer**가 host에게 command를 요청하는 통로.
+_Avoid_: callbacks, handlers, API
+
+**Renderer theme**:
+**Renderer**가 host에 제안하는 project page 한정 theme token.
+_Avoid_: theme (단독), app theme, global theme
+
+**Renderer presentation machine**:
+**Renderer**가 화면에 들어오고 사라지는 host 측 전이 규칙을 소유하는 개념.
+_Avoid_: host machine, host state machine
+
+### Navigation
+
+**View**:
+"지금 무엇을 보여주는가"의 단일 SSoT — page와 selection을 한 discriminated union에 모은 표현.
+_Avoid_: page, route, screen
+
+**View kind**:
+**View** union의 최상위 분기.
+_Avoid_: page, tab
+
+**View mode**:
+`project` **View kind** 안에만 존재하는 작업 화면 토글.
+_Avoid_: edit mode (단독), chat mode (단독), mode (단독)
+
+### Editor
+
+**Edit mode**:
+**View mode**가 `edit`일 때의 작업 표면.
+_Avoid_: workspace editor, file editor, edit screen
+
+**Hidden root**:
+**Project** root에서 **edit mode**와 file API 양쪽에 노출되지 않는 root item 집합.
+_Avoid_: hidden file, system file, internal
+
+### Session
+
+**Session**:
+한 **Project** 안의 대화 단위.
+_Avoid_: conversation, chat
+
+**Session entry**:
+**Session**의 append-only 기록 단위.
+_Avoid_: log line, history item, message (단독)
+
+**Branch**:
+한 **Session entry**에서 갈라지는 derive view.
+_Avoid_: thread, fork
+
+**Turn**:
+한 user **Session entry**에 대한 응답으로 연속된 assistant **Session entry**를 묶은 derive view.
+_Avoid_: assistant message, response group, bubble
+
+**Compaction**:
+이전 대화를 LLM 호출 결과 summary로 대체하는 **Session entry**.
+_Avoid_: summarization, archive
+
+**Creative session**:
+작품 본업의 대화·작업 세션.
+_Avoid_: chat session, main session
+
+**Meta session**:
+프로젝트 구성 작업(예: renderer 빌드) 전용 세션.
+_Avoid_: build session, system session
+
+**Session mode**:
+**Session**의 영구 속성 — `creative` 또는 `meta`.
+_Avoid_: mode (단독)
+
+### Agent runtime
+
+**Agent state**:
+프로젝트별 in-memory agent runtime 상태.
+_Avoid_: state (단독), agent runtime, conversation state
+
+**Usage**:
+한 LLM 호출의 token·cost 사실 묶음 (`@mariozechner/pi-ai`의 `Usage` 타입).
+_Avoid_: usage (단독), token usage
+
+**Session usage**:
+**Session** 파일 안 모든 persisted assistant **Session entry**의 **Usage** 누적 view.
+_Avoid_: token usage, billing, branch usage
+
+**Turn usage**:
+한 **Turn** 안 모든 assistant **Session entry**의 **Usage** 누적 view.
+_Avoid_: turn cost, message usage, last-entry usage
+
+**Context usage**:
+활성 **Branch**의 마지막 assistant **Session entry**의 **Usage**에서 derive한 다음 LLM 호출 input 크기 추정.
+_Avoid_: context tokens, context percent
+
+## Relationships
+
+### Project / Template
+
+- **Trusted template**만 **Project** 생성에 쓸 수 있다.
+- **Trusted template**의 출처는 두 가지 — built-in 등록과 사용자 명시 동의.
+- "Save as template"으로 만든 template은 자동 trusted다.
+- **Trusted template**은 origin 동의 경계다.
+- **Trusted template**으로 만들어진 **Project**의 **Skill body**, **Renderer**, **System prompt file**은 그대로 실행/합성된다.
+- **Template** → **Project** 복사는 일회성 — 복사 시점의 snapshot이 **Project**의 source가 된다.
+- **Project slug**는 폴더명이 source of truth — 중복 저장하면 drift한다.
+- **Template slug**는 디렉터리명이 source of truth.
+- **Project**의 시스템 계약 영역(`_project.json`, `SYSTEM.md`, `skills/`, `renderer/`, `sessions/`)과 **Workspace**의 사용자 콘텐츠 영역은 분리된 결정이다.
+- **System prompt file** 선택은 **Session mode**와 1:1로 묶인다 — creative ↔ `SYSTEM.md`, meta ↔ `SYSTEM.meta.md`.
+
+### Renderer
+
+- **Renderer presentation machine**은 project identity, **Renderer bundle**, **Renderer snapshot**, error 변화를 외부 이벤트로 받아 **Renderer**의 mount/clear 라이프사이클을 진행한다.
+- **Renderer surface**(작성자 측 안정 계약)는 host의 **Renderer presentation machine** 구현과 독립이다.
+- **Renderer bundle**과 **Renderer snapshot**은 server fetch 데이터, **Renderer presentation machine**의 상태와 다른 카테고리에 산다 — 별개 store로 분리한다.
+- **Renderer snapshot**은 host → **Renderer** 방향의 선언적 상태, **Renderer actions**는 **Renderer** → host 방향의 command 통로다.
+- server session, storage, routing 소유권은 host에 있다.
+- **Renderer theme**은 host가 project page 범위에서만 적용한다.
+
+### Navigation / View mode
+
+- **View kind**가 `project`일 때만 **View mode** 필드가 존재한다.
+- **View** 전이(예: 다른 project 열기)는 **View kind**와 slug를 한 dispatch로 함께 바꾼다.
+- **Session mode**(creative/meta)와 **View mode**(chat/edit)는 직교한다 — 네 조합 모두 의미 있다.
+- **Project view** 재진입 시 마지막 **Session**은 기억하지만 **View mode**는 기억하지 않는다.
+
+### Edit mode
+
+- **Edit mode**의 편집 대상은 **Project** root에서 **Hidden root**를 뺀 전체이며, 이 범위에는 시스템 계약 파일(`SYSTEM.md`, `skills/`, `renderer/` 등)도 포함된다.
+- **Hidden root**의 멤버는 file API와 **edit mode** 양쪽이 동시에 가린다.
+
+### Session / Branch / Turn / Compaction
+
+- **Branch**는 entries와 그 `parentId` chain에서 한 leaf를 입력으로 derive하는 view다 — 저장되는 것은 entries뿐이다.
+- **Compaction**은 같은 entry 그래프 안의 한 **Session entry**다.
+- **Turn**은 활성 **Branch**에서 user→assistant 경계를 입력으로 derive하는 grouping이다.
+- 한 **Turn** 안에 LLM round-trip이 여러 번 일어날 수 있다 — tool 호출이 끼면 assistant **Session entry**가 둘 이상 생기고 모두 같은 **Turn**에 들어간다.
+
+### Skills / Slash commands
+
+- **Skill catalog**는 system prompt에 항상 합성된다.
+- **Skill body**는 활성화 시점에만 conversation에 주입된다.
+- **Skill catalog**와 **Skill body**는 별개 store로 둔다.
+- **Skill body** 활성화 경로는 두 가지 — model이 호출하는 `activate_skill` tool과 사용자가 입력하는 **Skill slash command**.
+- `disableModelInvocation: true` flag는 `activate_skill` 호출만 차단한다 — 그 skill은 **Skill slash command**를 통한 사용자 활성화만 허용된다.
+- **Local slash command**의 효과 위치는 분산되어 있다 — `/edit`은 **View mode**, `/new`·`/compact`는 **Session**, `/model`·`/provider`는 **Server settings**, `/readme`는 UI.
+
+### Tools
+
+- **Project-scoped tool**은 일반 shell 접근과 다른 카테고리에 산다.
+- **Script tool**은 helper code 실행이 필요할 때 쓰는 project-scoped 경로다.
+
+### Providers / Settings
+
+- **Built-in provider**는 제품 코드의 provider 등록과 model allowlist가 모두 필요하다.
+- **Custom provider**는 사용자 settings로만 등장한다.
+- **Server settings**와 **Browser preferences**는 *agent가 읽는가?* / *device 단위 값인가?* 로 갈린다.
+- agent가 읽거나 install 전체에 적용되는 값은 **Server settings**에 둔다.
+- 특정 브라우저의 UI state·device preference·dismissal signal은 **Browser preferences**에 둔다.
+- 한 값은 한 곳에만 영속한다 — 경계가 애매하면 agent가 읽는지 묻고, 읽으면 **Server settings**가 source of truth다.
+- 모든 **Browser preferences** key는 단일 등록 지점을 거친다.
+- **Custom provider**·**Built-in provider**의 API key와 OAuth credential은 **Server settings**에 산다.
+
+### Agent runtime / Usage
+
+- **Agent state**(runtime, in-memory)와 **Session usage**(persistence-derived)는 다른 source 위에 산다 — 별개 store로 분리한다.
+- **Agent state**의 `messages`는 persisted **Session entry** rebuild와 in-flight tool result row가 한 배열에 섞인 형태 — consumer는 `role` 분기로 in-flight인지 확인한다.
+- 한 assistant **Session entry**는 한 LLM 호출에 대응하며 그 호출의 **Usage**를 들고 있다.
+- **Session usage**는 모든 persisted assistant **Session entry**의 합 — **Branch** 선택과 독립이다.
+- 폐기된 **Branch**의 **Session entry**도 파일에 남고 비용은 이미 청구됐다.
+- **Turn usage**는 turn 안 모든 assistant entry **Usage**의 합이다 — round-trip 여러 번을 모두 포함한다.
+- **Context usage**는 활성 **Branch** 마지막 entry 한 곳에서 derive한다.
+
+## Example dialogue
+
+### Renderer ownership
+
+> **Dev:** "프로젝트를 전환했는데 이전 프로젝트의 화면이 잠깐 보였어요. 어디를 고치죠?"
+> **Maintainer:** "**Renderer presentation machine**의 책임이에요. 외부에서 entity reducer를 직접 비우는 게 아니라 project 전환 이벤트를 보내면 됩니다."
+
+> **Dev:** "Renderer에서 세션 API를 직접 호출하면 안 되나요?"
+> **Maintainer:** "안 돼요. **Renderer snapshot**은 host가 전달하는 선언적 상태이고, **Renderer actions**는 host에게 command를 요청하는 통로예요. **Renderer**가 server session을 소유하지 않습니다."
+
+> **Dev:** "그럼 Renderer에서 routing이나 storage는요?"
+> **Maintainer:** "같은 이유로 host 소유예요. **Renderer**가 그것들을 손에 쥐는 순간 **Renderer presentation machine**이 라이프사이클을 끊을 수 없게 됩니다."
+
+> **Dev:** "Theme은 어디서 정해지죠?"
+> **Maintainer:** "**Renderer**가 **Renderer snapshot**에서 theme을 계산해 host에 제안하면, host가 *project page 범위* 안에서 적용해요. global app theme까지 가져가지 않습니다 — 그게 **Renderer theme**의 경계예요."
+
+### Session vs View mode
+
+> **Dev:** "**Meta session**일 때 **Edit mode**로 토글해도 되나요?"
+> **Maintainer:** "**Session mode**(creative/meta)와 **View mode**(chat/edit)는 직교해요. 네 조합 모두 의미 있어요 — meta 세션이라도 view mode 토글은 독립입니다."
+
+> **Dev:** "프로젝트 떠났다 돌아오면 **View mode**도 chat으로 돌아오나요?"
+> **Maintainer:** "네. 마지막 **Session**은 기억하지만 **View mode**는 기억하지 않아요. 세션 선택은 작업 연속성이고, view mode는 view를 떠나면 끝나는 작업 의도예요."
+
+> **Dev:** "creative 세션을 meta 세션으로 바꿀 수 있나요?"
+> **Maintainer:** "아니요. **Session mode**는 **Session** 데이터의 영구 속성이에요. 다른 mode가 필요하면 새 **Session**을 만들어요."
+
+### Branch / Turn / Compaction
+
+> **Dev:** "branch는 어디에 저장되나요?"
+> **Maintainer:** "저장되지 않아요. **Branch**는 entries와 `parentId` chain에서 한 leaf를 입력으로 derive하는 view예요. 저장되는 건 entries뿐."
+
+> **Dev:** "그럼 **Compaction**은 별도 파일에 저장돼요?"
+> **Maintainer:** "아니요. **Compaction**도 같은 entry 그래프 안의 한 **Session entry**예요. summary로 대체하는 entry이지 별도 카테고리가 아닙니다."
+
+> **Dev:** "한 **Turn**에 assistant entry가 여러 개 생긴다는 게 무슨 뜻이죠?"
+> **Maintainer:** "tool 호출이 끼면 LLM round-trip이 한 turn 안에서 여러 번 일어나요. assistant **Session entry**가 그만큼 생기고 모두 같은 **Turn**에 들어가요. 그래서 **Turn usage**는 turn 안 *모든* assistant entry **Usage**의 합이에요."
+
+> **Dev:** "**Branch** 선택을 바꾸면 **Session usage**도 따라 바뀌어야 하나요?"
+> **Maintainer:** "아니요. **Session usage**는 파일 안 모든 persisted assistant entry의 합 — **Branch** 선택과 독립이에요. 폐기된 branch의 entry도 파일에 남고 비용은 이미 청구됐습니다."
+
+### Server settings vs Browser preferences
+
+> **Dev:** "알림 dismissal 상태를 **Server settings**에 저장해도 되나요?"
+> **Maintainer:** "agent가 읽지 않는 per-browser 값이면 **Browser preferences**예요. **Server settings**는 agent가 읽거나 install 전체에 적용되는 값입니다."
+
+> **Dev:** "API key는요?"
+> **Maintainer:** "**Server settings**예요. agent가 호출 시 읽으니까요. **Custom provider**·**Built-in provider** credential 모두 마찬가지."
+
+> **Dev:** "양쪽에 같은 값을 두면요?"
+> **Maintainer:** "두지 마세요. 경계가 애매하면 agent가 읽는지 묻고, 읽으면 **Server settings**가 source of truth예요."
+
+> **Dev:** "Browser localStorage를 직접 읽고 쓰면 안 되나요?"
+> **Maintainer:** "안 돼요. 모든 **Browser preferences** key는 단일 등록 지점을 거쳐서만 추가해요. 우회하면 어디서 어떤 key를 쓰는지 추적이 끊깁니다."
+
+## Flagged ambiguities
+
+- **"mode"** — overloaded: **Session mode**(creative/meta — 세션 데이터의 영구 속성)와 **View mode**(chat/edit — project view의 작업 화면 토글). 단독으로 쓰지 않고 둘 중 하나로 명시한다.
+- **"file"** — overloaded: **Workspace** 디렉터리(`files/`)와 그 안의 단위(**ProjectFile**). 디렉터리는 **Workspace**, 단위는 **ProjectFile**로 명시한다.
+- **"workspace"** — IDE workspace 의미(여러 **Project** 포함)로 읽히기 쉽다. agentchan의 **Workspace**는 한 **Project** 안의 사용자 콘텐츠 영역만 뜻한다.
+- **"skill"** — Builder Agent의 Skill과 충돌. 이 도메인에서 **Skill**은 항상 agentchan **Skill**(SKILL.md)을 의미한다.
+- **"provider"** — 단독으로 쓰지 않는다. **Custom provider** 또는 **Built-in provider**로 명시한다.
+- **"setting" / "settings"** — 단독으로 쓰지 않는다. 서버 측은 **Server settings**, 브라우저 측은 **Browser preferences**로 명시한다.
+- **"edit"** — **View mode** 값(`edit`)과 **Edit mode**(작업 표면)는 다른 카테고리지만 단어가 겹친다. 표면을 가리킬 땐 항상 **edit mode**로 명시한다.

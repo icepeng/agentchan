@@ -28,6 +28,10 @@ export const EMPTY_AGGREGATED_USAGE: AggregatedUsage = {
  * **Usage** contribute zero. Caller decides the input scope —
  * **Session usage** passes whole-session entries, **Turn usage** passes
  * one **Turn**'s entries.
+ *
+ * NOTE: `CompactionEntry` makes an LLM call but has no `usage` field in
+ * the schema, so its tokens/cost are excluded — **Session usage** drifts
+ * from the provider's billed total whenever compaction has run.
  */
 export function aggregateUsage(
   entries: ReadonlyArray<SessionMessageEntry>,

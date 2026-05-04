@@ -1,0 +1,2 @@
+- 새 ADR 후보가 떠오르면 먼저 **"이 결정이 외부 계약(renderer 작성자 surface, Project 디렉토리 계약, session 파일 포맷, 도메인 카테고리 boundary 등)을 건드리는가?"** 를 묻는다. 외부 visible이 아니면 ADR-worthy 아님.
+- Optional Sections는 본문의 내용을 paraphrasing만 해서 다시 작성하지 않는다. 이 규칙을 따랐을 때 작성할 게 없다면, 그 섹션이 필요없다는 뜻이다.

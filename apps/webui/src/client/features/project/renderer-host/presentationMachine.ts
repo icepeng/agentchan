@@ -15,6 +15,13 @@ import type { RendererModule } from "./rendererRuntime.js";
  * Generation is a monotonic counter incremented on each REQUEST_SLUG. Stale
  * async events with mismatched generation are dropped via identity-equal
  * state and empty commands.
+ *
+ * Ownership boundary: this machine owns the entire host lifecycle (phase,
+ * visibleError, generation). External callers (useProject, navigation
+ * dispatch, etc.) do not emit lifecycle events into it — they feed inputs
+ * (slug, bundle, snapshot, error) through the React adapter and observe
+ * emitted state. RendererViewContext is a sibling server-data store, not
+ * part of this lifecycle.
  */
 
 export interface PresentationConfig {
