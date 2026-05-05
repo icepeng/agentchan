@@ -5,16 +5,13 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   buildRendererBundle,
+  EXTERNAL_VENDOR_SPECIFIERS,
   findRendererEntrypoint,
   RendererV1Error,
   validateRendererImportPolicy,
 } from "../../src/build/index.ts";
 
 let projectDir: string;
-
-const RUNTIME_DIR_ENV = "AGENTCHAN_RENDERER_RUNTIME_DIR";
-const EXPERIMENTAL_DEPS_ENV = "AGENTCHAN_RENDERER_EXPERIMENTAL_DEPS";
-const LEFT_PAD_MANIFEST = JSON.stringify({ dependencies: { "left-pad": "^1.3.0" } });
 
 beforeEach(async () => {
   projectDir = await mkdtemp(join(tmpdir(), "renderer-"));
@@ -39,65 +36,21 @@ async function importBundle(js: string): Promise<Record<string, unknown>> {
   }
 }
 
-async function withEnv<T>(
-  vars: Record<string, string | undefined>,
-  run: () => Promise<T>,
-): Promise<T> {
-  const previous = Object.fromEntries(
-    Object.keys(vars).map((key) => [key, process.env[key]]),
-  );
-  for (const [key, value] of Object.entries(vars)) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-  try {
-    return await run();
-  } finally {
-    for (const [key, value] of Object.entries(previous)) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
-  }
-}
-
-async function withLeftPadRuntime<T>(
-  options: {
-    runtimeManifest?: string;
-    packageManifest?: string;
-    source?: string;
-  },
-  run: (runtimeDir: string) => Promise<T>,
-): Promise<T> {
-  const runtimeDir = await mkdtemp(join(tmpdir(), "renderer-runtime-"));
-  try {
-    await mkdir(join(runtimeDir, "node_modules", "left-pad"), { recursive: true });
-    await writeFile(
-      join(runtimeDir, "package.json"),
-      options.runtimeManifest ?? LEFT_PAD_MANIFEST,
-      "utf-8",
+/**
+ * Imports a bundle that contains externalised baseline vendor specifiers.
+ * Mirrors the host document importmap by rewriting bare specifiers to file URLs
+ * that point at the workspace's resolved react/scheduler installs.
+ */
+async function importExternalizedBundle(js: string): Promise<Record<string, unknown>> {
+  let rewritten = js;
+  for (const specifier of EXTERNAL_VENDOR_SPECIFIERS) {
+    const resolved = pathToFileURL(import.meta.resolveSync(specifier)).href;
+    rewritten = rewritten.replace(
+      new RegExp(`(from\\s*)(["'])${escapeRegExp(specifier)}\\2`, "g"),
+      `$1"${resolved}"`,
     );
-    await writeFile(
-      join(runtimeDir, "node_modules", "left-pad", "package.json"),
-      options.packageManifest ?? JSON.stringify({ name: "left-pad" }),
-      "utf-8",
-    );
-    if (options.source) {
-      await writeFile(
-        join(runtimeDir, "node_modules", "left-pad", "index.js"),
-        options.source,
-        "utf-8",
-      );
-    }
-    return await run(runtimeDir);
-  } finally {
-    await rm(runtimeDir, { recursive: true, force: true });
   }
+  return importBundle(rewritten);
 }
 
 describe("Renderer V1 entrypoint", () => {
@@ -166,46 +119,20 @@ describe("Renderer V1 import policy", () => {
     ).rejects.toThrow(/bare import is not allowed: clsx/);
   });
 
-  test("declared runtime dependency is rejected unless experimental deps are enabled", async () => {
-    await withLeftPadRuntime({}, async (runtimeDir) => {
+  test("each baseline vendor specifier is allowed", async () => {
+    for (const specifier of EXTERNAL_VENDOR_SPECIFIERS) {
       await writeRenderer(
         "index.tsx",
-        'import leftPad from "left-pad"; export const renderer = leftPad;',
+        `import * as _ from "${specifier}"; export const renderer = _;`,
       );
 
-      await withEnv({
-        [RUNTIME_DIR_ENV]: runtimeDir,
-        [EXPERIMENTAL_DEPS_ENV]: undefined,
-      }, async () => {
-        await expect(
-          validateRendererImportPolicy(
-            join(projectDir, "renderer", "index.tsx"),
-            join(projectDir, "renderer"),
-          ),
-        ).rejects.toThrow(/bare import is not allowed: left-pad/);
-      });
-    });
-  });
-
-  test("declared runtime dependency is accepted for experimental deps", async () => {
-    await withLeftPadRuntime({}, async (runtimeDir) => {
-      await writeRenderer(
-        "index.tsx",
-        'import leftPad from "left-pad"; export const renderer = leftPad;',
-      );
-
-      await withEnv({
-        [RUNTIME_DIR_ENV]: runtimeDir,
-        [EXPERIMENTAL_DEPS_ENV]: "1",
-      }, async () => {
-        await expect(
-          validateRendererImportPolicy(
-            join(projectDir, "renderer", "index.tsx"),
-            join(projectDir, "renderer"),
-          ),
-        ).resolves.toBeUndefined();
-      });
-    });
+      await expect(
+        validateRendererImportPolicy(
+          join(projectDir, "renderer", "index.tsx"),
+          join(projectDir, "renderer"),
+        ),
+      ).resolves.toBeUndefined();
+    }
   });
 
   test("host DOM and storage leak denylist is enforced", async () => {
@@ -224,41 +151,6 @@ describe("Renderer V1 import policy", () => {
 });
 
 describe("Renderer V1 bundle", () => {
-  test("experimental runtime dependency can bundle when env flag is enabled", async () => {
-    await withLeftPadRuntime({
-      runtimeManifest: JSON.stringify({ type: "module", dependencies: { "left-pad": "^1.3.0" } }),
-      packageManifest: JSON.stringify({ name: "left-pad", type: "module", exports: "./index.js" }),
-      source: "export default function leftPad(value, length, char = ' ') { return String(value).padStart(length, char); }",
-    }, async (runtimeDir) => {
-      await writeRenderer(
-        "index.ts",
-        `
-          import leftPad from "left-pad";
-          import { defineRenderer } from "@agentchan/renderer/core";
-
-          export function pad(value: string) {
-            return leftPad(value, 3, "0");
-          }
-
-          export const renderer = defineRenderer(({ container }) => {
-            container.textContent = pad("7");
-            return { update() {}, unmount() {} };
-          });
-        `,
-      );
-
-      await withEnv({
-        [RUNTIME_DIR_ENV]: runtimeDir,
-        [EXPERIMENTAL_DEPS_ENV]: "1",
-      }, async () => {
-        const bundle = await buildRendererBundle(projectDir);
-        const mod = await importBundle(bundle?.js ?? "");
-
-        expect((mod.pad as (value: string) => string)("7")).toBe("007");
-      });
-    });
-  });
-
   test("vanilla renderer can bundle from renderer/index.ts without React adapter", async () => {
     await writeRenderer(
       "index.ts",
@@ -282,6 +174,47 @@ describe("Renderer V1 bundle", () => {
 
     expect(typeof (mod.renderer as { mount?: unknown }).mount).toBe("function");
     expect(bundle?.js).not.toContain("react-dom");
+  });
+
+  test("baseline vendor specifiers stay external in the bundle output", async () => {
+    await writeRenderer(
+      "index.tsx",
+      `
+        import * as _react from "react";
+        import * as _reactDomClient from "react-dom/client";
+        import * as _jsxRuntime from "react/jsx-runtime";
+        import * as _jsxDevRuntime from "react/jsx-dev-runtime";
+        import * as _scheduler from "scheduler";
+        import { defineRenderer } from "@agentchan/renderer/core";
+
+        // Pinning each namespace forces Bun to keep the import live in the bundle.
+        export const _vendorPins = [
+          _react,
+          _reactDomClient,
+          _jsxRuntime,
+          _jsxDevRuntime,
+          _scheduler,
+        ];
+
+        export const renderer = defineRenderer(({ container }) => {
+          container.textContent = "";
+          return { update() {}, unmount() {} };
+        });
+      `,
+    );
+
+    const bundle = await buildRendererBundle(projectDir);
+    const js = bundle?.js ?? "";
+
+    for (const specifier of EXTERNAL_VENDOR_SPECIFIERS) {
+      // Externalised specifiers must appear as ESM import specifiers, not as
+      // inlined CJS shells.
+      expect(js).toMatch(new RegExp(`from\\s*["']${escapeRegExp(specifier)}["']`));
+    }
+    // React internals must not be inlined into the renderer bundle.
+    expect(js).not.toMatch(/require_react_development|require_react_production/);
+    expect(js).not.toMatch(/require_react_dom_client_development/);
+    expect(js).not.toMatch(/require_scheduler_development/);
   });
 
   test("CSS import is accepted and appears in bundle CSS artifacts", async () => {
@@ -379,7 +312,7 @@ describe("Renderer V1 bundle", () => {
     );
 
     const bundle = await buildRendererBundle(projectDir);
-    const mod = await importBundle(bundle?.js ?? "");
+    const mod = await importExternalizedBundle(bundle?.js ?? "");
     const renderer = mod.renderer as {
       theme?: (snapshot: { slug: string }) => unknown;
     };
@@ -402,3 +335,7 @@ describe("Renderer V1 errors", () => {
     }
   });
 });
+
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

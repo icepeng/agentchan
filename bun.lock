@@ -23,6 +23,7 @@
         "@agentchan/creative-agent": "workspace:*",
         "@agentchan/estimate-tokens": "workspace:*",
         "@agentchan/renderer": "workspace:*",
+        "@agentchan/renderer-vendor": "workspace:*",
         "@base-ui/react": "^1.4.1",
         "@codemirror/autocomplete": "^6.20.1",
         "@codemirror/commands": "^6.10.3",
@@ -97,8 +98,18 @@
         "scheduler": "^0.27.0",
       },
       "devDependencies": {
+        "@agentchan/renderer-vendor": "workspace:*",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
+      },
+    },
+    "packages/renderer-vendor": {
+      "name": "@agentchan/renderer-vendor",
+      "version": "0.1.0",
+      "dependencies": {
+        "react": "^19.2.5",
+        "react-dom": "^19.2.5",
+        "scheduler": "^0.27.0",
       },
     },
   },
@@ -110,6 +121,8 @@
     "@agentchan/grep": ["@agentchan/grep@workspace:packages/grep"],
 
     "@agentchan/renderer": ["@agentchan/renderer@workspace:packages/renderer"],
+
+    "@agentchan/renderer-vendor": ["@agentchan/renderer-vendor@workspace:packages/renderer-vendor"],
 
     "@agentchan/webui": ["@agentchan/webui@workspace:apps/webui"],
 

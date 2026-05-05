@@ -1,0 +1,23 @@
+{
+  "name": "@agentchan/renderer-vendor",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build:fixtures": "bun run scripts/build.ts",
+    "test": "bun test tests/",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "scheduler": "^0.27.0"
+  }
+}

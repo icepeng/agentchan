@@ -2,22 +2,27 @@ import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { RendererV1Error } from "./errors.ts";
-import {
-  experimentalRendererDepsEnabled,
-  packageRootName,
-  rendererRuntimeDir,
-} from "./runtime-deps.ts";
 
 export const RENDERER_CORE_IMPORT = "@agentchan/renderer/core";
 export const RENDERER_REACT_IMPORT = "@agentchan/renderer/react";
 
-const ALLOWED_BARE_IMPORTS = new Set([
-  RENDERER_CORE_IMPORT,
-  RENDERER_REACT_IMPORT,
+/**
+ * baseline React vendor specifiers. Renderer bundles must keep these as ESM imports
+ * (host document importmap resolves them to install-wide vendor fixtures). The set
+ * is the product invariant — author code cannot widen it through env or manifest.
+ */
+export const EXTERNAL_VENDOR_SPECIFIERS: ReadonlySet<string> = new Set([
   "react",
   "react-dom/client",
   "react/jsx-runtime",
   "react/jsx-dev-runtime",
+  "scheduler",
+]);
+
+const ALLOWED_BARE_IMPORTS: ReadonlySet<string> = new Set([
+  RENDERER_CORE_IMPORT,
+  RENDERER_REACT_IMPORT,
+  ...EXTERNAL_VENDOR_SPECIFIERS,
 ]);
 
 const IMPORT_SPECIFIER_RE =
@@ -30,7 +35,6 @@ export async function validateRendererImportPolicy(
 ): Promise<void> {
   const rendererRoot = resolve(rendererDir);
   const visited = new Set<string>();
-  const runtimeDeps = await readExperimentalRendererDependencies();
 
   async function visit(sourcePath: string): Promise<void> {
     const resolvedSource = resolve(sourcePath);
@@ -40,7 +44,6 @@ export async function validateRendererImportPolicy(
     const source = await readFile(resolvedSource, "utf-8");
     for (const specifier of findImportSpecifiers(source)) {
       if (ALLOWED_BARE_IMPORTS.has(specifier)) continue;
-      if (isRendererRuntimeDependency(specifier, runtimeDeps)) continue;
       if (specifier.startsWith("http://") || specifier.startsWith("https://")) {
         throw new RendererV1Error("policy", `Renderer import is not allowed: ${specifier}`);
       }
@@ -69,48 +72,6 @@ export async function validateRendererImportPolicy(
   }
 
   await visit(entrypoint);
-}
-
-interface ExperimentalRendererDependencies {
-  manifestDir: string;
-  dependencies: Set<string>;
-}
-
-function isRendererRuntimeDependency(
-  specifier: string,
-  runtimeDeps: ExperimentalRendererDependencies | null,
-): boolean {
-  if (!runtimeDeps) return false;
-  if (specifier.startsWith(".") || specifier.startsWith("node:")) return false;
-  const rootName = packageRootName(specifier);
-  if (!rootName) return false;
-  if (!runtimeDeps.dependencies.has(rootName)) return false;
-
-  const installPath = join(runtimeDeps.manifestDir, "node_modules", rootName);
-  if (!existsSync(installPath)) {
-    throw new RendererV1Error(
-      "policy",
-      `Experimental renderer dependency is declared but not installed: ${rootName}. Run bun install in AGENTCHAN_RENDERER_RUNTIME_DIR.`,
-    );
-  }
-
-  return true;
-}
-
-async function readExperimentalRendererDependencies(): Promise<ExperimentalRendererDependencies | null> {
-  if (!experimentalRendererDepsEnabled()) return null;
-  const manifestDir = rendererRuntimeDir();
-  try {
-    const manifest = JSON.parse(await readFile(join(manifestDir, "package.json"), "utf-8")) as {
-      dependencies?: Record<string, string>;
-    };
-    return {
-      manifestDir,
-      dependencies: new Set(Object.keys(manifest.dependencies ?? {})),
-    };
-  } catch {
-    return null;
-  }
 }
 
 export function findImportSpecifiers(source: string): string[] {

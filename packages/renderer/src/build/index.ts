@@ -9,6 +9,7 @@ export {
   type RendererBundle,
 } from "./builder.ts";
 export {
+  EXTERNAL_VENDOR_SPECIFIERS,
   RENDERER_CORE_IMPORT,
   RENDERER_REACT_IMPORT,
   findImportSpecifiers,
