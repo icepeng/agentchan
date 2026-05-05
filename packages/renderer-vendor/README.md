@@ -18,11 +18,19 @@ module 파일을 dev/prod 두 모드로 emit한다.
 ## 모듈
 
 ```ts
-import { buildVendorFixtures } from "@agentchan/renderer-vendor";
+import { buildVendorFixtures, ensureVendorFixtures } from "@agentchan/renderer-vendor";
 
+// 무조건 새로 빌드 (CLI / release builder가 사용)
 await buildVendorFixtures({
   outDir: "/abs/path/to/apps/webui/public/vendor/dev",
   mode: "development",
+});
+
+// 같은 inputs로 이미 빌드된 fixture가 있으면 skip (dev server가 사용)
+await ensureVendorFixtures({
+  outDir: "/abs/path/to/apps/webui/public/vendor/dev",
+  mode: "development",
+  inputs: defaultVendorInputs(), // [<repo>/bun.lock, <pkg>/src/build.ts]
 });
 ```
 
@@ -31,6 +39,11 @@ await buildVendorFixtures({
 import할 수 있다. CJS→ESM 변환 시 Bun 출력은 `export default <expr>;`만
 남기므로, 빌더가 default export를 evaluate해 키를 enumerate한 뒤 explicit
 `export const X = __vendor_default.X;` 라인을 facade로 덧붙인다.
+
+`ensureVendorFixtures`는 outDir 안에 `.vendor-cache.json` marker를 써서
+inputs(lockfile + builder source) 내용 hash를 기록한다. 다음 호출에서 hash가
+맞고 fixture 파일 5개가 모두 존재하면 rebuild를 skip한다. inputs가 바뀌면
+stale로 판단해 outDir을 비우고 다시 build한다.
 
 ## CLI
 
@@ -45,8 +58,13 @@ bun run --cwd packages/renderer-vendor build:fixtures
 - `--dev` / `--prod` — 한쪽 모드만 빌드
 - `--clean` — 출력 루트를 먼저 비우고 다시 빌드
 
-dev server가 fixture를 자동으로 준비하는 wiring과 release executable이
-prod fixture만 동봉하는 wiring은 별도 issue에서 다룬다.
+CLI는 내부적으로 `ensureVendorFixtures`를 호출하므로, fixture가 이미 fresh
+하면 skip 한다. 강제로 다시 빌드하려면 `--clean`을 쓰거나 marker 파일
+(`.vendor-cache.json`)을 지운다.
+
+`bun run dev`는 vite plugin (`apps/webui/vite.config.ts`의
+`rendererVendorDevPrep`)에서 dev fixture를 자동으로 준비한다. release
+executable이 prod fixture만 동봉하는 wiring은 별도 issue에서 다룬다.
 
 ## 산출물 디렉토리
 

@@ -2,10 +2,46 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
-import { VENDOR_SPECIFIERS } from "@agentchan/renderer-vendor";
+import {
+  defaultVendorInputs,
+  ensureVendorFixtures,
+  VENDOR_SPECIFIERS,
+} from "@agentchan/renderer-vendor";
 import { resolveDevPorts } from "./scripts/dev-ports.js";
 
 const { serverPort, clientPort } = resolveDevPorts();
+
+const VENDOR_DEV_DIR = path.resolve(__dirname, "public/vendor/dev");
+
+/**
+ * Dev-only: ensures the development renderer vendor fixture exists and is
+ * fresh before vite starts serving. The host-document importmap points at
+ * `/vendor/dev/` (see `rendererVendorImportmap` below), and `apps/webui/public/`
+ * is the static root vite serves from, so missing fixtures would 404 the
+ * baseline React imports out of every renderer bundle.
+ *
+ * Skips rebuild when the lockfile and vendor builder source haven't changed.
+ * Production fixture preparation is wired into the release builder (#164),
+ * not here.
+ */
+function rendererVendorDevPrep(): Plugin {
+  return {
+    name: "agentchan-renderer-vendor-dev-prep",
+    apply: "serve",
+    async buildStart() {
+      const result = await ensureVendorFixtures({
+        outDir: VENDOR_DEV_DIR,
+        mode: "development",
+        inputs: defaultVendorInputs(),
+      });
+      if (result.rebuilt) {
+        console.log(
+          `[renderer-vendor] dev fixtures ${result.status} — rebuilt at ${VENDOR_DEV_DIR}`,
+        );
+      }
+    },
+  };
+}
 
 /**
  * Injects a `<script type="importmap">` that resolves the renderer's baseline
@@ -42,6 +78,7 @@ function rendererVendorImportmap(): Plugin {
 
 export default defineConfig({
   plugins: [
+    rendererVendorDevPrep(),
     rendererVendorImportmap(),
     react({
       babel: {

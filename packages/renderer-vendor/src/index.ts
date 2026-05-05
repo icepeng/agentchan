@@ -7,3 +7,10 @@ export {
   type VendorMode,
   type VendorSpecifier,
 } from "./build.ts";
+export {
+  defaultVendorInputs,
+  ensureVendorFixtures,
+  type EnsureStatus,
+  type EnsureVendorFixturesOptions,
+  type EnsureVendorFixturesResult,
+} from "./ensure.ts";

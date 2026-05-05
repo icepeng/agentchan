@@ -1,7 +1,8 @@
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildVendorFixtures, type VendorMode } from "../src/build.ts";
+import type { VendorMode } from "../src/build.ts";
+import { defaultVendorInputs, ensureVendorFixtures } from "../src/ensure.ts";
 
 const PACKAGE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_OUT_DIR = resolve(PACKAGE_DIR, "../../apps/webui/public/vendor");
@@ -62,9 +63,19 @@ await mkdir(opts.outDir, { recursive: true });
 
 for (const mode of opts.modes) {
   const subDir = join(opts.outDir, mode === "development" ? "dev" : "prod");
-  const result = await buildVendorFixtures({ outDir: subDir, mode });
-  console.log(`[${mode}] ${result.fixtures.length} fixtures → ${result.outDir}`);
-  for (const fx of result.fixtures) {
-    console.log(`  ${fx.specifier.padEnd(24)} ${fx.exportNames.length} named exports`);
+  const result = await ensureVendorFixtures({
+    outDir: subDir,
+    mode,
+    inputs: defaultVendorInputs(),
+  });
+  if (result.rebuilt && result.build) {
+    console.log(
+      `[${mode}] ${result.build.fixtures.length} fixtures → ${result.build.outDir} (${result.status})`,
+    );
+    for (const fx of result.build.fixtures) {
+      console.log(`  ${fx.specifier.padEnd(24)} ${fx.exportNames.length} named exports`);
+    }
+  } else {
+    console.log(`[${mode}] fixtures fresh, skipped (${subDir})`);
   }
 }
