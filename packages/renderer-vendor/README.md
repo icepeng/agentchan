@@ -63,8 +63,10 @@ CLI는 내부적으로 `ensureVendorFixtures`를 호출하므로, fixture가 이
 (`.vendor-cache.json`)을 지운다.
 
 `bun run dev`는 vite plugin (`apps/webui/vite.config.ts`의
-`rendererVendorDevPrep`)에서 dev fixture를 자동으로 준비한다. release
-executable이 prod fixture만 동봉하는 wiring은 별도 issue에서 다룬다.
+`rendererVendorDevPrep`)에서 dev fixture를 자동으로 준비한다. Release
+executable build는 `apps/webui/scripts/build-exe.ts`가 vite build 이전에
+이 builder를 production mode로 호출해 prod fixture만 static asset tree에
+emit한다.
 
 ## 산출물 디렉토리
 

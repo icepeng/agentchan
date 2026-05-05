@@ -4,11 +4,15 @@ import { cp, mkdir, rm, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
+import {
+  prepareReleaseRendererVendor,
+  verifyReleaseVendorAssets,
+} from "./release-vendor.ts";
 
 const WEBUI_ROOT = join(import.meta.dir, "..");
 const MONOREPO_ROOT = join(WEBUI_ROOT, "../..");
 const DIST_DIR = join(WEBUI_ROOT, "dist/exe");
-const RENDERER_RUNTIME_DIR = join(MONOREPO_ROOT, "renderer-runtime");
+const VENDOR_ROOT = join(WEBUI_ROOT, "public/vendor");
 
 // Parse --target flag (e.g., --target=bun-linux-x64)
 const targetFlag = process.argv.find((a) => a.startsWith("--target="));
@@ -21,19 +25,25 @@ const exeName = isWindows ? "agentchan.exe" : "agentchan";
 if (existsSync(DIST_DIR)) await rm(DIST_DIR, { recursive: true });
 await mkdir(DIST_DIR, { recursive: true });
 
-// 1. Build client assets with Vite
-console.log("[1/4] Building client...");
+// 1. Build production renderer vendor fixtures into vite's static asset tree.
+//    This must run before vite build so prod/*.js end up in dist/client/vendor/prod/.
+//    The dev fixture is intentionally absent from release artifacts.
+console.log("[1/5] Preparing renderer vendor fixtures (production only)...");
+await prepareReleaseRendererVendor({ vendorRoot: VENDOR_ROOT });
+
+// 2. Build client assets with Vite
+console.log("[2/5] Building client...");
 await $`cd ${WEBUI_ROOT} && bunx vite build`;
 
-// 2. Compile server to single executable
-console.log("[2/4] Compiling server binary...");
+// 3. Compile server to single executable
+console.log("[3/5] Compiling server binary...");
 const targetArgs = target ? ["--target", target] : [];
 const entrypoint = join(WEBUI_ROOT, "src/server/entry-exe.ts");
 const outfile = join(DIST_DIR, exeName);
 await $`bun build --compile ${targetArgs} --outfile ${outfile} ${entrypoint}`;
 
-// 3. Copy sidecar files
-console.log("[3/4] Copying sidecar files...");
+// 4. Copy sidecar files
+console.log("[4/5] Copying sidecar files...");
 
 await cp(join(WEBUI_ROOT, "dist/client"), join(DIST_DIR, "public"), {
   recursive: true,
@@ -43,22 +53,15 @@ await cp(join(MONOREPO_ROOT, "example_data"), join(DIST_DIR, "data"), {
   recursive: true,
 });
 
-await $`cd ${RENDERER_RUNTIME_DIR} && bun install --frozen-lockfile`;
-
-await cp(RENDERER_RUNTIME_DIR, join(DIST_DIR, "renderer-runtime"), {
-  recursive: true,
-  force: true,
-  dereference: true,
-});
+verifyReleaseVendorAssets({ vendorRoot: join(DIST_DIR, "public/vendor") });
 
 console.log(`\nBuild complete: ${DIST_DIR}/`);
 console.log(`  ${exeName}`);
 console.log("  public/");
 console.log("  data/");
-console.log("  renderer-runtime/");
 
-// 4. Startup smoke test (native target only)
-console.log("\n[4/4] Startup smoke test...");
+// 5. Startup smoke test (native target only)
+console.log("\n[5/5] Startup smoke test...");
 await runStartupSmoke();
 
 function isNativeTarget(t: string | undefined): boolean {
