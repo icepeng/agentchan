@@ -153,7 +153,8 @@ _Avoid_: command, prompt, shortcut
 - **Project folder**는 **User**가 직접 고치거나, 복사하거나, git으로 관리할 수 있다.
 - **Template**은 처음 복사될 **Agent instructions**, **Skill**, **Renderer**, **Project content**, **Project README**, **Cover**를 제공할 수 있다.
 - 복사 이후 **Project content**, **Project README**, **Cover**, **Skill**, **Renderer**는 **Project**마다 독립적으로 갈라진다.
-- **Creative agent**는 **Project** 안에 저장되는 entity가 아니라, **Agent instructions**, **Skill**, 대화 기록, 창작 재료를 바탕으로 대화 시 형성되는 agent 역할이다.
+- **Creative agent**는 **Agent instructions**, **Skill**, **Project content**, **Session**을 바탕으로 실행된다.
+- **Creative agent**는 tool을 사용해 **Project content**를 읽고 쓸 수 있다.
 - **Project**에서 **User**는 **Creative agent**와 대화하며 창작 놀이를 이어간다.
 - **Creative agent**와 대화하려면 **Active provider**와 **Active model**이 필요하다.
 - **Provider**는 **API key** 또는 **OAuth connection**을 요구할 수 있다.
@@ -197,7 +198,7 @@ _Avoid_: command, prompt, shortcut
 > **Domain expert:** "아니요. A가 만든 시작점은 **Template**이고, B가 받아 자기 놀이를 이어가는 독립 단위는 **Project**예요."
 
 > **Dev:** "**Creative agent**는 **Project** 안에 저장돼 있나요?"
-> **Domain expert:** "아니요. 저장되는 건 **Agent instructions**, **Skill**, **Project content**, **Session** 같은 재료예요. **Creative agent**는 그 재료를 바탕으로 대화할 때 형성되는 역할입니다."
+> **Domain expert:** "아니요. 저장되는 건 **Agent instructions**, **Skill**, **Project content**, **Session** 같은 실행 재료예요. **Creative agent**는 그 재료를 바탕으로 실행되고, tool을 사용해 **Project content**를 읽고 쓸 수 있습니다."
 
 > **Dev:** "캐릭터 파일이나 원고 파일은 core가 의미를 이해하나요?"
 > **Domain expert:** "아니요. 그것들은 **Project content**예요. 장르별 의미는 **Agent instructions**, **Skill**, **Renderer**가 정하고, agentchan core는 고정 schema로 해석하지 않습니다."
