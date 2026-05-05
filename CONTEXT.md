@@ -58,8 +58,8 @@ _Avoid_: usage, token usage, cost
 
 ### Project building blocks
 
-**Agent instructions**:
-**Creative agent**가 **Project**에서 어떤 역할로 행동할지 정하는 지침.
+**SYSTEM.md**:
+**Creative agent**가 **Project**에서 어떤 역할로 행동할지 안내하는 지침 파일.
 _Avoid_: system prompt, prompt file, personality
 
 **Project content**:
@@ -151,26 +151,26 @@ _Avoid_: command, prompt, shortcut
 - 한 **Project**는 하나의 **Project folder**로 보관된다.
 - 같은 **Template**에서 만든 여러 **Project**는 서로 다른 **Project folder**를 가진 독립 단위다.
 - **Project folder**는 **User**가 직접 고치거나, 복사하거나, git으로 관리할 수 있다.
-- **Template**은 처음 복사될 **Agent instructions**, **Skill**, **Renderer**, **Project content**, **Project README**, **Cover**를 제공할 수 있다.
+- **Template**은 처음 복사될 **SYSTEM.md**, **Skill**, **Renderer**, **Project content**, **Project README**, **Cover**를 제공할 수 있다.
 - 복사 이후 **Project content**, **Project README**, **Cover**, **Skill**, **Renderer**는 **Project**마다 독립적으로 갈라진다.
-- **Creative agent**는 **Agent instructions**, **Skill**, **Project content**, **Session**을 바탕으로 실행된다.
+- **Creative agent**는 **SYSTEM.md**, **Skill**, **Project content**, **Session**을 바탕으로 실행된다.
 - **Creative agent**는 tool을 사용해 **Project content**를 읽고 쓸 수 있다.
 - **Project**에서 **User**는 **Creative agent**와 대화하며 창작 놀이를 이어간다.
 - **Creative agent**와 대화하려면 **Active provider**와 **Active model**이 필요하다.
 - **Provider**는 **API key** 또는 **OAuth connection**을 요구할 수 있다.
 - **Built-in provider**와 **Custom provider**는 둘 다 **Creative agent**를 실행할 수 있다.
 - **Creative agent** 실행이나 설치 전체에 필요한 값은 서버에 저장하고, 현재 브라우저의 표시 선호만 바꾸는 값은 브라우저에 저장한다.
-- **Project content**는 **Agent instructions**, **Skill**, **Renderer**, **Project README**, **Cover**와 구분된다.
-- **Project content**의 장르별 의미는 **Project**의 **Agent instructions**, **Skill**, **Renderer**가 함께 정하며, agentchan core는 이를 고정하지 않는다.
-- **Project README**는 **Agent instructions**와 다르다. 하나는 사람이 읽는 안내이고, 다른 하나는 **Creative agent**의 행동 지침이다.
+- **Project content**는 **SYSTEM.md**, **Skill**, **Renderer**, **Project README**, **Cover**와 구분된다.
+- **Project content**의 장르별 의미는 **Project**의 **SYSTEM.md**, **Skill**, **Renderer**가 함께 정하며, agentchan core는 이를 고정하지 않는다.
+- **Project README**는 **SYSTEM.md**와 다르다. 하나는 사람이 읽는 안내이고, 다른 하나는 **Creative agent**의 행동 지침이다.
+- **SYSTEM.md**는 LLM system prompt 그 자체가 아니다. 최종 전달되는 system prompt는 **Creative agent**가 **SYSTEM.md**를 끼워넣어 합성한다.
 - **Renderer**는 창작 놀이의 표현 방식을 정하지만, 놀이의 원본은 **Project**에 파일로 남는다.
 - **Renderer**는 **Project theme**을 제안할 수 있다.
 - **Project theme**은 **User**의 앱 appearance preference와 다르다. 하나는 **Project**의 표현이고, 다른 하나는 브라우저의 표시 선호다.
-- **Project theme**은 **Project**의 chat surface에서만 적용되고, **Project editor**, Settings, **Library**에서는 기본 앱 테마로 돌아간다.
-- **Skill**은 장르별 창작 작업을 담을 수 있지만, agentchan core가 그 의미를 고정하지 않는다.
+- **Project theme**은 **Project**의 채팅에서만 적용되고, **Project editor**, Settings, **Library**에서는 기본 앱 테마로 돌아간다.
 - **Skill**은 **Creative agent**가 스스로 선택해 사용할 수도 있고, **User**가 **Slash command**로 직접 호출할 수도 있다.
 - **Author**는 특정 **Skill**을 **User**가 직접 호출할 때만 쓰이도록 제한할 수 있다.
-- **Project editor**에서 **User**는 **Project content**, **Agent instructions**, **Skill**, **Renderer**를 고칠 수 있다.
+- **Project editor**에서 **User**는 **Project content**, **SYSTEM.md**, **Skill**, **Renderer**를 고칠 수 있다.
 - **Project editor**는 **Project**의 작성 가능한 구성요소를 고치지만, Project identity나 **Session** 저장소 같은 runtime-owned root는 직접 편집하지 않는다.
 - **Project editor**는 **Session**과 다르다. 하나는 직접 편집 표면이고, 다른 하나는 **Creative agent**와의 대화 흐름이다.
 - 한 **Project**는 여러 **Session**을 가질 수 있다.
@@ -185,7 +185,7 @@ _Avoid_: command, prompt, shortcut
 - **Compaction** 이후에도 **User**는 같은 **Session**을 이어갈 수 있다.
 - 한 **Project**는 **Creative session**과 **Meta session**을 모두 가질 수 있다.
 - **Creative session**은 놀이를 진행하고, **Meta session**은 놀이를 가능하게 하는 구성을 고친다.
-- **Meta session**에서 바꾼 **Agent instructions**, **Skill**, **Renderer**, **Project content**는 이후 **Creative session**에 영향을 줄 수 있다.
+- **Meta session**에서 바꾼 **SYSTEM.md**, **Skill**, **Renderer**, **Project content**는 이후 **Creative session**에 영향을 줄 수 있다.
 - **Compaction** 같은 **Session** 기능도 **Slash command**로 호출될 수 있다.
 - **Slash command**는 창작 놀이의 일부일 수도 있고, **Project**를 관리하기 위한 동작일 수도 있다.
 
@@ -198,10 +198,10 @@ _Avoid_: command, prompt, shortcut
 > **Domain expert:** "아니요. A가 만든 시작점은 **Template**이고, B가 받아 자기 놀이를 이어가는 독립 단위는 **Project**예요."
 
 > **Dev:** "**Creative agent**는 **Project** 안에 저장돼 있나요?"
-> **Domain expert:** "아니요. 저장되는 건 **Agent instructions**, **Skill**, **Project content**, **Session** 같은 실행 재료예요. **Creative agent**는 그 재료를 바탕으로 실행되고, tool을 사용해 **Project content**를 읽고 쓸 수 있습니다."
+> **Domain expert:** "아니요. 저장되는 건 **SYSTEM.md**, **Skill**, **Project content**, **Session** 같은 실행 재료예요. **Creative agent**는 그 재료를 바탕으로 실행되고, tool을 사용해 **Project content**를 읽고 쓸 수 있습니다."
 
 > **Dev:** "캐릭터 파일이나 원고 파일은 core가 의미를 이해하나요?"
-> **Domain expert:** "아니요. 그것들은 **Project content**예요. 장르별 의미는 **Agent instructions**, **Skill**, **Renderer**가 정하고, agentchan core는 고정 schema로 해석하지 않습니다."
+> **Domain expert:** "아니요. 그것들은 **Project content**예요. 장르별 의미는 **SYSTEM.md**, **Skill**, **Renderer**가 정하고, agentchan core는 고정 schema로 해석하지 않습니다."
 
 > **Dev:** "대화가 너무 길어져서 context가 꽉 차면 어떻게 되죠?"
 > **Domain expert:** "**Context usage**가 **Context window**에 가까워지면 **Compaction**이 필요해요. 이건 대화를 삭제하는 게 아니라 같은 **Session**을 이어가기 위한 context 관리입니다."

@@ -1,22 +1,22 @@
-# Web UI navigation은 분산 selection이 아니라 단일 View discriminated union이 결정한다
+# Web UI view state
 
-Web UI는 어느 화면이 보이는지를 네 군데에 흩어 보관해 왔다 — page 전환(main / templates / settings), active project, Project별 마지막 Session, chat/edit 토글이 각각 다른 context였다. 그 결과 cross-domain 전환은 caller가 두 개 이상의 dispatch를 *직접 묶어* 호출해야 했고, 한 쪽을 잊으면 화면이 어긋났다 — templates 페이지에 머물면서 사이드바의 Project 탭을 눌러도 active project만 바뀌고 페이지는 templates에 남는 회귀가 그 예다.
+Web UI에서 현재 보이는 화면은 `View` discriminated union으로 보관한다. `View`는 `templates`, `settings`, `project` 중 하나이고, `project`일 때만 `slug`, `session`, `mode: "chat" | "edit"`를 함께 가진다. Active Project와 active Session은 별도 selection context가 아니라 `View`에서 derive한다.
 
-이 클래스의 회귀를 router(react-router · @tanstack/router)와 URL을 SSoT로 올리는 모델로 풀 수 있는지 검토했다. 결론은 *채택하지 않는다*. agentchan은 Project 단위 데스크톱-스타일 창작 놀이 앱이고 Tauri / electrobun으로 webview wrapping될 가능성이 있다 — 브라우저 뒤로가기 / 딥링크 / 공유 같은 URL 진영의 효용이 이 형태에서 약하다. 진짜 결함은 *URL 부재*가 아니라 *view-determining state가 한 곳에 모이지 않은 것*이다. URL을 도입해도 selection을 URL 밖에 두면 같은 회귀가 다시 난다.
+Navigation transition은 `viewReducer`의 단일 action으로 처리한다. `OPEN_PROJECT(slug)`는 Project view로 전환하고, 해당 Project의 마지막 Session을 `sessionMemory`에서 복원하며, mode는 항상 `chat`으로 시작한다. `OPEN_SESSION(sessionId)`는 현재 Project view의 Session을 바꾸고 `sessionMemory`를 갱신한다. `SET_VIEW_MODE`는 Project view 안에서만 `chat`/`edit`을 바꾼다.
 
-해결은 view-determining state를 *한 reducer 안의 하나의 discriminated union*으로 모으는 것이다. View는 kind에 따라 templates / settings / project로 분기하고, project kind일 때만 slug · session · mode 필드를 같이 들고 다닌다. 모든 navigation transition은 *한 번의 dispatch*로 끝난다 — Project 열기는 kind, slug, sessionMemory에서 lookup한 마지막 Session, 항상 chat으로 시작하는 mode를 동시에 결정한다. viewMode 필드는 project kind 안으로 흡수된다 — templates/settings에서는 type level에 mode가 없어, AppShell의 다중 조건 결합 검사가 `view.kind === "project"` narrow 한 줄로 무너진다.
+`sessionMemory`는 Project별 마지막 Session만 기억한다. Mode memory는 두지 않는다. Project를 다시 열거나 templates/settings를 다녀온 뒤 Project에 들어오면 `chat` mode로 시작한다.
 
-Session memory는 보관한다 — *Project 안에서의 위치*는 작업의 연속성이고, Project를 다시 열 때 마지막 Session이 복원되어야 한다. 반면 mode memory(global lastMode 또는 per-project)는 *두지 않는다* — chat/edit 토글은 작업 의도이고, view를 떠나면 같이 끝나는 게 자연스럽다. 두 메모리의 비대칭이 의미 차이를 명시한다.
-
-URL을 SSoT로 올리지 않으므로 새로고침 / dev reload 시 view 복원도 하지 않는다(`localStore.lastProject` 한 줄만 부트스트랩에 남는다). 이는 *새로고침 시 holding screen* 약점을 그대로 들여오는 trade-off다 — 데스크톱-스타일 사용 패턴에서는 새로고침 자체가 드물다는 가정 위에 선다.
+Motivation: 이전 구조는 page, active Project, active Session, chat/edit mode가 서로 다른 context에 흩어져 있었다. Project 탭을 눌렀는데 page는 templates에 남는 식의 회귀가 생겼고, caller가 여러 dispatch를 올바른 순서로 묶어야 했다.
 
 ## Considered Options
 
-- **현재 분산 context를 유지하고 cross-domain 전환마다 helper hook으로 dispatch 묶기** — 기각. 새 helper마다 caller가 그걸 *기억해서 써야* 한다 — 한 caller가 잊으면 같은 회귀가 난다. 구조 결함이 helper 수만큼 표면으로 남는다.
+- **분산 context를 유지하고 helper hook으로 dispatch를 묶기**: 기각. Caller가 helper 사용을 잊으면 같은 회귀가 다시 생긴다.
+- **URL/router를 view state의 단일 출처로 사용**: 기각. Agentchan은 Project 단위 데스크톱 스타일 앱이고, 현재 필요한 것은 deep link보다 화면 결정 state의 일원화다.
+- **Mode memory 저장**: 기각. `chat`/`edit`은 Project 안에서 잠시 바꾸는 작업 의도이고, Project 진입 시에는 `chat`으로 시작하는 편이 예측 가능하다.
 
 ## Consequences
 
-- `useProject.selectProject`의 4-domain orchestration이 reducer 안으로 흡수되며, features layer hook은 view dispatch + 데이터 fetch trigger로 얇아진다.
-- `ProjectSelectionContext`는 제거되고 active project slug는 view에서 derive한다. `SessionSelectionContext`도 `openSessionId`가 view로 흡수되고 `replyToEntryId`(session 내부 anchor)만 잔류한다.
-- 데이터 entity(`projects`, `sessions`, `agentState`, `renderer`)는 그대로다 — selection이 아니라 fetch된 데이터다.
-- mode가 project 진입마다 chat으로 리셋된다. templates/settings를 다녀와도 마찬가지다 — 의도된 결과.
+- `ProjectSelectionContext`는 둔다면 중복 state가 되므로 제거한다.
+- `SessionSelectionContext`에는 Session 내부 anchor인 `replyToEntryId`만 남긴다. 열린 Session id는 `View`의 `project.session`이다.
+- `projects`, `sessions`, `agentState`, `renderer`는 view state가 아니라 fetch된 데이터로 남긴다.
+- URL을 단일 출처로 쓰지 않으므로 새로고침/dev reload 시 view 전체를 복원하지 않는다. Bootstrap에는 `localStore.lastProject`만 사용한다.
