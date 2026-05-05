@@ -52,7 +52,7 @@ export async function loadConfig(
     dirname(mainWorktree),
     `${basename(mainWorktree)}-wt`,
   );
-  const logsDir = join(repoRoot, ".claude", "automate", "logs");
+  const logsDir = join(repoRoot, ".afk", "logs");
 
   const maxIterations =
     overrides.maxIterations ?? Number(process.env.MAX_ITERATIONS ?? 10);

@@ -12,6 +12,7 @@ apps/webui/public/vendor/
 .claude/memory/
 .claude/skills/playtest/scripts/.play-state.json
 .agents/skills/playtest/scripts/.play-state.json
+.afk/
 
 research/
 CLAUDE.local.md
