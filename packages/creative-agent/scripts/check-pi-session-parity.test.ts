@@ -1,6 +1,11 @@
 /**
  * Permanent parity guard against pi-coding-agent (ADR-0010).
  *
+ * This test intentionally stays under scripts/ instead of tests/ because
+ * importing @mariozechner/pi-coding-agent pulls in declaration merging for Pi's
+ * CustomAgentMessages, which would widen Agentchan's AgentMessage type in the
+ * package's normal tsgo program.
+ *
  * Synthesizes a fixture covering Agentchan's live SessionEntry variants and
  * asserts that vendored `buildSessionContext` produces deep-equal output to
  * Pi's for that live subset. PRD #172 intentionally prunes pi-coding-agent's
@@ -13,8 +18,8 @@ import {
   type SessionEntry as PiSessionEntry,
 } from "@mariozechner/pi-coding-agent";
 
-import { buildSessionContext } from "../../src/session/context.js";
-import type { SessionEntry } from "../../src/session/types.js";
+import { buildSessionContext } from "../src/session/context.js";
+import type { SessionEntry } from "../src/session/types.js";
 
 const ts = (n: number) => new Date(2024, 0, 1, 0, 0, n).toISOString();
 

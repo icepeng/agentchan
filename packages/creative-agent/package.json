@@ -6,7 +6,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "test": "bun test tests/",
+    "test": "bun test tests/ && bun run test:pi-session-parity",
+    "test:pi-session-parity": "bun test scripts/check-pi-session-parity.test.ts",
     "eval": "bun test evals/",
     "typecheck": "tsgo --noEmit"
   },

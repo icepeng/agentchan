@@ -14,6 +14,7 @@
     "build:exe:mac": "bun run --cwd apps/webui build:exe:mac",
     "build:exe:win": "bun run --cwd apps/webui build:exe:win",
     "test": "turbo run test",
+    "test:pi-session-parity": "bun run --cwd packages/creative-agent test:pi-session-parity",
     "dev": "bun run --cwd apps/webui dev",
     "lint": "oxlint apps/webui/src packages/creative-agent/src --type-aware",
     "typecheck": "bun run typecheck:packages && bun run typecheck:scripts && bun run typecheck:templates",

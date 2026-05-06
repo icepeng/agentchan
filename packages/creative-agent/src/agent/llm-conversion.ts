@@ -13,21 +13,9 @@ import type { Message } from "@mariozechner/pi-ai";
 import {
   COMPACTION_SUMMARY_PREFIX,
   COMPACTION_SUMMARY_SUFFIX,
-  type CompactionSummaryMessage,
 } from "../session/messages.js";
 
-type LiveAgentMessage = Message | CompactionSummaryMessage;
-
-function isLiveAgentMessage(message: AgentMessage): message is LiveAgentMessage {
-  return (
-    message.role === "user" ||
-    message.role === "assistant" ||
-    message.role === "toolResult" ||
-    message.role === "compactionSummary"
-  );
-}
-
-function convertLiveMessageToLlm(m: LiveAgentMessage): Message {
+function convertMessageToLlm(m: AgentMessage): Message {
   switch (m.role) {
     case "compactionSummary":
       return {
@@ -55,10 +43,5 @@ function convertLiveMessageToLlm(m: LiveAgentMessage): Message {
 }
 
 export function convertToLlm(messages: AgentMessage[]): Message[] {
-  return messages
-    .map((m): Message | undefined => {
-      if (!isLiveAgentMessage(m)) return undefined;
-      return convertLiveMessageToLlm(m);
-    })
-    .filter((m): m is Message => m !== undefined);
+  return messages.map(convertMessageToLlm);
 }
