@@ -1,8 +1,8 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@mariozechner/pi-agent-core";
 import type { AssistantMessage } from "@mariozechner/pi-ai";
-import { setupCreativeAgent, clearSessionAgentState } from "../../src/agent/orchestrator.js";
-import { createAgentContext } from "../../src/agent/context.js";
-import { createSession } from "../../src/agent/lifecycle.js";
+import { setupCreativeAgent, clearSessionAgentState } from "../src/agent/orchestrator.js";
+import { createAgentContext } from "../src/agent/context.js";
+import { createSession } from "../src/agent/lifecycle.js";
 import { createFixture, cleanupFixture, type Fixture } from "./fixtures.js";
 import type { CollectedToolCall } from "./assertions.js";
 
