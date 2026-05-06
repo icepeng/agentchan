@@ -15,6 +15,7 @@
 
 ## 운영 규칙
 
+- 그린필드 프로젝트이므로, 하위호환보다 clean breaking change를 우선시한다.
 - `example_data/`는 템플릿/샘플 콘텐츠의 source of truth다.
 - `apps/webui/data/`는 runtime copy이며 gitignored. 템플릿/샘플 수정 위치로 쓰지 않는다.
 - 사용자 노출 텍스트는 `t("key")`를 사용한다. i18n 키를 추가하면 `i18n/en.ts`와 `i18n/ko.ts`를 함께 갱신한다.
