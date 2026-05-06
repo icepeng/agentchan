@@ -120,7 +120,7 @@ if (existsSync(CLIENT_DIR)) {
 }
 
 // ===== 6. Start Server =====
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.PORT ?? process.env.SERVER_PORT ?? 3000);
 
 const url = `http://localhost:${port}`;
 
