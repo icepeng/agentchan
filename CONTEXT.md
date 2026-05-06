@@ -67,7 +67,7 @@ _Avoid_: system prompt, prompt file, personality
 _Avoid_: files, assets, workspace
 
 **Skill**:
-**Creative agent**가 특정 창작 작업이나 놀이 방식을 더 잘 수행하도록 **Author**가 붙이는 추가 능력.
+**Creative agent**가 특정 창작 작업이나 놀이 방식을 더 잘 수행하도록 **Author**가 붙이는 추가 능력. (https://agentskills.io/specification)
 _Avoid_: plugin, command, instruction
 
 **Renderer**:
