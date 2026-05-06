@@ -23,6 +23,33 @@ async function importFixture(path: string): Promise<Record<string, unknown>> {
   return (await import(url)) as Record<string, unknown>;
 }
 
+/**
+ * Stand-in for the host document importmap when importing a fixture that
+ * externalizes peer specifiers. Rewrites bare `import ... from "react"`
+ * (etc.) to file:// URLs of sibling fixtures inside the same outDir, then
+ * stages the result in the outDir itself so the original module's relative
+ * resolution still works.
+ */
+async function importFixtureViaImportmap(
+  result: { fixtures: { specifier: string; filename: string; outPath: string }[]; outDir: string },
+  specifier: string,
+): Promise<Record<string, unknown>> {
+  const fx = result.fixtures.find((f) => f.specifier === specifier);
+  if (!fx) throw new Error(`fixture for ${specifier} not built`);
+  let source = await Bun.file(fx.outPath).text();
+  for (const peer of result.fixtures) {
+    if (peer.specifier === specifier) continue;
+    const peerUrl = pathToFileURL(peer.outPath).href;
+    source = source.replace(
+      new RegExp(`(from\\s*)(["'])${peer.specifier.replace(/[.*+?^${}()|[\\\]]/g, "\\$&")}\\2`, "g"),
+      `$1"${peerUrl}"`,
+    );
+  }
+  const stagedPath = join(result.outDir, `__import-${crypto.randomUUID()}.mjs`);
+  await Bun.write(stagedPath, source);
+  return (await import(`${pathToFileURL(stagedPath).href}`)) as Record<string, unknown>;
+}
+
 describe("buildVendorFixtures", () => {
   test("emits one fixture per baseline specifier", async () => {
     const result = await buildVendorFixtures({ outDir, mode: "development" });
@@ -50,8 +77,7 @@ describe("buildVendorFixtures", () => {
 
   test("react-dom/client fixture exposes createRoot named export", async () => {
     const result = await buildVendorFixtures({ outDir, mode: "development" });
-    const fx = result.fixtures.find((f) => f.specifier === "react-dom/client");
-    const mod = await importFixture(fx!.outPath);
+    const mod = await importFixtureViaImportmap(result, "react-dom/client");
     expect(typeof mod.createRoot).toBe("function");
   });
 
@@ -86,5 +112,48 @@ describe("buildVendorFixtures", () => {
     const second = (await import(url)) as { createElement: unknown };
     expect(first.createElement).toBe(second.createElement);
     expect(first).toBe(second);
+  });
+
+  // Regression: peer fixtures must externalize the React baseline instead of
+  // inlining their own copy. Otherwise react-dom-client's bundled React holds
+  // a separate ReactSharedInternals — useState in the renderer reads a
+  // dispatcher set by a different React instance and throws "Invalid hook
+  // call" on first render. The Bun output ships a `var require_react_development`
+  // commonJS shim only when react/cjs/react.development.js is part of the
+  // bundle graph, so its absence proves the externalization held.
+  describe("peer externalization", () => {
+    const PEER_DEPENDENT_SPECIFIERS = [
+      "react-dom/client",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+    ] as const;
+
+    for (const specifier of PEER_DEPENDENT_SPECIFIERS) {
+      test(`${specifier} fixture imports react externally and does not inline it`, async () => {
+        const result = await buildVendorFixtures({ outDir, mode: "development" });
+        const fx = result.fixtures.find((f) => f.specifier === specifier);
+        expect(fx).toBeDefined();
+        const source = await Bun.file(fx!.outPath).text();
+        expect(source).not.toContain("require_react_development");
+        expect(source).toMatch(/import\s+[^;]+from\s+["']react["']/);
+      });
+    }
+
+    test("react-dom/client fixture also externalizes scheduler", async () => {
+      const result = await buildVendorFixtures({ outDir, mode: "development" });
+      const fx = result.fixtures.find((f) => f.specifier === "react-dom/client");
+      const source = await Bun.file(fx!.outPath).text();
+      expect(source).not.toContain("require_scheduler_development");
+      expect(source).toMatch(/import\s+[^;]+from\s+["']scheduler["']/);
+    });
+
+    test("react fixture remains self-contained (leaf of the dependency graph)", async () => {
+      const result = await buildVendorFixtures({ outDir, mode: "development" });
+      const fx = result.fixtures.find((f) => f.specifier === "react");
+      const source = await Bun.file(fx!.outPath).text();
+      // react.js still inlines its own implementation — it is the leaf that
+      // every peer points to via importmap.
+      expect(source).toContain("require_react_development");
+    });
   });
 });

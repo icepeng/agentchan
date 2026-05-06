@@ -12,7 +12,7 @@ import {
 const PACKAGE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const MARKER_FILENAME = ".vendor-cache.json";
-const MARKER_VERSION = 1;
+const MARKER_VERSION = 3;
 
 interface MarkerData {
   version: number;

@@ -55,37 +55,100 @@ async function buildVendorFixture(
   const entryPath = import.meta.resolveSync(spec.specifier);
   const stagingDir = await mkdtemp(join(tmpdir(), "renderer-vendor-"));
   try {
-    const stagingFile = join(stagingDir, "vendor.js");
-    const buildResult = await Bun.build({
+    // Pass 1 (introspection): self-contained build with no externals so we
+    // can `await import()` the result and enumerate the default-exported
+    // namespace's keys. The emission build externalizes peer specifiers,
+    // which would leave bare `import "react"` statements that Node cannot
+    // resolve from the staging tmpdir — hence the separate pass.
+    const introspectFile = join(stagingDir, "introspect.js");
+    const introspectResult = await Bun.build({
       entrypoints: [entryPath],
       target: "browser",
       format: "esm",
       define: { "process.env.NODE_ENV": JSON.stringify(mode) },
       outdir: stagingDir,
-      naming: "vendor.js",
+      naming: "introspect.js",
     });
-    if (!buildResult.success) {
-      const message = buildResult.logs.map((log) => log.message).join("\n").trim();
-      throw new Error(
-        `Renderer vendor build failed for ${spec.specifier}: ${message || "no diagnostic"}`,
-      );
-    }
-    const stagingSource = await readFile(stagingFile, "utf-8");
-    const stagingMod = await import(`${pathToFileURL(stagingFile).href}?v=${crypto.randomUUID()}`);
-    const defaultExport = (stagingMod as { default?: unknown }).default;
+    assertBuildSucceeded(introspectResult, spec.specifier, "introspection");
+    const introspectMod = await import(
+      `${pathToFileURL(introspectFile).href}?v=${crypto.randomUUID()}`
+    );
+    const defaultExport = (introspectMod as { default?: unknown }).default;
     if (defaultExport == null || typeof defaultExport !== "object") {
       throw new Error(
         `Renderer vendor entry ${spec.specifier} did not yield a default-exported namespace.`,
       );
     }
     const exportNames = collectExportNames(defaultExport as Record<string, unknown>);
-    const facade = appendNamedExports(stagingSource, exportNames, spec.specifier);
+
+    // Pass 2 (emission): externalize every other vendor specifier so the
+    // browser importmap collapses them all onto the same `react.js` and
+    // `scheduler.js` modules. Without this, react-dom/client (and the jsx
+    // runtimes) inline their own copy of React, end up with a separate
+    // ReactSharedInternals object, and `useState` reads a null dispatcher
+    // set by a different React instance — "Invalid hook call" on first render.
+    const peerExternals = VENDOR_SPECIFIERS
+      .filter((other) => other.specifier !== spec.specifier)
+      .map((other) => other.specifier);
+    const emissionFile = join(stagingDir, "vendor.js");
+    const emissionResult = await Bun.build({
+      entrypoints: [entryPath],
+      target: "browser",
+      format: "esm",
+      define: { "process.env.NODE_ENV": JSON.stringify(mode) },
+      outdir: stagingDir,
+      naming: "vendor.js",
+      external: peerExternals,
+    });
+    assertBuildSucceeded(emissionResult, spec.specifier, "emission");
+    const emissionSource = await readFile(emissionFile, "utf-8");
+    const mutable = aliasExternalImportsAsMutable(emissionSource, peerExternals);
+    const facade = appendNamedExports(mutable, exportNames, spec.specifier);
     const outPath = join(outDir, spec.filename);
     await writeFile(outPath, facade, "utf-8");
     return { ...spec, outPath, exportNames };
   } finally {
     await rm(stagingDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Bun emits externalized peers as `import * as X from "specifier"`. ESM
+ * import bindings are immutable, but the underlying CJS source — e.g.
+ * `react/cjs/react-jsx-dev-runtime.development.js` — does
+ * `var React = require("react"); ...; React = { react_stack_bottom_frame: ... };`
+ * to install dev-only stack-tracing helpers. With the source untouched,
+ * that reassignment throws "Cannot assign to import 'React'" the first time
+ * the module evaluates, blocking every renderer that pulls in jsx-runtime.
+ *
+ * Restore CJS-compatible mutability by renaming each external import to a
+ * private alias and shadowing it with a `var` of the original name. The
+ * downstream code keeps `React` as a writable namespace; the importmap
+ * still resolves the underlying module to the shared vendor fixture, so
+ * React identity is preserved.
+ */
+function aliasExternalImportsAsMutable(source: string, externals: string[]): string {
+  const externalSet = new Set(externals);
+  const importRe =
+    /^(import\s*\*\s*as\s+)([A-Za-z_$][\w$]*)(\s+from\s+["'])([^"']+)(["'];?)$/gm;
+  let aliasIndex = 0;
+  return source.replace(importRe, (match, prefix, localName, middle, specifier, suffix) => {
+    if (!externalSet.has(specifier)) return match;
+    const alias = `__vendor_external_${aliasIndex++}`;
+    return `${prefix}${alias}${middle}${specifier}${suffix}\nvar ${localName} = ${alias};`;
+  });
+}
+
+function assertBuildSucceeded(
+  result: { success: boolean; logs: { message: string }[] },
+  specifier: string,
+  pass: string,
+): void {
+  if (result.success) return;
+  const message = result.logs.map((log) => log.message).join("\n").trim();
+  throw new Error(
+    `Renderer vendor ${pass} build failed for ${specifier}: ${message || "no diagnostic"}`,
+  );
 }
 
 const RESERVED_NAMES = new Set([
