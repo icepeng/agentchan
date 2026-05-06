@@ -20,6 +20,7 @@
     "typecheck:packages": "bun --workspaces run typecheck",
     "typecheck:scripts": "tsgo --noEmit -p tsconfig.scripts.json",
     "sync-builtins": "bun scripts/write-builtin-manifest.ts",
+    "sync-builtins:check": "bun scripts/write-builtin-manifest.ts --check",
     "prepare": "husky",
     "example-data:copy": "bun scripts/copy-example-data.ts",
     "skills:check": "bun scripts/sync-agent-skills.ts --check",
