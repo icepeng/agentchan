@@ -8,6 +8,38 @@
 ## Renderer 저작 규칙
 
 - Renderer가 viewport를 소유한다. `RenderedView`가 외부 padding을 넣는다고 가정하지 않는다.
+- Renderer import는 실제 사용하는 공개 API만 가져온다. 기본 시작점은 다음처럼 작게 둔다.
+
+```ts
+import {
+  createRenderer,
+  type AssistantContentBlock,
+  type RendererProps,
+  type ToolCall,
+  type ToolResultMessage,
+} from "@agentchan/renderer/react";
+```
+
+- Template을 외부 repo로 추출할 때는 renderer 전용 tsconfig를 둔다. 최소 패턴은 다음과 같다.
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": [],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "paths": {
+      "@agentchan/renderer/core": ["./node_modules/@agentchan/renderer/src/core.ts"],
+      "@agentchan/renderer/react": ["./node_modules/@agentchan/renderer/src/react.tsx"]
+    }
+  },
+  "include": ["renderer/**/*.ts", "renderer/**/*.tsx"]
+}
+```
+
 - 템플릿 renderer의 첫 viewport는 하나의 composition으로 읽혀야 한다. 정보 패널·카드·상태줄을 나열한 dashboard처럼 만들지 않는다.
 - 브랜드/작품명은 hero-level signal이어야 한다. nav나 작은 eyebrow를 지웠을 때 다른 템플릿과 구분되지 않으면 브랜딩이 약한 것이다.
 - 한국어가 노출될 수 있는 UI는 기본 제공 `Pretendard Variable`을 1순위로 쓴다. OS에 설치된 `Noto Serif KR`, `Nanum Myeongjo` 같은 폰트가 있다고 가정하지 않는다.

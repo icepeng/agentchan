@@ -38,13 +38,8 @@ export { buildSessionContext } from "./context.js";
 export { parseSessionEntries, getLatestCompactionEntry } from "./parse.js";
 
 export {
-  type BashExecutionMessage,
-  type CustomMessage,
-  type BranchSummaryMessage,
   type CompactionSummaryMessage,
-  createBranchSummaryMessage,
   createCompactionSummaryMessage,
-  createCustomMessage,
 } from "./messages.js";
 
 export { readSessionFile } from "./format.js";

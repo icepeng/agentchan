@@ -1,4 +1,4 @@
-import { createRenderer, fileUrl, type BinaryFile, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
+import { createRenderer, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type TextFile } from "@agentchan/renderer/react";
 import "./index.css";
 import type { ReactElement } from "react";
 

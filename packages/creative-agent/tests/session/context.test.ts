@@ -158,24 +158,7 @@ describe("buildSessionContext — compaction cut", () => {
 });
 
 describe("buildSessionContext — variant emission", () => {
-  test("custom_message → custom AgentMessage", () => {
-    const entries: SessionEntry[] = [
-      userMsg("e1", null, "u"),
-      {
-        type: "custom_message",
-        id: "e2",
-        parentId: "e1",
-        timestamp: ts(2),
-        customType: "ext.injected",
-        content: "injected",
-        display: true,
-      },
-    ];
-    const ctx = buildSessionContext(entries, "e2");
-    expect(ctx.messages[1]!.role).toBe("custom");
-  });
-
-  test("branch_summary with non-empty summary → branchSummary AgentMessage", () => {
+  test("custom_message and branch_summary entries don't emit messages", () => {
     const entries: SessionEntry[] = [
       userMsg("e1", null, "u"),
       {
@@ -186,24 +169,17 @@ describe("buildSessionContext — variant emission", () => {
         fromId: "e1",
         summary: "abandoned branch",
       },
-    ];
-    const ctx = buildSessionContext(entries, "e2");
-    expect(ctx.messages[1]!.role).toBe("branchSummary");
-  });
-
-  test("branch_summary with empty summary is skipped", () => {
-    const entries: SessionEntry[] = [
-      userMsg("e1", null, "u"),
       {
-        type: "branch_summary",
-        id: "e2",
-        parentId: "e1",
-        timestamp: ts(2),
-        fromId: "e1",
-        summary: "",
+        type: "custom_message",
+        id: "e3",
+        parentId: "e2",
+        timestamp: ts(3),
+        customType: "ext.injected",
+        content: "injected",
+        display: true,
       },
     ];
-    const ctx = buildSessionContext(entries, "e2");
+    const ctx = buildSessionContext(entries, "e3");
     expect(ctx.messages).toHaveLength(1);
   });
 

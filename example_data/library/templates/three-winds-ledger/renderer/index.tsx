@@ -1,4 +1,4 @@
-import { createRenderer, fileUrl, type BinaryFile, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
+import { createRenderer, type AssistantContentBlock, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextContent, type TextFile, type ToolCall, type ToolResultMessage } from "@agentchan/renderer/react";
 import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 //   three-winds-ledger renderer  ·  "Salren — Three Winds Ledger"
@@ -12,39 +12,6 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 // ── Local renderer data shapes ──
 
 type AgentState = RendererAgentState;
-
-interface TextContent { type: "text"; text: string }
-interface ThinkingContent { type: "thinking"; thinking: string }
-interface ImageContent { type: "image"; data: string; mimeType: string }
-interface ToolCall {
-  type: "toolCall";
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
-}
-
-type ToolResultContent = (TextContent | ImageContent)[];
-
-interface UserMessage {
-  role: "user";
-  content: string | (TextContent | ImageContent)[];
-  timestamp: number;
-}
-interface AssistantMessage {
-  role: "assistant";
-  content: (TextContent | ThinkingContent | ToolCall)[];
-  provider?: string;
-  model?: string;
-}
-interface ToolResultMessage {
-  role: "toolResult";
-  toolCallId: string;
-  toolName: string;
-  content: ToolResultContent;
-  isError: boolean;
-}
-type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
-type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 // ── Renderer theme contract (인라인 선언) ──
 
@@ -68,7 +35,6 @@ const MIST_BLUE = "#4a6b8a";
 const COMBAT_BASE = "#1a110a";
 const COMBAT_SURFACE = "#251810";
 const COMBAT_CANDLE = "#d48a1f";
-const COMBAT_BLOOD = "#a02420";
 const COMBAT_PARCH = "#d8c9a8";
 const COMBAT_FG2 = "#b8a38a";
 const COMBAT_FG3 = "#8a7658";

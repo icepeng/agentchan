@@ -1,5 +1,5 @@
 import { createElement, type ComponentType } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { createRoot } from "react-dom/client";
 import {
   defineRenderer,
   fileUrl,
@@ -19,6 +19,15 @@ import {
   type RendererTheme,
   type RendererThemeTokens,
   type TextFile,
+  type AssistantContentBlock,
+  type AssistantMessage,
+  type ImageContent,
+  type Message,
+  type TextContent,
+  type ThinkingContent,
+  type ToolCall,
+  type ToolResultMessage,
+  type UserMessage,
 } from "./core.ts";
 
 export {
@@ -40,6 +49,15 @@ export {
   type RendererTheme,
   type RendererThemeTokens,
   type TextFile,
+  type AssistantContentBlock,
+  type AssistantMessage,
+  type ImageContent,
+  type Message,
+  type TextContent,
+  type ThinkingContent,
+  type ToolCall,
+  type ToolResultMessage,
+  type UserMessage,
 };
 
 export interface RendererProps {

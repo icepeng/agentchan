@@ -1,54 +1,10 @@
-import { createRenderer, fileUrl, type BinaryFile, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
+import { createRenderer, type AssistantContentBlock, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile, type ToolCall } from "@agentchan/renderer/react";
 import "./index.css";
 import type { ReactElement } from "react";
 
 // ── Local renderer data shapes ──────────
 
 type AgentState = RendererAgentState;
-
-// pi-ai content blocks (inline)
-interface TextContent {
-  type: "text";
-  text: string;
-}
-interface ThinkingContent {
-  type: "thinking";
-  thinking: string;
-}
-interface ImageContent {
-  type: "image";
-  data: string;
-  mimeType: string;
-}
-interface ToolCall {
-  type: "toolCall";
-  id: string;
-  name: string;
-  arguments: Record<string, any>;
-}
-
-type ToolResultContent = (TextContent | ImageContent)[];
-
-interface UserMessage {
-  role: "user";
-  content: string | (TextContent | ImageContent)[];
-  timestamp: number;
-}
-interface AssistantMessage {
-  role: "assistant";
-  content: (TextContent | ThinkingContent | ToolCall)[];
-  provider?: string;
-  model?: string;
-}
-interface ToolResultMessage {
-  role: "toolResult";
-  toolCallId: string;
-  toolName: string;
-  content: ToolResultContent;
-  isError: boolean;
-}
-type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
-type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 // ── Renderer theme contract ──────────────────────────────────
 
@@ -541,7 +497,6 @@ function resolveCharacterInfo(
   charDir: string | undefined,
   imageKey: string | undefined,
   displayName: string,
-  files: ProjectFile[],
   baseUrl: string,
   nameMap: Map<string, NameMapEntry>,
   fallbackColorMap: Map<string, string>,
@@ -602,7 +557,6 @@ function resolvePersona(
     dir,
     imageKey,
     displayName,
-    files,
     baseUrl,
     nameMap,
     isolatedColorMap,
@@ -860,7 +814,6 @@ function CharacterEntry(props: {
 }): ReactElement {
   const {
     group,
-    files,
     baseUrl,
     nameMap,
     fallbackColorMap,
@@ -872,7 +825,6 @@ function CharacterEntry(props: {
     group.charDir,
     group.imageKey,
     name,
-    files,
     baseUrl,
     nameMap,
     fallbackColorMap,

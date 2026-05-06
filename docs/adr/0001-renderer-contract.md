@@ -5,6 +5,11 @@ Renderer entrypoint는 `renderer/index.ts` 또는 `renderer/index.tsx`이며, na
 Renderer 작성자가 의존할 수 있는 공개 API는 `@agentchan/renderer/core`, `@agentchan/renderer/react` 패키지로 제공한다.
 이 외에 허용되는 import는 `renderer/` 내부 relative import, CSS import다.
 Build policy는 허용된 bare import와 `renderer/` 경계를 검사한다(`packages/renderer/src/build/policy.ts`).
+Renderer API의 agent state message 표면은 pi-ai의 `Message` contract를 그대로 노출한다.
+
+`RendererAgentState.messages`는 `readonly Message[]`, `streamingMessage`는 `AssistantMessage`다.
+`@agentchan/renderer/core`와 `@agentchan/renderer/react`는 `Message`, `UserMessage`, `AssistantMessage`, `ToolResultMessage`, `TextContent`, `ThinkingContent`, `ImageContent`, `ToolCall`, `AssistantContentBlock`을 type-only로 재노출한다.
+Agentchan 내부 LLM context bookkeeping인 `CompactionSummaryMessage`는 renderer contract에서 제외한다. Host boundary는 renderer snapshot을 만들기 전에 이 variant를 필터링한다.
 
 Motivation: 첫 Renderer 초안은 `renderer/index.tsx`의 React component default export를 host Web UI의 React tree 안에 직접 render했다. 단순한 React view에는 작동했지만, r3f와 같은 라이브러리 사용시 React 트리 공유로 인한 문제를 해결하는 것이 불가능했다. 당장 r3f를 사용하는 Renderer가 없더라도, 작성 계약을 나중에 바꾸기 어려우므로 가능한 안전하게 설계한다.
 
@@ -27,3 +32,5 @@ Motivation: 첫 Renderer 초안은 `renderer/index.tsx`의 React component defau
 
 - 위 작성 계약을 지킨 renderer가 backend 변경 시 source 변경 없이 실행되지 않을 때.
 - 추가 npm package(예: `@react-three/fiber`, `three`)가 primary renderer use case가 되어 stable dependency resolver나 Project별 dependency isolation이 필요해질 때.
+- pi-ai `Message` shape가 renderer 작성자가 직접 감당하기 어려울 정도로 의미상 변경될 때.
+- compaction 또는 다른 agentchan-internal event를 사용자-facing renderer에서 시각화해야 하는 명확한 use case가 생길 때.

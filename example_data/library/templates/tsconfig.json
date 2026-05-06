@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": [],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": false,
+    "paths": {
+      "@agentchan/renderer/core": ["../../../packages/renderer/src/core.ts"],
+      "@agentchan/renderer/react": ["../../../packages/renderer/src/react.tsx"]
+    }
+  },
+  "include": ["renderer-env.d.ts", "*/renderer/**/*.ts", "*/renderer/**/*.tsx"]
+}

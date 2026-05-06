@@ -1,5 +1,18 @@
 /// <reference lib="dom" />
 
+import type { AssistantMessage, Message } from "./messages.ts";
+export type {
+  AssistantContentBlock,
+  AssistantMessage,
+  ImageContent,
+  Message,
+  TextContent,
+  ThinkingContent,
+  ToolCall,
+  ToolResultMessage,
+  UserMessage,
+} from "./messages.ts";
+
 export type ProjectFile = TextFile | DataFile | BinaryFile;
 
 export interface BaseProjectFile {
@@ -27,9 +40,9 @@ export interface BinaryFile extends BaseProjectFile {
 }
 
 export interface RendererAgentState {
-  readonly messages: readonly unknown[];
+  readonly messages: readonly Message[];
   readonly isStreaming: boolean;
-  readonly streamingMessage?: unknown;
+  readonly streamingMessage?: AssistantMessage;
   readonly pendingToolCalls: readonly string[];
   readonly errorMessage?: string;
 }

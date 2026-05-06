@@ -1,4 +1,4 @@
-import { createRenderer, fileUrl, type BinaryFile, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
+import { createRenderer, type AssistantContentBlock, type DataFile, type ImageContent, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextContent, type TextFile, type ToolCall, type ToolResultMessage } from "@agentchan/renderer/react";
 import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 //   tides-of-moonhaven renderer  ·  "Vellum Day — Cartographer's Logbook"
@@ -12,38 +12,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement, typ
 // ── Local renderer data shapes ──────────────────────
 
 type AgentState = RendererAgentState;
-
-interface TextContent { type: "text"; text: string }
-interface ThinkingContent { type: "thinking"; thinking: string }
-interface ImageContent { type: "image"; data: string; mimeType: string }
-interface ToolCall {
-  type: "toolCall";
-  id: string;
-  name: string;
-  arguments: Record<string, any>;
-}
 type ToolResultContent = (TextContent | ImageContent)[];
-
-interface UserMessage {
-  role: "user";
-  content: string | (TextContent | ImageContent)[];
-  timestamp: number;
-}
-interface AssistantMessage {
-  role: "assistant";
-  content: (TextContent | ThinkingContent | ToolCall)[];
-  provider?: string;
-  model?: string;
-}
-interface ToolResultMessage {
-  role: "toolResult";
-  toolCallId: string;
-  toolName: string;
-  content: ToolResultContent;
-  isError: boolean;
-}
-type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage;
-type AssistantContentBlock = TextContent | ThinkingContent | ToolCall;
 
 
 interface RendererContentProps {

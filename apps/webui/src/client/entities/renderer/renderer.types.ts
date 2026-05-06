@@ -7,16 +7,14 @@ import type {
 import type {
   RendererActions,
   RendererSnapshot,
-} from "@agentchan/renderer/core";
-import type {
-  AgentMessage,
+  Message,
   AssistantMessage,
-} from "@/client/entities/agent-state/index.js";
+} from "@agentchan/renderer/core";
 
 export type { BinaryFile, DataFile, ProjectFile, TextFile };
 
 export interface RendererAgentState {
-  readonly messages: ReadonlyArray<AgentMessage>;
+  readonly messages: ReadonlyArray<Message>;
   readonly isStreaming: boolean;
   readonly streamingMessage?: AssistantMessage;
   readonly pendingToolCalls: readonly string[];

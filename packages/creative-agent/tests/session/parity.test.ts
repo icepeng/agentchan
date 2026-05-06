@@ -1,10 +1,10 @@
 /**
  * Permanent parity guard against pi-coding-agent (ADR-0010).
  *
- * Synthesizes a fixture covering all 9 SessionEntry variants and asserts
- * that vendored `buildSessionContext` produces deep-equal output to Pi's.
- * Failure is the codified signal to review whether to cherry-pick the
- * upstream change.
+ * Synthesizes a fixture covering Agentchan's live SessionEntry variants and
+ * asserts that vendored `buildSessionContext` produces deep-equal output to
+ * Pi's for that live subset. PRD #172 intentionally prunes pi-coding-agent's
+ * branch_summary/custom_message AgentMessage conversions.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -65,58 +65,41 @@ const fixtureWithCompaction: SessionEntry[] = [
     },
   },
   {
-    type: "branch_summary",
+    type: "session_info",
     id: "e5",
     parentId: "e4",
-    timestamp: ts(5),
-    fromId: "e4",
-    summary: "branch summary",
-  },
-  {
-    type: "session_info",
-    id: "e6",
-    parentId: "e5",
     timestamp: ts(6),
     name: "Title",
   },
   {
     type: "label",
-    id: "e7",
-    parentId: "e6",
+    id: "e6",
+    parentId: "e5",
     timestamp: ts(7),
     targetId: "e3",
     label: "marker",
   },
   {
     type: "custom",
-    id: "e8",
-    parentId: "e7",
+    id: "e7",
+    parentId: "e6",
     timestamp: ts(8),
     customType: "ext.bookkeeping",
     data: { foo: "bar" },
   },
   {
-    type: "custom_message",
-    id: "e9",
-    parentId: "e8",
-    timestamp: ts(9),
-    customType: "ext.injected",
-    content: "injected text",
-    display: true,
-  },
-  {
     type: "compaction",
-    id: "e10",
-    parentId: "e9",
+    id: "e8",
+    parentId: "e7",
     timestamp: ts(10),
     summary: "compacted",
-    firstKeptEntryId: "e9",
+    firstKeptEntryId: "e4",
     tokensBefore: 100,
   },
   {
     type: "message",
-    id: "e11",
-    parentId: "e10",
+    id: "e9",
+    parentId: "e8",
     timestamp: ts(11),
     message: { role: "user", content: "u2", timestamp: 11 },
   },
