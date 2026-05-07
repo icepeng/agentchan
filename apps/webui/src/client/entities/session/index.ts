@@ -6,7 +6,7 @@ export type {
   SessionInfoEntry,
   SessionMessageEntry,
   SessionMode,
-} from "@agentchan/creative-agent/session";
+} from "@agentchan/creative-agent";
 
 export type {
   AssistantMessage,
