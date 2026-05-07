@@ -17,7 +17,7 @@ function usage(): AssistantMessage["usage"] {
 }
 
 describe("toRendererAgentState", () => {
-  test("filters compactionSummary while passing LLM-shaped messages through", () => {
+  test("passes AgentMessage stream through without filtering custom roles", () => {
     const user: UserMessage = { role: "user", content: "hello", timestamp: 1 };
     const assistant: AssistantMessage = {
       role: "assistant",
@@ -52,7 +52,7 @@ describe("toRendererAgentState", () => {
     };
 
     expect(toRendererAgentState(state)).toEqual({
-      messages: [user, assistant, toolResult],
+      messages: [user, compaction, assistant, toolResult],
       isStreaming: true,
       streamingMessage: assistant,
       pendingToolCalls: ["tc1", "tc2"],

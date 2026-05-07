@@ -8,9 +8,13 @@ import type {
   ToolResultMessage,
   UserMessage,
 } from "@mariozechner/pi-ai";
+import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { CompactionSummaryMessage } from "@agentchan/creative-agent/src/session/messages.js";
 
 export type {
+  AgentMessage,
   AssistantMessage,
+  CompactionSummaryMessage,
   ImageContent,
   Message,
   TextContent,

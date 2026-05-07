@@ -1,9 +1,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
-import type {
-  AgentMessage,
-  AgentState,
-} from "@/client/entities/agent-state/index.js";
+import type { AgentState } from "@/client/entities/agent-state/index.js";
 import {
   fetchWorkspaceFiles,
   fetchRendererBundle,
@@ -13,10 +10,7 @@ import {
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
-import type {
-  RendererSnapshot,
-  Message,
-} from "@agentchan/renderer/core";
+import type { RendererSnapshot } from "@agentchan/renderer/core";
 import type { RendererBundle } from "@agentchan/renderer/build";
 import type {
   RendererAgentState,
@@ -57,17 +51,9 @@ function sameBundle(a: RendererBundle, b: RendererBundle): boolean {
   return a.css.every((css, index) => css === b.css[index]);
 }
 
-function isRendererMessage(message: AgentMessage): message is Message {
-  return (
-    message.role === "user" ||
-    message.role === "assistant" ||
-    message.role === "toolResult"
-  );
-}
-
 export function toRendererAgentState(state: AgentState): RendererAgentState {
   return {
-    messages: state.messages.filter(isRendererMessage),
+    messages: state.messages,
     isStreaming: state.isStreaming,
     streamingMessage: state.streamingMessage,
     pendingToolCalls: Array.from(state.pendingToolCalls),

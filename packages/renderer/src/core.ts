@@ -1,9 +1,11 @@
 /// <reference lib="dom" />
 
-import type { AssistantMessage, Message } from "./messages.ts";
+import type { AgentMessage, AssistantMessage } from "./messages.ts";
 export type {
+  AgentMessage,
   AssistantContentBlock,
   AssistantMessage,
+  CompactionSummaryMessage,
   ImageContent,
   Message,
   TextContent,
@@ -41,7 +43,7 @@ export interface BinaryFile extends BaseProjectFile {
 
 // subset of pi-agent-core `AgentState`.
 export interface RendererAgentState {
-  readonly messages: readonly Message[];
+  readonly messages: readonly AgentMessage[];
   readonly isStreaming: boolean;
   readonly streamingMessage?: AssistantMessage;
   readonly pendingToolCalls: readonly string[];
