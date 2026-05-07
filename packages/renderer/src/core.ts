@@ -39,6 +39,7 @@ export interface BinaryFile extends BaseProjectFile {
   type: "binary";
 }
 
+// subset of pi-agent-core `AgentState`.
 export interface RendererAgentState {
   readonly messages: readonly Message[];
   readonly isStreaming: boolean;
