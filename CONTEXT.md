@@ -142,6 +142,12 @@ _Avoid_: build session, system session
 **User**가 `/`로 시작하는 입력으로 **Session** 안에서 기능을 호출하는 명령.
 _Avoid_: command, prompt, shortcut
 
+### Distribution
+
+**Desktop app**:
+**User**가 개발 서버 없이 로컬 컴퓨터에서 설치하거나 실행하는 agentchan의 데스크톱 배포 형태.
+_Avoid_: exe build, binary
+
 ## Relationships
 
 - **Author**는 **Project**를 다시 **Template**으로 저장해 **Library**에 더할 수 있다.
@@ -188,6 +194,8 @@ _Avoid_: command, prompt, shortcut
 - **Meta session**에서 바꾼 **SYSTEM.md**, **Skill**, **Renderer**, **Project content**는 이후 **Creative session**에 영향을 줄 수 있다.
 - **Compaction** 같은 **Session** 기능도 **Slash command**로 호출될 수 있다.
 - **Slash command**는 창작 놀이의 일부일 수도 있고, **Project**를 관리하기 위한 동작일 수도 있다.
+- **Desktop app**은 **User**가 agentchan을 쓰는 기본 실행 형태이고, 개발 서버는 Builder Agent와 개발자를 위한 실행 형태다.
+- **Desktop app**은 **User**가 별도 Bun 설치나 개발 환경을 갖추지 않아도 실행할 수 있어야 한다.
 
 ## Example dialogue
 
@@ -205,6 +213,9 @@ _Avoid_: command, prompt, shortcut
 
 > **Dev:** "대화가 너무 길어져서 context가 꽉 차면 어떻게 되죠?"
 > **Domain expert:** "**Context usage**가 **Context window**에 가까워지면 **Compaction**이 필요해요. 이건 대화를 삭제하는 게 아니라 같은 **Session**을 이어가기 위한 context 관리입니다."
+
+> **Dev:** "이 기능은 개발 서버에서만 동작해도 되나요?"
+> **Domain expert:** "아니요. **User**가 주로 쓰는 형태는 **Desktop app**이므로, 별도 개발 환경 없이도 동작해야 합니다."
 
 ## Flagged ambiguities
 
