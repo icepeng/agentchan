@@ -1,4 +1,4 @@
-import type { SessionEntry } from "@agentchan/creative-agent";
+import type { SessionEntry } from "@agentchan/creative-agent/session";
 
 /**
  * Splice entries into the array, replacing any existing entry with the same

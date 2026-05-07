@@ -5,6 +5,17 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./session": {
+      "types": "./src/session/browser.ts",
+      "default": "./src/session/browser.ts"
+    },
+    "./src/*": "./src/*"
+  },
   "scripts": {
     "test": "bun test tests/ && bun run test:pi-session-parity",
     "test:pi-session-parity": "bun test scripts/check-pi-session-parity.test.ts",
