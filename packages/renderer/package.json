@@ -24,14 +24,14 @@
   },
   "dependencies": {
     "@agentchan/creative-agent": "workspace:*",
-    "@mariozechner/pi-agent-core": "^0.70.2",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "@mariozechner/pi-agent-core": "^0.73.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "scheduler": "^0.27.0"
   },
   "devDependencies": {
     "@agentchan/renderer-vendor": "workspace:*",
-    "@mariozechner/pi-ai": "^0.70.2",
+    "@mariozechner/pi-ai": "^0.73.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3"
   }

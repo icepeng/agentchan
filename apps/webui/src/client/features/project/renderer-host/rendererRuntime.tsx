@@ -1,7 +1,5 @@
 import {
   isRendererRuntime,
-  type RendererBridge,
-  type RendererInstance,
   type RendererRuntime,
 } from "@agentchan/renderer/core";
 

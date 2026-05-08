@@ -14,15 +14,15 @@
   "dependencies": {
     "@agentchan/estimate-tokens": "workspace:*",
     "@agentchan/grep": "workspace:*",
-    "@google/genai": "^1.50.1",
-    "@mariozechner/pi-agent-core": "^0.70.2",
-    "@mariozechner/pi-ai": "^0.70.2",
+    "@google/genai": "^2.0.0",
+    "@mariozechner/pi-agent-core": "^0.73.1",
+    "@mariozechner/pi-ai": "^0.73.1",
     "@sinclair/typebox": "^0.34.49",
-    "nanoid": "^5.1.9",
+    "nanoid": "^5.1.11",
     "picocolors": "^1.1.1",
-    "yaml": "^2.8.3"
+    "yaml": "^2.8.4"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.70.2"
+    "@mariozechner/pi-coding-agent": "^0.73.1"
   }
 }
