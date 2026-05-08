@@ -33,10 +33,10 @@ The solution to the problem, from the user's perspective.
 
 A LONG, numbered list of user stories. Each user story should be in the format of:
 
-1. As an <actor>, I want a <feature>, so that <benefit>
+1. <actor>로서, <benefit>을 위해 <feature>를 원한다
 
 <user-story-example>
-1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
+1. 모바일 뱅크 고객으로서, 지출에 대해 더 나은 결정을 내리기 위해 내 계좌의 잔액을 보고 싶다
 </user-story-example>
 
 This list of user stories should be extremely extensive and cover all aspects of the feature.
