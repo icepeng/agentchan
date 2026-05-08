@@ -5,7 +5,7 @@
       "source": "vercel-labs/agent-browser",
       "sourceType": "github",
       "skillPath": "skills/agent-browser/SKILL.md",
-      "computedHash": "c19a532a3777698b80b35270939a1dc559da451381971b3e1e78174d1ab54863"
+      "computedHash": "228f87d57035100d9dc6efcfc05aafd4b6e3962adacaa04b8217ab2fadb15dc8"
     },
     "diagnose": {
       "source": "mattpocock/skills",
@@ -35,7 +35,7 @@
       "source": "vercel-labs/portless",
       "sourceType": "github",
       "skillPath": "skills/portless/SKILL.md",
-      "computedHash": "47c88e1e39eda1c18f31ca40b6e175483d8d36dbcf0672e240dcb1bd3ad554a4"
+      "computedHash": "1499785783105a3f3f020bae6fedf7b8ba9e3ee8c32dcab1d7dfc2d663ea72c2"
     },
     "prototype": {
       "source": "mattpocock/skills",
@@ -76,11 +76,13 @@
     "vercel-composition-patterns": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
+      "skillPath": "skills/composition-patterns/SKILL.md",
       "computedHash": "575757e3e25761c8c562d6e395d29f0b76c98b1273c0bd72d88e6ab1bc9c7d42"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
       "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
     },
     "write-a-skill": {
