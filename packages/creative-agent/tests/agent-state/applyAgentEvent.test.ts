@@ -25,7 +25,7 @@ function usage(): Usage {
 }
 
 function assistant(text: string, errorMessage?: string): AssistantMessage {
-  const msg: AssistantMessage = {
+  return {
     role: "assistant",
     content: [{ type: "text", text }],
     api: "anthropic-messages",
@@ -33,10 +33,9 @@ function assistant(text: string, errorMessage?: string): AssistantMessage {
     model: "claude-x",
     usage: usage(),
     stopReason: "stop",
+    errorMessage,
     timestamp: 1,
   };
-  if (errorMessage) (msg as { errorMessage?: string }).errorMessage = errorMessage;
-  return msg;
 }
 
 function user(text: string): UserMessage {

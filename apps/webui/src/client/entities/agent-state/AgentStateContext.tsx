@@ -5,8 +5,7 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-import type { AgentEvent } from "@agentchan/creative-agent/browser";
-import { applyAgentEvent } from "@agentchan/creative-agent/browser";
+import { applyAgentEvent, type AgentEvent } from "@agentchan/creative-agent/browser";
 import type { AgentMessage, AgentState } from "./agentState.js";
 import { EMPTY_AGENT_STATE } from "./agentState.js";
 
