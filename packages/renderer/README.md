@@ -12,7 +12,7 @@ build) 표면을 한 패키지에서 같이 소유하며, 다른 패키지가 SD
 | --- | --- | --- |
 | `@agentchan/renderer/core` | 작성자 core SDK (`defineRenderer`, `fileUrl`, `isRendererRuntime`, contract 타입) | 프로젝트 `renderer/index.ts(x)`, webui client (`RendererSnapshot`/`Actions`/`Theme`/`ThemeTokens` 등) |
 | `@agentchan/renderer/react` | React authoring adapter (`createRenderer`, `RendererProps`) | 프로젝트 `renderer/index.tsx` |
-| `@agentchan/renderer/build` | 호스트 빌드 파이프라인 (`buildRendererBundle`, `findRendererEntrypoint`, `RendererBundle`, `RendererV1Error`, `RendererBuildError`, Bun plugin) | webui server (`project.service.ts`) |
+| `@agentchan/renderer/build` | 호스트 빌드 파이프라인 (`buildRendererBundle`, `findRendererEntrypoint`, `RendererBundle`, `RendererError`, `RendererBuildError`, Bun plugin) | webui server (`project.service.ts`) |
 
 ## 작성자 surface vs 호스트 빌드
 

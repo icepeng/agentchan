@@ -14,8 +14,8 @@ Motivation: 첫 Renderer 초안은 `renderer/index.tsx`의 React component defau
 ## Considered Options
 
 - **React component default export를 host tree에 직접 render**: 기각. 가장 단순하지만 Author 코드가 host React runtime identity와 reconciler에 묶인다.
-- **V1부터 iframe, Project별 `package.json`, dependency install을 작성 계약에 포함**: 보류. 격리는 강하지만 Author에게 package manager 계약을 요구하고, User에게 Project 실행 시 install 상태와 실패를 노출한다.
-- **`agentchan:renderer/v1` 같은 virtual module specifier**: 기각. Author가 의존하는 import specifier는 실제 package 형태여야 package 추출과 lockfile 관리가 자연스럽다.
+- **초기 작성 계약부터 iframe, Project별 `package.json`, dependency install을 포함**: 보류. 격리는 강하지만 Author에게 package manager 계약을 요구하고, User에게 Project 실행 시 install 상태와 실패를 노출한다.
+- **`agentchan:renderer` 같은 virtual module specifier**: 기각. Author가 의존하는 import specifier는 실제 package 형태여야 package 추출과 lockfile 관리가 자연스럽다.
 
 ## Consequences
 

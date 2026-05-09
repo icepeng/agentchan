@@ -1,7 +1,7 @@
 export {
-  RendererV1Error,
+  RendererError,
   RendererBuildError,
-  type RendererV1ErrorPhase,
+  type RendererErrorPhase,
 } from "./errors.ts";
 export {
   buildRendererBundle,

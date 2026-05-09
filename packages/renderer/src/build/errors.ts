@@ -1,17 +1,17 @@
-export type RendererV1ErrorPhase = "entrypoint" | "policy" | "build";
+export type RendererErrorPhase = "entrypoint" | "policy" | "build";
 
-export class RendererV1Error extends Error {
-  readonly phase: RendererV1ErrorPhase;
+export class RendererError extends Error {
+  readonly phase: RendererErrorPhase;
 
-  constructor(phase: RendererV1ErrorPhase, message: string) {
+  constructor(phase: RendererErrorPhase, message: string) {
     super(message);
-    this.name = "RendererV1Error";
+    this.name = "RendererError";
     this.phase = phase;
   }
 }
 
-export class RendererBuildError extends RendererV1Error {
-  constructor(message: string, phase: RendererV1ErrorPhase = "build") {
+export class RendererBuildError extends RendererError {
+  constructor(message: string, phase: RendererErrorPhase = "build") {
     super(phase, message);
     this.name = "RendererBuildError";
   }

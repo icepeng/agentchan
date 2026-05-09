@@ -7,7 +7,7 @@ import {
   buildRendererBundle,
   EXTERNAL_VENDOR_SPECIFIERS,
   findRendererEntrypoint,
-  RendererV1Error,
+  RendererError,
   validateRendererImportPolicy,
 } from "../../src/build/index.ts";
 
@@ -53,7 +53,7 @@ async function importExternalizedBundle(js: string): Promise<Record<string, unkn
   return importBundle(rewritten);
 }
 
-describe("Renderer V1 entrypoint", () => {
+describe("Renderer entrypoint", () => {
   test("missing renderer entrypoint returns not found", () => {
     expect(findRendererEntrypoint(projectDir)).toBeNull();
   });
@@ -74,7 +74,7 @@ describe("Renderer V1 entrypoint", () => {
   });
 });
 
-describe("Renderer V1 import policy", () => {
+describe("Renderer import policy", () => {
   test("relative import inside renderer/ is accepted", async () => {
     await writeRenderer("helper.ts", "export const value = 1;");
     await writeRenderer(
@@ -150,7 +150,7 @@ describe("Renderer V1 import policy", () => {
   });
 });
 
-describe("Renderer V1 bundle", () => {
+describe("Renderer bundle", () => {
   test("vanilla renderer can bundle from renderer/index.ts without React adapter", async () => {
     await writeRenderer(
       "index.ts",
@@ -321,7 +321,7 @@ describe("Renderer V1 bundle", () => {
   });
 });
 
-describe("Renderer V1 errors", () => {
+describe("Renderer errors", () => {
   test("entrypoint rejection exposes a stable phase", async () => {
     await writeRenderer("index.ts", "export const renderer = {};");
     await writeRenderer("index.tsx", "export const renderer = {};");
@@ -330,8 +330,8 @@ describe("Renderer V1 errors", () => {
       findRendererEntrypoint(projectDir);
       expect.unreachable("expected entrypoint rejection");
     } catch (e) {
-      expect(e).toBeInstanceOf(RendererV1Error);
-      expect((e as RendererV1Error).phase).toBe("entrypoint");
+      expect(e).toBeInstanceOf(RendererError);
+      expect((e as RendererError).phase).toBe("entrypoint");
     }
   });
 });

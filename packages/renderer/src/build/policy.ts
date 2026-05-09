@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { RendererV1Error } from "./errors.ts";
+import { RendererError } from "./errors.ts";
 
 export const RENDERER_CORE_IMPORT = "@agentchan/renderer/core";
 export const RENDERER_REACT_IMPORT = "@agentchan/renderer/react";
@@ -45,10 +45,10 @@ export async function validateRendererImportPolicy(
     for (const specifier of findImportSpecifiers(source)) {
       if (ALLOWED_BARE_IMPORTS.has(specifier)) continue;
       if (specifier.startsWith("http://") || specifier.startsWith("https://")) {
-        throw new RendererV1Error("policy", `Renderer import is not allowed: ${specifier}`);
+        throw new RendererError("policy", `Renderer import is not allowed: ${specifier}`);
       }
       if (!specifier.startsWith(".")) {
-        throw new RendererV1Error(
+        throw new RendererError(
           "policy",
           `Renderer bare import is not allowed: ${specifier}. Use @agentchan/renderer/core, @agentchan/renderer/react, react, react-dom/client, or a relative renderer/ import.`,
         );
@@ -56,7 +56,7 @@ export async function validateRendererImportPolicy(
 
       const importedPath = resolve(dirname(resolvedSource), specifier);
       if (!isInside(rendererRoot, importedPath)) {
-        throw new RendererV1Error(
+        throw new RendererError(
           "policy",
           `Renderer relative import escapes renderer/: ${specifier}`,
         );
@@ -125,9 +125,9 @@ function rejectHostLeaks(source: string, displayPath: string): void {
   ];
   for (const needle of denied) {
     if (source.includes(needle)) {
-      throw new RendererV1Error(
+      throw new RendererError(
         "policy",
-        `Renderer ${displayPath} uses ${needle}, which is outside the V1 contract.`,
+        `Renderer ${displayPath} uses ${needle}, which is outside the Renderer contract.`,
       );
     }
   }
