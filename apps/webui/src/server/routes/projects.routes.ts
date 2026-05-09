@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import type { AppEnv } from "../types.js";
 import { createSessionRoutes } from "./sessions.routes.js";
 import { createSkillRoutes } from "./skills.routes.js";
@@ -114,13 +115,41 @@ export function createProjectRoutes() {
     return c.json({ files });
   });
 
-  app.get("/:slug/renderer-bundle", async (c) => {
+  app.get("/:slug/renderer.meta", async (c) => {
     const slug = c.req.param("slug");
-    const bundle = await c.get("projectService").buildRenderer(slug);
-    if (bundle === null) {
+    const asset = await c.get("rendererAssetService").build(slug);
+    if (asset === null) {
       return c.json({ error: "renderer/index.ts or renderer/index.tsx not found" }, 404);
     }
-    return c.json(bundle);
+    return c.json({ digest: asset.digest });
+  });
+
+  app.get("/:slug/renderer.js", async (c) => {
+    const slug = c.req.param("slug");
+    const asset = await c.get("rendererAssetService").build(slug);
+    if (asset === null) {
+      return c.json({ error: "renderer/index.ts or renderer/index.tsx not found" }, 404);
+    }
+    return rendererAssetResponse(
+      c,
+      asset.js,
+      "application/javascript; charset=utf-8",
+      asset.digest,
+    );
+  });
+
+  app.get("/:slug/renderer.css", async (c) => {
+    const slug = c.req.param("slug");
+    const asset = await c.get("rendererAssetService").build(slug);
+    if (asset === null) {
+      return c.json({ error: "renderer/index.ts or renderer/index.tsx not found" }, 404);
+    }
+    return rendererAssetResponse(
+      c,
+      asset.css,
+      "text/css; charset=utf-8",
+      asset.digest,
+    );
   });
 
   app.get("/:slug/cover", async (c) => {
@@ -266,4 +295,29 @@ export function createProjectRoutes() {
   app.route("/:slug/skills", createSkillRoutes());
 
   return app;
+}
+
+function rendererAssetResponse(
+  c: Context<AppEnv>,
+  body: string,
+  contentType: string,
+  digestValue: string,
+): Response {
+  const requested = c.req.query("v");
+  const ifNoneMatch = c.req.header("if-none-match");
+  const etag = `"${digestValue}"`;
+
+  if (ifNoneMatch === etag) {
+    return new Response(null, { status: 304, headers: { ETag: etag } });
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    ETag: etag,
+    "Cache-Control":
+      requested && requested === digestValue
+        ? "public, max-age=31536000, immutable"
+        : "public, max-age=0, must-revalidate",
+  };
+  return new Response(body, { headers });
 }

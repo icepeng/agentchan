@@ -131,6 +131,9 @@ export default defineConfig({
     port: clientPort,
     proxy: {
       "/api": `http://127.0.0.1:${serverPort}`,
+      "/renderer-shell.html": `http://127.0.0.1:${serverPort}`,
+      "/renderer-bootstrap.js": `http://127.0.0.1:${serverPort}`,
+      "/host-theme.css": `http://127.0.0.1:${serverPort}`,
     },
   },
 });

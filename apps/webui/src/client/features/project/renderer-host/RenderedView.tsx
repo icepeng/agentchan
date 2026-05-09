@@ -12,10 +12,10 @@ import {
   type RendererActions,
   type RendererTheme,
 } from "@/client/entities/renderer/index.js";
-import { ScrollArea } from "@/client/shared/ui/index.js";
-import { RendererLayer, type RendererLayerHandle } from "./RendererLayer.js";
+import { useTheme } from "@/client/features/settings/index.js";
+import type { RendererShellApi } from "@agentchan/renderer/host";
+import { RendererIframe } from "./RendererIframe.js";
 import { useRendererPresentation } from "./useRendererPresentation.js";
-import type { RendererLayerId } from "./rendererRuntime.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 
@@ -24,19 +24,15 @@ export function RenderedView() {
   const rendererView = useRendererViewState();
   const rendererViewDispatch = useRendererViewDispatch();
   const state = useAgentState();
-  const { refresh, refreshState } = useRendererOutput();
+  const { refresh } = useRendererOutput();
   const actionDispatch = useRendererActionDispatch();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [layerHandle, setLayerHandle] = useState<RendererLayerHandle | null>(null);
+  const { resolved: scheme } = useTheme();
+  const [shell, setShell] = useState<RendererShellApi | null>(null);
   const stateRef = useRef(state);
 
-  // Stable identity here is semantic: child ShadowRoot effects depend on it.
-  const registerLayer = useCallback((layer: RendererLayerId, handle: RendererLayerHandle | null) => {
-    if (layer === 0) setLayerHandle(handle);
-  }, []);
-
   const onTheme = useCallback(
-    (theme: RendererTheme | null) => rendererViewDispatch({ type: "SET_THEME", theme }),
+    (theme: RendererTheme | null) =>
+      rendererViewDispatch({ type: "SET_THEME", theme }),
     [rendererViewDispatch],
   );
 
@@ -77,51 +73,41 @@ export function RenderedView() {
     }
   }, [state.isStreaming, activeProjectSlug, refresh]);
 
-  useEffect(() => {
-    if (!state.isStreaming) return;
-    let raf = 0;
-    let lastState = stateRef.current;
-    refreshState();
-    const tick = () => {
-      if (stateRef.current !== lastState) {
-        lastState = stateRef.current;
-        refreshState();
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [state.isStreaming, refreshState]);
-
-  const host = useRendererPresentation({
+  const presentation = useRendererPresentation({
     actions,
     activeProjectSlug,
-    bundle: rendererView.bundle,
+    digest: rendererView.digest,
     snapshot: rendererView.snapshot,
     error: rendererView.error,
-    layerHandle,
+    scheme,
+    shell,
     onTheme,
   });
 
-  const error = host.visibleError;
+  const error = presentation.visibleError;
+  const active = presentation.active;
 
   return (
     <div data-renderer-surface className="relative flex-1 flex flex-col min-h-0">
-      <ScrollArea ref={containerRef} className="flex-1">
-        <div className="relative h-full min-h-full">
-          <RendererLayer
-            layer={0}
-            register={registerLayer}
-            className={host.layerClassName}
-          />
-        </div>
+      <div className="relative flex-1">
+        {active ? (
+          <div className={presentation.iframeWrapperClassName}>
+            <RendererIframe
+              slug={active.slug}
+              digest={active.digest}
+              scheme={scheme}
+              hostHandlers={presentation.hostHandlers}
+              onShellReady={setShell}
+            />
+          </div>
+        ) : null}
         {error ? (
           <div className="p-4 text-sm text-danger font-mono whitespace-pre-wrap">
             <p>Renderer error:</p>
             <pre className="mt-2 text-xs whitespace-pre-wrap">{error}</pre>
           </div>
         ) : null}
-      </ScrollArea>
+      </div>
     </div>
   );
 }

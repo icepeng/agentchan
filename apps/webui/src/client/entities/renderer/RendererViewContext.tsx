@@ -6,23 +6,22 @@ import {
   type Dispatch,
 } from "react";
 import type {
-  RendererBundle,
   RendererSnapshot,
   RendererTheme,
 } from "@agentchan/renderer/host";
 
 /** Singleton: only the active project's renderer output is on screen. */
 interface RendererViewState {
-  bundle: RendererBundle | null;
+  digest: string | null;
   snapshot: RendererSnapshot | null;
   theme: RendererTheme | null;
   error: string | null;
 }
 
-// Server-driven data store. Host lifecycle (fade/mount/error visibility) is
-// owned by the renderer-host presentation machine, not this reducer.
+// Server-driven data store. Host lifecycle (mount visibility, error gating)
+// is owned by the renderer-host presentation machine, not this reducer.
 type RendererViewAction =
-  | { type: "SET_RENDERER"; bundle: RendererBundle; snapshot: RendererSnapshot }
+  | { type: "SET_RENDERER"; digest: string; snapshot: RendererSnapshot }
   | { type: "SET_SNAPSHOT"; snapshot: RendererSnapshot }
   | { type: "SET_THEME"; theme: RendererTheme | null }
   | { type: "SET_ERROR"; error: string }
@@ -33,7 +32,7 @@ function reducer(state: RendererViewState, action: RendererViewAction): Renderer
     case "SET_RENDERER":
       return {
         ...state,
-        bundle: action.bundle,
+        digest: action.digest,
         snapshot: action.snapshot,
         error: null,
       };
@@ -44,19 +43,19 @@ function reducer(state: RendererViewState, action: RendererViewAction): Renderer
     case "SET_ERROR":
       return {
         ...state,
-        bundle: null,
+        digest: null,
         snapshot: null,
         error: action.error,
       };
     case "CLEAR":
-      return { bundle: null, snapshot: null, theme: null, error: null };
+      return { digest: null, snapshot: null, theme: null, error: null };
     default:
       return state;
   }
 }
 
 const initialState: RendererViewState = {
-  bundle: null,
+  digest: null,
   snapshot: null,
   theme: null,
   error: null,

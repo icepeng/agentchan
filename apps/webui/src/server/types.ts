@@ -27,6 +27,8 @@ import type { TemplateService } from "./services/template.service.js";
 import type { TemplateTrustService } from "./services/template-trust.service.js";
 import type { SkillService } from "./services/skill.service.js";
 import type { UpdateService } from "./services/update.service.js";
+import type { RendererAssetService } from "./services/renderer-asset.service.js";
+import type { HostShellService } from "./services/host-shell.service.js";
 
 export type AppEnv = {
   Variables: {
@@ -38,6 +40,8 @@ export type AppEnv = {
     templateTrustService: TemplateTrustService;
     skillService: SkillService;
     updateService: UpdateService;
+    rendererAssetService: RendererAssetService;
+    hostShellService: HostShellService;
   };
 };
 

@@ -6,14 +6,21 @@
  * cross-cutting renderer types the host inspects plus host-only helpers.
  */
 
-export { isRendererRuntime } from "./internal.ts";
+export {
+  attachRpc,
+  isRendererRuntime,
+  RENDERER_INIT_MESSAGE_TYPE,
+} from "./internal.ts";
 export type {
+  AgentEvent,
   AgentMessage,
   AssistantContentBlock,
   AssistantMessage,
   BinaryFile,
   CompactionSummaryMessage,
   DataFile,
+  HydratedAgentState,
+  HydratePayload,
   ImageContent,
   Message,
   ProjectFile,
@@ -21,8 +28,11 @@ export type {
   RendererAgentState,
   RendererBridge,
   RendererBundle,
+  RendererHostApi,
+  RendererInitMessage,
   RendererInstance,
   RendererRuntime,
+  RendererShellApi,
   RendererSnapshot,
   RendererTheme,
   RendererThemeTokens,

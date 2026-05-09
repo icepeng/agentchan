@@ -1,6 +1,5 @@
 export type {
   RendererActions,
-  RendererBundle,
   RendererSnapshot,
   RendererTheme,
 } from "@agentchan/renderer/host";
@@ -29,4 +28,4 @@ export {
 } from "./RendererActionContext.js";
 export type { RendererActionState } from "./RendererActionContext.js";
 
-export { useRendererOutput } from "./useRendererOutput.js";
+export { useRendererOutput, toRendererAgentState } from "./useRendererOutput.js";

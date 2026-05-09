@@ -4,6 +4,7 @@ import {
   useProjects,
 } from "@/client/entities/project/index.js";
 import {
+  publishAgentEvent,
   useAgentState,
   useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
@@ -167,8 +168,10 @@ export function useStreaming() {
             { revalidate: false },
           );
         },
-        onAgentEvent: (event) =>
-          agentDispatch({ type: "AGENT_EVENT", projectSlug, event }),
+        onAgentEvent: (event) => {
+          agentDispatch({ type: "AGENT_EVENT", projectSlug, event });
+          publishAgentEvent(projectSlug, event);
+        },
         onDone: () => {
           void globalMutate(qk.sessions(projectSlug));
           fireBackgroundNotification("done");

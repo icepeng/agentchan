@@ -1,16 +1,14 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
 import type { AgentState } from "@/client/entities/agent-state/index.js";
-import {
-  fetchWorkspaceFiles,
-  fetchRendererBundle,
-} from "@/client/entities/project/index.js";
+import { fetchWorkspaceFiles } from "@/client/entities/project/index.js";
+import { json } from "@/client/shared/api.js";
 import {
   useViewState,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
-import type { RendererBundle, RendererSnapshot } from "@agentchan/renderer/host";
+import type { RendererSnapshot } from "@agentchan/renderer/host";
 import type {
   RendererAgentState,
   ProjectFile,
@@ -18,7 +16,7 @@ import type {
 
 interface LoadedRenderer {
   slug: string;
-  bundle: RendererBundle;
+  digest: string;
   snapshot: RendererSnapshot;
 }
 
@@ -45,11 +43,11 @@ function reuseStableFiles(
   return changed ? files : previous;
 }
 
-function sameBundle(a: RendererBundle, b: RendererBundle): boolean {
-  if (a.js !== b.js || a.css.length !== b.css.length) return false;
-  return a.css.every((css, index) => css === b.css[index]);
-}
-
+/**
+ * Backwards-compat projection: the canonical `AgentState` carries
+ * `pendingToolCalls` as a Set, while the legacy renderer surface still types
+ * it as `readonly string[]`. Slice 5 removes this — see PRD #176.
+ */
 export function toRendererAgentState(state: AgentState): RendererAgentState {
   return {
     messages: state.messages,
@@ -58,6 +56,22 @@ export function toRendererAgentState(state: AgentState): RendererAgentState {
     pendingToolCalls: Array.from(state.pendingToolCalls),
     errorMessage: state.errorMessage,
   };
+}
+
+interface RendererMeta {
+  digest: string;
+}
+
+function fetchRendererMeta(slug: string): Promise<RendererMeta> {
+  return json(`/projects/${encodeURIComponent(slug)}/renderer.meta`, {
+    cache: "no-store",
+  });
+}
+
+function absoluteBaseUrl(slug: string): string {
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/api/projects/${encodeURIComponent(slug)}`;
 }
 
 export function useRendererOutput() {
@@ -73,8 +87,6 @@ export function useRendererOutput() {
   useLayoutEffect(() => {
     if (activeProjectSlugRef.current !== activeProjectSlug) {
       loadedRef.current = null;
-      // No active project means there is no server-driven data to hold.
-      // The presentation machine handles its own clearing via REQUEST_SLUG.
       if (activeProjectSlug === null) {
         rendererViewDispatch({ type: "CLEAR" });
       }
@@ -97,8 +109,8 @@ export function useRendererOutput() {
     refreshGenerationRef.current = generation;
 
     try {
-      const [bundle, filesResult] = await Promise.all([
-        fetchRendererBundle(slug),
+      const [meta, filesResult] = await Promise.all([
+        fetchRendererMeta(slug),
         fetchWorkspaceFiles(slug),
       ]);
       if (!isStillCurrentRefresh(slug, generation)) return;
@@ -107,17 +119,21 @@ export function useRendererOutput() {
       const files = reuseStableFiles(previousFiles, filesResult.files);
       const snapshot: RendererSnapshot = {
         slug,
-        baseUrl: `/api/projects/${encodeURIComponent(slug)}`,
+        baseUrl: absoluteBaseUrl(slug),
         files,
         state: stateRef.current,
       };
       const previous = loadedRef.current;
-      if (previous?.slug === slug && sameBundle(previous.bundle, bundle)) {
-        loadedRef.current = { slug, bundle: previous.bundle, snapshot };
+      if (previous?.slug === slug && previous.digest === meta.digest) {
+        loadedRef.current = { slug, digest: meta.digest, snapshot };
         rendererViewDispatch({ type: "SET_SNAPSHOT", snapshot });
       } else {
-        loadedRef.current = { slug, bundle, snapshot };
-        rendererViewDispatch({ type: "SET_RENDERER", bundle, snapshot });
+        loadedRef.current = { slug, digest: meta.digest, snapshot };
+        rendererViewDispatch({
+          type: "SET_RENDERER",
+          digest: meta.digest,
+          snapshot,
+        });
       }
     } catch (error: unknown) {
       if (!isStillCurrentRefresh(slug, generation)) return;

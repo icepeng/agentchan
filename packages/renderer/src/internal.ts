@@ -6,7 +6,10 @@
  * Not a public author API — author code imports from `/react`.
  */
 
+import type { AgentEvent } from "@mariozechner/pi-agent-core";
 import type { AgentMessage, AssistantMessage } from "./messages.ts";
+
+export type { AgentEvent };
 export type {
   AgentMessage,
   AssistantContentBlock,
@@ -169,4 +172,88 @@ function encodeFilePath(path: string): string {
 
 function normalizePath(path: string): string {
   return String(path).replace(/^\/+/, "");
+}
+
+// ---------------------------------------------------------------------------
+// iframe ↔ host RPC contract.
+// Host transfers a MessageChannel.port2 to the iframe via the INIT message.
+// All subsequent traffic is fire-and-forget envelopes over that port.
+// `mounted` is the only ack we explicitly wait on (see the wait-for-mounted
+// gate in the host presentation lifecycle).
+// ---------------------------------------------------------------------------
+
+export interface HydratePayload {
+  state: HydratedAgentState;
+  files: readonly ProjectFile[];
+  baseUrl: string;
+  slug: string;
+}
+
+export interface HydratedAgentState {
+  readonly messages: readonly AgentMessage[];
+  readonly isStreaming: boolean;
+  readonly streamingMessage?: AssistantMessage;
+  readonly pendingToolCalls: readonly string[];
+  readonly errorMessage?: string;
+}
+
+export interface RendererShellApi {
+  hydrate(payload: HydratePayload): void;
+  applyEvent(event: AgentEvent): void;
+  pushFiles(files: readonly ProjectFile[]): void;
+  pushScheme(scheme: "light" | "dark"): void;
+  unmount(): void;
+}
+
+export interface RendererHostApi {
+  mounted(payload: { theme: RendererTheme | null }): void;
+  send(text: string): void;
+  fill(text: string): void;
+  onTheme(theme: RendererTheme | null): void;
+  onError(message: string): void;
+}
+
+export type RendererInitMessage = {
+  type: "agentchan:renderer-init";
+  hostOrigin: string;
+  scheme: "light" | "dark";
+};
+
+export const RENDERER_INIT_MESSAGE_TYPE = "agentchan:renderer-init";
+
+interface RpcEnvelope {
+  method: string;
+  args: unknown[];
+}
+
+/**
+ * Wires a MessagePort to a local handler implementation and returns a typed
+ * proxy that forwards calls to the remote side. fire-and-forget — no
+ * Promise plumbing. Method names not present in `handlers` are silently
+ * dropped (defensive against version skew).
+ */
+export function attachRpc<TLocal extends object, TRemote extends object>(
+  port: MessagePort,
+  handlers: TLocal,
+): TRemote {
+  port.addEventListener("message", (event) => {
+    const data = event.data as RpcEnvelope | null;
+    if (!data || typeof data.method !== "string" || !Array.isArray(data.args)) return;
+    const handler = (handlers as unknown as Record<string, unknown>)[data.method];
+    if (typeof handler !== "function") return;
+    try {
+      (handler as (...args: unknown[]) => void).apply(handlers, data.args);
+    } catch (err) {
+      console.error(`[agentchan rpc] handler "${data.method}" threw`, err);
+    }
+  });
+  port.start();
+
+  return new Proxy({} as TRemote, {
+    get(_target, prop: string) {
+      return (...args: unknown[]) => {
+        port.postMessage({ method: prop, args } satisfies RpcEnvelope);
+      };
+    },
+  });
 }

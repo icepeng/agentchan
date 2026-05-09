@@ -23,6 +23,8 @@ import { createTemplateService } from "./services/template.service.js";
 import { createTemplateTrustService } from "./services/template-trust.service.js";
 import { createSkillService } from "./services/skill.service.js";
 import { createUpdateService } from "./services/update.service.js";
+import { createRendererAssetService } from "./services/renderer-asset.service.js";
+import { createHostShellService } from "./services/host-shell.service.js";
 
 // --- Migrations ---
 import { migrateConversationsToSessions } from "./migrations/rename-conversations-to-sessions.js";
@@ -32,6 +34,7 @@ import { createConfigRoutes } from "./routes/config.routes.js";
 import { createProjectRoutes } from "./routes/projects.routes.js";
 import { createTemplateRoutes } from "./routes/template.routes.js";
 import { createUpdateRoutes } from "./routes/update.routes.js";
+import { createRendererShellRoutes } from "./routes/renderer-shell.routes.js";
 
 // ===== 1. Repositories =====
 const settingsRepo = createSettingsRepo(DATA_DIR);
@@ -44,9 +47,11 @@ const updateRepo = createUpdateRepo();
 const configService = createConfigService(settingsRepo);
 const templateTrustService = createTemplateTrustService(settingsRepo);
 const templateService = createTemplateService(templateRepo, templateTrustService, PROJECTS_DIR);
-const projectService = createProjectService(projectRepo, templateRepo, templateTrustService, PROJECTS_DIR);
+const projectService = createProjectService(projectRepo, templateRepo, templateTrustService);
 const skillService = createSkillService(projectSkillRepo, PROJECTS_DIR);
 const updateService = createUpdateService(updateRepo);
+const rendererAssetService = createRendererAssetService(PROJECTS_DIR);
+const hostShellService = createHostShellService({ isDev });
 
 // ===== 2b. Agent context (stateless handle) =====
 const agentContext = createAgentContext({
@@ -93,8 +98,10 @@ app.onError((err, c) => {
 // CORS for development (Vite dev server on different port)
 app.use("/api/*", cors());
 
-// DI middleware — inject services into Hono context
-app.use("/api/*", async (c, next) => {
+// DI middleware — inject services into Hono context. Applies to both /api/*
+// and the renderer-shell asset routes (/renderer-shell.html, /host-theme.css,
+// /renderer-bootstrap.js) which are served by the same Hono instance.
+app.use("*", async (c, next) => {
   c.set("configService", configService);
   c.set("projectService", projectService);
   c.set("sessionService", sessionService);
@@ -103,6 +110,8 @@ app.use("/api/*", async (c, next) => {
   c.set("templateTrustService", templateTrustService);
   c.set("skillService", skillService);
   c.set("updateService", updateService);
+  c.set("rendererAssetService", rendererAssetService);
+  c.set("hostShellService", hostShellService);
   await next();
 });
 
@@ -111,6 +120,7 @@ app.route("/api/projects", createProjectRoutes());
 app.route("/api/config", createConfigRoutes());
 app.route("/api/templates", createTemplateRoutes());
 app.route("/api/update", createUpdateRoutes());
+app.route("/", createRendererShellRoutes());
 
 // Serve static files in production
 if (existsSync(CLIENT_DIR)) {

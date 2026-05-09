@@ -23,6 +23,11 @@ export {
 } from "./aggregateUsage.js";
 export { useSessionUsage } from "./useSessionUsage.js";
 export {
+  publishAgentEvent,
+  subscribeAgentEvents,
+  type AgentEventListener,
+} from "./agentEventBus.js";
+export {
   useContextUsage,
   EMPTY_CONTEXT_USAGE,
   type ContextUsage,

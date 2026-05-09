@@ -1,5 +1,4 @@
-import { dirname, join } from "node:path";
-import { buildRendererBundle } from "@agentchan/renderer/build";
+import { dirname } from "node:path";
 import type { ProjectRepo } from "../repositories/project.repo.js";
 import type { TemplateRepo } from "../repositories/template.repo.js";
 import { TrustRequiredError, type TemplateTrustService } from "./template-trust.service.js";
@@ -8,7 +7,6 @@ export function createProjectService(
   projectRepo: ProjectRepo,
   templateRepo: TemplateRepo,
   trustService: TemplateTrustService,
-  projectsDir: string,
 ) {
   return {
     async list() { return projectRepo.list(); },
@@ -79,10 +77,6 @@ export function createProjectService(
       if (!projectRepo.exists(slug)) return false;
       await projectRepo.createProjectDir(slug, dirPath);
       return true;
-    },
-
-    async buildRenderer(slug: string) {
-      return buildRendererBundle(join(projectsDir, slug));
     },
 
     async serveWorkspaceFile(slug: string, filePath: string) {
