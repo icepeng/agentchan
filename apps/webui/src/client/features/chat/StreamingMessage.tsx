@@ -75,7 +75,7 @@ export function StreamingMessage({ variant = "compact" }: { variant?: "compact" 
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-glow" />
           </div>
           <div className="text-sm text-fg">
-            <MessageContent content={head} runningToolIds={state.pendingToolCalls} />
+            <MessageContent content={head} pendingToolCalls={state.pendingToolCalls} />
             {showCursor && (
               <div className="whitespace-pre-wrap break-words leading-relaxed">
                 {confirmedSentences.map((sentence, i) => (

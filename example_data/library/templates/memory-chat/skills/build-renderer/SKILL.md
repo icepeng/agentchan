@@ -73,7 +73,7 @@ interface RendererSnapshot {
     messages: readonly AgentMessage[];
     isStreaming: boolean;
     streamingMessage?: AssistantMessage;
-    pendingToolCalls: readonly string[];
+    pendingToolCalls: ReadonlySet<string>;
     errorMessage?: string;
   };
 }

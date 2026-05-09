@@ -25,6 +25,15 @@ build) 표면을 한 패키지에서 같이 소유하며, 다른 패키지가 SD
   꽂아 `@agentchan/renderer/react`를 같은 패키지의 디스크 경로로 직접
   resolve한다. 별도의 SDK source 미러는 두지 않는다.
 
+### 핵심 export 요약 (`/react`)
+
+- `createRenderer(Component, options)` — React 컴포넌트를 `RendererRuntime`으로 감싼다.
+- `defineRenderer(factory, options)` — vanilla(non-React) factory 진입점.
+- `fileUrl(snapshot, file)` — `files/` 자원 URL을 digest cache-bust 포함해 만든다.
+- `useScroll(options?)` — stick-to-bottom hook. `scrollRef`를 컨테이너에 붙이면 mount 시 bottom으로 점프, 사용자가 bottom 근처일 때만 자동 추적. `isAtBottom`, `scrollToBottom(behavior?)` 노출.
+- 타입: `AgentState`, `RendererSnapshot`, `RendererActions`, `RendererProps`, `RendererTheme`, `ProjectFile`, `AssistantContentBlock`, `ToolCall`, `ToolResultMessage`, …
+  - `snapshot.state`는 canonical `AgentState`. `pendingToolCalls`는 `ReadonlySet<string>`이므로 `.has(id)`로 조회한다.
+
 ## SDK source 단일 출처
 
 `/react`의 source는 `src/react.tsx`가 전부이며 `src/internal.ts`에 정의된

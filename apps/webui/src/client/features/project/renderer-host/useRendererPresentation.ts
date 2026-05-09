@@ -13,7 +13,6 @@ import {
   type AgentState,
 } from "@/client/entities/agent-state/index.js";
 import {
-  toRendererAgentState,
   type RendererActions,
   type RendererSnapshot,
   type RendererTheme,
@@ -62,11 +61,10 @@ function toHydratePayload(
   state: AgentState,
   files: readonly ProjectFile[],
 ): HydratePayload {
-  const r = toRendererAgentState(state);
   return {
     slug,
     baseUrl,
-    state: r,
+    state,
     files,
   };
 }

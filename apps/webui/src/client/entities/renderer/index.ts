@@ -5,7 +5,6 @@ export type {
 } from "@agentchan/renderer/host";
 export type {
   ProjectFile,
-  RendererAgentState,
   RendererProps,
   RendererAction,
 } from "./renderer.types.js";
@@ -28,4 +27,4 @@ export {
 } from "./RendererActionContext.js";
 export type { RendererActionState } from "./RendererActionContext.js";
 
-export { useRendererOutput, toRendererAgentState } from "./useRendererOutput.js";
+export { useRendererOutput } from "./useRendererOutput.js";

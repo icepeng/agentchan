@@ -5,21 +5,11 @@ import type {
   TextFile,
 } from "@agentchan/creative-agent/browser";
 import type {
-  AgentMessage,
   RendererActions,
   RendererSnapshot,
-  AssistantMessage,
 } from "@agentchan/renderer/host";
 
 export type { BinaryFile, DataFile, ProjectFile, TextFile };
-
-export interface RendererAgentState {
-  readonly messages: ReadonlyArray<AgentMessage>;
-  readonly isStreaming: boolean;
-  readonly streamingMessage?: AssistantMessage;
-  readonly pendingToolCalls: readonly string[];
-  readonly errorMessage?: string;
-}
 
 export interface RendererProps {
   snapshot: RendererSnapshot;

@@ -4,13 +4,13 @@ import {
   defineRenderer,
   fileUrl,
   isRendererRuntime,
+  type AgentState,
   type DataFile,
   type BinaryFile,
   type DefineRendererContext,
   type FileUrlOptions,
   type ProjectFile,
   type RendererActions,
-  type RendererAgentState,
   type RendererBridge,
   type RendererInstance,
   type RendererOptions,
@@ -36,13 +36,13 @@ export {
   defineRenderer,
   fileUrl,
   isRendererRuntime,
+  type AgentState,
   type BinaryFile,
   type DataFile,
   type DefineRendererContext,
   type FileUrlOptions,
   type ProjectFile,
   type RendererActions,
-  type RendererAgentState,
   type RendererBridge,
   type RendererInstance,
   type RendererOptions,
@@ -63,6 +63,12 @@ export {
   type ToolResultMessage,
   type UserMessage,
 };
+
+export {
+  useScroll,
+  type UseScrollOptions,
+  type UseScrollResult,
+} from "./use-scroll.ts";
 
 export interface RendererProps {
   snapshot: RendererSnapshot;

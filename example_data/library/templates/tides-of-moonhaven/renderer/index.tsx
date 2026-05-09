@@ -1,4 +1,4 @@
-import { createRenderer, type AssistantContentBlock, type DataFile, type ImageContent, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextContent, type TextFile, type ToolCall, type ToolResultMessage } from "@agentchan/renderer/react";
+import { createRenderer, type AgentState, type AssistantContentBlock, type DataFile, type ImageContent, type ProjectFile, type RendererActions, type RendererProps, type RendererSnapshot, type RendererTheme, type TextContent, type TextFile, type ToolCall, type ToolResultMessage } from "@agentchan/renderer/react";
 import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 //   tides-of-moonhaven renderer  ·  "Vellum Day — Cartographer's Logbook"
@@ -11,7 +11,6 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement, typ
 
 // ── Local renderer data shapes ──────────────────────
 
-type AgentState = RendererAgentState;
 type ToolResultContent = (TextContent | ImageContent)[];
 
 
@@ -1686,7 +1685,7 @@ function SealChain({
   return (
     <div className="lg-ritual-chain" aria-hidden="true">
       {visible.map((tc, i) => {
-        if (state.pendingToolCalls.includes(tc.id)) {
+        if (state.pendingToolCalls.has(tc.id)) {
           return <span key={i} className="lg-seal lg-seal--live" title={tc.name} aria-hidden="true" />;
         }
         const result = findToolResult(state, tc.id);
@@ -1723,10 +1722,9 @@ function PendingCard({
   const seenSettledScriptRef = useRef<string | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tools = activeToolCalls(state);
-  const pendingIds = new Set(state.pendingToolCalls);
   const latest = tools.length > 0 ? tools[tools.length - 1] : undefined;
   const inFlight =
-    tools.find((tc) => pendingIds.has(tc.id)) ??
+    tools.find((tc) => state.pendingToolCalls.has(tc.id)) ??
     tools.find((tc) => !findToolResult(state, tc.id));
   const desiredFocus = inFlight ?? latest;
   const settledScript = latestSettledScript(state, tools);

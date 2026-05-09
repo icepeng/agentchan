@@ -1,6 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
-import type { AgentState } from "@/client/entities/agent-state/index.js";
 import { fetchWorkspaceFiles } from "@/client/entities/project/index.js";
 import { json } from "@/client/shared/api.js";
 import {
@@ -9,10 +8,7 @@ import {
 } from "@/client/entities/view/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import type { RendererSnapshot } from "@agentchan/renderer/host";
-import type {
-  RendererAgentState,
-  ProjectFile,
-} from "./renderer.types.js";
+import type { ProjectFile } from "./renderer.types.js";
 
 interface LoadedRenderer {
   slug: string;
@@ -43,21 +39,6 @@ function reuseStableFiles(
   return changed ? files : previous;
 }
 
-/**
- * Backwards-compat projection: the canonical `AgentState` carries
- * `pendingToolCalls` as a Set, while the legacy renderer surface still types
- * it as `readonly string[]`. Slice 5 removes this — see PRD #176.
- */
-export function toRendererAgentState(state: AgentState): RendererAgentState {
-  return {
-    messages: state.messages,
-    isStreaming: state.isStreaming,
-    streamingMessage: state.streamingMessage,
-    pendingToolCalls: Array.from(state.pendingToolCalls),
-    errorMessage: state.errorMessage,
-  };
-}
-
 interface RendererMeta {
   digest: string;
 }
@@ -79,8 +60,7 @@ export function useRendererOutput() {
   const rendererViewDispatch = useRendererViewDispatch();
   const agentState = useAgentState();
   const activeProjectSlugRef = useRef(activeProjectSlug);
-  const currentState = toRendererAgentState(agentState);
-  const stateRef = useRef(currentState);
+  const stateRef = useRef(agentState);
   const loadedRef = useRef<LoadedRenderer | null>(null);
   const refreshGenerationRef = useRef(0);
 
@@ -92,7 +72,7 @@ export function useRendererOutput() {
       }
     }
     activeProjectSlugRef.current = activeProjectSlug;
-    stateRef.current = currentState;
+    stateRef.current = agentState;
   });
 
   const isStillCurrentRefresh = useCallback(

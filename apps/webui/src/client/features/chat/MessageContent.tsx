@@ -10,16 +10,16 @@ import { ToolCallDisplay } from "./ToolCallDisplay.js";
  * AssistantMessage that arrives mid-stream uses the same iteration as the
  * final persisted one.
  *
- * `runningToolIds` (optional) marks toolCall blocks whose execution is still
+ * `pendingToolCalls` (optional) marks toolCall blocks whose execution is still
  * pending so `ToolCallDisplay` can show the pulse indicator. Persisted bubbles
  * pass nothing (every tool has already completed).
  */
 export function MessageContent({
   content,
-  runningToolIds,
+  pendingToolCalls,
 }: {
   content: ReadonlyArray<AssistantContentBlock>;
-  runningToolIds?: ReadonlySet<string>;
+  pendingToolCalls?: ReadonlySet<string>;
 }) {
   return (
     <>
@@ -36,7 +36,7 @@ export function MessageContent({
               <ToolCallDisplay
                 key={`tc-${block.id}`}
                 block={block}
-                running={runningToolIds?.has(block.id) ?? false}
+                running={pendingToolCalls?.has(block.id) ?? false}
               />
             );
           case "thinking":

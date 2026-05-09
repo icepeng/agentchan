@@ -1,10 +1,6 @@
-import { createRenderer, type AssistantContentBlock, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile, type ToolCall } from "@agentchan/renderer/react";
+import { createRenderer, type AgentState, type AssistantContentBlock, type ProjectFile, type RendererActions, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile, type ToolCall } from "@agentchan/renderer/react";
 import "./index.css";
 import type { ReactElement } from "react";
-
-// ── Local renderer data shapes ──────────
-
-type AgentState = RendererAgentState;
 
 // ── Renderer theme contract ──────────────────────────────────
 
@@ -1211,7 +1207,7 @@ function pendingStage(active: ToolCall | undefined): {
 function PendingStrip(props: { state: AgentState }): ReactElement {
   const { state } = props;
   const active = activeToolCalls(state).find((tc) =>
-    state.pendingToolCalls.includes(tc.id),
+    state.pendingToolCalls.has(tc.id),
   );
   const stage = pendingStage(active);
   return (

@@ -1,4 +1,4 @@
-import { createRenderer, type AssistantContentBlock, type DataFile, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextContent, type TextFile, type ToolCall, type ToolResultMessage } from "@agentchan/renderer/react";
+import { createRenderer, type AgentState, type AssistantContentBlock, type DataFile, type ProjectFile, type RendererActions, type RendererProps, type RendererSnapshot, type RendererTheme, type TextContent, type TextFile, type ToolCall, type ToolResultMessage } from "@agentchan/renderer/react";
 import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 //   three-winds-ledger renderer  ·  "Salren — Three Winds Ledger"
@@ -8,10 +8,6 @@ import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CSSProperties, ReactElement, ReactNode } from "react";
-
-// ── Local renderer data shapes ──
-
-type AgentState = RendererAgentState;
 
 // ── Renderer theme contract (인라인 선언) ──
 
@@ -2339,9 +2335,8 @@ function PendingCardView(props: {
 }): ReactElement {
   const { state, mode } = props;
   const tools = activeToolCalls(state);
-  const pendingIds = new Set(state.pendingToolCalls);
   const inFlight =
-    tools.find((tc) => pendingIds.has(tc.id)) ??
+    tools.find((tc) => state.pendingToolCalls.has(tc.id)) ??
     tools.find((tc) => !findToolResult(state, tc.id));
   const latest = inFlight ?? tools[tools.length - 1];
   const label = mode === "combat" ? "SALREN이 움직인다" : "잉크가 마르는 중";
@@ -2376,30 +2371,8 @@ function PendingCardView(props: {
 
 // ── Main renderer ─────────────────────────────
 
-type MaybeAgentState = Partial<AgentState> | null | undefined;
-
-const EMPTY_STATE: AgentState = {
-  messages: [],
-  isStreaming: false,
-  pendingToolCalls: [],
-};
-
-function normalizeState(raw: unknown): AgentState {
-  if (!raw || typeof raw !== "object") return EMPTY_STATE;
-  const s = raw as MaybeAgentState;
-  return {
-    messages: Array.isArray(s?.messages) ? s!.messages : [],
-    isStreaming: Boolean(s?.isStreaming),
-    streamingMessage: s?.streamingMessage,
-    pendingToolCalls:
-      Array.isArray(s?.pendingToolCalls) ? s.pendingToolCalls : [],
-    errorMessage: s?.errorMessage,
-  };
-}
-
 function RendererContent(props: RendererContentProps): ReactElement {
-  const { files, baseUrl, actions } = props;
-  const state = normalizeState(props.state);
+  const { files, baseUrl, actions, state } = props;
 
   // 숨김 파일은 애초에 스캔에서 제외.
   const visible = files.filter(isVisible);

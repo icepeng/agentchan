@@ -1,4 +1,4 @@
-import { createRenderer, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
+import { createRenderer, type AgentState, type ProjectFile, type RendererActions, type RendererProps, type RendererSnapshot, type RendererTheme, type TextFile } from "@agentchan/renderer/react";
 import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 //   character-chat renderer  ·  RP chat surface
@@ -20,8 +20,6 @@ import "./index.css";
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { ReactElement, ReactNode } from "react";
-
-type AgentState = RendererAgentState;
 
 interface RendererContentProps {
   state: AgentState;

@@ -17,14 +17,12 @@
  */
 
 import { applyAgentEvent } from "@agentchan/creative-agent/browser";
-import type {
-  AgentEvent,
-  AgentState,
-} from "@agentchan/creative-agent/browser";
+import type { AgentEvent } from "@agentchan/creative-agent/browser";
 import {
   attachRpc,
   isRendererRuntime,
   RENDERER_INIT_MESSAGE_TYPE,
+  type AgentState,
   type HydratePayload,
   type ProjectFile,
   type RendererActions,
@@ -88,28 +86,6 @@ function evaluateTheme(
     console.warn("[renderer.theme] theme function threw", err);
     return null;
   }
-}
-
-function toRendererAgentState(
-  state: AgentState,
-): RendererSnapshot["state"] {
-  return {
-    messages: state.messages,
-    isStreaming: state.isStreaming,
-    streamingMessage: state.streamingMessage,
-    pendingToolCalls: Array.from(state.pendingToolCalls),
-    errorMessage: state.errorMessage,
-  };
-}
-
-function hydratedToAgentState(payload: HydratePayload["state"]): AgentState {
-  return {
-    messages: payload.messages,
-    isStreaming: payload.isStreaming,
-    streamingMessage: payload.streamingMessage,
-    pendingToolCalls: new Set(payload.pendingToolCalls),
-    errorMessage: payload.errorMessage,
-  };
 }
 
 function applySchemeAttribute(scheme: "light" | "dark"): void {
@@ -201,12 +177,12 @@ export function bootIframeShell(
     const hydrate = pendingHydrate;
     pendingHydrate = null;
 
-    const agentState = hydratedToAgentState(hydrate.state);
+    const agentState = hydrate.state;
     const snapshot: RendererSnapshot = {
       slug: hydrate.slug,
       baseUrl: hydrate.baseUrl,
       files: hydrate.files,
-      state: toRendererAgentState(agentState),
+      state: agentState,
     };
 
     let instance: RendererInstance;
@@ -244,7 +220,7 @@ export function bootIframeShell(
     mounted.agentState = next;
     mounted.snapshot = {
       ...mounted.snapshot,
-      state: toRendererAgentState(next),
+      state: next,
     };
     mounted.instance.update(mounted.snapshot);
 

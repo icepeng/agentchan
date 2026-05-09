@@ -1,8 +1,6 @@
-import { createRenderer, type ProjectFile, type RendererActions, type RendererAgentState, type RendererProps, type TextFile } from "@agentchan/renderer/react";
+import { createRenderer, type AgentState, type ProjectFile, type RendererActions, type RendererProps, type TextFile } from "@agentchan/renderer/react";
 import "./index.css";
 import type { ReactElement } from "react";
-
-type AgentState = RendererAgentState;
 
 interface RendererContentProps {
   state: AgentState;

@@ -7,9 +7,9 @@
  */
 
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
-import type { AgentMessage, AssistantMessage } from "./messages.ts";
+import type { AgentState } from "@agentchan/creative-agent/browser";
 
-export type { AgentEvent };
+export type { AgentEvent, AgentState };
 export type {
   AgentMessage,
   AssistantContentBlock,
@@ -55,20 +55,11 @@ export interface BinaryFile extends BaseProjectFile {
   type: "binary";
 }
 
-// subset of pi-agent-core `AgentState`.
-export interface RendererAgentState {
-  readonly messages: readonly AgentMessage[];
-  readonly isStreaming: boolean;
-  readonly streamingMessage?: AssistantMessage;
-  readonly pendingToolCalls: readonly string[];
-  readonly errorMessage?: string;
-}
-
 export interface RendererSnapshot {
   slug: string;
   baseUrl: string;
   files: readonly ProjectFile[];
-  state: RendererAgentState;
+  state: AgentState;
 }
 
 export interface RendererActions {
@@ -183,18 +174,10 @@ function normalizePath(path: string): string {
 // ---------------------------------------------------------------------------
 
 export interface HydratePayload {
-  state: HydratedAgentState;
+  state: AgentState;
   files: readonly ProjectFile[];
   baseUrl: string;
   slug: string;
-}
-
-export interface HydratedAgentState {
-  readonly messages: readonly AgentMessage[];
-  readonly isStreaming: boolean;
-  readonly streamingMessage?: AssistantMessage;
-  readonly pendingToolCalls: readonly string[];
-  readonly errorMessage?: string;
 }
 
 export interface RendererShellApi {
