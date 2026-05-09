@@ -2,11 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BunPlugin } from "bun";
-import {
-  EXTERNAL_VENDOR_SPECIFIERS,
-  isInside,
-  RENDERER_REACT_IMPORT,
-} from "./policy.ts";
+import { EXTERNAL_VENDOR_SPECIFIERS, isInside } from "./policy.ts";
 
 const PACKAGE_SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const RENDERER_REACT_PATH = resolve(PACKAGE_SRC_DIR, "react.tsx");
@@ -15,10 +11,9 @@ export function createRendererRuntimePlugin(): BunPlugin {
   return {
     name: "agentchan-renderer",
     setup(build) {
-      build.onResolve({ filter: /^@agentchan\/renderer\/react$/ }, (args) => {
-        if (args.path === RENDERER_REACT_IMPORT) return { path: RENDERER_REACT_PATH };
-        return undefined;
-      });
+      build.onResolve({ filter: /^@agentchan\/renderer\/react$/ }, () => ({
+        path: RENDERER_REACT_PATH,
+      }));
       build.onResolve({ filter: /.*/ }, (args) => {
         if (EXTERNAL_VENDOR_SPECIFIERS.has(args.path)) {
           return { path: args.path, external: true };
