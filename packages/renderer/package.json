@@ -5,17 +5,26 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    "./core": {
-      "types": "./src/core.ts",
-      "default": "./src/core.ts"
-    },
     "./react": {
       "types": "./src/react.tsx",
       "default": "./src/react.tsx"
     },
+    "./host": {
+      "types": "./src/host.ts",
+      "default": "./src/host.ts"
+    },
+    "./internal": {
+      "types": "./src/internal.ts",
+      "default": "./src/internal.ts"
+    },
+    "./iframe-bootstrap": {
+      "types": "./src/iframe-bootstrap.ts",
+      "default": "./src/iframe-bootstrap.ts"
+    },
     "./build": {
       "types": "./src/build/index.ts",
-      "default": "./src/build/index.ts"
+      "node": "./src/build/index.ts",
+      "default": null
     }
   },
   "scripts": {

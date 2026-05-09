@@ -47,12 +47,12 @@ export const renderer = createRenderer(Renderer, { theme });
 
 Rules:
 
-- Use `renderer/index.tsx` for React renderers. Use `renderer/index.ts` only for vanilla `defineRenderer` renderers, and do not create both.
+- Use `renderer/index.tsx` for the renderer entrypoint.
 - Export `const renderer = createRenderer(Component, options?)`.
 - CSS must be part of the renderer graph, usually `import "./index.css"`.
 - Relative imports must stay inside `renderer/`.
 - External browser libraries must be vendored under `renderer/`.
-- Allowed bare imports are `@agentchan/renderer/react`, `@agentchan/renderer/core`, `react`, `react-dom/client`.
+- Allowed bare imports are `@agentchan/renderer/react`, `react`, `react-dom/client`.
 - Do not import URL modules, `node:*`, host app internals, or browser storage.
 - Do not emit `<script>` tags or inline event-handler attributes.
 - Do not use `window.parent`, `window.top`, `document.body`, or

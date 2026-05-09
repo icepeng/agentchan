@@ -10,8 +10,7 @@ import {
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
-import type { RendererSnapshot } from "@agentchan/renderer/core";
-import type { RendererBundle } from "@agentchan/renderer/build";
+import type { RendererBundle, RendererSnapshot } from "@agentchan/renderer/host";
 import type {
   RendererAgentState,
   ProjectFile,

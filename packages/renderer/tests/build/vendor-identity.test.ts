@@ -117,7 +117,7 @@ describe("Renderer + vendor module identity", () => {
         import { createElement, useState, Fragment } from "react";
         import { createRoot } from "react-dom/client";
         import { unstable_now } from "scheduler";
-        import { defineRenderer } from "@agentchan/renderer/core";
+        import { defineRenderer } from "@agentchan/renderer/react";
 
         // JSX pulls in the jsx-dev-runtime fixture. Its upstream CJS source
         // reassigns its React local — the externalized fixture has to

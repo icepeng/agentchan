@@ -6,10 +6,10 @@ import {
   type Dispatch,
 } from "react";
 import type {
+  RendererBundle,
   RendererSnapshot,
   RendererTheme,
-} from "@agentchan/renderer/core";
-import type { RendererBundle } from "@agentchan/renderer/build";
+} from "@agentchan/renderer/host";
 
 /** Singleton: only the active project's renderer output is on screen. */
 interface RendererViewState {

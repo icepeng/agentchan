@@ -1,7 +1,7 @@
 import type {
   RendererTheme,
   RendererThemeTokens,
-} from "@agentchan/renderer/core";
+} from "@agentchan/renderer/host";
 import type { ResolvedThemeVars } from "./renderer.types.js";
 
 /**

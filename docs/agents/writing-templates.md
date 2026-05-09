@@ -32,7 +32,6 @@ import {
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "paths": {
-      "@agentchan/renderer/core": ["./node_modules/@agentchan/renderer/src/core.ts"],
       "@agentchan/renderer/react": ["./node_modules/@agentchan/renderer/src/react.tsx"]
     }
   },

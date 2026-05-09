@@ -79,7 +79,7 @@ describe("Renderer import policy", () => {
     await writeRenderer("helper.ts", "export const value = 1;");
     await writeRenderer(
       "index.tsx",
-      'import { defineRenderer } from "@agentchan/renderer/core"; import { value } from "./helper"; export const renderer = defineRenderer(({ container }) => { container.textContent = String(value); return { update() {}, unmount() {} }; });',
+      'import { defineRenderer } from "@agentchan/renderer/react"; import { value } from "./helper"; export const renderer = defineRenderer(({ container }) => { container.textContent = String(value); return { update() {}, unmount() {} }; });',
     );
 
     await expect(
@@ -151,11 +151,11 @@ describe("Renderer import policy", () => {
 });
 
 describe("Renderer bundle", () => {
-  test("vanilla renderer can bundle from renderer/index.ts without React adapter", async () => {
+  test("defineRenderer-built runtime survives bundling round-trip", async () => {
     await writeRenderer(
       "index.ts",
       `
-        import { defineRenderer } from "@agentchan/renderer/core";
+        import { defineRenderer } from "@agentchan/renderer/react";
 
         export const renderer = defineRenderer(({ container, snapshot }) => {
           container.textContent = snapshot.slug;
@@ -170,10 +170,9 @@ describe("Renderer bundle", () => {
     );
 
     const bundle = await buildRendererBundle(projectDir);
-    const mod = await importBundle(bundle?.js ?? "");
+    const mod = await importExternalizedBundle(bundle?.js ?? "");
 
     expect(typeof (mod.renderer as { mount?: unknown }).mount).toBe("function");
-    expect(bundle?.js).not.toContain("react-dom");
   });
 
   test("baseline vendor specifiers stay external in the bundle output", async () => {
@@ -185,7 +184,7 @@ describe("Renderer bundle", () => {
         import * as _jsxRuntime from "react/jsx-runtime";
         import * as _jsxDevRuntime from "react/jsx-dev-runtime";
         import * as _scheduler from "scheduler";
-        import { defineRenderer } from "@agentchan/renderer/core";
+        import { defineRenderer } from "@agentchan/renderer/react";
 
         // Pinning each namespace forces Bun to keep the import live in the bundle.
         export const _vendorPins = [
@@ -221,7 +220,7 @@ describe("Renderer bundle", () => {
     await writeRenderer("style.css", ".root { color: red; }");
     await writeRenderer(
       "index.tsx",
-      'import "./style.css"; import { defineRenderer } from "@agentchan/renderer/core"; export const renderer = defineRenderer(({ container }) => { container.className = "root"; return { update() {}, unmount() {} }; });',
+      'import "./style.css"; import { defineRenderer } from "@agentchan/renderer/react"; export const renderer = defineRenderer(({ container }) => { container.className = "root"; return { update() {}, unmount() {} }; });',
     );
 
     const bundle = await buildRendererBundle(projectDir);
@@ -234,7 +233,7 @@ describe("Renderer bundle", () => {
     await writeRenderer(
       "index.tsx",
       `
-        import { defineRenderer, fileUrl } from "@agentchan/renderer/core";
+        import { defineRenderer, fileUrl } from "@agentchan/renderer/react";
         const snapshot = { baseUrl: "/api/projects/demo/", files: [], state: {} };
         export function makeFileUrl() {
           return fileUrl(snapshot, { path: "/folder/a b.png", digest: "sha/1" });
@@ -247,7 +246,7 @@ describe("Renderer bundle", () => {
     );
 
     const bundle = await buildRendererBundle(projectDir);
-    const mod = await importBundle(bundle?.js ?? "");
+    const mod = await importExternalizedBundle(bundle?.js ?? "");
 
     expect((mod.makeFileUrl as () => string)()).toBe(
       "/api/projects/demo/files/folder/a%20b.png?v=sha%2F1",
@@ -261,7 +260,7 @@ describe("Renderer bundle", () => {
     await writeRenderer(
       "index.ts",
       `
-        import { defineRenderer } from "@agentchan/renderer/core";
+        import { defineRenderer } from "@agentchan/renderer/react";
         export const renderer = defineRenderer(({ container, snapshot }) => {
           container.textContent = snapshot.slug;
           return {
@@ -273,7 +272,7 @@ describe("Renderer bundle", () => {
     );
 
     const bundle = await buildRendererBundle(projectDir);
-    const mod = await importBundle(bundle?.js ?? "");
+    const mod = await importExternalizedBundle(bundle?.js ?? "");
     const runtime = mod.renderer as {
       mount: (container: { textContent: string }, bridge: unknown) => {
         update: (next: { slug: string }) => void;

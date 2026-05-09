@@ -3,7 +3,6 @@ import { readFile, readdir } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { RendererError } from "./errors.ts";
 
-export const RENDERER_CORE_IMPORT = "@agentchan/renderer/core";
 export const RENDERER_REACT_IMPORT = "@agentchan/renderer/react";
 
 /**
@@ -20,7 +19,6 @@ export const EXTERNAL_VENDOR_SPECIFIERS: ReadonlySet<string> = new Set([
 ]);
 
 const ALLOWED_BARE_IMPORTS: ReadonlySet<string> = new Set([
-  RENDERER_CORE_IMPORT,
   RENDERER_REACT_IMPORT,
   ...EXTERNAL_VENDOR_SPECIFIERS,
 ]);
@@ -50,7 +48,7 @@ export async function validateRendererImportPolicy(
       if (!specifier.startsWith(".")) {
         throw new RendererError(
           "policy",
-          `Renderer bare import is not allowed: ${specifier}. Use @agentchan/renderer/core, @agentchan/renderer/react, react, react-dom/client, or a relative renderer/ import.`,
+          `Renderer bare import is not allowed: ${specifier}. Use @agentchan/renderer/react, react, react-dom/client, or a relative renderer/ import.`,
         );
       }
 

@@ -1,5 +1,11 @@
 /// <reference lib="dom" />
 
+/**
+ * Cross-cutting renderer types shared by the author surface (`/react`),
+ * the host orchestrator (`/host`), and the iframe shell (`/iframe-bootstrap`).
+ * Not a public author API — author code imports from `/react`.
+ */
+
 import type { AgentMessage, AssistantMessage } from "./messages.ts";
 export type {
   AgentMessage,
@@ -14,6 +20,11 @@ export type {
   ToolResultMessage,
   UserMessage,
 } from "./messages.ts";
+
+export interface RendererBundle {
+  js: string;
+  css: string[];
+}
 
 export type ProjectFile = TextFile | DataFile | BinaryFile;
 

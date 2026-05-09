@@ -1,9 +1,9 @@
 export type {
   RendererActions,
+  RendererBundle,
   RendererSnapshot,
   RendererTheme,
-} from "@agentchan/renderer/core";
-export type { RendererBundle } from "@agentchan/renderer/build";
+} from "@agentchan/renderer/host";
 export type {
   ProjectFile,
   RendererAgentState,

@@ -9,8 +9,8 @@ module 파일을 dev/prod 두 모드로 emit한다.
 
 ## 왜 별도 패키지인가
 
-`@agentchan/renderer`는 작성자 surface(`/core`, `/react`)와 호스트 빌드
-파이프라인(`/build`)을 소유한다. vendor fixture는 **author도 host build도
+`@agentchan/renderer`는 작성자 surface(`/react`)와 host orchestrator/internal
+표면, 호스트 빌드 파이프라인(`/build`)을 소유한다. vendor fixture는 **author도 host build도
 아닌 install-wide artifact**라, lockfile에 고정된 react 사본을 한 번 굽고
 모든 Renderer bundle이 그 사본을 importmap으로 공유한다는 별도의 책임이다.
 같은 패키지 안에 두면 호스트 빌드와 vendor 산출물의 lifecycle이 섞인다.

@@ -5,20 +5,17 @@ import type { BunPlugin } from "bun";
 import {
   EXTERNAL_VENDOR_SPECIFIERS,
   isInside,
-  RENDERER_CORE_IMPORT,
   RENDERER_REACT_IMPORT,
 } from "./policy.ts";
 
 const PACKAGE_SRC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const RENDERER_CORE_PATH = resolve(PACKAGE_SRC_DIR, "core.ts");
 const RENDERER_REACT_PATH = resolve(PACKAGE_SRC_DIR, "react.tsx");
 
 export function createRendererRuntimePlugin(): BunPlugin {
   return {
     name: "agentchan-renderer",
     setup(build) {
-      build.onResolve({ filter: /^@agentchan\/renderer\/(core|react)$/ }, (args) => {
-        if (args.path === RENDERER_CORE_IMPORT) return { path: RENDERER_CORE_PATH };
+      build.onResolve({ filter: /^@agentchan\/renderer\/react$/ }, (args) => {
         if (args.path === RENDERER_REACT_IMPORT) return { path: RENDERER_REACT_PATH };
         return undefined;
       });

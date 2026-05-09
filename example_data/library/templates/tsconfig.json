@@ -8,7 +8,6 @@
     "noUnusedParameters": true,
     "noUncheckedIndexedAccess": false,
     "paths": {
-      "@agentchan/renderer/core": ["../../../packages/renderer/src/core.ts"],
       "@agentchan/renderer/react": ["../../../packages/renderer/src/react.tsx"]
     }
   },

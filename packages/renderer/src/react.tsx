@@ -30,7 +30,7 @@ import {
   type ToolCall,
   type ToolResultMessage,
   type UserMessage,
-} from "./core.ts";
+} from "./internal.ts";
 
 export {
   defineRenderer,

@@ -10,25 +10,27 @@ build) 표면을 한 패키지에서 같이 소유하며, 다른 패키지가 SD
 
 | Import path | 용도 | 소비자 |
 | --- | --- | --- |
-| `@agentchan/renderer/core` | 작성자 core SDK (`defineRenderer`, `fileUrl`, `isRendererRuntime`, contract 타입) | 프로젝트 `renderer/index.ts(x)`, webui client (`RendererSnapshot`/`Actions`/`Theme`/`ThemeTokens` 등) |
-| `@agentchan/renderer/react` | React authoring adapter (`createRenderer`, `RendererProps`) | 프로젝트 `renderer/index.tsx` |
-| `@agentchan/renderer/build` | 호스트 빌드 파이프라인 (`buildRendererBundle`, `findRendererEntrypoint`, `RendererBundle`, `RendererError`, `RendererBuildError`, Bun plugin) | webui server (`project.service.ts`) |
+| `@agentchan/renderer/react` | 작성자 유일 공개 표면 (`createRenderer`, `defineRenderer`, `fileUrl`, contract 타입) | 프로젝트 `renderer/index.tsx` |
+| `@agentchan/renderer/host` | 호스트 orchestrator 표면 (`isRendererRuntime`, `RendererRuntime`/`Bridge`/`Instance`, `RendererBundle`, snapshot/theme 타입) | webui client (`renderer-host`, `entities/renderer`) |
+| `@agentchan/renderer/internal` | message protocol 및 cross-cutting types (host와 iframe shell이 공유) | host orchestrator, iframe shell |
+| `@agentchan/renderer/iframe-bootstrap` | iframe shell entry placeholder (PRD #176 Slice 3에서 본격 사용) | iframe document |
+| `@agentchan/renderer/build` | 호스트 빌드 파이프라인 (`buildRendererBundle`, `findRendererEntrypoint`, `RendererError`, `RendererBuildError`, Bun plugin). conditional `node` only — 브라우저 환경에서는 resolve되지 않는다 | webui server (`project.service.ts`) |
 
 ## 작성자 surface vs 호스트 빌드
 
-- 작성자 surface (`/core`, `/react`)는 ADR-0001의 contract를 구현한다. 사용자
+- 작성자 surface (`/react`)는 ADR-0001의 contract를 구현한다. 사용자
   프로젝트의 `renderer/` 디렉토리가 import하는 유일한 패키지 경로다.
 - 호스트 빌드 (`/build`)는 사용자 renderer를 ESM 번들로 빌드한다. Bun
   builder에 import policy validator + `agentchan-renderer` Bun plugin을
-  꽂아 `@agentchan/renderer/{core,react}`를 같은 패키지의 디스크 경로로 직접
+  꽂아 `@agentchan/renderer/react`를 같은 패키지의 디스크 경로로 직접
   resolve한다. 별도의 SDK source 미러는 두지 않는다.
 
 ## SDK source 단일 출처
 
-`/core`와 `/react`의 source는 `src/core.ts`, `src/react.tsx` 두 파일이 전부다.
-호스트 빌드는 이 파일을 그대로 resolve해서 번들에 넣는다. 빌더 측에 SDK
-shim/string-mirror을 두지 않으므로 contract 변경 시 동기화할 두 번째 출처가
-없다.
+`/react`의 source는 `src/react.tsx`가 전부이며 `src/internal.ts`에 정의된
+cross-cutting 타입을 re-export한다. 호스트 빌드는 이 파일들을 그대로
+resolve해서 번들에 넣는다. 빌더 측에 SDK shim/string-mirror을 두지 않으므로
+contract 변경 시 동기화할 두 번째 출처가 없다.
 
 ## Baseline React vendor
 

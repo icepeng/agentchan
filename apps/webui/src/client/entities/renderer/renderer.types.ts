@@ -9,7 +9,7 @@ import type {
   RendererActions,
   RendererSnapshot,
   AssistantMessage,
-} from "@agentchan/renderer/core";
+} from "@agentchan/renderer/host";
 
 export type { BinaryFile, DataFile, ProjectFile, TextFile };
 

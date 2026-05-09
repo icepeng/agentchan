@@ -1,13 +1,13 @@
 import {
   isRendererRuntime,
   type RendererRuntime,
-} from "@agentchan/renderer/core";
+} from "@agentchan/renderer/host";
 
 export type {
   RendererBridge,
   RendererInstance,
   RendererRuntime,
-} from "@agentchan/renderer/core";
+} from "@agentchan/renderer/host";
 
 export const FADE_DURATION_MS = 300;
 
