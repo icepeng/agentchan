@@ -10,7 +10,7 @@ import type {
   AgentchanSessionInfo,
   SessionEntry,
   SessionMode,
-} from "@agentchan/creative-agent";
+} from "@agentchan/creative-agent/browser";
 
 /** Server-shaped session detail returned by `/sessions/:id`. */
 export interface SessionData {

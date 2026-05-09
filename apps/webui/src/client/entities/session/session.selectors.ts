@@ -3,7 +3,7 @@ import type {
   AgentchanSessionInfo,
   SessionEntry,
   SessionMessageEntry,
-} from "@agentchan/creative-agent";
+} from "@agentchan/creative-agent/browser";
 
 /** root → leaf branch by following parentId from leafId. Returns [] for null leaf. */
 export function selectBranch(

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import type { AgentchanSessionInfo } from "@agentchan/creative-agent";
+import type { AgentchanSessionInfo } from "@agentchan/creative-agent/browser";
 import { pickDefaultCreativeSessionId } from "@/client/entities/session/session.selectors.js";
 
 function info(

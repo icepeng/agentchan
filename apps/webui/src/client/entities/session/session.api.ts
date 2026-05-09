@@ -3,7 +3,7 @@ import type {
   AgentchanSessionInfo,
   SessionEntry,
   SessionMode,
-} from "@agentchan/creative-agent";
+} from "@agentchan/creative-agent/browser";
 import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
 
 export type { AgentEvent };

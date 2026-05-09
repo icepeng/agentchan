@@ -3,7 +3,7 @@ import type {
   DataFile,
   ProjectFile,
   TextFile,
-} from "@agentchan/creative-agent";
+} from "@agentchan/creative-agent/browser";
 import type {
   AgentMessage,
   RendererActions,

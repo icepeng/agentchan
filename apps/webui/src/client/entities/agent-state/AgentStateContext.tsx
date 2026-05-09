@@ -5,12 +5,14 @@ import {
   type ReactNode,
   type Dispatch,
 } from "react";
-import type { AgentEvent } from "@agentchan/creative-agent";
+import type { AgentEvent } from "@agentchan/creative-agent/browser";
+import { applyAgentEvent } from "@agentchan/creative-agent/browser";
 import type { AgentMessage, AgentState } from "./agentState.js";
 import { EMPTY_AGENT_STATE } from "./agentState.js";
 
 // Map keyed by projectSlug for agentchan's parallel-stream model.
-// Reducer is a 1:1 port of pi-agent-core `Agent.processEvents`.
+// Reducer (`applyAgentEvent`) lives in `@agentchan/creative-agent/browser`
+// so host and iframe-side adapter share a single canonical source.
 
 type AgentStateMap = ReadonlyMap<string, AgentState>;
 
@@ -23,41 +25,6 @@ type Action =
   | { type: "AGENT_EVENT"; projectSlug: string; event: AgentEvent }
   | { type: "ERROR"; projectSlug: string; message: string }
   | { type: "CLOSE"; projectSlug: string };
-
-function applyAgentEvent(state: AgentState, ev: AgentEvent): AgentState {
-  switch (ev.type) {
-    case "agent_start":
-      return { ...state, isStreaming: true, streamingMessage: undefined, errorMessage: undefined };
-    case "agent_end":
-      return { ...state, isStreaming: false, streamingMessage: undefined };
-    case "message_start":
-    case "message_update":
-      if (ev.message.role !== "assistant") return state;
-      return { ...state, streamingMessage: ev.message };
-    case "message_end":
-      return {
-        ...state,
-        streamingMessage: undefined,
-        messages: [...state.messages, ev.message],
-      };
-    case "tool_execution_start": {
-      const pending = new Set(state.pendingToolCalls);
-      pending.add(ev.toolCallId);
-      return { ...state, pendingToolCalls: pending };
-    }
-    case "tool_execution_end": {
-      const pending = new Set(state.pendingToolCalls);
-      pending.delete(ev.toolCallId);
-      return { ...state, pendingToolCalls: pending };
-    }
-    case "turn_end":
-      return ev.message.role === "assistant" && ev.message.errorMessage
-        ? { ...state, errorMessage: ev.message.errorMessage }
-        : state;
-    default:
-      return state; // tool_execution_update, turn_start
-  }
-}
 
 function getSlot(map: AgentStateMap, slug: string): AgentState {
   return map.get(slug) ?? EMPTY_AGENT_STATE;

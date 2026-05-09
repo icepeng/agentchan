@@ -1,4 +1,4 @@
-import type { CustomApiFormat } from "@agentchan/creative-agent";
+import type { CustomApiFormat } from "@agentchan/creative-agent/browser";
 
 /** Fallback when the active model has no `contextWindow` (e.g. custom provider). */
 export const DEFAULT_CONTEXT_WINDOW = 128_000;

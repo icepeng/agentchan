@@ -1,4 +1,4 @@
-export type { ProviderInfo, ModelInfo, ThinkingLevel, CustomProviderDef, CustomApiFormat } from "@agentchan/creative-agent";
+export type { ProviderInfo, ModelInfo, ThinkingLevel, CustomProviderDef, CustomApiFormat } from "@agentchan/creative-agent/browser";
 export { FORMAT_OPTIONS, DEFAULT_CONTEXT_WINDOW, DEFAULT_MAX_TOKENS } from "./config.constants.js";
 export {
   fetchConfig, updateConfig, fetchProviders,

@@ -1,4 +1,4 @@
-import type { ProjectFile } from "@agentchan/creative-agent";
+import type { ProjectFile } from "@agentchan/creative-agent/browser";
 
 export interface Project {
   slug: string;
