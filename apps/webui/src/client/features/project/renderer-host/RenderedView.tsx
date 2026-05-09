@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useViewState,
   selectActiveProjectSlug,
@@ -28,7 +28,6 @@ export function RenderedView() {
   const actionDispatch = useRendererActionDispatch();
   const { resolved: scheme } = useTheme();
   const [shell, setShell] = useState<RendererShellApi | null>(null);
-  const stateRef = useRef(state);
 
   const onTheme = useCallback(
     (theme: RendererTheme | null) =>
@@ -47,10 +46,6 @@ export function RenderedView() {
     }),
     [actionDispatch],
   );
-
-  useEffect(() => {
-    stateRef.current = state;
-  });
 
   useEffect(() => {
     void refresh();

@@ -25,9 +25,9 @@ const SHELL_PATH = "/renderer-shell.html";
  * `onShellReady`. Slug or digest changes recreate the iframe entirely
  * (key change), forcing a fresh handshake on the new generation.
  *
- * `hostHandlers` is captured by ref so handler-identity changes do not
- * tear down the iframe — the parent updates its state without re-creating
- * the channel.
+ * `hostHandlers` and `scheme` are captured by ref so identity changes (e.g.
+ * appearance toggle) do not tear down the iframe channel — scheme updates
+ * after INIT flow through `shell.pushScheme()` from the parent.
  */
 export function RendererIframe({
   slug,
@@ -40,10 +40,12 @@ export function RendererIframe({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const handlersRef = useRef(hostHandlers);
   const onShellReadyRef = useRef(onShellReady);
+  const schemeRef = useRef(scheme);
 
   useEffect(() => {
     handlersRef.current = hostHandlers;
     onShellReadyRef.current = onShellReady;
+    schemeRef.current = scheme;
   });
 
   useEffect(() => {
@@ -77,7 +79,7 @@ export function RendererIframe({
       const init: RendererInitMessage = {
         type: RENDERER_INIT_MESSAGE_TYPE,
         hostOrigin: window.location.origin,
-        scheme,
+        scheme: schemeRef.current,
       };
       win.postMessage(init, window.location.origin, [channel.port2]);
       const shell = attachRpc<RendererHostApi, RendererShellApi>(
@@ -97,7 +99,7 @@ export function RendererIframe({
         // ignore close errors during teardown
       }
     };
-  }, [slug, digest, scheme]);
+  }, [slug, digest]);
 
   const src = `${SHELL_PATH}?slug=${encodeURIComponent(slug)}&v=${encodeURIComponent(digest)}`;
 

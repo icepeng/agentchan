@@ -150,19 +150,5 @@ export function useRendererOutput() {
     }
   }, [activeProjectSlug, isStillCurrentRefresh, rendererViewDispatch]);
 
-  const refreshState = useCallback(() => {
-    const slug = activeProjectSlug;
-    if (!slug) return;
-    const loaded = loadedRef.current;
-    if (!loaded || loaded.slug !== slug) return;
-
-    const snapshot: RendererSnapshot = {
-      ...loaded.snapshot,
-      state: stateRef.current,
-    };
-    loaded.snapshot = snapshot;
-    rendererViewDispatch({ type: "SET_SNAPSHOT", snapshot });
-  }, [activeProjectSlug, rendererViewDispatch]);
-
-  return { refresh, refreshState };
+  return { refresh };
 }

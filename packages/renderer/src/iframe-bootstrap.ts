@@ -165,7 +165,6 @@ export function bootIframeShell(
   });
 
   let mounted: MountState | null = null;
-  let baseUrl: string | null = null;
   let host: RendererHostApi | null = null;
   let pendingHydrate: HydratePayload | null = null;
   type Pending =
@@ -209,7 +208,6 @@ export function bootIframeShell(
       files: hydrate.files,
       state: toRendererAgentState(agentState),
     };
-    baseUrl = hydrate.baseUrl;
 
     let instance: RendererInstance;
     try {
@@ -268,7 +266,6 @@ export function bootIframeShell(
     hydrate(payload) {
       // hydrate may arrive before the bundle resolves; queue it.
       pendingHydrate = payload;
-      baseUrl = payload.baseUrl;
       void tryMount();
     },
     applyEvent(event) {
