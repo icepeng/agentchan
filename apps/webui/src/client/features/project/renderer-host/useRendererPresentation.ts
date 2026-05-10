@@ -1,5 +1,12 @@
 /* oxlint-disable react-hooks-js/set-state-in-effect -- Adapter dispatches presentation events from external project/output state. */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type TransitionEvent,
+} from "react";
 import {
   subscribeAgentEvents,
   useAgentState,
@@ -19,10 +26,12 @@ import type {
 } from "@agentchan/renderer/host";
 import {
   createPresentationMachine,
-  iframeWrapperClassName,
+  selectSlots,
+  slotWrapperClassName,
   type PresentationCommand,
   type PresentationEvent,
   type PresentationState,
+  type RenderedSlot,
 } from "./presentationMachine.js";
 
 interface Options {
@@ -32,16 +41,19 @@ interface Options {
   snapshot: RendererSnapshot | null;
   error: string | null;
   scheme: "light" | "dark";
-  shell: RendererShellApi | null;
   onTheme: (theme: RendererTheme | null) => void;
 }
 
-interface RendererPresentation {
-  iframeWrapperClassName: string;
-  visibleError: string | null;
+export interface PresentationSlot extends RenderedSlot {
+  className: string;
   hostHandlers: RendererHostApi;
-  /** Slug + digest to feed into RendererIframe; null when not ready. */
-  active: { slug: string; digest: string } | null;
+  onShellReady: (shell: RendererShellApi | null) => void;
+  onTransitionEnd: (event: TransitionEvent) => void;
+}
+
+interface RendererPresentation {
+  slots: ReadonlyArray<PresentationSlot>;
+  visibleError: string | null;
 }
 
 function toHydratePayload(
@@ -66,7 +78,6 @@ export function useRendererPresentation({
   snapshot,
   error,
   scheme,
-  shell,
   onTheme,
 }: Options): RendererPresentation {
   const machine = useMemo(() => createPresentationMachine(), []);
@@ -75,19 +86,28 @@ export function useRendererPresentation({
   const stateRef = useRef(state);
   const actionsRef = useRef(actions);
   const onThemeRef = useRef(onTheme);
-  const shellRef = useRef(shell);
   const agentStateForSlug = useAgentState(activeProjectSlug);
   const agentStateRef = useRef(agentStateForSlug);
-  const snapshotRef = useRef(snapshot);
   const dispatchRef = useRef<(event: PresentationEvent) => void>(() => {});
   const lastHydratedKeyRef = useRef<string | null>(null);
+  const lastFilesRef = useRef<readonly ProjectFile[] | null>(null);
+
+  // Per-slot shells, keyed by slot generation. RendererIframe writes via
+  // its `onShellReady` callback; reads pluck the active shell via
+  // state.cur.generation.
+  const [shells, setShells] = useState<ReadonlyMap<number, RendererShellApi>>(
+    () => new Map(),
+  );
+  const curGeneration = state.cur?.generation ?? null;
+  const curSlug = state.cur?.slug ?? null;
+  const curShell = curGeneration !== null
+    ? shells.get(curGeneration) ?? null
+    : null;
 
   useEffect(() => {
     actionsRef.current = actions;
     onThemeRef.current = onTheme;
-    shellRef.current = shell;
     agentStateRef.current = agentStateForSlug;
-    snapshotRef.current = snapshot;
   });
 
   const runCommand = useCallback((command: PresentationCommand) => {
@@ -146,14 +166,15 @@ export function useRendererPresentation({
     dispatch({ type: "ERROR_REPORTED", message: error });
   }, [error, dispatch]);
 
-  // Hydrate iframe once shell + snapshot are available, before MOUNTED.
-  // Re-hydrate on slug or generation change so a project switch resets state.
+  // Hydrate the cur shell once it's available, before MOUNTED. Re-hydrate on
+  // generation change so each slot receives its own initial state.
   useEffect(() => {
-    if (!shell || !snapshot || snapshot.slug !== activeProjectSlug) return;
-    const key = `${state.generation}:${snapshot.slug}`;
+    if (!curShell || curGeneration === null || curSlug === null) return;
+    if (!snapshot || snapshot.slug !== curSlug) return;
+    const key = `${curGeneration}:${curSlug}`;
     if (lastHydratedKeyRef.current === key) return;
     lastHydratedKeyRef.current = key;
-    shell.hydrate(
+    curShell.hydrate(
       toHydratePayload(
         snapshot.slug,
         snapshot.baseUrl,
@@ -161,42 +182,57 @@ export function useRendererPresentation({
         snapshot.files,
       ),
     );
-  }, [shell, snapshot, activeProjectSlug, state.generation]);
+  }, [curShell, curGeneration, curSlug, snapshot]);
 
-  // Push scheme changes to the iframe.
+  // Push scheme to the cur shell. Ignore prev — it's fading out anyway.
   useEffect(() => {
-    shell?.pushScheme(scheme);
-  }, [shell, scheme]);
+    if (!curShell) return;
+    curShell.pushScheme(scheme);
+  }, [curShell, scheme]);
 
-  // Push file changes (not state — events handle that) when snapshot.files
-  // ref changes for the same mounted slug.
-  const lastFilesRef = useRef<readonly ProjectFile[] | null>(null);
+  // Push file changes to cur shell when snapshot.files ref changes.
   useEffect(() => {
-    if (!shell || !snapshot || snapshot.slug !== activeProjectSlug) return;
-    if (state.phase !== "mounted") return;
+    if (!curShell || curSlug === null || !snapshot) return;
+    if (snapshot.slug !== curSlug) return;
+    if (state.phase !== "fading-in" && state.phase !== "showing") return;
     if (lastFilesRef.current === snapshot.files) return;
     lastFilesRef.current = snapshot.files;
-    shell.pushFiles(snapshot.files);
-  }, [shell, snapshot, activeProjectSlug, state.phase]);
+    curShell.pushFiles(snapshot.files);
+  }, [curShell, curSlug, snapshot, state.phase]);
 
-  // Subscribe to AgentEvent fan-out and forward to the iframe-side reducer.
+  // Subscribe to AgentEvent fan-out and forward to the cur iframe-side reducer.
+  // Iframe buffers pre-MOUNTED events, so we wire as soon as the shell exists.
   useEffect(() => {
-    if (!shell || !activeProjectSlug || state.phase !== "mounted") return;
-    return subscribeAgentEvents((slug, event) => {
-      if (slug !== activeProjectSlug) return;
-      shell.applyEvent(event);
+    if (!curShell || curSlug === null) return;
+    return subscribeAgentEvents((eventSlug, event) => {
+      if (eventSlug !== curSlug) return;
+      curShell.applyEvent(event);
     });
-  }, [shell, activeProjectSlug, state.phase]);
+  }, [curShell, curSlug]);
 
-  // Stable handlers object — keeps the iframe component's effect deps lean.
-  const hostHandlers = useMemo<RendererHostApi>(
-    () => ({
+  // Per-slot shell setter. Map identity changes on every write to keep React
+  // state semantics; deletes drop the entry.
+  const setShellForSlot = useCallback(
+    (generation: number, shell: RendererShellApi | null) => {
+      setShells((prev) => {
+        const existing = prev.get(generation) ?? null;
+        if (existing === shell) return prev;
+        const next = new Map(prev);
+        if (shell === null) next.delete(generation);
+        else next.set(generation, shell);
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Build host handlers per slot. Generation is captured so MOUNTED ack and
+  // friends carry the right tag — stale handlers (from torn-down slots)
+  // hit the state-machine generation guard.
+  const makeHostHandlers = useCallback(
+    (generation: number): RendererHostApi => ({
       mounted({ theme }) {
-        dispatchRef.current({
-          type: "MOUNTED",
-          generation: stateRef.current.generation,
-          theme,
-        });
+        dispatchRef.current({ type: "MOUNTED", generation, theme });
       },
       send(text) {
         void actionsRef.current.send(text);
@@ -205,30 +241,39 @@ export function useRendererPresentation({
         void actionsRef.current.fill(text);
       },
       onTheme(theme) {
-        dispatchRef.current({
-          type: "THEME_PUSHED",
-          generation: stateRef.current.generation,
-          theme,
-        });
+        dispatchRef.current({ type: "THEME_PUSHED", generation, theme });
       },
       onError(message) {
-        dispatchRef.current({
-          type: "MOUNT_FAILED",
-          generation: stateRef.current.generation,
-          message,
-        });
+        dispatchRef.current({ type: "MOUNT_FAILED", generation, message });
       },
     }),
     [],
   );
 
+  const rendered = selectSlots(state);
+  const slots = rendered.map<PresentationSlot>((slot) => ({
+    ...slot,
+    className: slotWrapperClassName(slot.visualState),
+    hostHandlers: makeHostHandlers(slot.generation),
+    onShellReady: (shell) => setShellForSlot(slot.generation, shell),
+    onTransitionEnd: (event) => {
+      if (event.propertyName !== "opacity") return;
+      if (slot.visualState === "fading-in") {
+        dispatchRef.current({
+          type: "FADE_IN_DONE",
+          generation: slot.generation,
+        });
+      } else if (slot.visualState === "fading-out") {
+        dispatchRef.current({
+          type: "FADE_OUT_DONE",
+          generation: slot.generation,
+        });
+      }
+    },
+  }));
+
   return {
-    iframeWrapperClassName: iframeWrapperClassName(state.phase),
+    slots,
     visibleError: state.visibleError,
-    hostHandlers,
-    active:
-      state.requestedSlug && state.digest
-        ? { slug: state.requestedSlug, digest: state.digest }
-        : null,
   };
 }

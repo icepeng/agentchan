@@ -6,32 +6,59 @@ import type {
 /*
  * Renderer presentation machine — framework-agnostic pure reducer.
  *
- * Single-slot iframe lifecycle. The previous ShadowRoot/blob-URL backend ran
- * a multi-phase fade machine; the iframe transition (#179, ADR-0001) defers
- * cross-fade to a follow-up slice and uses just one mount slot. Our job is
- * to track which slug/digest is requested, whether the iframe has acked
- * MOUNTED, and what theme to publish to the host.
+ * Two-slot iframe lifecycle. We keep at most two slots alive at once: a
+ * `prev` slot that was previously visible and is fading out, and a `cur`
+ * slot that is mounting / fading in / showing. Cross-fade overlap means
+ * the new bundle starts importing while the old slot is still on screen,
+ * so user-perceived swap latency shrinks.
  *
- * Side effects (theme emission) are returned as commands. Async lifecycle
- * results (MOUNTED ack, IMPORT errors) are dispatched back as events.
+ * Two race-gates control when the new slot becomes the visible one:
  *
- * Generation is monotonic; bumped on each REQUEST_SLUG. Stale acks with
- * mismatched generation collapse to identity-equal noop.
+ *   FADE_OUT_DONE(prev) && MOUNTED(cur)
+ *
+ * Whichever gate trips second drops `prev` and flips `cur` into the
+ * fading-in phase. The MOUNTED ack carries an atomic `theme` payload that
+ * the host buffers and applies in the same step that drops `prev`, so the
+ * old iframe and old theme always disappear together.
+ *
+ * Generation is monotonic; bumped on each REQUEST_SLUG. Every async ack
+ * (MOUNTED, FADE_OUT_DONE, FADE_IN_DONE, MOUNT_FAILED, THEME_PUSHED)
+ * carries the slot's generation so stale callbacks from torn-down iframes
+ * collapse to identity-equal noops.
+ *
+ * Side effects (theme emission) are returned as commands.
  */
 
 export type Phase =
   | "idle"
-  | "loading"
-  | "mounted"
+  | "mounting"
+  | "transitioning"
+  | "fading-in"
+  | "showing"
   | "showing-error";
+
+export interface SlotState {
+  readonly slug: string;
+  readonly generation: number;
+  readonly digest: string | null;
+  readonly snapshot: RendererSnapshot | null;
+  readonly mountedAck: boolean;
+  /** Theme buffered from MOUNTED / THEME_PUSHED, awaiting gate clearance. */
+  readonly bufferedTheme: RendererTheme | null;
+  /** True once bufferedTheme has been emitted to the host. */
+  readonly themeApplied: boolean;
+}
 
 export interface PresentationState {
   readonly generation: number;
   readonly phase: Phase;
   readonly requestedSlug: string | null;
-  readonly visibleSlug: string | null;
-  readonly digest: string | null;
-  readonly snapshot: RendererSnapshot | null;
+  /** Slot fading out (or about to). Only set during `transitioning`. */
+  readonly prev: SlotState | null;
+  /** Slot mounting / fading in / shown. */
+  readonly cur: SlotState | null;
+  /** Latched FADE_OUT_DONE for `prev` while waiting on MOUNTED. */
+  readonly fadeOutDone: boolean;
   readonly themeIdentity: string;
   readonly visibleError: string | null;
 }
@@ -56,7 +83,9 @@ export type PresentationEvent =
       type: "THEME_PUSHED";
       generation: number;
       theme: RendererTheme | null;
-    };
+    }
+  | { type: "FADE_OUT_DONE"; generation: number }
+  | { type: "FADE_IN_DONE"; generation: number };
 
 export type PresentationCommand = {
   type: "emitTheme";
@@ -94,20 +123,88 @@ function sortedTokens(
 }
 
 /**
- * iframe wrapper className — opacity gate so we don't show pre-MOUNTED
- * placeholders. Initial mount and project switches both go through the
- * same loading→mounted transition; the wrapper hides the iframe until ack.
+ * Per-slot visual state. Drives the opacity class so CSS transitions fire
+ * on class changes (mounting → fading-in, showing → fading-out).
  */
-export function iframeWrapperClassName(phase: Phase): string {
-  const base = "absolute inset-0 transition-opacity duration-200 ease-out motion-reduce:duration-0";
-  switch (phase) {
-    case "mounted":
-    case "showing-error":
-      return `${base} opacity-100`;
-    case "loading":
-    case "idle":
-      return `${base} opacity-0 pointer-events-none`;
+export type SlotVisualState =
+  | "mounting"
+  | "fading-in"
+  | "showing"
+  | "fading-out";
+
+const FADE_IN = "transition-opacity duration-200 ease-out motion-reduce:duration-0";
+const FADE_OUT = "transition-opacity duration-300 ease-out motion-reduce:duration-0";
+
+/**
+ * Tailwind className for a slot wrapper based on its visual state. Both
+ * slots stack via `absolute inset-0`; opacity drives the cross-fade.
+ */
+export function slotWrapperClassName(state: SlotVisualState): string {
+  switch (state) {
+    case "mounting":
+      return `absolute inset-0 ${FADE_IN} opacity-0 pointer-events-none`;
+    case "fading-in":
+      return `absolute inset-0 ${FADE_IN} opacity-100`;
+    case "showing":
+      return `absolute inset-0 ${FADE_IN} opacity-100`;
+    case "fading-out":
+      return `absolute inset-0 ${FADE_OUT} opacity-0 pointer-events-none`;
   }
+}
+
+export interface RenderedSlot {
+  /** React key — stable for a slot's lifetime. */
+  readonly key: string;
+  readonly slug: string;
+  readonly digest: string;
+  readonly generation: number;
+  readonly role: "prev" | "cur";
+  readonly visualState: SlotVisualState;
+}
+
+/**
+ * Project the machine state to the list of slots the React tree should
+ * render. Slots without a digest (cur waiting on DIGEST_READY) are omitted
+ * — the iframe src needs both slug + digest.
+ */
+export function selectSlots(state: PresentationState): RenderedSlot[] {
+  const slots: RenderedSlot[] = [];
+  if (state.prev && state.prev.digest) {
+    slots.push({
+      key: `slot-${state.prev.generation}`,
+      slug: state.prev.slug,
+      digest: state.prev.digest,
+      generation: state.prev.generation,
+      role: "prev",
+      visualState: "fading-out",
+    });
+  }
+  if (state.cur && state.cur.digest) {
+    let visualState: SlotVisualState;
+    switch (state.phase) {
+      case "mounting":
+      case "transitioning":
+        visualState = "mounting";
+        break;
+      case "fading-in":
+        visualState = "fading-in";
+        break;
+      case "showing":
+        visualState = "showing";
+        break;
+      default:
+        visualState = "mounting";
+    }
+    slots.push({
+      key: `slot-${state.cur.generation}`,
+      slug: state.cur.slug,
+      digest: state.cur.digest,
+      generation: state.cur.generation,
+      role: "cur",
+      visualState,
+    });
+  }
+  return slots;
 }
 
 function noop(state: PresentationState): TransitionResult {
@@ -123,15 +220,27 @@ function freshTheme(
   return { identity, emit: [{ type: "emitTheme", theme }] };
 }
 
+function newSlot(slug: string, generation: number): SlotState {
+  return {
+    slug,
+    generation,
+    digest: null,
+    snapshot: null,
+    mountedAck: false,
+    bufferedTheme: null,
+    themeApplied: false,
+  };
+}
+
 export function createPresentationMachine(): PresentationMachine {
   function initialState(): PresentationState {
     return {
       generation: 0,
       phase: "idle",
       requestedSlug: null,
-      visibleSlug: null,
-      digest: null,
-      snapshot: null,
+      prev: null,
+      cur: null,
+      fadeOutDone: false,
       themeIdentity: "null",
       visibleError: null,
     };
@@ -144,17 +253,17 @@ export function createPresentationMachine(): PresentationMachine {
     if (slug === state.requestedSlug) return noop(state);
 
     const generation = state.generation + 1;
-    const themeUpdate = freshTheme(state, null);
 
     if (slug === null) {
+      const themeUpdate = freshTheme(state, null);
       return {
         state: {
           generation,
           phase: "idle",
           requestedSlug: null,
-          visibleSlug: null,
-          digest: null,
-          snapshot: null,
+          prev: null,
+          cur: null,
+          fadeOutDone: false,
           themeIdentity: themeUpdate.identity,
           visibleError: null,
         },
@@ -162,19 +271,74 @@ export function createPresentationMachine(): PresentationMachine {
       };
     }
 
-    return {
-      state: {
-        generation,
-        phase: "loading",
-        requestedSlug: slug,
-        visibleSlug: null,
-        digest: null,
-        snapshot: null,
-        themeIdentity: themeUpdate.identity,
-        visibleError: null,
-      },
-      commands: themeUpdate.emit,
-    };
+    const cur = newSlot(slug, generation);
+
+    switch (state.phase) {
+      case "idle":
+      case "showing-error": {
+        // No visible slot to keep; clear theme and start fresh.
+        const themeUpdate = freshTheme(state, null);
+        return {
+          state: {
+            generation,
+            phase: "mounting",
+            requestedSlug: slug,
+            prev: null,
+            cur,
+            fadeOutDone: false,
+            themeIdentity: themeUpdate.identity,
+            visibleError: null,
+          },
+          commands: themeUpdate.emit,
+        };
+      }
+      case "mounting": {
+        // Replace pending cur. No prev to preserve; theme already null.
+        return {
+          state: {
+            ...state,
+            generation,
+            requestedSlug: slug,
+            cur,
+            fadeOutDone: false,
+            visibleError: null,
+          },
+          commands: [],
+        };
+      }
+      case "showing":
+      case "fading-in": {
+        // Move cur → prev (start fading out). Old theme stays applied
+        // until both gates pass.
+        return {
+          state: {
+            ...state,
+            generation,
+            phase: "transitioning",
+            requestedSlug: slug,
+            prev: state.cur,
+            cur,
+            fadeOutDone: false,
+            visibleError: null,
+          },
+          commands: [],
+        };
+      }
+      case "transitioning": {
+        // A→B→C: prev keeps fading out, replace the pending cur. The old
+        // pending slot's MOUNTED ack will be ignored on generation mismatch.
+        return {
+          state: {
+            ...state,
+            generation,
+            requestedSlug: slug,
+            cur,
+            visibleError: null,
+          },
+          commands: [],
+        };
+      }
+    }
   }
 
   function onDigestReady(
@@ -183,12 +347,12 @@ export function createPresentationMachine(): PresentationMachine {
     digest: string,
     snapshot: RendererSnapshot,
   ): TransitionResult {
-    if (slug !== state.requestedSlug) return noop(state);
-    if (state.digest === digest && state.snapshot === snapshot) {
+    if (!state.cur || state.cur.slug !== slug) return noop(state);
+    if (state.cur.digest === digest && state.cur.snapshot === snapshot) {
       return noop(state);
     }
     return {
-      state: { ...state, digest, snapshot },
+      state: { ...state, cur: { ...state.cur, digest, snapshot } },
       commands: [],
     };
   }
@@ -198,10 +362,10 @@ export function createPresentationMachine(): PresentationMachine {
     slug: string,
     snapshot: RendererSnapshot,
   ): TransitionResult {
-    if (slug !== state.requestedSlug) return noop(state);
-    if (state.snapshot === snapshot) return noop(state);
+    if (!state.cur || state.cur.slug !== slug) return noop(state);
+    if (state.cur.snapshot === snapshot) return noop(state);
     return {
-      state: { ...state, snapshot },
+      state: { ...state, cur: { ...state.cur, snapshot } },
       commands: [],
     };
   }
@@ -210,20 +374,100 @@ export function createPresentationMachine(): PresentationMachine {
     state: PresentationState,
     event: Extract<PresentationEvent, { type: "MOUNTED" }>,
   ): TransitionResult {
-    if (event.generation !== state.generation) return noop(state);
-    if (state.phase !== "loading") return noop(state);
-    if (state.requestedSlug === null) return noop(state);
+    if (!state.cur || event.generation !== state.cur.generation) {
+      return noop(state);
+    }
+    if (state.cur.mountedAck) return noop(state);
 
-    const themeUpdate = freshTheme(state, event.theme);
+    const ackedCur: SlotState = {
+      ...state.cur,
+      mountedAck: true,
+      bufferedTheme: event.theme,
+    };
+
+    if (state.phase === "mounting") {
+      // No prev to wait on — apply theme and enter fading-in.
+      const themeUpdate = freshTheme(state, event.theme);
+      return {
+        state: {
+          ...state,
+          phase: "fading-in",
+          cur: { ...ackedCur, themeApplied: true },
+          themeIdentity: themeUpdate.identity,
+        },
+        commands: themeUpdate.emit,
+      };
+    }
+
+    if (state.phase === "transitioning") {
+      if (state.fadeOutDone) {
+        // Both gates clear — drop prev, apply theme, fade in.
+        const themeUpdate = freshTheme(state, event.theme);
+        return {
+          state: {
+            ...state,
+            phase: "fading-in",
+            prev: null,
+            cur: { ...ackedCur, themeApplied: true },
+            fadeOutDone: false,
+            themeIdentity: themeUpdate.identity,
+          },
+          commands: themeUpdate.emit,
+        };
+      }
+      // FADE_OUT_DONE not yet — buffer ack + theme.
+      return {
+        state: { ...state, cur: ackedCur },
+        commands: [],
+      };
+    }
+
+    return noop(state);
+  }
+
+  function onFadeOutDone(
+    state: PresentationState,
+    event: Extract<PresentationEvent, { type: "FADE_OUT_DONE" }>,
+  ): TransitionResult {
+    if (state.phase !== "transitioning") return noop(state);
+    if (!state.prev || event.generation !== state.prev.generation) {
+      return noop(state);
+    }
+    if (state.fadeOutDone) return noop(state);
+
+    if (state.cur?.mountedAck) {
+      // Both gates clear — drop prev, apply buffered theme, fade in.
+      const themeUpdate = freshTheme(state, state.cur.bufferedTheme);
+      return {
+        state: {
+          ...state,
+          phase: "fading-in",
+          prev: null,
+          cur: { ...state.cur, themeApplied: true },
+          fadeOutDone: false,
+          themeIdentity: themeUpdate.identity,
+        },
+        commands: themeUpdate.emit,
+      };
+    }
+    // MOUNTED not yet — latch the gate, keep prev rendered.
     return {
-      state: {
-        ...state,
-        phase: "mounted",
-        visibleSlug: state.requestedSlug,
-        themeIdentity: themeUpdate.identity,
-        visibleError: null,
-      },
-      commands: themeUpdate.emit,
+      state: { ...state, fadeOutDone: true },
+      commands: [],
+    };
+  }
+
+  function onFadeInDone(
+    state: PresentationState,
+    event: Extract<PresentationEvent, { type: "FADE_IN_DONE" }>,
+  ): TransitionResult {
+    if (state.phase !== "fading-in") return noop(state);
+    if (!state.cur || event.generation !== state.cur.generation) {
+      return noop(state);
+    }
+    return {
+      state: { ...state, phase: "showing" },
+      commands: [],
     };
   }
 
@@ -231,7 +475,9 @@ export function createPresentationMachine(): PresentationMachine {
     state: PresentationState,
     event: Extract<PresentationEvent, { type: "MOUNT_FAILED" }>,
   ): TransitionResult {
-    if (event.generation !== state.generation) return noop(state);
+    if (!state.cur || event.generation !== state.cur.generation) {
+      return noop(state);
+    }
     return enterError(state, event.message);
   }
 
@@ -239,7 +485,9 @@ export function createPresentationMachine(): PresentationMachine {
     state: PresentationState,
     message: string,
   ): TransitionResult {
-    if (state.visibleError === message) return noop(state);
+    if (state.phase === "showing-error" && state.visibleError === message) {
+      return noop(state);
+    }
     return enterError(state, message);
   }
 
@@ -252,6 +500,9 @@ export function createPresentationMachine(): PresentationMachine {
       state: {
         ...state,
         phase: "showing-error",
+        prev: null,
+        cur: null,
+        fadeOutDone: false,
         themeIdentity: themeUpdate.identity,
         visibleError: message,
       },
@@ -263,14 +514,38 @@ export function createPresentationMachine(): PresentationMachine {
     state: PresentationState,
     event: Extract<PresentationEvent, { type: "THEME_PUSHED" }>,
   ): TransitionResult {
-    if (event.generation !== state.generation) return noop(state);
-    if (state.phase !== "mounted") return noop(state);
-    const themeUpdate = freshTheme(state, event.theme);
-    if (themeUpdate.emit.length === 0) return noop(state);
-    return {
-      state: { ...state, themeIdentity: themeUpdate.identity },
-      commands: themeUpdate.emit,
-    };
+    if (!state.cur || event.generation !== state.cur.generation) {
+      return noop(state);
+    }
+
+    if (state.phase === "fading-in" || state.phase === "showing") {
+      const themeUpdate = freshTheme(state, event.theme);
+      // Identity match — already applied, identity-equal noop.
+      if (themeUpdate.emit.length === 0) return noop(state);
+      return {
+        state: {
+          ...state,
+          cur: {
+            ...state.cur,
+            bufferedTheme: event.theme,
+            themeApplied: true,
+          },
+          themeIdentity: themeUpdate.identity,
+        },
+        commands: themeUpdate.emit,
+      };
+    }
+
+    if (state.phase === "mounting" || state.phase === "transitioning") {
+      // Buffer until gates pass — old theme stays visible meanwhile.
+      if (state.cur.bufferedTheme === event.theme) return noop(state);
+      return {
+        state: { ...state, cur: { ...state.cur, bufferedTheme: event.theme } },
+        commands: [],
+      };
+    }
+
+    return noop(state);
   }
 
   function transition(
@@ -292,6 +567,10 @@ export function createPresentationMachine(): PresentationMachine {
         return onErrorReported(state, event.message);
       case "THEME_PUSHED":
         return onThemePushed(state, event);
+      case "FADE_OUT_DONE":
+        return onFadeOutDone(state, event);
+      case "FADE_IN_DONE":
+        return onFadeInDone(state, event);
     }
   }
 

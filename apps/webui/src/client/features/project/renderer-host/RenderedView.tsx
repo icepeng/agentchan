@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   useViewState,
   selectActiveProjectSlug,
@@ -13,7 +13,6 @@ import {
   type RendererTheme,
 } from "@/client/entities/renderer/index.js";
 import { useTheme } from "@/client/features/settings/index.js";
-import type { RendererShellApi } from "@agentchan/renderer/host";
 import { RendererIframe } from "./RendererIframe.js";
 import { useRendererPresentation } from "./useRendererPresentation.js";
 
@@ -27,7 +26,6 @@ export function RenderedView() {
   const { refresh } = useRendererOutput();
   const actionDispatch = useRendererActionDispatch();
   const { resolved: scheme } = useTheme();
-  const [shell, setShell] = useState<RendererShellApi | null>(null);
 
   const onTheme = useCallback(
     (theme: RendererTheme | null) =>
@@ -75,27 +73,29 @@ export function RenderedView() {
     snapshot: rendererView.snapshot,
     error: rendererView.error,
     scheme,
-    shell,
     onTheme,
   });
 
   const error = presentation.visibleError;
-  const active = presentation.active;
 
   return (
     <div data-renderer-surface className="relative flex-1 flex flex-col min-h-0">
       <div className="relative flex-1">
-        {active ? (
-          <div className={presentation.iframeWrapperClassName}>
+        {presentation.slots.map((slot) => (
+          <div
+            key={slot.key}
+            className={slot.className}
+            onTransitionEnd={slot.onTransitionEnd}
+          >
             <RendererIframe
-              slug={active.slug}
-              digest={active.digest}
+              slug={slot.slug}
+              digest={slot.digest}
               scheme={scheme}
-              hostHandlers={presentation.hostHandlers}
-              onShellReady={setShell}
+              hostHandlers={slot.hostHandlers}
+              onShellReady={slot.onShellReady}
             />
           </div>
-        ) : null}
+        ))}
         {error ? (
           <div className="p-4 text-sm text-danger font-mono whitespace-pre-wrap">
             <p>Renderer error:</p>
