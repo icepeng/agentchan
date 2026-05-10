@@ -132,7 +132,7 @@ export type SlotVisualState =
   | "showing"
   | "fading-out";
 
-const FADE_IN = "transition-opacity duration-200 ease-out motion-reduce:duration-0";
+const FADE_IN = "transition-opacity duration-300 ease-out motion-reduce:duration-0";
 const FADE_OUT = "transition-opacity duration-300 ease-out motion-reduce:duration-0";
 
 /**
