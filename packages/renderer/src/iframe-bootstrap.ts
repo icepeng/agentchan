@@ -22,7 +22,6 @@ import {
   attachRpc,
   isRendererRuntime,
   RENDERER_INIT_MESSAGE_TYPE,
-  type AgentState,
   type HydratePayload,
   type ProjectFile,
   type RendererActions,
@@ -51,7 +50,6 @@ interface MountState {
   runtime: RendererRuntime;
   instance: RendererInstance;
   snapshot: RendererSnapshot;
-  agentState: AgentState;
   lastThemeIdentity: string;
 }
 
@@ -177,12 +175,11 @@ export function bootIframeShell(
     const hydrate = pendingHydrate;
     pendingHydrate = null;
 
-    const agentState = hydrate.state;
     const snapshot: RendererSnapshot = {
       slug: hydrate.slug,
       baseUrl: hydrate.baseUrl,
       files: hydrate.files,
-      state: agentState,
+      state: hydrate.state,
     };
 
     let instance: RendererInstance;
@@ -198,7 +195,6 @@ export function bootIframeShell(
       runtime: resolved.runtime,
       instance,
       snapshot,
-      agentState,
       lastThemeIdentity: themeIdentity(initialTheme),
     };
 
@@ -215,9 +211,8 @@ export function bootIframeShell(
 
   const applyEventToMounted = (event: AgentEvent): void => {
     if (!mounted || !host) return;
-    const next = applyAgentEvent(mounted.agentState, event);
-    if (next === mounted.agentState) return;
-    mounted.agentState = next;
+    const next = applyAgentEvent(mounted.snapshot.state, event);
+    if (next === mounted.snapshot.state) return;
     mounted.snapshot = {
       ...mounted.snapshot,
       state: next,
