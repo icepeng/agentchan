@@ -11,21 +11,8 @@ import {
 export type { RendererBundle };
 
 export function findRendererEntrypoint(projectDir: string): string | null {
-  const tsEntry = join(projectDir, "renderer", "index.ts");
   const tsxEntry = join(projectDir, "renderer", "index.tsx");
-  const hasTs = existsSync(tsEntry);
-  const hasTsx = existsSync(tsxEntry);
-
-  if (hasTs && hasTsx) {
-    throw new RendererBuildError(
-      "Renderer must have a single entrypoint: use either renderer/index.ts or renderer/index.tsx, not both.",
-      "entrypoint",
-    );
-  }
-
-  if (hasTsx) return tsxEntry;
-  if (hasTs) return tsEntry;
-  return null;
+  return existsSync(tsxEntry) ? tsxEntry : null;
 }
 
 export async function buildRendererBundle(projectDir: string): Promise<RendererBundle | null> {

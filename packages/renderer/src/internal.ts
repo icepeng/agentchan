@@ -104,34 +104,8 @@ export interface RendererOptions {
   theme?: (snapshot: RendererSnapshot) => RendererTheme | null;
 }
 
-export interface DefineRendererContext {
-  container: HTMLElement;
-  snapshot: RendererSnapshot;
-  actions: RendererActions;
-}
-
-export type DefineRendererFactory = (
-  context: DefineRendererContext,
-) => RendererInstance;
-
 export interface FileUrlOptions {
   digest?: string;
-}
-
-export function defineRenderer(
-  factory: DefineRendererFactory,
-  options: RendererOptions = {},
-): RendererRuntime {
-  return {
-    mount(container, bridge) {
-      return factory({
-        container,
-        snapshot: bridge.snapshot,
-        actions: bridge.actions,
-      });
-    },
-    theme: options.theme,
-  };
 }
 
 export function isRendererRuntime(value: unknown): value is RendererRuntime {

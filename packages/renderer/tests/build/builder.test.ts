@@ -7,7 +7,6 @@ import {
   buildRendererBundle,
   EXTERNAL_VENDOR_SPECIFIERS,
   findRendererEntrypoint,
-  RendererError,
   validateRendererImportPolicy,
 } from "../../src/build/index.ts";
 
@@ -58,19 +57,18 @@ describe("Renderer entrypoint", () => {
     expect(findRendererEntrypoint(projectDir)).toBeNull();
   });
 
-  test("renderer/index.ts is accepted", async () => {
-    await writeRenderer("index.ts", "export const renderer = {};");
+  test("renderer/index.tsx is accepted", async () => {
+    await writeRenderer("index.tsx", "export const renderer = {};");
 
     expect(findRendererEntrypoint(projectDir)).toBe(
-      join(projectDir, "renderer", "index.ts"),
+      join(projectDir, "renderer", "index.tsx"),
     );
   });
 
-  test("renderer/index.ts and renderer/index.tsx together are rejected", async () => {
+  test("renderer/index.ts is ignored", async () => {
     await writeRenderer("index.ts", "export const renderer = {};");
-    await writeRenderer("index.tsx", "export const renderer = {};");
 
-    expect(() => findRendererEntrypoint(projectDir)).toThrow(/not both/);
+    expect(findRendererEntrypoint(projectDir)).toBeNull();
   });
 });
 
@@ -311,32 +309,6 @@ describe("Renderer bundle", () => {
     expect(renderer.theme?.({ slug: "#abc" })).toEqual({ base: { accent: "#abc" } });
   });
 
-  test("defineRenderer is not part of the author surface", async () => {
-    await writeRenderer(
-      "index.ts",
-      `
-        import { defineRenderer } from "@agentchan/renderer/react";
-        export const renderer = defineRenderer(() => ({ update() {}, unmount() {} }));
-      `,
-    );
-
-    await expect(buildRendererBundle(projectDir)).rejects.toThrow("Bundle failed");
-  });
-});
-
-describe("Renderer errors", () => {
-  test("entrypoint rejection exposes a stable phase", async () => {
-    await writeRenderer("index.ts", "export const renderer = {};");
-    await writeRenderer("index.tsx", "export const renderer = {};");
-
-    try {
-      findRendererEntrypoint(projectDir);
-      expect.unreachable("expected entrypoint rejection");
-    } catch (e) {
-      expect(e).toBeInstanceOf(RendererError);
-      expect((e as RendererError).phase).toBe("entrypoint");
-    }
-  });
 });
 
 function escapeRegExp(literal: string): string {
