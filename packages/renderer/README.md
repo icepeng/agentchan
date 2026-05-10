@@ -10,7 +10,7 @@ build) 표면을 한 패키지에서 같이 소유하며, 다른 패키지가 SD
 
 | Import path | 용도 | 소비자 |
 | --- | --- | --- |
-| `@agentchan/renderer/react` | 작성자 유일 공개 표면 (`createRenderer`, `defineRenderer`, `fileUrl`, contract 타입) | 프로젝트 `renderer/index.tsx` |
+| `@agentchan/renderer/react` | 작성자 유일 공개 표면 (`createRenderer`, `fileUrl`, contract 타입) | 프로젝트 `renderer/index.tsx` |
 | `@agentchan/renderer/host` | 호스트 orchestrator 표면 (`isRendererRuntime`, `RendererRuntime`/`Bridge`/`Instance`, `RendererBundle`, snapshot/theme 타입) | webui client (`renderer-host`, `entities/renderer`) |
 | `@agentchan/renderer/internal` | message protocol 및 cross-cutting types (host와 iframe shell이 공유) | host orchestrator, iframe shell |
 | `@agentchan/renderer/iframe-bootstrap` | iframe shell entry placeholder (PRD #176 Slice 3에서 본격 사용) | iframe document |
@@ -27,8 +27,7 @@ build) 표면을 한 패키지에서 같이 소유하며, 다른 패키지가 SD
 
 ### 핵심 export 요약 (`/react`)
 
-- `createRenderer(Component, options)` — React 컴포넌트를 `RendererRuntime`으로 감싼다.
-- `defineRenderer(factory, options)` — vanilla(non-React) factory 진입점.
+- `createRenderer(Component, options)` — React 컴포넌트를 Renderer runtime으로 감싼다.
 - `fileUrl(snapshot, file)` — `files/` 자원 URL을 digest cache-bust 포함해 만든다.
 - `useAutoScroll(options?)` — stick-to-bottom hook. `scrollRef`를 컨테이너에 붙이면 mount 시 bottom으로 점프, 사용자가 bottom 근처일 때만 자동 추적. `isAtBottom`, `scrollToBottom(behavior?)` 노출.
 - 타입: `AgentState`, `RendererSnapshot`, `RendererActions`, `RendererProps`, `RendererTheme`, `ProjectFile`, `AssistantContentBlock`, `ToolCall`, `ToolResultMessage`, …

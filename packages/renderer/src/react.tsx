@@ -1,18 +1,13 @@
 import { createElement, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  defineRenderer,
   fileUrl,
-  isRendererRuntime,
   type AgentState,
   type DataFile,
   type BinaryFile,
-  type DefineRendererContext,
   type FileUrlOptions,
   type ProjectFile,
   type RendererActions,
-  type RendererBridge,
-  type RendererInstance,
   type RendererOptions,
   type RendererRuntime,
   type RendererSnapshot,
@@ -33,20 +28,13 @@ import {
 } from "./internal.ts";
 
 export {
-  defineRenderer,
   fileUrl,
-  isRendererRuntime,
   type AgentState,
   type BinaryFile,
   type DataFile,
-  type DefineRendererContext,
   type FileUrlOptions,
   type ProjectFile,
   type RendererActions,
-  type RendererBridge,
-  type RendererInstance,
-  type RendererOptions,
-  type RendererRuntime,
   type RendererSnapshot,
   type RendererTheme,
   type RendererThemeTokens,

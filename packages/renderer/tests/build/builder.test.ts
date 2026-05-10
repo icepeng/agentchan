@@ -79,7 +79,7 @@ describe("Renderer import policy", () => {
     await writeRenderer("helper.ts", "export const value = 1;");
     await writeRenderer(
       "index.tsx",
-      'import { defineRenderer } from "@agentchan/renderer/react"; import { value } from "./helper"; export const renderer = defineRenderer(({ container }) => { container.textContent = String(value); return { update() {}, unmount() {} }; });',
+      'import { createRenderer } from "@agentchan/renderer/react"; import { value } from "./helper"; function Renderer() { return String(value); } export const renderer = createRenderer(Renderer);',
     );
 
     await expect(
@@ -151,21 +151,24 @@ describe("Renderer import policy", () => {
 });
 
 describe("Renderer bundle", () => {
-  test("defineRenderer-built runtime survives bundling round-trip", async () => {
-    await writeRenderer(
-      "index.ts",
-      `
-        import { defineRenderer } from "@agentchan/renderer/react";
+  test("author surface does not re-export runtime internals", async () => {
+    const authorSurface = await import("../../src/react.tsx");
 
-        export const renderer = defineRenderer(({ container, snapshot }) => {
-          container.textContent = snapshot.slug;
-          return {
-            update(nextSnapshot) {
-              container.textContent = nextSnapshot.slug;
-            },
-            unmount() {},
-          };
-        });
+    expect("defineRenderer" in authorSurface).toBe(false);
+    expect("isRendererRuntime" in authorSurface).toBe(false);
+  });
+
+  test("createRenderer-built runtime survives bundling round-trip", async () => {
+    await writeRenderer(
+      "index.tsx",
+      `
+        import { createRenderer } from "@agentchan/renderer/react";
+
+        function Renderer() {
+          return null;
+        }
+
+        export const renderer = createRenderer(Renderer);
       `,
     );
 
@@ -184,7 +187,7 @@ describe("Renderer bundle", () => {
         import * as _jsxRuntime from "react/jsx-runtime";
         import * as _jsxDevRuntime from "react/jsx-dev-runtime";
         import * as _scheduler from "scheduler";
-        import { defineRenderer } from "@agentchan/renderer/react";
+        import { createRenderer } from "@agentchan/renderer/react";
 
         // Pinning each namespace forces Bun to keep the import live in the bundle.
         export const _vendorPins = [
@@ -195,10 +198,11 @@ describe("Renderer bundle", () => {
           _scheduler,
         ];
 
-        export const renderer = defineRenderer(({ container }) => {
-          container.textContent = "";
-          return { update() {}, unmount() {} };
-        });
+        function Renderer() {
+          return null;
+        }
+
+        export const renderer = createRenderer(Renderer);
       `,
     );
 
@@ -220,7 +224,7 @@ describe("Renderer bundle", () => {
     await writeRenderer("style.css", ".root { color: red; }");
     await writeRenderer(
       "index.tsx",
-      'import "./style.css"; import { defineRenderer } from "@agentchan/renderer/react"; export const renderer = defineRenderer(({ container }) => { container.className = "root"; return { update() {}, unmount() {} }; });',
+      'import "./style.css"; import { createRenderer } from "@agentchan/renderer/react"; function Renderer() { return null; } export const renderer = createRenderer(Renderer);',
     );
 
     const bundle = await buildRendererBundle(projectDir);
@@ -233,7 +237,7 @@ describe("Renderer bundle", () => {
     await writeRenderer(
       "index.tsx",
       `
-        import { defineRenderer, fileUrl } from "@agentchan/renderer/react";
+        import { createRenderer, fileUrl } from "@agentchan/renderer/react";
         const snapshot = { baseUrl: "/api/projects/demo/", files: [], state: {} };
         export function makeFileUrl() {
           return fileUrl(snapshot, { path: "/folder/a b.png", digest: "sha/1" });
@@ -241,7 +245,10 @@ describe("Renderer bundle", () => {
         export function makeFileUrlWithoutPath() {
           return fileUrl(snapshot, {});
         }
-        export const renderer = defineRenderer(() => ({ update() {}, unmount() {} }));
+        function Renderer() {
+          return null;
+        }
+        export const renderer = createRenderer(Renderer);
       `,
     );
 
@@ -256,40 +263,25 @@ describe("Renderer bundle", () => {
     );
   });
 
-  test("smoke: bundle exposes a working defineRenderer runtime", async () => {
+  test("smoke: bundle exposes a createRenderer runtime shape", async () => {
     await writeRenderer(
-      "index.ts",
+      "index.tsx",
       `
-        import { defineRenderer } from "@agentchan/renderer/react";
-        export const renderer = defineRenderer(({ container, snapshot }) => {
-          container.textContent = snapshot.slug;
-          return {
-            update(next) { container.textContent = next.slug; },
-            unmount() { container.textContent = ""; },
-          };
-        });
+        import { createRenderer } from "@agentchan/renderer/react";
+        function Renderer() {
+          return null;
+        }
+        export const renderer = createRenderer(Renderer);
       `,
     );
 
     const bundle = await buildRendererBundle(projectDir);
     const mod = await importExternalizedBundle(bundle?.js ?? "");
     const runtime = mod.renderer as {
-      mount: (container: { textContent: string }, bridge: unknown) => {
-        update: (next: { slug: string }) => void;
-        unmount: () => void;
-      };
+      mount?: unknown;
     };
 
-    const container = { textContent: "" };
-    const instance = runtime.mount(container, {
-      snapshot: { slug: "alpha", baseUrl: "/", files: [], state: {} },
-      actions: { send() {}, fill() {} },
-    });
-    expect(container.textContent).toBe("alpha");
-    instance.update({ slug: "beta" });
-    expect(container.textContent).toBe("beta");
-    instance.unmount();
-    expect(container.textContent).toBe("");
+    expect(typeof runtime.mount).toBe("function");
   });
 
   test("React adapter preserves theme option on bundled runtime", async () => {
@@ -317,6 +309,18 @@ describe("Renderer bundle", () => {
     };
 
     expect(renderer.theme?.({ slug: "#abc" })).toEqual({ base: { accent: "#abc" } });
+  });
+
+  test("defineRenderer is not part of the author surface", async () => {
+    await writeRenderer(
+      "index.ts",
+      `
+        import { defineRenderer } from "@agentchan/renderer/react";
+        export const renderer = defineRenderer(() => ({ update() {}, unmount() {} }));
+      `,
+    );
+
+    await expect(buildRendererBundle(projectDir)).rejects.toThrow("Bundle failed");
   });
 });
 
