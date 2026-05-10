@@ -144,7 +144,6 @@ export function slotWrapperClassName(state: SlotVisualState): string {
     case "mounting":
       return `absolute inset-0 ${FADE_IN} opacity-0 pointer-events-none`;
     case "fading-in":
-      return `absolute inset-0 ${FADE_IN} opacity-100`;
     case "showing":
       return `absolute inset-0 ${FADE_IN} opacity-100`;
     case "fading-out":
@@ -229,6 +228,31 @@ function newSlot(slug: string, generation: number): SlotState {
     mountedAck: false,
     bufferedTheme: null,
     themeApplied: false,
+  };
+}
+
+/**
+ * Both race gates have cleared (or there was no prev to wait on): drop
+ * `prev`, mark theme as applied on `cur`, emit any new theme, and enter
+ * fading-in. Shared by the three call sites where MOUNTED and FADE_OUT_DONE
+ * collapse the cross-fade.
+ */
+function promoteToFadingIn(
+  state: PresentationState,
+  ackedCur: SlotState,
+  theme: RendererTheme | null,
+): TransitionResult {
+  const themeUpdate = freshTheme(state, theme);
+  return {
+    state: {
+      ...state,
+      phase: "fading-in",
+      prev: null,
+      cur: { ...ackedCur, themeApplied: true },
+      fadeOutDone: false,
+      themeIdentity: themeUpdate.identity,
+    },
+    commands: themeUpdate.emit,
   };
 }
 
@@ -387,33 +411,13 @@ export function createPresentationMachine(): PresentationMachine {
 
     if (state.phase === "mounting") {
       // No prev to wait on — apply theme and enter fading-in.
-      const themeUpdate = freshTheme(state, event.theme);
-      return {
-        state: {
-          ...state,
-          phase: "fading-in",
-          cur: { ...ackedCur, themeApplied: true },
-          themeIdentity: themeUpdate.identity,
-        },
-        commands: themeUpdate.emit,
-      };
+      return promoteToFadingIn(state, ackedCur, event.theme);
     }
 
     if (state.phase === "transitioning") {
       if (state.fadeOutDone) {
         // Both gates clear — drop prev, apply theme, fade in.
-        const themeUpdate = freshTheme(state, event.theme);
-        return {
-          state: {
-            ...state,
-            phase: "fading-in",
-            prev: null,
-            cur: { ...ackedCur, themeApplied: true },
-            fadeOutDone: false,
-            themeIdentity: themeUpdate.identity,
-          },
-          commands: themeUpdate.emit,
-        };
+        return promoteToFadingIn(state, ackedCur, event.theme);
       }
       // FADE_OUT_DONE not yet — buffer ack + theme.
       return {
@@ -437,18 +441,7 @@ export function createPresentationMachine(): PresentationMachine {
 
     if (state.cur?.mountedAck) {
       // Both gates clear — drop prev, apply buffered theme, fade in.
-      const themeUpdate = freshTheme(state, state.cur.bufferedTheme);
-      return {
-        state: {
-          ...state,
-          phase: "fading-in",
-          prev: null,
-          cur: { ...state.cur, themeApplied: true },
-          fadeOutDone: false,
-          themeIdentity: themeUpdate.identity,
-        },
-        commands: themeUpdate.emit,
-      };
+      return promoteToFadingIn(state, state.cur, state.cur.bufferedTheme);
     }
     // MOUNTED not yet — latch the gate, keep prev rendered.
     return {
