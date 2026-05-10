@@ -7,14 +7,14 @@ import {
   type RefCallback,
 } from "react";
 
-export interface UseScrollOptions {
+export interface UseAutoScrollOptions {
   /** px distance from bottom that still counts as "at bottom". Default 50. */
   threshold?: number;
   /** Scroll behavior used by automatic scrolls. Default "smooth". */
   behavior?: ScrollBehavior;
 }
 
-export interface UseScrollResult<T extends HTMLElement = HTMLDivElement> {
+export interface UseAutoScrollResult<T extends HTMLElement = HTMLDivElement> {
   scrollRef: RefCallback<T>;
   isAtBottom: boolean;
   scrollToBottom: (behavior?: ScrollBehavior) => void;
@@ -107,9 +107,9 @@ export class ScrollController<T extends ScrollControllerElement> {
  * the bottom (within `threshold`). Reading `isAtBottom` lets callers render
  * a "scroll to bottom" affordance.
  */
-export function useScroll<T extends HTMLElement = HTMLDivElement>(
-  options: UseScrollOptions = {},
-): UseScrollResult<T> {
+export function useAutoScroll<T extends HTMLElement = HTMLDivElement>(
+  options: UseAutoScrollOptions = {},
+): UseAutoScrollResult<T> {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const controllerRef = useRef<ScrollController<T> | null>(null);
   const threshold = options.threshold ?? 50;

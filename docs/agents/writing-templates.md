@@ -9,13 +9,13 @@
 
 - Renderer가 viewport를 소유한다. `RenderedView`가 외부 padding을 넣는다고 가정하지 않는다. Iframe document 안에서 동작하므로 `100vh`/`100dvh`도 iframe surface 기준이다.
 - `snapshot.state`는 host와 동일한 canonical `AgentState`다. 별도 projection 없이 props로 흘러 들어온다. `pendingToolCalls`는 `ReadonlySet<string>` — `.has(id)`로 조회한다. `Array.from`/`new Set(...)` wrap이나 array 방어 코드는 두지 않는다.
-- Chat-style 자동 스크롤이 필요하면 `useScroll`을 쓴다. `scrollRef`를 scroll container에 부착하면 mount 시 bottom으로 점프하고, content가 자라면 user가 bottom 근처에 있을 때만 자동 추적한다. `isAtBottom` / `scrollToBottom()`으로 affordance를 그린다.
+- Chat-style 자동 스크롤이 필요하면 `useAutoScroll`을 쓴다. `scrollRef`를 scroll container에 부착하면 mount 시 bottom으로 점프하고, content가 자라면 user가 bottom 근처에 있을 때만 자동 추적한다. `isAtBottom` / `scrollToBottom()`으로 affordance를 그린다.
 - Renderer import는 실제 사용하는 공개 API만 가져온다. 기본 시작점은 다음처럼 작게 둔다.
 
 ```ts
 import {
   createRenderer,
-  useScroll,
+  useAutoScroll,
   type AgentState,
   type AssistantContentBlock,
   type RendererProps,

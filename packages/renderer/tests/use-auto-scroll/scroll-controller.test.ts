@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   ScrollController,
   type ScrollControllerElement,
-} from "../../src/use-scroll.ts";
+} from "../../src/use-auto-scroll.ts";
 
 interface RecordedScroll {
   top: number;

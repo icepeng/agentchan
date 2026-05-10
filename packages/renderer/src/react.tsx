@@ -65,10 +65,10 @@ export {
 };
 
 export {
-  useScroll,
-  type UseScrollOptions,
-  type UseScrollResult,
-} from "./use-scroll.ts";
+  useAutoScroll,
+  type UseAutoScrollOptions,
+  type UseAutoScrollResult,
+} from "./use-auto-scroll.ts";
 
 export interface RendererProps {
   snapshot: RendererSnapshot;
