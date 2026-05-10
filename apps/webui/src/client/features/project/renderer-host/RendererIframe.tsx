@@ -21,7 +21,7 @@ const SHELL_PATH = "/renderer-shell.html";
 /**
  * Mounts a single iframe pinned to `?slug=&v={digest}`. On `iframe.onload`,
  * transfers a MessageChannel.port2 via INIT postMessage, then wires the
- * Comlink-style RPC channel and exposes the shell proxy through
+ * fire-and-forget MessagePort RPC channel and exposes the shell proxy through
  * `onShellReady`. Slug or digest changes recreate the iframe entirely
  * (key change), forcing a fresh handshake on the new generation.
  *

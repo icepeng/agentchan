@@ -2,7 +2,7 @@
 
 Renderer entrypoint는 `renderer/index.ts` 또는 `renderer/index.tsx`이며, named export `renderer = createRenderer(Renderer, { theme })`를 제공한다. 작성자가 의존하는 공개 API는 `@agentchan/renderer/react` 단일 패키지다.
 
-Host는 host server가 serve하는 정적 shell HTML(`/renderer-shell.html`) 위에 iframe document를 mount하고, transferred MessagePort 위 Comlink RPC로 양방향 통신한다. iframe은 author bundle의 첫 React commit 직후 `host.mounted({ theme })`를 호출하고, host는 이 ack을 받기 전에는 새 iframe content를 사용자에게 노출하지 않는다.
+Host는 host server가 serve하는 정적 shell HTML(`/renderer-shell.html`) 위에 iframe document를 mount하고, transferred MessagePort 위 agentchan renderer RPC envelope로 양방향 통신한다. iframe은 author bundle의 첫 React commit 직후 `host.mounted({ theme })`를 호출하고, host는 이 ack을 받기 전에는 새 iframe content를 사용자에게 노출하지 않는다.
 
 Author component는 `{ snapshot: RendererSnapshot, actions: RendererActions }`를 props로 받는다. `snapshot.state`는 host와 iframe이 동일한 `applyAgentEvent` reducer로 AgentEvent를 fold한 결과이며, host는 frame마다 snapshot 전체를 직렬화하지 않는다. `snapshot.baseUrl`은 host origin을 포함한 절대 URL이다.
 

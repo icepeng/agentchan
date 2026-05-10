@@ -2,7 +2,7 @@
 
 /**
  * Host orchestrator surface. Consumed by webui's renderer-host (iframe
- * element management, Comlink wrap, presentation state). Re-exports the
+ * element management, MessagePort RPC wiring, presentation state). Re-exports the
  * cross-cutting renderer types the host inspects plus host-only helpers.
  */
 
