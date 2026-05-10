@@ -1,7 +1,19 @@
 /* ─── Stage frame ────────────────────────────────────────────── */
 /* cr-stage는 viewport를 가득 채우고, .cr-reel이 안에서 글 가독 폭을
-   잡는다. 컬러는 host가 theme() export로 주입하는 --color-* 변수를
-   그대로 사용한다 — chrome과 톤이 자연스럽게 이어진다. */
+   잡는다. 컬러는 renderer iframe 안에서도 같은 --color-* 토큰을
+   선언하고, theme() export로 host chrome에도 같은 팔레트를 알린다. */
+:root {
+  --color-void: #070b15;
+  --color-base: #0e1626;
+  --color-surface: #15203a;
+  --color-elevated: #1d2740;
+  --color-accent: #3da89a;
+  --color-fg: #d8e4f0;
+  --color-fg-2: #9aa9bf;
+  --color-fg-3: #6a7790;
+  --color-edge: #1d2740;
+}
+
 .cr-stage {
   --rp-avatar-size: 56px;
 

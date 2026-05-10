@@ -7,6 +7,18 @@
 /* ═════════════════════════════════════════════════════════════
    Root stage — 3 분할 grid + HUD + 이중 테마
    ═════════════════════════════════════════════════════════════ */
+:root {
+  --color-void: #e8dcc0;
+  --color-base: #eee3c8;
+  --color-surface: #f6ecd2;
+  --color-elevated: #fff8e4;
+  --color-accent: #3d7a6d;
+  --color-fg: #2d2015;
+  --color-fg-2: #5a4530;
+  --color-fg-3: #8a6e4d;
+  --color-edge: #3d2a15;
+}
+
 .rpg-stage {
   /* Illuminated Codex 폰트/색 토큰 — 후손 전체에서 재사용 */
   --rpg-font-display: 'Cormorant Garamond', 'Pretendard Variable', Georgia, 'Times New Roman', serif;
@@ -1854,8 +1866,17 @@
    평상(양피지) → 전투(촛불·가죽·피).
    ═════════════════════════════════════════════════════════════ */
 .rpg-stage[data-mode="combat"] {
-  background: #1a110a;
-  color: #d8c9a8;
+  --color-void: #1a110a;
+  --color-base: #1a110a;
+  --color-surface: #251810;
+  --color-elevated: #2e1c14;
+  --color-accent: #d48a1f;
+  --color-fg: #d8c9a8;
+  --color-fg-2: #b8a38a;
+  --color-fg-3: #8a7658;
+  --color-edge: #3d2a1f;
+  background: var(--color-base);
+  color: var(--color-fg);
 }
 .rpg-stage[data-mode="combat"] .rpg-hud {
   background: color-mix(in srgb, #251810 90%, transparent);

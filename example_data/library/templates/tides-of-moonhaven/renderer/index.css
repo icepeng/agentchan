@@ -1,10 +1,23 @@
 /* ── Root: Logbook stage ─────────────────────────────────────── */
+:root {
+  --color-void: #e8dcc0;
+  --color-base: #eee3c8;
+  --color-surface: #f6ecd2;
+  --color-elevated: #fff8e4;
+  --color-accent: #3d7a6d;
+  --color-fg: #2d2015;
+  --color-fg-2: #5a4530;
+  --color-fg-3: #8a6e4d;
+  --color-edge: #3d2a15;
+}
+
 .lg-stage {
   container-type: inline-size;
   display: flex;
   flex-direction: column;
   min-height: 100%;
   font-family: var(--font-family-body);
+  background: var(--color-void);
   color: var(--color-fg);
 }
 .lg-body {
@@ -2699,8 +2712,17 @@
 
 /* ── Combat Mode (어두운 가죽 · 촛불 황금) ──────────────────── */
 .lg-stage[data-mode="combat"] {
-  background: #1a110a;
-  color: #d8c9a8;
+  --color-void: #1a110a;
+  --color-base: #1a110a;
+  --color-surface: #251810;
+  --color-elevated: #2e1c14;
+  --color-accent: #d48a1f;
+  --color-fg: #d8c9a8;
+  --color-fg-2: #b8a38a;
+  --color-fg-3: #8a7658;
+  --color-edge: #3d2a1f;
+  background: var(--color-void);
+  color: var(--color-fg);
 }
 .lg-stage[data-mode="combat"] .lg-header,
 .lg-stage[data-mode="combat"] .lg-header--empty {
