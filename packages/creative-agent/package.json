@@ -11,8 +11,7 @@
     "./browser": {
       "types": "./src/browser.ts",
       "default": "./src/browser.ts"
-    },
-    "./src/*": "./src/*"
+    }
   },
   "scripts": {
     "test": "bun test tests/ && bun run test:pi-session-parity",

@@ -85,6 +85,7 @@ export {
   getLatestCompactionEntry,
   parseSessionEntries,
 } from "./session/parse.js";
+export type { CompactionSummaryMessage } from "./session/messages.js";
 
 // --- Agent state — canonical reducer + types (host + iframe both import) ---
 export type { AgentState } from "./agent-state.js";

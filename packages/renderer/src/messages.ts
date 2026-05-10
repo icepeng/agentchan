@@ -9,7 +9,7 @@ import type {
   UserMessage,
 } from "@mariozechner/pi-ai";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { CompactionSummaryMessage } from "@agentchan/creative-agent/src/session/messages.js";
+import type { CompactionSummaryMessage } from "@agentchan/creative-agent/browser";
 
 export type {
   AgentMessage,
