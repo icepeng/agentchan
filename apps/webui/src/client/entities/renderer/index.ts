@@ -2,7 +2,9 @@ export type {
   RendererActions,
   RendererSnapshot,
   RendererTheme,
+  RendererThemeTokens,
 } from "@agentchan/renderer/host";
+export { themeIdentity } from "@agentchan/renderer/host";
 export type {
   ProjectFile,
   RendererProps,

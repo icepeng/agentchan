@@ -10,6 +10,7 @@ export {
   attachRpc,
   isRendererRuntime,
   RENDERER_INIT_MESSAGE_TYPE,
+  themeIdentity,
 } from "./internal.ts";
 export type {
   AgentEvent,

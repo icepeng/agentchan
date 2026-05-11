@@ -36,6 +36,8 @@ describe("renderer-shell routes", () => {
     expect(body).toContain('<link rel="stylesheet" href="/host-theme.css">');
     expect(body).toContain('<script type="module" src="/renderer-bootstrap.js"></script>');
     expect(body).toContain('id="renderer-root"');
+    expect(body).toContain("var(--agentchan-default-void)");
+    expect(body).not.toContain("var(--color-void)");
   });
 
   test("/host-theme.css emits both [data-theme] blocks with ETag + immutable cache when ?v= matches", async () => {
@@ -50,7 +52,11 @@ describe("renderer-shell routes", () => {
     const css = await first.text();
     expect(css).toContain('[data-theme="dark"]');
     expect(css).toContain('[data-theme="light"]');
-    expect(css).toContain("--color-void");
+    expect(css).toContain("--agentchan-default-void");
+    expect(css.match(/--agentchan-default-font-body/g)?.length).toBe(2);
+    expect(css.match(/--agentchan-default-font-display/g)?.length).toBe(2);
+    expect(css.match(/--agentchan-default-font-mono/g)?.length).toBe(2);
+    expect(css).not.toContain("--color-void");
     expect(first.headers.get("Cache-Control")).toContain("must-revalidate");
 
     const digest = (etag ?? "").replace(/"/g, "");

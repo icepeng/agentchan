@@ -13,18 +13,18 @@
   flex-wrap: wrap;
   gap: 24px;
   margin-bottom: 32px;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--agentchan-default-edge) 10%, transparent);
   padding: 0 8px;
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--color-void);
+  background: var(--agentchan-default-void);
 }
 .rb-tab-label {
   padding: 12px 4px;
   cursor: pointer;
-  color: var(--color-fg-3);
-  font-family: var(--font-family-display);
+  color: var(--agentchan-default-fg-3);
+  font-family: var(--agentchan-default-font-display);
   font-weight: 600;
   font-size: 15px;
   border-bottom: 2px solid transparent;
@@ -34,15 +34,15 @@
   white-space: nowrap;
 }
 .rb-tab-label:hover {
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
 }
 
 #tab-novel:checked ~ .rb-tabs-header label[for="tab-novel"],
 #tab-outline:checked ~ .rb-tabs-header label[for="tab-outline"],
 #tab-world:checked ~ .rb-tabs-header label[for="tab-world"],
 #tab-chars:checked ~ .rb-tabs-header label[for="tab-chars"] {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
+  color: var(--agentchan-default-accent);
+  border-bottom-color: var(--agentchan-default-accent);
 }
 
 /* ── Tab Content Visibility ── */
@@ -61,9 +61,9 @@
 
 /* ── Empty State ── */
 .rb-empty {
-  color: var(--color-fg-4);
+  color: var(--agentchan-default-fg-4);
   font-size: 14px;
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-default-font-mono);
   text-align: center;
   padding: 48px 0;
 }
@@ -74,36 +74,36 @@
   margin: 0 auto;
   line-height: 1.8;
   font-size: 15px;
-  color: var(--color-fg);
-  font-family: var(--font-family-body);
+  color: var(--agentchan-default-fg);
+  font-family: var(--agentchan-default-font-body);
   padding-bottom: 64px;
 }
 .rb-prose h1 {
   font-size: 1.5em;
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-default-font-display);
   font-weight: 700;
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
   margin: 48px 0 20px;
 }
 .rb-prose h2 {
   font-size: 1.25em;
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-default-font-display);
   font-weight: 700;
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
   margin: 40px 0 16px;
 }
 .rb-prose h3 {
   font-size: 1.125em;
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-default-font-display);
   font-weight: 600;
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
   margin: 32px 0 12px;
 }
 .rb-prose hr {
   margin: 40px 0;
   text-align: center;
   border: none;
-  color: var(--color-fg-4);
+  color: var(--agentchan-default-fg-4);
   font-size: 1.125em;
   letter-spacing: 0.5em;
 }
@@ -111,11 +111,11 @@
   content: "***";
 }
 .rb-prose blockquote {
-  border-left: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 3%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--agentchan-default-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--agentchan-default-accent) 3%, transparent);
   padding: 16px 20px;
   margin: 24px 0;
-  color: var(--color-fg-2);
+  color: var(--agentchan-default-fg-2);
   border-radius: 0 8px 8px 0;
   font-size: 0.95em;
 }
@@ -125,21 +125,21 @@
 .rb-prose ul {
   margin-bottom: 16px;
   padding-left: 24px;
-  color: var(--color-fg-2);
+  color: var(--agentchan-default-fg-2);
 }
 .rb-prose li {
   margin-bottom: 6px;
 }
 .rb-prose strong {
   font-weight: 600;
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
 }
 .rb-prose em {
-  color: var(--color-fg-2);
+  color: var(--agentchan-default-fg-2);
 }
 .rb-file-separator {
   height: 1px;
-  background: color-mix(in srgb, var(--color-edge) 8%, transparent);
+  background: color-mix(in srgb, var(--agentchan-default-edge) 8%, transparent);
   margin: 64px auto;
   width: 60%;
 }
@@ -154,43 +154,43 @@
   padding-bottom: 64px;
 }
 .rb-char-card {
-  background: var(--color-surface);
-  border: 1px solid color-mix(in srgb, var(--color-edge) 10%, transparent);
+  background: var(--agentchan-default-surface);
+  border: 1px solid color-mix(in srgb, var(--agentchan-default-edge) 10%, transparent);
   border-radius: 12px;
   padding: 32px;
-  font-family: var(--font-family-body);
+  font-family: var(--agentchan-default-font-body);
 }
 .rb-char-card h1 {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-default-font-display);
   font-size: 24px;
   font-weight: 700;
-  color: var(--color-accent);
+  color: var(--agentchan-default-accent);
   margin: 0 0 16px 0;
   padding-bottom: 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--agentchan-default-edge) 6%, transparent);
 }
 .rb-char-card h2 {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-default-font-display);
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
   margin: 24px 0 12px 0;
 }
 .rb-char-card h3 {
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
   margin: 16px 0 8px 0;
 }
 .rb-char-card p {
   font-size: 14px;
-  color: var(--color-fg-2);
+  color: var(--agentchan-default-fg-2);
   line-height: 1.6;
   margin-bottom: 12px;
 }
 .rb-char-card ul {
   font-size: 14px;
-  color: var(--color-fg-2);
+  color: var(--agentchan-default-fg-2);
   line-height: 1.6;
   margin: 0 0 16px 0;
   padding-left: 20px;
@@ -199,19 +199,19 @@
   margin-bottom: 6px;
 }
 .rb-char-card strong {
-  color: var(--color-fg);
+  color: var(--agentchan-default-fg);
   font-weight: 600;
 }
 .rb-char-card hr {
   border: none;
-  border-top: 1px solid color-mix(in srgb, var(--color-edge) 6%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--agentchan-default-edge) 6%, transparent);
   margin: 24px 0;
 }
 .rb-char-card blockquote {
-  border-left: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--agentchan-default-accent) 30%, transparent);
   padding-left: 16px;
   margin: 16px 0;
-  color: var(--color-fg-2);
+  color: var(--agentchan-default-fg-2);
   font-style: italic;
   font-size: 14px;
 }

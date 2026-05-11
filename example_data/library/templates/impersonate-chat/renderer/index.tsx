@@ -395,7 +395,7 @@ function UserBlock({
   }
 
   return (
-    <div className="cr-char cr-char--anon" style={{ ["--c" as string]: "var(--color-accent)" }}>
+    <div className="cr-char cr-char--anon" style={{ ["--c" as string]: "var(--agentchan-default-accent)" }}>
       <div className="cr-char-body">
         <div className="cr-char-content">
           <div className="cr-bubble">{content}</div>

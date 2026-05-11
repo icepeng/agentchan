@@ -32,6 +32,8 @@ build) 표면을 한 패키지에서 같이 소유하며, 다른 패키지가 SD
 - `useAutoScroll(options?)` — stick-to-bottom hook. `scrollRef`를 컨테이너에 붙이면 mount 시 bottom으로 점프, 사용자가 bottom 근처일 때만 자동 추적. `isAtBottom`, `scrollToBottom(behavior?)` 노출.
 - 타입: `AgentState`, `RendererSnapshot`, `RendererActions`, `RendererProps`, `RendererTheme`, `ProjectFile`, `AssistantContentBlock`, `ToolCall`, `ToolResultMessage`, …
   - `snapshot.state`는 canonical `AgentState`. `pendingToolCalls`는 `ReadonlySet<string>`이므로 `.has(id)`로 조회한다.
+  - `RendererTheme`은 Host가 Project 채팅 UI에 적용하는 **Project theme**이다. App theme만 쓰는 renderer는 `createRenderer(Component)`를 사용하고 `theme` option을 넘기지 않는다. Project theme을 제공할 때만 `theme(snapshot)`을 사용하며, 반환 모양은 `{ light?, dark? }`로 둘 중 최소 하나에 `void`, `base`, `surface`, `elevated`, `accent`, `fg`, `fg2`, `fg3`, `fg4`, `edge` 전체를 담는다. 둘 다 담으면 user Appearance 토글이 살아 있고, 하나만 담으면 chat scope에서 해당 scheme으로 잠긴다. Host fallback token에는 font token도 있지만 `RendererTheme`은 font를 받지 않는다. 양쪽에 모두 존재하는 이름은 같은 의미로 맞춘다.
+  - Renderer CSS에서 Host fallback token은 `--agentchan-default-*`로 읽는다. 기본값만 쓰는 renderer는 rule에서 직접 읽고, Renderer가 소유하는 CSS variable은 `--agentchan-renderer-*`로 단일 `:root` block에 선언한다. 이 namespace는 Project theme으로 Host에 전달하는 color에 한정되지 않는다. Renderer가 스스로 소비하는 추가 color, spacing, radius, shadow, motion, layout 값도 둘 수 있다. Renderer가 소유하는 color 값은 App theme과 같은 hex라도 직접 선언하고, font처럼 Host 기본값 일부를 차용하는 값만 같은 block 안에서 `var(--agentchan-default-font-*)`로 alias한다. Web UI 내부 `--color-*`, `--font-family-*` variables는 작성자 contract가 아니다.
 
 ## SDK source 단일 출처
 

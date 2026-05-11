@@ -22,6 +22,7 @@ import {
   attachRpc,
   isRendererRuntime,
   RENDERER_INIT_MESSAGE_TYPE,
+  themeIdentity,
   type HydratePayload,
   type ProjectFile,
   type RendererActions,
@@ -51,25 +52,6 @@ interface MountState {
   instance: RendererInstance;
   snapshot: RendererSnapshot;
   lastThemeIdentity: string;
-}
-
-const NULL_THEME_IDENTITY = "null";
-
-function themeIdentity(theme: RendererTheme | null): string {
-  if (theme === null) return NULL_THEME_IDENTITY;
-  return JSON.stringify({
-    base: sortedTokens(theme.base as Record<string, unknown> ?? {}),
-    dark: sortedTokens((theme.dark as Record<string, unknown>) ?? {}),
-    prefersScheme: theme.prefersScheme ?? null,
-  });
-}
-
-function sortedTokens(
-  tokens: Record<string, unknown>,
-): [string, string][] {
-  return Object.entries(tokens)
-    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
-    .sort(([a], [b]) => a.localeCompare(b));
 }
 
 function evaluateTheme(

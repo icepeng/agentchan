@@ -294,7 +294,20 @@ describe("Renderer bundle", () => {
 
         export const renderer = createRenderer(Renderer, {
           theme(snapshot) {
-            return { base: { accent: snapshot.slug } };
+            return {
+              base: {
+                void: "#000000",
+                base: "#111111",
+                surface: "#222222",
+                elevated: "#333333",
+                accent: snapshot.slug,
+                fg: "#eeeeee",
+                fg2: "#cccccc",
+                fg3: "#999999",
+                fg4: "#777777",
+                edge: "#ffffff",
+              },
+            };
           },
         });
       `,
@@ -306,7 +319,20 @@ describe("Renderer bundle", () => {
       theme?: (snapshot: { slug: string }) => unknown;
     };
 
-    expect(renderer.theme?.({ slug: "#abc" })).toEqual({ base: { accent: "#abc" } });
+    expect(renderer.theme?.({ slug: "#abc" })).toEqual({
+      base: {
+        void: "#000000",
+        base: "#111111",
+        surface: "#222222",
+        elevated: "#333333",
+        accent: "#abc",
+        fg: "#eeeeee",
+        fg2: "#cccccc",
+        fg3: "#999999",
+        fg4: "#777777",
+        edge: "#ffffff",
+      },
+    });
   });
 
 });

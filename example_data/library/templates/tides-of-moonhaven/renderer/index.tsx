@@ -31,7 +31,7 @@ interface RenderCtx {
 // ── Theme ────────────────────────────────────────────────────────────────────
 
 const PEACE_THEME: RendererTheme = {
-  base: {
+  light: {
     void: "#e8dcc0",
     base: "#eee3c8",
     surface: "#f6ecd2",
@@ -40,13 +40,13 @@ const PEACE_THEME: RendererTheme = {
     fg: "#2d2015",
     fg2: "#5a4530",
     fg3: "#8a6e4d",
+    fg4: "#ad8a5f",
     edge: "#3d2a15",
   },
-  prefersScheme: "light",
 };
 
 const COMBAT_THEME: RendererTheme = {
-  base: {
+  dark: {
     void: "#1a110a",
     base: "#1a110a",
     surface: "#251810",
@@ -55,9 +55,9 @@ const COMBAT_THEME: RendererTheme = {
     fg: "#d8c9a8",
     fg2: "#b8a38a",
     fg3: "#8a7658",
+    fg4: "#6f5f48",
     edge: "#3d2a1f",
   },
-  prefersScheme: "dark",
 };
 
 function readWorldMode(files: ProjectFile[]): "peace" | "combat" {

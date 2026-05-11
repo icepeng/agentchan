@@ -68,21 +68,44 @@ export interface RendererActions {
 }
 
 export interface RendererThemeTokens {
-  void?: string;
-  base?: string;
-  surface?: string;
-  elevated?: string;
-  accent?: string;
-  fg?: string;
-  fg2?: string;
-  fg3?: string;
-  edge?: string;
+  void: string;
+  base: string;
+  surface: string;
+  elevated: string;
+  accent: string;
+  fg: string;
+  fg2: string;
+  fg3: string;
+  fg4: string;
+  edge: string;
 }
 
 export interface RendererTheme {
-  base: RendererThemeTokens;
-  dark?: Partial<RendererThemeTokens>;
-  prefersScheme?: "light" | "dark";
+  light?: RendererThemeTokens;
+  dark?: RendererThemeTokens;
+}
+
+/**
+ * Stable string hash of a Project theme for dedupe comparisons. Used by both
+ * the iframe shell (to suppress `host.onTheme` emits when `runtime.theme`
+ * returns an identity-equal result) and the host presentation machine (to
+ * suppress redundant `emitTheme` commands). null theme collapses to a
+ * single sentinel so host-default fallback dedupes cleanly.
+ */
+export function themeIdentity(theme: RendererTheme | null): string {
+  if (theme === null) return "null";
+  return JSON.stringify({
+    light: sortedTokens(theme.light ?? {}),
+    dark: sortedTokens(theme.dark ?? {}),
+  });
+}
+
+function sortedTokens(
+  tokens: Partial<RendererThemeTokens>,
+): [string, string][] {
+  return Object.entries(tokens)
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    .sort(([a], [b]) => a.localeCompare(b));
 }
 
 export interface RendererBridge {

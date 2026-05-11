@@ -29,7 +29,20 @@ function makeSnapshot(slug: string): RendererSnapshot {
 }
 
 function makeTheme(accent: string): RendererTheme {
-  return { base: { accent } };
+  return {
+    dark: {
+      void: "#000000",
+      base: "#111111",
+      surface: "#222222",
+      elevated: "#333333",
+      accent,
+      fg: "#eeeeee",
+      fg2: "#cccccc",
+      fg3: "#999999",
+      fg4: "#777777",
+      edge: "#ffffff",
+    },
+  };
 }
 
 function step(

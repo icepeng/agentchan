@@ -34,6 +34,7 @@ const COMBAT_CANDLE = "#d48a1f";
 const COMBAT_PARCH = "#d8c9a8";
 const COMBAT_FG2 = "#b8a38a";
 const COMBAT_FG3 = "#8a7658";
+const COMBAT_FG4 = "#6f5f48";
 
 const CHARACTER_COLORS = [
   VERDIGRIS,
@@ -49,7 +50,7 @@ const CHARACTER_COLORS = [
 // ── Theme export ──────────────────────────────
 
 const PEACE_THEME: RendererTheme = {
-  base: {
+  light: {
     void: "#e8dcc0",
     base: "#eee3c8",
     surface: "#f6ecd2",
@@ -58,13 +59,13 @@ const PEACE_THEME: RendererTheme = {
     fg: "#2d2015",
     fg2: "#5a4530",
     fg3: "#8a6e4d",
+    fg4: "#ad8a5f",
     edge: "#3d2a15",
   },
-  prefersScheme: "light",
 };
 
 const COMBAT_THEME: RendererTheme = {
-  base: {
+  dark: {
     void: COMBAT_BASE,
     base: COMBAT_BASE,
     surface: COMBAT_SURFACE,
@@ -73,9 +74,9 @@ const COMBAT_THEME: RendererTheme = {
     fg: COMBAT_PARCH,
     fg2: COMBAT_FG2,
     fg3: COMBAT_FG3,
+    fg4: COMBAT_FG4,
     edge: "#3d2a1f",
   },
-  prefersScheme: "dark",
 };
 
 interface ThemeCtx {

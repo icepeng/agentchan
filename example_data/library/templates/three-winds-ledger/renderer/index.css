@@ -8,15 +8,16 @@
    Root stage — 3 분할 grid + HUD + 이중 테마
    ═════════════════════════════════════════════════════════════ */
 :root {
-  --color-void: #e8dcc0;
-  --color-base: #eee3c8;
-  --color-surface: #f6ecd2;
-  --color-elevated: #fff8e4;
-  --color-accent: #3d7a6d;
-  --color-fg: #2d2015;
-  --color-fg-2: #5a4530;
-  --color-fg-3: #8a6e4d;
-  --color-edge: #3d2a15;
+  --agentchan-renderer-void: #e8dcc0;
+  --agentchan-renderer-base: #eee3c8;
+  --agentchan-renderer-surface: #f6ecd2;
+  --agentchan-renderer-elevated: #fff8e4;
+  --agentchan-renderer-accent: #3d7a6d;
+  --agentchan-renderer-fg: #2d2015;
+  --agentchan-renderer-fg-2: #5a4530;
+  --agentchan-renderer-fg-3: #8a6e4d;
+  --agentchan-renderer-fg-4: #ad8a5f;
+  --agentchan-renderer-edge: #3d2a15;
 }
 
 .rpg-stage {
@@ -39,8 +40,8 @@
   container-type: inline-size;
   container-name: rpg-stage;
   font-family: var(--rpg-font-body);
-  color: var(--color-fg);
-  background: var(--color-base);
+  color: var(--agentchan-renderer-fg);
+  background: var(--agentchan-renderer-base);
   transition: background 0.5s ease, color 0.4s ease;
 }
 .rpg-grid {
@@ -48,7 +49,7 @@
   /* 본문(reel) 가독성 우선: 양쪽 패널은 원래 폭으로 줄여 reel에 호흡 확보 */
   grid-template-columns: minmax(220px, 260px) minmax(360px, 1fr) minmax(260px, 320px);
   gap: 1px;
-  background: color-mix(in srgb, var(--color-edge) 10%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-edge) 10%, transparent);
   min-height: 0;
 }
 /* Stage 폭 기준 — webui sidebar/AgentPanel 공존 환경에서도 정확히 동작.
@@ -75,10 +76,10 @@
   gap: 18px;
   padding: 12px 22px;
   align-items: center;
-  background: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-surface) 92%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 14%, transparent);
   transition: background 0.5s ease, border-color 0.4s ease;
 }
 .rpg-hud-brand {
@@ -162,7 +163,7 @@
   font-family: var(--rpg-font-display);
   font-size: 13px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   letter-spacing: 0.01em;
 }
 
@@ -188,14 +189,14 @@
   font-size: 11px;
   font-style: italic;
   letter-spacing: 0.04em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-hud-value {
   font-family: var(--rpg-font-display);
   font-size: 16px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -257,7 +258,7 @@
   font-family: var(--rpg-font-body);
   font-size: 14px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   letter-spacing: 0;
   padding-top: 4px;
 }
@@ -266,7 +267,7 @@
    Panel shared — party / side 공통
    ═════════════════════════════════════════════════════════════ */
 .rpg-party-panel, .rpg-side-panel {
-  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-surface) 94%, transparent);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -276,13 +277,13 @@
   align-items: center;
   gap: 10px;
   padding: 12px 18px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 12%, transparent);
-  color: var(--color-fg-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 12%, transparent);
+  color: var(--agentchan-renderer-fg-2);
 }
 .rpg-panel-glyph {
   width: 14px;
   height: 14px;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   flex-shrink: 0;
 }
 .rpg-panel-title {
@@ -290,7 +291,7 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 
 /* ═════════════════════════════════════════════════════════════
@@ -309,9 +310,9 @@
   flex-direction: column;
   gap: 11px;
   padding: 14px 14px 16px;
-  background: color-mix(in srgb, var(--color-elevated) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--c, var(--color-edge)) 28%, transparent);
-  border-left: 3px solid var(--c, var(--color-accent));
+  background: color-mix(in srgb, var(--agentchan-renderer-elevated) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c, var(--agentchan-renderer-edge)) 28%, transparent);
+  border-left: 3px solid var(--c, var(--agentchan-renderer-accent));
   position: relative;
   animation: rpg-card-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -339,13 +340,13 @@
   font-size: 12px;
   font-style: italic;
   letter-spacing: 0.02em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-member-name {
   font-family: var(--rpg-font-display);
   font-size: 17px;
   font-weight: 600;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   letter-spacing: 0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -355,7 +356,7 @@
   font-family: var(--rpg-font-body);
   font-size: 13px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   text-align: center;
   padding: 8px 0;
 }
@@ -367,15 +368,15 @@
   height: 48px;
   border-radius: 3px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--c, var(--color-accent)) 15%, var(--color-surface));
+  background: color-mix(in srgb, var(--c, var(--agentchan-renderer-accent)) 15%, var(--agentchan-renderer-surface));
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--c, var(--color-accent)) 50%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--c, var(--agentchan-renderer-accent)) 50%, transparent),
     0 4px 12px -8px rgba(0, 0, 0, 0.2);
 }
 .rpg-portrait-halo {
   position: absolute;
   inset: -35%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--c, var(--color-accent)) 55%, transparent), transparent 58%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--c, var(--agentchan-renderer-accent)) 55%, transparent), transparent 58%);
   opacity: 0.3;
   filter: blur(14px);
   z-index: 0;
@@ -400,7 +401,7 @@
   font-family: var(--rpg-font-display);
   font-size: 22px;
   font-weight: 600;
-  color: color-mix(in srgb, var(--c, var(--color-accent)) 75%, var(--color-fg-3));
+  color: color-mix(in srgb, var(--c, var(--agentchan-renderer-accent)) 75%, var(--agentchan-renderer-fg-3));
 }
 .rpg-portrait[data-fallback="1"] .rpg-portrait-fallback { z-index: 2; }
 .rpg-portrait[data-fallback="1"] .rpg-portrait-img { visibility: hidden; }
@@ -422,14 +423,14 @@
   font-size: 12px;
   font-style: italic;
   letter-spacing: 0.02em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-vital-bar {
   height: 6px;
   width: 100%;
 }
 .rpg-vital-track {
-  stroke: color-mix(in srgb, var(--color-edge) 14%, transparent);
+  stroke: color-mix(in srgb, var(--agentchan-renderer-edge) 14%, transparent);
   stroke-width: 1.2;
 }
 .rpg-vital-fill {
@@ -443,7 +444,7 @@
   font-size: 12px;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 .rpg-vital-slash { opacity: 0.45; margin: 0 1px; }
 
@@ -453,7 +454,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   padding-top: 8px;
-  border-top: 1px dashed color-mix(in srgb, var(--color-edge) 15%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--agentchan-renderer-edge) 15%, transparent);
 }
 .rpg-attr {
   display: flex;
@@ -466,7 +467,7 @@
   font-family: var(--rpg-font-display);
   font-size: 12px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-attr-val {
   font-family: var(--rpg-font-display);
@@ -476,7 +477,7 @@
 }
 .rpg-attr--pos .rpg-attr-val { color: #3d7a6d; }
 .rpg-attr--neg .rpg-attr-val { color: #a83225; }
-.rpg-attr--zero .rpg-attr-val { color: var(--color-fg-2); }
+.rpg-attr--zero .rpg-attr-val { color: var(--agentchan-renderer-fg-2); }
 
 /* Trust (동료 카드 내부) */
 .rpg-trust {
@@ -485,13 +486,13 @@
   gap: 10px;
   align-items: center;
   padding-top: 6px;
-  border-top: 1px dashed color-mix(in srgb, var(--color-edge) 15%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--agentchan-renderer-edge) 15%, transparent);
 }
 .rpg-trust-label {
   font-family: var(--rpg-font-display);
   font-size: 12px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-trust-track {
   display: grid;
@@ -502,12 +503,12 @@
 .rpg-trust-tick {
   height: 6px;
   border-radius: 1px;
-  background: color-mix(in srgb, var(--color-edge) 12%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-edge) 12%, transparent);
   transition: background 0.35s ease, transform 0.25s ease;
 }
 .rpg-trust-tick[data-v="0"] {
   height: 8px;
-  background: color-mix(in srgb, var(--color-fg-3) 35%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-fg-3) 35%, transparent);
 }
 .rpg-trust-tick--fill { background: color-mix(in srgb, var(--c, #3d7a6d) 45%, transparent); }
 .rpg-trust-tick--active {
@@ -523,11 +524,11 @@
 }
 .rpg-trust--pos { color: #3d7a6d; }
 .rpg-trust--neg { color: #a83225; }
-.rpg-trust--zero { color: var(--color-fg-2); }
+.rpg-trust--zero { color: var(--agentchan-renderer-fg-2); }
 .rpg-trust-arrow {
   font-family: var(--rpg-font-display);
   font-size: 13px;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 
 .rpg-conditions {
@@ -572,7 +573,7 @@
   flex-direction: column;
   gap: 28px;
   overflow-y: auto;
-  background: var(--color-surface);
+  background: var(--agentchan-renderer-surface);
   position: relative;
 }
 .rpg-reel::before {
@@ -620,7 +621,7 @@
   display: inline-flex;
   gap: 12px;
   padding: 10px 22px 12px 26px;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   font-family: var(--rpg-font-body);
   font-size: 16px;
   font-style: italic;
@@ -660,7 +661,7 @@
   align-items: baseline;
   gap: 12px;
   margin-bottom: 8px;
-  color: color-mix(in srgb, var(--c) 55%, var(--color-fg));
+  color: color-mix(in srgb, var(--c) 55%, var(--agentchan-renderer-fg));
 }
 .rpg-nameplate-mark {
   width: 24px;
@@ -679,7 +680,7 @@
   font-family: var(--rpg-font-body);
   font-size: 17px;
   line-height: 1.92;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   padding-left: 16px;
   border-left: 1px solid color-mix(in srgb, var(--c) 28%, transparent);
 }
@@ -688,7 +689,7 @@
 }
 .rpg-action {
   font-style: italic;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   letter-spacing: 0;
 }
 
@@ -700,12 +701,12 @@
   gap: 18px;
   max-width: 760px;
   margin: 0 auto;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   animation: rpg-rise 0.5s ease-out;
 }
 .rpg-narration-rule {
   height: 1px;
-  background: color-mix(in srgb, var(--color-edge) 18%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-edge) 18%, transparent);
 }
 .rpg-narration-text {
   font-family: var(--rpg-font-body);
@@ -713,7 +714,7 @@
   font-style: italic;
   text-align: center;
   line-height: 1.9;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   letter-spacing: 0;
 }
 .rpg-narration-text .rpg-action {
@@ -757,9 +758,9 @@
   margin: 12px auto;
   padding: 10px 10px 8px;
   background: linear-gradient(180deg,
-    var(--color-elevated) 0%,
-    color-mix(in srgb, var(--color-fg) 4%, var(--color-elevated)) 100%);
-  border: 1px solid color-mix(in srgb, var(--color-edge) 18%, transparent);
+    var(--agentchan-renderer-elevated) 0%,
+    color-mix(in srgb, var(--agentchan-renderer-fg) 4%, var(--agentchan-renderer-elevated)) 100%);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 18%, transparent);
   box-shadow:
     0 14px 28px -18px rgba(0, 0, 0, 0.32),
     0 2px 6px -2px rgba(0, 0, 0, 0.18);
@@ -778,7 +779,7 @@
 .rpg-polaroid-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--color-edge) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 8%, transparent);
 }
 .rpg-polaroid-img {
   display: block;
@@ -802,7 +803,7 @@
   font-size: 13px;
   font-style: italic;
   letter-spacing: 0.01em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   text-align: center;
 }
 
@@ -811,7 +812,7 @@
   margin: 10px auto;
   max-width: 660px;
   padding: 16px 18px 18px;
-  background: color-mix(in srgb, #b36b2a 5%, var(--color-elevated));
+  background: color-mix(in srgb, #b36b2a 5%, var(--agentchan-renderer-elevated));
   border: 1px solid color-mix(in srgb, #b36b2a 35%, transparent);
   animation: rpg-check-unfold 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   transform-origin: top center;
@@ -846,7 +847,7 @@
   font-family: var(--rpg-font-body);
   font-size: 13px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   justify-self: end;
   text-align: right;
 }
@@ -864,8 +865,8 @@
   text-align: left;
   font-family: var(--rpg-font-body);
   font-size: 15px;
-  color: var(--color-fg);
-  background: color-mix(in srgb, #b36b2a 2%, var(--color-surface));
+  color: var(--agentchan-renderer-fg);
+  background: color-mix(in srgb, #b36b2a 2%, var(--agentchan-renderer-surface));
   border: 1px solid color-mix(in srgb, #b36b2a 22%, transparent);
   cursor: pointer;
   transition: transform 0.22s ease, border-color 0.25s ease, background 0.25s ease;
@@ -894,7 +895,7 @@
 .rpg-check-option:hover {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, #b36b2a 55%, transparent);
-  background: color-mix(in srgb, #b36b2a 10%, var(--color-surface));
+  background: color-mix(in srgb, #b36b2a 10%, var(--agentchan-renderer-surface));
 }
 .rpg-check-option:hover::before,
 .rpg-check-option:hover::after { opacity: 0.7; }
@@ -903,7 +904,7 @@
   outline-offset: 2px;
 }
 .rpg-check-label {
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   line-height: 1.55;
 }
 .rpg-check-meta {
@@ -916,7 +917,7 @@
   font-family: var(--rpg-font-display);
   font-size: 13px;
   font-style: italic;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   padding: 3px 9px;
   background: color-mix(in srgb, #3d7a6d 10%, transparent);
   border: 1px solid color-mix(in srgb, #3d7a6d 30%, transparent);
@@ -939,7 +940,7 @@
   padding: 10px 18px;
   margin: 0 auto;
   max-width: 92%;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   background: color-mix(in srgb, #b36b2a 6%, transparent);
   border: 1px solid color-mix(in srgb, #b36b2a 40%, transparent);
   font-family: var(--rpg-font-display);
@@ -956,23 +957,23 @@
   flex-shrink: 0;
 }
 .rpg-system-stat {
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   letter-spacing: 0;
   font-style: italic;
 }
 .rpg-system-formula {
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   font-family: var(--rpg-font-num);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
 .rpg-system-eq, .rpg-system-sep, .rpg-system-arrow {
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-system-total {
   font-weight: 700;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   font-family: var(--rpg-font-num);
   font-variant-numeric: tabular-nums;
 }
@@ -1031,8 +1032,8 @@
   font-family: var(--rpg-font-body);
   font-size: 14px;
   letter-spacing: 0;
-  background: color-mix(in srgb, var(--color-fg-3) 6%, transparent);
-  border-left: 2px solid var(--color-fg-3);
+  background: color-mix(in srgb, var(--agentchan-renderer-fg-3) 6%, transparent);
+  border-left: 2px solid var(--agentchan-renderer-fg-3);
   animation: rpg-rise 0.45s ease-out;
 }
 .rpg-stat-name {
@@ -1040,7 +1041,7 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 .rpg-stat-delta {
   font-family: var(--rpg-font-num);
@@ -1049,11 +1050,11 @@
   font-size: 14px;
 }
 .rpg-stat-trigger {
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-style: italic;
 }
 .rpg-stat-arrow {
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-size: 14px;
 }
 .rpg-stat--up {
@@ -1078,9 +1079,9 @@
   padding: 5px 12px;
   font-family: var(--rpg-font-body);
   font-size: 14px;
-  color: var(--color-fg-2);
-  background: color-mix(in srgb, var(--color-fg-3) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-edge) 14%, transparent);
+  color: var(--agentchan-renderer-fg-2);
+  background: color-mix(in srgb, var(--agentchan-renderer-fg-3) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 14%, transparent);
 }
 .rpg-ledger-glyph {
   font-size: 16px;
@@ -1092,10 +1093,10 @@
   font-style: italic;
   font-size: 12px;
   letter-spacing: 0;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-ledger-name {
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   font-family: var(--rpg-font-display);
   font-size: 14px;
   font-weight: 600;
@@ -1106,7 +1107,7 @@
   font-weight: 600;
 }
 .rpg-ledger-desc {
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-style: italic;
 }
 .rpg-ledger--gain { border-color: color-mix(in srgb, #3d7a6d 35%, transparent); }
@@ -1175,7 +1176,7 @@
 .rpg-round {
   margin: 8px 0;
   padding: 14px 18px 18px;
-  background: color-mix(in srgb, #a83225 4%, var(--color-elevated));
+  background: color-mix(in srgb, #a83225 4%, var(--agentchan-renderer-elevated));
   border: 1px solid color-mix(in srgb, #a83225 25%, transparent);
   border-left: 3px solid #a83225;
   position: relative;
@@ -1253,8 +1254,8 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  background: color-mix(in srgb, var(--color-edge) 10%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 12%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-edge) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 12%, transparent);
 }
 .rpg-tab {
   display: grid;
@@ -1263,8 +1264,8 @@
   justify-items: center;
   padding: 12px 4px 11px;
   cursor: pointer;
-  color: var(--color-fg-3);
-  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  color: var(--agentchan-renderer-fg-3);
+  background: color-mix(in srgb, var(--agentchan-renderer-surface) 96%, transparent);
   font-family: var(--rpg-font-display);
   font-size: 14px;
   font-weight: 500;
@@ -1276,8 +1277,8 @@
   height: 16px;
 }
 .rpg-tab:hover {
-  color: var(--color-fg);
-  background: color-mix(in srgb, var(--color-fg) 4%, var(--color-surface));
+  color: var(--agentchan-renderer-fg);
+  background: color-mix(in srgb, var(--agentchan-renderer-fg) 4%, var(--agentchan-renderer-surface));
 }
 .rpg-side-stack {
   position: relative;
@@ -1300,7 +1301,7 @@
 #rpg-tab-rel:checked   ~ .rpg-tabs .rpg-tab--rel,
 #rpg-tab-log:checked   ~ .rpg-tabs .rpg-tab--log {
   color: #b36b2a;
-  background: color-mix(in srgb, #b36b2a 8%, var(--color-surface));
+  background: color-mix(in srgb, #b36b2a 8%, var(--agentchan-renderer-surface));
   box-shadow: inset 0 -2px 0 #b36b2a;
 }
 #rpg-tab-quest:checked ~ .rpg-side-stack .rpg-side-panel-body--quest,
@@ -1320,7 +1321,7 @@
 .rpg-pane--empty {
   padding: 44px 20px;
   text-align: center;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-family: var(--rpg-font-body);
   font-size: 14px;
   font-style: italic;
@@ -1337,15 +1338,15 @@
   font-weight: 600;
   font-style: italic;
   letter-spacing: 0.02em;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   padding-bottom: 5px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--color-edge) 15%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--agentchan-renderer-edge) 15%, transparent);
 }
 
 /* Quest pane */
 .rpg-quest {
-  border: 1px solid color-mix(in srgb, var(--color-edge) 12%, transparent);
-  background: color-mix(in srgb, var(--color-elevated) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 12%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-elevated) 60%, transparent);
   margin-bottom: 5px;
   transition: border-color 0.25s ease;
 }
@@ -1363,21 +1364,21 @@
 .rpg-quest-head::-webkit-details-marker { display: none; }
 .rpg-quest-status {
   font-size: 16px;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-quest-status--active { color: #b36b2a; }
 .rpg-quest-status--done { color: #3d7a6d; }
 .rpg-quest-status--fail { color: #a83225; }
-.rpg-quest-status--dormant { color: var(--color-fg-4); opacity: 0.6; }
+.rpg-quest-status--dormant { color: var(--agentchan-renderer-fg-4); opacity: 0.6; }
 .rpg-quest-title {
   font-family: var(--rpg-font-display);
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   letter-spacing: 0.01em;
 }
 .rpg-quest-status--dormant .rpg-quest-title {
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-style: italic;
 }
 .rpg-quest-status--done .rpg-quest-title {
@@ -1389,16 +1390,16 @@
   font-size: 12px;
   font-style: italic;
   letter-spacing: 0.02em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   padding: 2px 8px;
-  border: 1px solid color-mix(in srgb, var(--color-edge) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 20%, transparent);
   border-radius: 2px;
 }
 .rpg-quest-body {
   padding: 6px 16px 14px 38px;
   font-family: var(--rpg-font-body);
   font-size: 14px;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   line-height: 1.78;
 }
 .rpg-quest-step {
@@ -1407,7 +1408,7 @@
   padding: 4px 0;
 }
 .rpg-quest-desc {
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   padding: 4px 0;
 }
 .rpg-quest-steps {
@@ -1418,7 +1419,7 @@
 .rpg-quest-steps li {
   padding-left: 14px;
   position: relative;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-size: 13px;
   line-height: 1.7;
   text-decoration: line-through;
@@ -1439,21 +1440,21 @@
   gap: 12px;
   align-items: baseline;
   padding: 7px 0;
-  border-bottom: 1px dashed color-mix(in srgb, var(--color-edge) 15%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--agentchan-renderer-edge) 15%, transparent);
 }
 .rpg-kv-label {
   font-family: var(--rpg-font-display);
   font-size: 13px;
   font-style: italic;
   letter-spacing: 0;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-kv-val {
   font-family: var(--rpg-font-display);
   font-size: 16px;
   font-weight: 600;
   text-align: right;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 .rpg-gold {
   color: #b36b2a;
@@ -1464,7 +1465,7 @@
   font-family: var(--rpg-font-display);
   font-size: 13px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   margin-left: 5px;
 }
 .rpg-eq-list {
@@ -1484,7 +1485,7 @@
   font-size: 13px;
   font-style: italic;
   letter-spacing: 0;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-eq-val {
   display: inline-flex;
@@ -1495,17 +1496,17 @@
 .rpg-eq-name {
   font-family: var(--rpg-font-body);
   font-size: 14px;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 .rpg-eq-meta {
   font-family: var(--rpg-font-num);
   font-size: 12px;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
 .rpg-eq-empty {
-  color: var(--color-fg-4);
+  color: var(--agentchan-renderer-fg-4);
   font-style: italic;
   font-size: 13px;
 }
@@ -1525,25 +1526,25 @@
   align-items: baseline;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px dotted color-mix(in srgb, var(--color-edge) 10%, transparent);
+  border-bottom: 1px dotted color-mix(in srgb, var(--agentchan-renderer-edge) 10%, transparent);
   font-family: var(--rpg-font-body);
   font-size: 14px;
   line-height: 1.7;
 }
 .rpg-inv-item:last-child { border-bottom: none; }
 .rpg-item-glyph {
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-size: 14px;
   text-align: center;
 }
 .rpg-item-name {
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   font-family: var(--rpg-font-body);
 }
 .rpg-item-qty {
   font-family: var(--rpg-font-num);
   font-size: 12px;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-variant-numeric: tabular-nums;
 }
 .rpg-item-tag {
@@ -1551,14 +1552,14 @@
   font-size: 11px;
   font-style: italic;
   letter-spacing: 0;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   padding: 2px 7px;
-  border: 1px solid color-mix(in srgb, var(--color-edge) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 18%, transparent);
   border-radius: 2px;
 }
 .rpg-item-desc {
   grid-column: 2 / -1;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-family: var(--rpg-font-body);
   font-size: 13px;
   font-style: italic;
@@ -1588,8 +1589,8 @@
   gap: 8px 12px;
   align-items: center;
   padding: 10px 12px;
-  background: color-mix(in srgb, var(--color-elevated) 50%, transparent);
-  border-left: 2px solid var(--color-edge);
+  background: color-mix(in srgb, var(--agentchan-renderer-elevated) 50%, transparent);
+  border-left: 2px solid var(--agentchan-renderer-edge);
   transition: border-color 0.3s ease, background 0.3s ease;
 }
 .rpg-rel--pos { border-left-color: #3d7a6d; }
@@ -1599,7 +1600,7 @@
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   display: inline-flex;
   gap: 9px;
   align-items: baseline;
@@ -1633,19 +1634,19 @@
 }
 .rpg-rel--pos .rpg-rel-num { color: #3d7a6d; font-weight: 700; }
 .rpg-rel--neg .rpg-rel-num { color: #a83225; font-weight: 700; }
-.rpg-rel-arrow { color: var(--color-fg-3); font-size: 14px; }
+.rpg-rel-arrow { color: var(--agentchan-renderer-fg-3); font-size: 14px; }
 
 .rpg-rel-legend {
   display: flex;
   justify-content: space-between;
   gap: 10px;
   padding: 12px 4px 0;
-  border-top: 1px dashed color-mix(in srgb, var(--color-edge) 15%, transparent);
+  border-top: 1px dashed color-mix(in srgb, var(--agentchan-renderer-edge) 15%, transparent);
   font-family: var(--rpg-font-display);
   font-size: 12px;
   font-style: italic;
   letter-spacing: 0;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-rel-legend-item {
   display: inline-flex;
@@ -1659,7 +1660,7 @@
 }
 .rpg-rel-swatch--neg { background: #a83225; }
 .rpg-rel-swatch--pos { background: #3d7a6d; }
-.rpg-rel-swatch--neutral { background: color-mix(in srgb, var(--color-fg-3) 40%, transparent); }
+.rpg-rel-swatch--neutral { background: color-mix(in srgb, var(--agentchan-renderer-fg-3) 40%, transparent); }
 
 /* Log pane */
 .rpg-log-grid {
@@ -1672,20 +1673,20 @@
   flex-direction: column;
   gap: 3px;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--color-elevated) 40%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-elevated) 40%, transparent);
 }
 .rpg-log-label {
   font-family: var(--rpg-font-display);
   font-size: 12px;
   font-style: italic;
   letter-spacing: 0;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-log-val {
   font-family: var(--rpg-font-display);
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
 }
@@ -1695,7 +1696,7 @@
   font-style: italic;
   font-size: 14px;
   line-height: 1.7;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   background: color-mix(in srgb, #4a6b8a 6%, transparent);
   border-left: 2px solid #4a6b8a;
 }
@@ -1703,7 +1704,7 @@
   padding: 10px 12px;
   font-family: var(--rpg-font-body);
   font-size: 14px;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   line-height: 1.78;
   background: color-mix(in srgb, #b36b2a 5%, transparent);
   border-left: 2px solid color-mix(in srgb, #b36b2a 40%, transparent);
@@ -1727,7 +1728,7 @@
 .rpg-empty-ico {
   width: 48px;
   height: 72px;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-empty-eye {
   fill: #b36b2a;
@@ -1744,7 +1745,7 @@
   font-size: 24px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 .rpg-empty-sub {
   margin: 0;
@@ -1753,7 +1754,7 @@
   font-size: 14px;
   font-style: italic;
   line-height: 1.85;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-empty-hint {
   margin-top: 14px;
@@ -1762,7 +1763,7 @@
   font-family: var(--rpg-font-body);
   font-size: 13px;
   line-height: 1.7;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   border: 1px solid color-mix(in srgb, #b36b2a 30%, transparent);
   background: color-mix(in srgb, #b36b2a 5%, transparent);
   display: inline-flex;
@@ -1782,7 +1783,7 @@
   margin-top: 6px;
   padding: 14px 16px 16px;
   width: min(100%, 460px);
-  background: color-mix(in srgb, #b36b2a 4%, var(--color-elevated));
+  background: color-mix(in srgb, #b36b2a 4%, var(--agentchan-renderer-elevated));
   border: 1px solid color-mix(in srgb, #b36b2a 24%, transparent);
   text-align: left;
   animation: rpg-check-unfold 0.6s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1807,7 +1808,7 @@
   font-family: var(--rpg-font-body);
   font-size: 12px;
   font-style: italic;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .rpg-seed-list {
   display: flex;
@@ -1823,8 +1824,8 @@
   text-align: left;
   font-family: var(--rpg-font-body);
   font-size: 14px;
-  color: var(--color-fg);
-  background: color-mix(in srgb, #b36b2a 2%, var(--color-surface));
+  color: var(--agentchan-renderer-fg);
+  background: color-mix(in srgb, #b36b2a 2%, var(--agentchan-renderer-surface));
   border: 1px solid color-mix(in srgb, #b36b2a 18%, transparent);
   cursor: pointer;
   transition: transform 0.2s ease, border-color 0.22s ease, background 0.22s ease;
@@ -1833,7 +1834,7 @@
 }
 .rpg-seed-option:hover {
   border-color: color-mix(in srgb, #b36b2a 42%, transparent);
-  background: color-mix(in srgb, #b36b2a 7%, var(--color-surface));
+  background: color-mix(in srgb, #b36b2a 7%, var(--agentchan-renderer-surface));
   transform: translateX(2px);
 }
 .rpg-seed-option:focus-visible {
@@ -1866,17 +1867,18 @@
    평상(양피지) → 전투(촛불·가죽·피).
    ═════════════════════════════════════════════════════════════ */
 .rpg-stage[data-mode="combat"] {
-  --color-void: #1a110a;
-  --color-base: #1a110a;
-  --color-surface: #251810;
-  --color-elevated: #2e1c14;
-  --color-accent: #d48a1f;
-  --color-fg: #d8c9a8;
-  --color-fg-2: #b8a38a;
-  --color-fg-3: #8a7658;
-  --color-edge: #3d2a1f;
-  background: var(--color-base);
-  color: var(--color-fg);
+  --agentchan-renderer-void: #1a110a;
+  --agentchan-renderer-base: #1a110a;
+  --agentchan-renderer-surface: #251810;
+  --agentchan-renderer-elevated: #2e1c14;
+  --agentchan-renderer-accent: #d48a1f;
+  --agentchan-renderer-fg: #d8c9a8;
+  --agentchan-renderer-fg-2: #b8a38a;
+  --agentchan-renderer-fg-3: #8a7658;
+  --agentchan-renderer-fg-4: #6f5f48;
+  --agentchan-renderer-edge: #3d2a1f;
+  background: var(--agentchan-renderer-base);
+  color: var(--agentchan-renderer-fg);
 }
 .rpg-stage[data-mode="combat"] .rpg-hud {
   background: color-mix(in srgb, #251810 90%, transparent);
@@ -2187,8 +2189,8 @@
   border-top: 1px solid color-mix(in srgb, var(--rpg-gold) 50%, transparent);
   background:
     linear-gradient(180deg,
-      color-mix(in srgb, var(--color-elevated) 94%, transparent),
-      color-mix(in srgb, var(--color-elevated) 98%, transparent));
+      color-mix(in srgb, var(--agentchan-renderer-elevated) 94%, transparent),
+      color-mix(in srgb, var(--agentchan-renderer-elevated) 98%, transparent));
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2233,7 +2235,7 @@
   font-family: var(--rpg-font-body);
   font-size: 10px;
   letter-spacing: 0.1em;
-  color: color-mix(in srgb, var(--color-fg-3) 80%, currentColor);
+  color: color-mix(in srgb, var(--agentchan-renderer-fg-3) 80%, currentColor);
   text-transform: none;
 }
 .rpg-pending-preview {
@@ -2242,7 +2244,7 @@
   font-style: italic;
   font-size: 14px;
   line-height: 1.6;
-  color: color-mix(in srgb, var(--color-fg-2) 85%, var(--rpg-ink));
+  color: color-mix(in srgb, var(--agentchan-renderer-fg-2) 85%, var(--rpg-ink));
   border-left: 2px solid color-mix(in srgb, var(--rpg-gold) 35%, transparent);
   padding-left: 10px;
 }

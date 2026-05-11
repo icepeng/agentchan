@@ -13,6 +13,7 @@ import {
   type AgentState,
 } from "@/client/entities/agent-state/index.js";
 import {
+  validateTheme,
   type RendererActions,
   type RendererSnapshot,
   type RendererTheme,
@@ -230,7 +231,11 @@ export function useRendererPresentation({
   const makeHostHandlers = useCallback(
     (generation: number): RendererHostApi => ({
       mounted({ theme }) {
-        dispatchRef.current({ type: "MOUNTED", generation, theme });
+        dispatchRef.current({
+          type: "MOUNTED",
+          generation,
+          theme: validateTheme(theme),
+        });
       },
       send(text) {
         void actionsRef.current.send(text);
@@ -239,7 +244,11 @@ export function useRendererPresentation({
         void actionsRef.current.fill(text);
       },
       onTheme(theme) {
-        dispatchRef.current({ type: "THEME_PUSHED", generation, theme });
+        dispatchRef.current({
+          type: "THEME_PUSHED",
+          generation,
+          theme: validateTheme(theme),
+        });
       },
       onError(message) {
         dispatchRef.current({ type: "MOUNT_FAILED", generation, message });

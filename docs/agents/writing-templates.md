@@ -7,8 +7,10 @@
 
 ## Renderer 저작 규칙
 
+### Runtime/API
+
 - Renderer가 viewport를 소유한다. `RenderedView`가 외부 padding을 넣는다고 가정하지 않는다. Iframe document 안에서 동작하므로 `100vh`/`100dvh`도 iframe surface 기준이다.
-- `snapshot.state`는 host와 동일한 canonical `AgentState`다. 별도 projection 없이 props로 흘러 들어온다. `pendingToolCalls`는 `ReadonlySet<string>` — `.has(id)`로 조회한다. `Array.from`/`new Set(...)` wrap이나 array 방어 코드는 두지 않는다.
+- `snapshot.state`는 host와 동일한 canonical `AgentState`다. 별도 projection 없이 props로 흘러 들어온다. `pendingToolCalls`는 `ReadonlySet<string>`이므로 `.has(id)`로 조회한다. `Array.from`/`new Set(...)` wrap이나 array 방어 코드는 두지 않는다.
 - Chat-style 자동 스크롤이 필요하면 `useAutoScroll`을 쓴다. `scrollRef`를 scroll container에 부착하면 mount 시 bottom으로 점프하고, content가 자라면 user가 bottom 근처에 있을 때만 자동 추적한다. `isAtBottom` / `scrollToBottom()`으로 affordance를 그린다.
 - Renderer import는 실제 사용하는 공개 API만 가져온다. 기본 시작점은 다음처럼 작게 둔다.
 
@@ -43,11 +45,25 @@ import {
 }
 ```
 
+### Visual direction
+
 - 템플릿 renderer의 첫 viewport는 하나의 composition으로 읽혀야 한다. 정보 패널·카드·상태줄을 나열한 dashboard처럼 만들지 않는다.
 - 브랜드/작품명은 hero-level signal이어야 한다. nav나 작은 eyebrow를 지웠을 때 다른 템플릿과 구분되지 않으면 브랜딩이 약한 것이다.
 - 한국어가 노출될 수 있는 UI는 기본 제공 `Pretendard Variable`을 1순위로 쓴다. OS에 설치된 `Noto Serif KR`, `Nanum Myeongjo` 같은 폰트가 있다고 가정하지 않는다.
 - 영문 전용 브랜드/라벨에는 앱이 제공하는 `Syne`, `Lexend`, `Fira Code`를 사용할 수 있다. 한국어가 섞일 가능성이 있으면 `Pretendard Variable`로 돌아온다.
 - 한국어 가능 영역에서는 italic, monospace, 과한 letter-spacing을 강조 수단으로 쓰지 않는다. weight, color/opacity, serif/sans 페어링, 따옴표, border-left, 여백으로 구분한다.
+
+### Theme and CSS tokens
+
+- Renderer CSS에서 Host fallback token은 `--agentchan-default-*`로 읽고, 선언하거나 override하지 않는다.
+- App theme만 쓰는 Renderer는 `createRenderer(Component)`를 사용하고 `theme` option을 넘기지 않는다.
+- Renderer가 소유하는 CSS variable은 `--agentchan-renderer-*`로 선언한다. Host는 이 namespace를 해석하지 않는다. Project theme으로 전달하지 않는 추가 color와 spacing, radius, shadow, motion, layout 값도 Renderer가 스스로 소비한다면 여기에 둘 수 있다.
+- Renderer가 소유하는 color 값은 App theme과 같은 hex라도 직접 선언한다. Host font를 차용할 때만 Renderer CSS variables를 모은 단일 `:root`에서 `var(--agentchan-default-font-*)`로 alias한다.
+- `theme(snapshot)`은 Renderer가 Project theme을 제공할 때만 사용한다. 반환은 `{ light?, dark? }` 모양이고 둘 중 최소 하나에 Project theme color token 전체를 담는다: `void`, `base`, `surface`, `elevated`, `accent`, `fg`, `fg2`, `fg3`, `fg4`, `edge`. Host fallback token에는 font token도 있지만 Project theme callback은 font를 받지 않는다. 양쪽에 모두 존재하는 이름은 같은 의미로 맞춘다. light, dark 둘 다 담으면 Appearance 토글이 살아 있고, 하나만 담으면 해당 Color scheme으로 고정된다.
+- Renderer 작성 계약에서 Web UI 내부 `--color-*`, `--font-family-*` variables를 쓰지 않는다.
+
+### Verification
+
 - Web UI 확인 시 데스크톱과 모바일 폭에서 첫 화면, 선택지, 버튼 텍스트 overflow, 실제 computed font-family를 확인한다.
 
 ## 프롬프트/Skill 저작 규칙

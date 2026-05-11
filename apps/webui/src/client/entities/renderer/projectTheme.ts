@@ -5,12 +5,13 @@ import type {
 import type { ResolvedThemeVars } from "./renderer.types.js";
 
 /**
- * Renderer-owned theme: 렌더러가 프로젝트 페이지 한정으로 전역 CSS custom property를
- * 오버라이드할 수 있도록 하는 계약.
+ * Renderer-owned Project theme: Renderer가 Project chat surface 한정으로 Host가
+ * 이해하는 complete color token set을 제공하는 계약.
  *
- * - 색상 전용. 폰트는 렌더러 자체 `<style>` 안에서 `font-family`로 직접 지정한다.
- * - `base`만 있으면 단일 모드, `dark`가 있으면 듀얼 모드.
- * - `prefersScheme`이 명시되면 프로젝트 페이지에서만 사용자 Appearance 토글을 강제 오버라이드.
+ * - 색상 전용. Renderer iframe 안에서는 Host fallback font token을 읽을 수 있지만,
+ *   Project theme callback으로 Host font를 바꾸지는 않는다.
+ * - `light`와 `dark` 중 최소 하나가 필요하다. 둘 다 있으면 user Appearance 토글이
+ *   살아 있고, 하나만 있으면 chat scope에서 그 scheme으로 잠긴다.
  * - `theme(snapshot)` 함수는 현재 files를 보고 팔레트를 다르게 반환할 수 있다.
  */
 
@@ -23,6 +24,7 @@ const TOKEN_TO_CSS: Record<keyof RendererThemeTokens, string> = {
   fg: "--color-fg",
   fg2: "--color-fg-2",
   fg3: "--color-fg-3",
+  fg4: "--color-fg-4",
   edge: "--color-edge",
 };
 
@@ -32,8 +34,8 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-function pickTokens(src: Record<string, unknown>): RendererThemeTokens {
-  const out: RendererThemeTokens = {};
+function pickTokens(src: Record<string, unknown>): Partial<RendererThemeTokens> {
+  const out: Partial<RendererThemeTokens> = {};
   for (const key of TOKEN_KEYS) {
     const value = src[key];
     if (typeof value === "string" && value.length > 0) {
@@ -41,6 +43,31 @@ function pickTokens(src: Record<string, unknown>): RendererThemeTokens {
     }
   }
   return out;
+}
+
+function hasCompletePalette(
+  tokens: Partial<RendererThemeTokens>,
+): tokens is RendererThemeTokens {
+  return TOKEN_KEYS.every((key) => typeof tokens[key] === "string");
+}
+
+function validatePalette(
+  raw: unknown,
+  label: "light" | "dark",
+): RendererThemeTokens | null | "missing" {
+  if (raw === undefined) return "missing";
+  if (!isPlainObject(raw)) {
+    console.warn(`[renderer.theme] \`${label}\` must be an object`);
+    return null;
+  }
+  const tokens = pickTokens(raw);
+  if (!hasCompletePalette(tokens)) {
+    console.warn(
+      `[renderer.theme] \`${label}\` must contain a complete color token set`,
+    );
+    return null;
+  }
+  return tokens;
 }
 
 /**
@@ -53,69 +80,60 @@ export function validateTheme(raw: unknown): RendererTheme | null {
     console.warn("[renderer.theme] expected an object, got", typeof raw);
     return null;
   }
-  if (!isPlainObject(raw.base)) {
-    console.warn("[renderer.theme] missing or invalid `base` tokens");
+
+  const light = validatePalette(raw.light, "light");
+  if (light === null) return null;
+  const dark = validatePalette(raw.dark, "dark");
+  if (dark === null) return null;
+
+  if (light === "missing" && dark === "missing") {
+    console.warn("[renderer.theme] must declare `light`, `dark`, or both");
     return null;
   }
-  const base = pickTokens(raw.base);
-  if (Object.keys(base).length === 0) {
-    console.warn("[renderer.theme] `base` contains no recognized tokens");
-    return null;
-  }
-  const theme: RendererTheme = { base };
 
-  if (raw.dark !== undefined) {
-    if (isPlainObject(raw.dark)) {
-      const dark = pickTokens(raw.dark);
-      if (Object.keys(dark).length > 0) {
-        theme.dark = dark;
-      }
-    } else {
-      console.warn("[renderer.theme] `dark` must be an object; ignored");
-    }
-  }
-
-  if (raw.prefersScheme === "light" || raw.prefersScheme === "dark") {
-    theme.prefersScheme = raw.prefersScheme;
-  } else if (raw.prefersScheme !== undefined) {
-    console.warn(
-      '[renderer.theme] `prefersScheme` must be "light" or "dark"; ignored',
-    );
-  }
-
+  const theme: RendererTheme = {};
+  if (light !== "missing") theme.light = light;
+  if (dark !== "missing") theme.dark = dark;
   return theme;
 }
 
 /**
  * 사용자의 현재 scheme과 theme 선언을 합쳐 실제 주입할 CSS 변수와 실효 scheme을 계산한다.
  *
- * - 듀얼 모드(base + dark): effectiveScheme = prefersScheme ?? userScheme
- * - 단일 모드(base only): effectiveScheme = prefersScheme ?? "light"
- *   → prefersScheme 없으면 base를 light로 가정 (data-theme 강제 안 함 — 사용자 토글 유지)
- * - `forceScheme`은 prefersScheme이 명시됐거나, 단일 모드인데 사용자 scheme이 base 가정과 다른 경우에만 true
+ * - 둘 다 선언(light + dark): effectiveScheme = userScheme, forceScheme = false
+ *   → user Appearance 토글 그대로 작동.
+ * - 한쪽만 선언: effectiveScheme = 그 scheme, forceScheme = true
+ *   → chat scope에서 chrome도 그 쪽으로 강제.
  */
 export function resolveThemeVars(
   theme: RendererTheme,
   userScheme: "light" | "dark",
 ): ResolvedThemeVars {
-  const hasDark = theme.dark && Object.keys(theme.dark).length > 0;
-  const effectiveScheme: "light" | "dark" =
-    theme.prefersScheme ?? (hasDark ? userScheme : "light");
+  const hasLight = !!theme.light;
+  const hasDark = !!theme.dark;
 
-  const merged: RendererThemeTokens =
-    effectiveScheme === "dark" && theme.dark
-      ? { ...theme.base, ...theme.dark }
-      : theme.base;
+  let effectiveScheme: "light" | "dark";
+  let palette: RendererThemeTokens;
+  let forceScheme: boolean;
+
+  if (hasLight && hasDark) {
+    effectiveScheme = userScheme;
+    palette = userScheme === "dark" ? theme.dark! : theme.light!;
+    forceScheme = false;
+  } else if (hasDark) {
+    effectiveScheme = "dark";
+    palette = theme.dark!;
+    forceScheme = true;
+  } else {
+    effectiveScheme = "light";
+    palette = theme.light!;
+    forceScheme = true;
+  }
 
   const vars: Record<string, string> = {};
   for (const key of TOKEN_KEYS) {
-    const value = merged[key];
-    if (typeof value === "string" && value.length > 0) {
-      vars[TOKEN_TO_CSS[key]] = value;
-    }
+    vars[TOKEN_TO_CSS[key]] = palette[key];
   }
-
-  const forceScheme = theme.prefersScheme !== undefined;
 
   return { vars, effectiveScheme, forceScheme };
 }

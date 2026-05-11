@@ -1,14 +1,18 @@
 /* ── Root: Logbook stage ─────────────────────────────────────── */
 :root {
-  --color-void: #e8dcc0;
-  --color-base: #eee3c8;
-  --color-surface: #f6ecd2;
-  --color-elevated: #fff8e4;
-  --color-accent: #3d7a6d;
-  --color-fg: #2d2015;
-  --color-fg-2: #5a4530;
-  --color-fg-3: #8a6e4d;
-  --color-edge: #3d2a15;
+  --agentchan-renderer-void: #e8dcc0;
+  --agentchan-renderer-base: #eee3c8;
+  --agentchan-renderer-surface: #f6ecd2;
+  --agentchan-renderer-elevated: #fff8e4;
+  --agentchan-renderer-accent: #3d7a6d;
+  --agentchan-renderer-fg: #2d2015;
+  --agentchan-renderer-fg-2: #5a4530;
+  --agentchan-renderer-fg-3: #8a6e4d;
+  --agentchan-renderer-fg-4: #ad8a5f;
+  --agentchan-renderer-edge: #3d2a15;
+  --agentchan-renderer-font-body: var(--agentchan-default-font-body);
+  --agentchan-renderer-font-display: var(--agentchan-default-font-display);
+  --agentchan-renderer-font-mono: var(--agentchan-default-font-mono);
 }
 
 .lg-stage {
@@ -16,9 +20,9 @@
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  font-family: var(--font-family-body);
-  background: var(--color-void);
-  color: var(--color-fg);
+  font-family: var(--agentchan-renderer-font-body);
+  background: var(--agentchan-renderer-void);
+  color: var(--agentchan-renderer-fg);
 }
 .lg-body {
   flex: 1;
@@ -72,7 +76,7 @@
   }
   .lg-side::-webkit-scrollbar { width: 6px; }
   .lg-side::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--color-edge) 30%, transparent);
+    background: color-mix(in srgb, var(--agentchan-renderer-edge) 30%, transparent);
     border-radius: 3px;
   }
 }
@@ -83,10 +87,10 @@
   top: 0;
   z-index: 5;
   padding: 14px 28px 10px;
-  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-surface) 88%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-edge) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 10%, transparent);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -131,12 +135,12 @@
   82%      { opacity: 0.3;  transform: scale(0.98); }
 }
 .lg-header-title {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
 }
 
 .lg-header-meta {
@@ -151,7 +155,7 @@
   filter: drop-shadow(0 0 8px color-mix(in srgb, #b36b2a 40%, transparent));
 }
 .lg-effect {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -162,10 +166,10 @@
   transform: rotate(-0.6deg);
 }
 .lg-header-stamp {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9.5px;
   letter-spacing: 0.2em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   text-transform: uppercase;
 }
 
@@ -178,22 +182,22 @@
 .lg-bearing-mark {
   width: 14px;
   height: 14px;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   flex-shrink: 0;
 }
 .lg-bearing-label {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9px;
   letter-spacing: 0.24em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   text-transform: uppercase;
   flex-shrink: 0;
 }
 .lg-bearing-text {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 13px;
   letter-spacing: 0.04em;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -212,10 +216,10 @@
   gap: 8px;
 }
 .lg-vital-label {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9px;
   letter-spacing: 0.22em;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   text-transform: uppercase;
   width: 42px;
   flex-shrink: 0;
@@ -226,7 +230,7 @@
   flex-shrink: 0;
 }
 .lg-vital-track {
-  stroke: color-mix(in srgb, var(--color-edge) 14%, transparent);
+  stroke: color-mix(in srgb, var(--agentchan-renderer-edge) 14%, transparent);
   stroke-width: 1.2;
 }
 .lg-vital-fill {
@@ -236,7 +240,7 @@
   filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 40%, transparent));
 }
 .lg-vital-value {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -263,7 +267,7 @@
   height: 72px;
   border-radius: 3px;
   overflow: hidden;
-  background: color-mix(in srgb, var(--c) 16%, var(--color-surface));
+  background: color-mix(in srgb, var(--c) 16%, var(--agentchan-renderer-surface));
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--c) 50%, transparent),
     0 6px 16px -10px rgba(61, 42, 21, 0.32);
@@ -300,10 +304,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 28px;
   font-weight: 500;
-  color: color-mix(in srgb, var(--c) 75%, var(--color-fg-3));
+  color: color-mix(in srgb, var(--c) 75%, var(--agentchan-renderer-fg-3));
 }
 .lg-portrait[data-fallback="1"] .lg-portrait-fallback { z-index: 2; }
 .lg-portrait[data-fallback="1"] .lg-portrait-img { visibility: hidden; }
@@ -316,7 +320,7 @@
   margin-bottom: 12px;
   /* 캐릭터 색을 진한 세피아 잉크에 섞어 양피지 위에서 시인성 확보.
      각 캐릭터는 여전히 자기만의 잉크 톤(엘라라=어두운 구리, 렌=깊은 보라 등)으로 구분된다. */
-  color: color-mix(in srgb, var(--c) 55%, var(--color-fg));
+  color: color-mix(in srgb, var(--c) 55%, var(--agentchan-renderer-fg));
 }
 .lg-nameplate-mark {
   width: 22px;
@@ -325,7 +329,7 @@
   opacity: 0.55;
 }
 .lg-nameplate-name {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.28em;
@@ -334,7 +338,7 @@
 .lg-plate-body {
   font-size: 15.5px;
   line-height: 1.82;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   padding-left: 14px;
   border-left: 1px solid color-mix(in srgb, var(--c) 28%, transparent);
   transition: border-color 0.4s ease;
@@ -344,7 +348,7 @@
 }
 .lg-action {
   font-style: italic;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   letter-spacing: 0.005em;
 }
 .lg-soft-break { display: block; height: 5px; }
@@ -358,22 +362,22 @@
   flex-direction: column;
   gap: 8px;
   align-items: flex-end;
-  color: var(--color-fg-2);
-  font-family: var(--font-family-body);
+  color: var(--agentchan-renderer-fg-2);
+  font-family: var(--agentchan-renderer-font-body);
   font-size: 15.5px;
   font-style: italic;
   line-height: 1.72;
-  border-right: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--agentchan-renderer-accent) 35%, transparent);
   animation: lg-rise 0.5s ease-out;
 }
 .lg-whisper-body { text-align: right; }
 .lg-whisper-hand {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-style: normal;
   font-size: 9.5px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--color-fg-4);
+  color: var(--agentchan-renderer-fg-4);
 }
 
 /* ── Narration: hairline 사이 무대 지시문 ─────────────────────── */
@@ -384,21 +388,21 @@
   gap: 18px;
   max-width: 680px;
   margin: 0 auto;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   animation: lg-rise 0.5s ease-out;
 }
 .lg-narration-rule {
   height: 1px;
-  background: color-mix(in srgb, var(--color-edge) 18%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-edge) 18%, transparent);
 }
 .lg-narration-text {
-  font-family: var(--font-family-body);
+  font-family: var(--agentchan-renderer-font-body);
   font-size: 14.5px;
   font-style: italic;
   text-align: center;
   line-height: 1.72;
   letter-spacing: 0.005em;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
 }
 .lg-narration-text .lg-action {
   font-style: italic;
@@ -419,9 +423,9 @@
   margin: 12px auto;
   padding: 10px 10px 8px;
   background: linear-gradient(180deg,
-    var(--color-elevated) 0%,
-    color-mix(in srgb, var(--color-fg) 4%, var(--color-elevated)) 100%);
-  border: 1px solid color-mix(in srgb, var(--color-edge) 18%, transparent);
+    var(--agentchan-renderer-elevated) 0%,
+    color-mix(in srgb, var(--agentchan-renderer-fg) 4%, var(--agentchan-renderer-elevated)) 100%);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 18%, transparent);
   box-shadow:
     0 14px 28px -18px rgba(61, 42, 21, 0.32),
     0 2px 6px -2px rgba(61, 42, 21, 0.18);
@@ -443,7 +447,7 @@
 .lg-plate-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--color-edge) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 8%, transparent);
 }
 .lg-plate-img {
   display: block;
@@ -465,11 +469,11 @@
 }
 .lg-plate-tag {
   margin-top: 8px;
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   text-align: center;
 }
 
@@ -487,7 +491,7 @@
   padding: 8px 20px;
   max-width: 88%;
   /* 텍스트는 진한 세피아 잉크로 가독성 확보, border·glyph만 copper로 정체성 유지 */
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   background: color-mix(in srgb, #b36b2a 6%, transparent);
   border: 1px solid color-mix(in srgb, #b36b2a 42%, transparent);
   transform: rotate(-0.4deg);
@@ -500,7 +504,7 @@
   height: 7px;
   border: 1px solid color-mix(in srgb, #b36b2a 42%, transparent);
   /* void(조금 더 진한 양피지)로 스탬프 노치가 살짝 눌린 자국처럼 보이게 */
-  background: var(--color-void);
+  background: var(--agentchan-renderer-void);
 }
 .lg-stamp::before { top: -4px; left: -4px; }
 .lg-stamp::after  { bottom: -4px; right: -4px; }
@@ -511,7 +515,7 @@
   flex-shrink: 0;
 }
 .lg-stamp-text {
-  font-family: var(--font-family-body);
+  font-family: var(--agentchan-renderer-font-body);
   font-size: 14px;
   letter-spacing: 0;
   line-height: 1.55;
@@ -556,8 +560,8 @@
   gap: 14px;
 }
 .lg-appendix-section {
-  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-edge) 22%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-surface) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 22%, transparent);
   border-radius: 12px;
   box-shadow: 0 8px 28px -18px color-mix(in srgb, #000 38%, transparent);
   backdrop-filter: blur(10px);
@@ -576,18 +580,18 @@
 }
 .lg-appendix-head::-webkit-details-marker { display: none; }
 .lg-appendix-head:hover {
-  background: color-mix(in srgb, var(--color-fg) 3%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-fg) 3%, transparent);
 }
 .lg-appendix-title {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
 }
 .lg-appendix-count {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
   color: #b36b2a;
@@ -596,8 +600,8 @@
 .lg-appendix-chevron {
   width: 6px;
   height: 6px;
-  border-right: 1px solid var(--color-fg-3);
-  border-bottom: 1px solid var(--color-fg-3);
+  border-right: 1px solid var(--agentchan-renderer-fg-3);
+  border-bottom: 1px solid var(--agentchan-renderer-fg-3);
   transform: rotate(-135deg);
   transition: transform 0.3s ease;
   flex-shrink: 0;
@@ -612,7 +616,7 @@
   position: sticky;
   top: 58px;
   z-index: 4;
-  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-surface) 90%, transparent);
   backdrop-filter: blur(12px) saturate(1.05);
   -webkit-backdrop-filter: blur(12px) saturate(1.05);
   border-bottom: 1px solid color-mix(in srgb, var(--c, #b36b2a) 26%, transparent);
@@ -644,7 +648,7 @@
   background: color-mix(in srgb, var(--c, #b36b2a) 40%, transparent);
 }
 .lg-passage-strip:hover {
-  background: color-mix(in srgb, var(--c, var(--color-fg)) 5%, transparent);
+  background: color-mix(in srgb, var(--c, var(--agentchan-renderer-fg)) 5%, transparent);
 }
 .lg-passage-seal {
   flex-shrink: 0;
@@ -661,7 +665,7 @@
 }
 .lg-passage-seal-avatar {
   display: inline-flex;
-  background: var(--color-surface);
+  background: var(--agentchan-renderer-surface);
   border-radius: 999px;
   padding: 1px;
 }
@@ -676,26 +680,26 @@
   border-radius: 999px;
 }
 .lg-passage-label {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   flex-shrink: 0;
 }
 .lg-passage-divider {
   width: 1px;
   height: 14px;
-  background: color-mix(in srgb, var(--color-edge) 45%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-edge) 45%, transparent);
   flex-shrink: 0;
 }
 .lg-passage-name {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--c, var(--color-fg));
+  color: var(--c, var(--agentchan-renderer-fg));
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -707,14 +711,14 @@
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9.5px;
   letter-spacing: 0.32em;
-  color: var(--color-fg-4);
+  color: var(--agentchan-renderer-fg-4);
   transition: color 0.2s ease;
 }
 .lg-passage-strip:hover .lg-passage-hint {
-  color: var(--c, var(--color-fg-2));
+  color: var(--c, var(--agentchan-renderer-fg-2));
 }
 .lg-passage-hint-text--open { display: none; }
 .lg-passage[open] .lg-passage-hint-text:not(.lg-passage-hint-text--open) { display: none; }
@@ -742,8 +746,8 @@
   pointer-events: none;
   /* subtle scrim over content behind */
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--color-void, #000) 38%, transparent) 0%,
-    color-mix(in srgb, var(--color-void, #000) 12%, transparent) 60%,
+    color-mix(in srgb, var(--agentchan-renderer-void, #000) 38%, transparent) 0%,
+    color-mix(in srgb, var(--agentchan-renderer-void, #000) 12%, transparent) 60%,
     transparent 100%);
   animation: lg-passage-unfurl 0.42s cubic-bezier(0.2, 0.75, 0.25, 1);
 }
@@ -762,13 +766,13 @@
   background:
     repeating-linear-gradient(
       transparent 0 34px,
-      color-mix(in srgb, var(--color-fg) 3.5%, transparent) 34px 35px
+      color-mix(in srgb, var(--agentchan-renderer-fg) 3.5%, transparent) 34px 35px
     ),
-    color-mix(in srgb, var(--color-elevated, var(--color-surface)) 98%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-edge) 40%, transparent);
+    color-mix(in srgb, var(--agentchan-renderer-elevated, var(--agentchan-renderer-surface)) 98%, transparent);
+  border: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 40%, transparent);
   box-shadow:
-    0 36px 90px -40px color-mix(in srgb, var(--color-void, #000) 75%, transparent),
-    0 12px 30px -18px color-mix(in srgb, var(--color-void, #000) 55%, transparent);
+    0 36px 90px -40px color-mix(in srgb, var(--agentchan-renderer-void, #000) 75%, transparent),
+    0 12px 30px -18px color-mix(in srgb, var(--agentchan-renderer-void, #000) 55%, transparent);
   isolation: isolate;
   animation: lg-passage-card-in 0.5s cubic-bezier(0.16, 0.84, 0.3, 1) 0.05s backwards;
 }
@@ -823,7 +827,7 @@
   justify-content: center;
   z-index: 3;
   padding: 0 10px;
-  background: color-mix(in srgb, var(--color-elevated, var(--color-surface)) 98%, transparent);
+  background: color-mix(in srgb, var(--agentchan-renderer-elevated, var(--agentchan-renderer-surface)) 98%, transparent);
 }
 .lg-passage-meridian::before,
 .lg-passage-meridian::after {
@@ -885,19 +889,19 @@
   padding-bottom: 4px;
 }
 .lg-passage-eyebrow {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9.5px;
   letter-spacing: 0.38em;
   text-transform: uppercase;
-  color: var(--color-fg-4);
+  color: var(--agentchan-renderer-fg-4);
 }
 .lg-passage-display {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 30px;
   line-height: 1.05;
   font-weight: 500;
   letter-spacing: -0.005em;
-  color: var(--c, var(--color-fg));
+  color: var(--c, var(--agentchan-renderer-fg));
   margin: 0;
   word-break: keep-all;
   overflow-wrap: anywhere;
@@ -905,7 +909,7 @@
 .lg-passage-rule {
   height: 1px;
   width: 56px;
-  background: var(--c, var(--color-fg-3));
+  background: var(--c, var(--agentchan-renderer-fg-3));
   opacity: 0.55;
   margin-top: 4px;
 }
@@ -923,7 +927,7 @@
   border: 1px solid color-mix(in srgb, var(--c, #b36b2a) 55%, transparent);
   border-radius: 999px;
   color: var(--c, #b36b2a);
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 7.5px;
   letter-spacing: 0.22em;
   line-height: 1.1;
@@ -955,10 +959,10 @@
   position: relative;
   z-index: 2;
   padding-top: 14px;
-  border-top: 1px solid color-mix(in srgb, var(--color-edge) 30%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 30%, transparent);
   font-size: 14px;
   line-height: 1.85;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   word-break: keep-all;
   overflow-wrap: anywhere;
   max-height: min(62vh, 640px);
@@ -974,7 +978,7 @@
   .lg-passage-body {
     column-count: 2;
     column-gap: 36px;
-    column-rule: 1px solid color-mix(in srgb, var(--color-edge) 24%, transparent);
+    column-rule: 1px solid color-mix(in srgb, var(--agentchan-renderer-edge) 24%, transparent);
   }
   .lg-passage-body h4,
   .lg-passage-body h5,
@@ -987,22 +991,22 @@
 .lg-passage-body h4,
 .lg-passage-body h5,
 .lg-passage-body h6 {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-weight: 500;
   letter-spacing: 0.02em;
-  color: var(--color-fg-2);
+  color: var(--agentchan-renderer-fg-2);
   margin: 18px 0 6px;
   break-after: avoid;
 }
 .lg-passage-body h4 {
   font-size: 18px;
-  color: var(--c, var(--color-fg));
+  color: var(--c, var(--agentchan-renderer-fg));
 }
 .lg-passage-body h5 {
   font-size: 10.5px;
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  color: var(--c, var(--color-fg-3));
+  color: var(--c, var(--agentchan-renderer-fg-3));
   opacity: 0.88;
   position: relative;
   padding-left: 16px;
@@ -1020,7 +1024,7 @@
 }
 .lg-passage-body h6 {
   font-size: 12px;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .lg-passage-body p { margin: 0 0 10px; }
 .lg-passage-body ul {
@@ -1042,7 +1046,7 @@
   top: 0.75em;
   width: 10px;
   height: 1px;
-  background: var(--c, var(--color-fg-4));
+  background: var(--c, var(--agentchan-renderer-fg-4));
   opacity: 0.55;
 }
 
@@ -1076,15 +1080,15 @@
   row-gap: 2px;
   font-size: 13px;
   line-height: 1.7;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 .lg-item-glyph, .lg-quest-glyph {
   grid-area: glyph;
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 12px;
   font-weight: 700;
   text-align: center;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
 }
 .lg-item-name, .lg-quest-name {
   grid-area: header;
@@ -1099,14 +1103,14 @@
 }
 .lg-item-desc, .lg-quest-desc {
   grid-area: desc;
-  color: var(--color-fg-3);
+  color: var(--agentchan-renderer-fg-3);
   font-size: 12px;
   min-width: 0;
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
 .lg-item-flag, .lg-quest-flag {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 8.5px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -1117,9 +1121,9 @@
   white-space: nowrap;
 }
 .lg-item-flag--spent, .lg-quest-flag--closed {
-  color: var(--color-fg-4);
+  color: var(--agentchan-renderer-fg-4);
   background: transparent;
-  border-color: color-mix(in srgb, var(--color-fg-4) 30%, transparent);
+  border-color: color-mix(in srgb, var(--agentchan-renderer-fg-4) 30%, transparent);
 }
 .lg-quest-flag--new {
   color: #b36b2a;
@@ -1152,17 +1156,17 @@
   align-items: baseline;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
   padding: 4px 8px;
   border-left: 2px solid color-mix(in srgb, #3d7a6d 24%, transparent);
   background: color-mix(in srgb, #3d7a6d 4%, transparent);
 }
 .lg-ability-ko {
   font-weight: 500;
-  color: var(--color-fg);
+  color: var(--agentchan-renderer-fg);
 }
 .lg-ability-mod {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1176,12 +1180,12 @@
   color: #b36b2a;
 }
 .lg-ability--weak {
-  border-left-color: color-mix(in srgb, var(--color-fg-4) 30%, transparent);
+  border-left-color: color-mix(in srgb, var(--agentchan-renderer-fg-4) 30%, transparent);
   background: transparent;
   opacity: 0.75;
 }
 .lg-ability--weak .lg-ability-mod {
-  color: var(--color-fg-4);
+  color: var(--agentchan-renderer-fg-4);
 }
 
 /* ── Margin gloss: 우측 카드가 자체 폭에 반응 ────────────────── */
@@ -1205,12 +1209,12 @@
   .lg-appendix-title { font-size: 0; letter-spacing: 0; }
   .lg-appendix-title::before {
     content: attr(data-short);
-    font-family: var(--font-family-display);
+    font-family: var(--agentchan-renderer-font-display);
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--color-fg-2);
+    color: var(--agentchan-renderer-fg-2);
   }
   .lg-appendix-head { padding: 8px 12px; }
   .lg-item-qty,
@@ -1241,7 +1245,7 @@
     grid-area: ko;
     font-size: 10px;
     letter-spacing: 0.08em;
-    color: var(--color-fg-3);
+    color: var(--agentchan-renderer-fg-3);
   }
   .lg-item-list, .lg-quest-list, .lg-ability-list { padding: 4px 10px 12px; }
 }
@@ -1278,7 +1282,7 @@
     0 1px 0 #fff inset,
     0 -1px 0 color-mix(in srgb, var(--form-ink) 8%, transparent) inset;
   color: var(--form-ink);
-  font-family: var(--font-family-body);
+  font-family: var(--agentchan-renderer-font-body);
   transform-origin: 60% 30%;
   animation: lg-customs-arrive 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -1356,7 +1360,7 @@
   animation: lg-customs-fade-in 0.5s 0.22s ease-out both;
 }
 .lg-customs-authority {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.32em;
@@ -1364,14 +1368,14 @@
   color: var(--form-ink);
 }
 .lg-customs-title {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--form-ink);
 }
 .lg-customs-subtitle {
-  font-family: var(--font-family-body);
+  font-family: var(--agentchan-renderer-font-body);
   font-size: 10.5px;
   font-style: italic;
   color: var(--form-ink-soft);
@@ -1390,7 +1394,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9.5px;
   letter-spacing: 0.16em;
 }
@@ -1444,7 +1448,7 @@
   gap: 10px;
   margin: 0;
   padding-bottom: 4px;
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -1458,7 +1462,7 @@
   justify-content: center;
   width: 22px; height: 22px;
   border: 1px solid var(--form-ink);
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0;
@@ -1485,7 +1489,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .lg-customs-row-label {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1512,7 +1516,7 @@
   border: 1px solid color-mix(in srgb, #b36b2a 55%, var(--form-ink));
   border-radius: 50%;
   color: var(--form-ink);
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -1541,7 +1545,7 @@
   display: inline-block;
   min-width: 32px;
   text-align: center;
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 16px;
   font-weight: 700;
   color: var(--form-ink);
@@ -1573,7 +1577,7 @@
   gap: 8px;
 }
 .lg-customs-total-label {
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.24em;
@@ -1581,7 +1585,7 @@
   color: var(--form-ink-soft);
 }
 .lg-customs-total-value {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 24px;
   font-weight: 700;
   color: var(--form-ink-soft);
@@ -1594,7 +1598,7 @@
   color: #a83225;
 }
 .lg-customs-total-target {
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 14px;
   color: var(--form-ink-soft);
   letter-spacing: 0.06em;
@@ -1609,7 +1613,7 @@
   border: 2.5px solid color-mix(in srgb, #a83225 55%, transparent);
   border-radius: 4px;
   color: color-mix(in srgb, #a83225 78%, transparent);
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -1649,7 +1653,7 @@
   border: none;
   outline: none;
   color: var(--form-ink);
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 18px;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -1678,7 +1682,7 @@
 .lg-customs-sig-caption {
   display: block;
   margin-top: 5px;
-  font-family: var(--font-family-mono);
+  font-family: var(--agentchan-renderer-font-mono);
   font-size: 9.5px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -1690,7 +1694,7 @@
   padding: 8px 12px;
   background: color-mix(in srgb, #a83225 8%, transparent);
   border-left: 3px solid #a83225;
-  font-family: var(--font-family-body);
+  font-family: var(--agentchan-renderer-font-body);
   font-size: 12px;
   color: #a83225;
   letter-spacing: 0.02em;
@@ -1708,7 +1712,7 @@
   background: linear-gradient(180deg, color-mix(in srgb, #3d7a6d 14%, transparent) 0%, color-mix(in srgb, #3d7a6d 24%, transparent) 100%);
   border: 1.5px solid color-mix(in srgb, #3d7a6d 65%, transparent);
   color: #3d7a6d;
-  font-family: var(--font-family-display);
+  font-family: var(--agentchan-renderer-font-display);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -1804,7 +1808,7 @@
   gap: 10px;
   padding: 14px 16px;
   margin-top: 4px;
-  background: color-mix(in srgb, #b36b2a 3%, var(--color-surface, #f6ecd2));
+  background: color-mix(in srgb, #b36b2a 3%, var(--agentchan-renderer-surface, #f6ecd2));
   border: 1px solid color-mix(in srgb, #b36b2a 22%, transparent);
   border-radius: 4px;
   box-shadow: 0 1px 0 color-mix(in srgb, #3d2a15 6%, transparent);
@@ -1824,11 +1828,11 @@
   font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--color-fg-2, #5a4530);
+  color: var(--agentchan-renderer-fg-2, #5a4530);
 }
 .lg-choice-hint {
   font-size: 11px;
-  color: var(--color-fg-3, #8a6e4d);
+  color: var(--agentchan-renderer-fg-3, #8a6e4d);
   font-style: italic;
 }
 .lg-choice-list {
@@ -1843,10 +1847,10 @@
   width: 100%;
   cursor: pointer;
   padding: 12px 16px;
-  background: color-mix(in srgb, #b36b2a 2%, var(--color-elevated, #fff8e4));
+  background: color-mix(in srgb, #b36b2a 2%, var(--agentchan-renderer-elevated, #fff8e4));
   border: 1px solid color-mix(in srgb, #b36b2a 18%, transparent);
   border-radius: 3px;
-  color: var(--color-fg, #2d2015);
+  color: var(--agentchan-renderer-fg, #2d2015);
   font-family: inherit;
   display: flex;
   align-items: baseline;
@@ -1858,7 +1862,7 @@
   animation-delay: calc(var(--i, 0) * 0.06s);
 }
 .lg-choice-option:hover {
-  background: color-mix(in srgb, #b36b2a 8%, var(--color-elevated, #fff8e4));
+  background: color-mix(in srgb, #b36b2a 8%, var(--agentchan-renderer-elevated, #fff8e4));
   border-color: color-mix(in srgb, #b36b2a 38%, transparent);
 }
 .lg-choice-option:active {
@@ -1881,7 +1885,7 @@
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-fg-3, #8a6e4d);
+  color: var(--agentchan-renderer-fg-3, #8a6e4d);
   padding: 2px 8px;
   border: 1px solid color-mix(in srgb, #3d2a15 18%, transparent);
   border-radius: 2px;
@@ -1908,7 +1912,7 @@
   gap: 10px;
   background:
     radial-gradient(ellipse at 50% -20%, color-mix(in srgb, #b36b2a 7%, transparent), transparent 55%),
-    color-mix(in srgb, #b36b2a 5%, var(--color-elevated, #fff8e4));
+    color-mix(in srgb, #b36b2a 5%, var(--agentchan-renderer-elevated, #fff8e4));
   border: 1px solid color-mix(in srgb, #b36b2a 28%, transparent);
   border-radius: 4px;
   box-shadow:
@@ -1950,7 +1954,7 @@
   border-radius: 3px;
   background:
     radial-gradient(circle at 50% 0%, color-mix(in srgb, #fff 80%, transparent), transparent 65%),
-    color-mix(in srgb, #fff 22%, var(--color-elevated, #fff8e4));
+    color-mix(in srgb, #fff 22%, var(--agentchan-renderer-elevated, #fff8e4));
   border: 1px solid color-mix(in srgb, #b36b2a 20%, transparent);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, #fff 25%, transparent),
@@ -2712,17 +2716,18 @@
 
 /* ── Combat Mode (어두운 가죽 · 촛불 황금) ──────────────────── */
 .lg-stage[data-mode="combat"] {
-  --color-void: #1a110a;
-  --color-base: #1a110a;
-  --color-surface: #251810;
-  --color-elevated: #2e1c14;
-  --color-accent: #d48a1f;
-  --color-fg: #d8c9a8;
-  --color-fg-2: #b8a38a;
-  --color-fg-3: #8a7658;
-  --color-edge: #3d2a1f;
-  background: var(--color-void);
-  color: var(--color-fg);
+  --agentchan-renderer-void: #1a110a;
+  --agentchan-renderer-base: #1a110a;
+  --agentchan-renderer-surface: #251810;
+  --agentchan-renderer-elevated: #2e1c14;
+  --agentchan-renderer-accent: #d48a1f;
+  --agentchan-renderer-fg: #d8c9a8;
+  --agentchan-renderer-fg-2: #b8a38a;
+  --agentchan-renderer-fg-3: #8a7658;
+  --agentchan-renderer-fg-4: #6f5f48;
+  --agentchan-renderer-edge: #3d2a1f;
+  background: var(--agentchan-renderer-void);
+  color: var(--agentchan-renderer-fg);
 }
 .lg-stage[data-mode="combat"] .lg-header,
 .lg-stage[data-mode="combat"] .lg-header--empty {

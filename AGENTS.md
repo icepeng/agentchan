@@ -23,8 +23,13 @@
 - 한국어가 표시되는 UI 영역에서는 `font-style: italic`과 `font-family: monospace`를 typographic 강조 수단으로 사용하지 않는다.
 - example_data의 템플릿 편집시 `docs/agents/writing-templates.md`의 규칙을 먼저 읽는다.
 - 사용자 응답, 문서, 이슈, PR (코멘트 포함)은 한국어로 작성한다. 예외: 개발 키워드, CONTEXT.md Language
-- ADR, CONTEXT.md 편집 시 colored emoji 및 em dash(—)를 쓰지 않는다.
+
+## 문서화
+
+- ADR, CONTEXT.md 편집 시 emoji 및 em dash(—)를 쓰지 않는다.
 - CONTEXT.md를 편집할 때 ADR 참조를 넣지 않는다.
+- For Korean documentation, avoid one-to-one translation of English sentence structures. Write the final Korean text as natural Korean technical documentation.
+- Do not preserve English clause order, passive constructions, or pronoun usage when they sound unnatural in Korean. Translationese is a quality bug.
 
 ## Browser Automation
 

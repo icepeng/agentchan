@@ -9,7 +9,7 @@ import { VENDOR_SPECIFIERS } from "@agentchan/renderer-vendor";
  * keep in memory.
  *
  * The shell HTML wires up:
- *   - host-theme.css (Tailwind tokens as `[data-theme]` blocks)
+ *   - host-theme.css (host fallback tokens as `[data-theme]` blocks)
  *   - importmap for the bundled renderer's external React imports
  *   - the iframe-bootstrap module that handles INIT/RPC/HYDRATE/mount
  */
@@ -30,41 +30,46 @@ interface ThemeCache {
   digest: string;
 }
 
-const HOST_THEME_DARK: Record<string, string> = {
-  "--color-void": "#050508",
-  "--color-base": "#0a0a10",
-  "--color-surface": "#111118",
-  "--color-elevated": "#1a1a24",
-  "--color-raised": "#222230",
-  "--color-accent": "#2dd4bf",
-  "--color-warm": "#fbbf24",
-  "--color-danger": "#ef4444",
-  "--color-fg": "#e4e4e7",
-  "--color-fg-2": "#a1a1aa",
-  "--color-fg-3": "#8a8a94",
-  "--color-fg-4": "#6a6a75",
-  "--color-edge": "#ffffff",
-  "--font-family-display":
+const HOST_THEME_FONTS: Record<string, string> = {
+  "--agentchan-default-font-display":
     "'Pretendard Variable', 'Syne', system-ui, sans-serif",
-  "--font-family-body":
+  "--agentchan-default-font-body":
     "'Pretendard Variable', 'Lexend', system-ui, sans-serif",
-  "--font-family-mono": "'Fira Code', ui-monospace, monospace",
+  "--agentchan-default-font-mono": "'Fira Code', ui-monospace, monospace",
+};
+
+const HOST_THEME_DARK: Record<string, string> = {
+  "--agentchan-default-void": "#050508",
+  "--agentchan-default-base": "#0a0a10",
+  "--agentchan-default-surface": "#111118",
+  "--agentchan-default-elevated": "#1a1a24",
+  "--agentchan-default-raised": "#222230",
+  "--agentchan-default-accent": "#2dd4bf",
+  "--agentchan-default-warm": "#fbbf24",
+  "--agentchan-default-danger": "#ef4444",
+  "--agentchan-default-fg": "#e4e4e7",
+  "--agentchan-default-fg-2": "#a1a1aa",
+  "--agentchan-default-fg-3": "#8a8a94",
+  "--agentchan-default-fg-4": "#6a6a75",
+  "--agentchan-default-edge": "#ffffff",
+  ...HOST_THEME_FONTS,
 };
 
 const HOST_THEME_LIGHT: Record<string, string> = {
-  "--color-void": "#f4f4f8",
-  "--color-base": "#eaeaf0",
-  "--color-surface": "#ffffff",
-  "--color-elevated": "#f0f0f5",
-  "--color-raised": "#e2e2ea",
-  "--color-accent": "#0d9488",
-  "--color-warm": "#b45309",
-  "--color-danger": "#dc2626",
-  "--color-fg": "#1a1a2e",
-  "--color-fg-2": "#4a4a5e",
-  "--color-fg-3": "#6e6e82",
-  "--color-fg-4": "#8a8a9e",
-  "--color-edge": "#1a1a2e",
+  "--agentchan-default-void": "#f4f4f8",
+  "--agentchan-default-base": "#eaeaf0",
+  "--agentchan-default-surface": "#ffffff",
+  "--agentchan-default-elevated": "#f0f0f5",
+  "--agentchan-default-raised": "#e2e2ea",
+  "--agentchan-default-accent": "#0d9488",
+  "--agentchan-default-warm": "#b45309",
+  "--agentchan-default-danger": "#dc2626",
+  "--agentchan-default-fg": "#1a1a2e",
+  "--agentchan-default-fg-2": "#4a4a5e",
+  "--agentchan-default-fg-3": "#6e6e82",
+  "--agentchan-default-fg-4": "#8a8a9e",
+  "--agentchan-default-edge": "#1a1a2e",
+  ...HOST_THEME_FONTS,
 };
 
 export interface HostShellOptions {
@@ -135,12 +140,16 @@ function renderShellHtml(isDev: boolean): string {
     margin: 0;
     padding: 0;
   }
-  html { background: var(--color-void); color: var(--color-fg); font-family: var(--font-family-body); }
+  html {
+    background: var(--agentchan-default-void);
+    color: var(--agentchan-default-fg);
+    font-family: var(--agentchan-default-font-body);
+  }
   body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--color-fg-4); border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--color-fg-3); }
+  ::-webkit-scrollbar-thumb { background: var(--agentchan-default-fg-4); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--agentchan-default-fg-3); }
 </style>
 <script type="module" src="/renderer-bootstrap.js"></script>
 </head>

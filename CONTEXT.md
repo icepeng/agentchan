@@ -74,9 +74,29 @@ _Avoid_: plugin, command, instruction
 **Project**의 창작 놀이를 화면에 어떻게 보여줄지 정하는 표현 layer.
 _Avoid_: theme, view, UI
 
+**Host**:
+**Renderer** iframe 반대편의 agentchan 측. **Renderer**와 RPC로만 통신한다.
+_Avoid_: parent, container, shell, web UI
+
+**Theme**:
+agentchan UI에 적용되는 color token 묶음. 하나 이상의 **Color scheme**을 담는다.
+_Avoid_: palette, style, skin
+
+**App theme**:
+agentchan이 기본으로 제공하는 **Theme**. **Project**의 채팅 UI 밖에서는 항상 적용된다.
+_Avoid_: default theme, global theme, base theme
+
 **Project theme**:
-**Renderer**가 **Project**의 분위기에 맞게 agentchan 화면 색을 제안하는 표현 설정.
-_Avoid_: app theme, appearance preference, global theme
+**Renderer**가 **Project**의 분위기에 맞게 제안하는 **Theme**. **Project**의 채팅 UI에서 **App theme** 대신 적용된다.
+_Avoid_: custom theme, override theme
+
+**Color scheme**:
+**Theme**이 지원하는 `light` / `dark` 변형. CSS `color-scheme` property에 대응한다.
+_Avoid_: theme variant, appearance variant, mode
+
+**Appearance preference**:
+**User**가 어느 **Color scheme**을 보고 싶은지에 대한 브라우저 표시 선호. CSS `prefers-color-scheme`에 대응한다.
+_Avoid_: theme preference, color mode
 
 **Project README**:
 사람이 **Template**이나 **Project**를 시작하고 다루는 법을 읽는 안내문.
@@ -172,8 +192,11 @@ _Avoid_: exe build, binary
 - **SYSTEM.md**는 LLM system prompt 그 자체가 아니다. 최종 전달되는 system prompt는 **Creative agent**가 **SYSTEM.md**를 끼워넣어 합성한다.
 - **Renderer**는 창작 놀이의 표현 방식을 정하지만, 놀이의 원본은 **Project**에 파일로 남는다.
 - **Renderer**는 **Project theme**을 제안할 수 있다.
-- **Project theme**은 **User**의 앱 appearance preference와 다르다. 하나는 **Project**의 표현이고, 다른 하나는 브라우저의 표시 선호다.
-- **Project theme**은 **Project**의 채팅에서만 적용되고, **Project editor**, Settings, **Library**에서는 기본 앱 테마로 돌아간다.
+- **Project theme**은 **Renderer** 화면뿐 아니라 **Project**의 채팅 UI 전체에 적용된다.
+- **Project**의 채팅 밖(**Project editor**, Settings, **Library**)에서는 **App theme**이 적용된다.
+- **Theme**은 `light` / `dark` **Color scheme**을 한쪽 또는 양쪽 담을 수 있다. **App theme**은 양쪽을 모두 담는다.
+- **Appearance preference**는 **User**가 보고 싶은 **Color scheme**을 정한다. 단 적용되는 **Theme**이 그 **Color scheme**을 담을 때만 반영된다.
+- **Project theme**과 **Appearance preference**는 다른 개념이다. 하나는 **Project**가 제안하는 표현이고, 다른 하나는 **User**의 브라우저 표시 선호다.
 - **Skill**은 **Creative agent**가 스스로 선택해 사용할 수도 있고, **User**가 **Slash command**로 직접 호출할 수도 있다.
 - **Author**는 특정 **Skill**을 **User**가 직접 호출할 때만 쓰이도록 제한할 수 있다.
 - **Project editor**에서 **User**는 **Project content**, **SYSTEM.md**, **Skill**, **Renderer**를 고칠 수 있다.
@@ -223,4 +246,5 @@ _Avoid_: exe build, binary
 - **"work" / "story" / "piece"** - 장르를 좁히거나 완성물처럼 들리므로 **Project**의 canonical term으로 쓰지 않는다.
 - **"workspace"** - IDE workspace나 repo root로 읽히기 쉬우므로 쓰지 않는다. 창작 재료와 결과는 **Project content**, **Project**를 받치는 로컬 폴더는 **Project folder**라고 부른다.
 - **"edit mode"** - UI 상태 이름으로는 남을 수 있지만 도메인 용어로는 **Project editor**를 쓴다.
+- **"host"** - **Renderer**와의 통신·책임 분할 맥락에서만 쓴다. agentchan 전반은 *agentchan*, UI surface는 **Project 채팅 UI** 등 구체적 용어를 쓴다.
 - **"turn"** - **User**가 하나의 응답처럼 보는 UI grouping과 **Session**의 저장 단위가 다르다. 저장되는 것은 append-only entry들이며, tool call이 끼면 한 **User** 입력에 여러 assistant entry가 생길 수 있다. Turn이 필요할 때는 저장 단위가 아니라 derived UI grouping인지 먼저 확인한다.

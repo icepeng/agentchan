@@ -91,7 +91,7 @@ export function AppShell() {
       : null;
 
   const rootStyle = resolvedTheme?.vars;
-  // data-theme는 prefersScheme가 명시된 경우에만 scope-local override.
+  // data-theme는 forceScheme(palette 한쪽만 선언)일 때만 scope-local override.
   // 이렇게 하면 Settings/Templates에 들어갔을 때 사용자 원래 모드로 자동 복귀한다.
   const dataThemeOverride =
     resolvedTheme?.forceScheme ? resolvedTheme.effectiveScheme : undefined;

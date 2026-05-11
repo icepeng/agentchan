@@ -77,7 +77,7 @@ const METRIC_DESCRIPTIONS: [string, string, string] = [
 
 function resolveRendererTheme(): RendererTheme {
   return {
-    base: {
+    dark: {
       void: "#0a0e14",
       base: "#11100f",
       surface: "#1a1716",
@@ -86,9 +86,9 @@ function resolveRendererTheme(): RendererTheme {
       fg: "#f0e8dc",
       fg2: "#b8aaa0",
       fg3: "#7d746d",
+      fg4: "#5f5852",
       edge: "#f0d7be",
     },
-    prefersScheme: "dark",
   };
 }
 

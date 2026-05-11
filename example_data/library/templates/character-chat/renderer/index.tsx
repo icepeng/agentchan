@@ -13,7 +13,7 @@ import "./index.css";
 //   `[slug:assets/key]` 토큰(단독 줄)은 본문 중간에 삽입되는 강조 일러스트
 //   카드로 렌더된다 — 아바타 표정을 바꾸지 않는다.
 //
-//   `theme()`은 host에 navy/teal 컬러 팔레트를 알려 cr-stage 외부 chrome도
+//   `theme()`은 host에 navy/teal 컬러 팔레트를 알려 cr-stage 바깥 host UI도
 //   같은 톤으로 흐르게 한다.
 //
 //   렌더러는 pure `(files) => ReactElement` — 세션/스킬 상태에 접근하지 않는다.
@@ -32,7 +32,7 @@ interface RendererContentProps {
 // ── Theme ────────────────────────────────────────────────────────────────────
 
 const RP_THEME: RendererTheme = {
-  base: {
+  dark: {
     void: "#070b15",
     base: "#0e1626",
     surface: "#15203a",
@@ -41,9 +41,9 @@ const RP_THEME: RendererTheme = {
     fg: "#d8e4f0",
     fg2: "#9aa9bf",
     fg3: "#6a7790",
+    fg4: "#4d596f",
     edge: "#1d2740",
   },
-  prefersScheme: "dark",
 };
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -356,7 +356,7 @@ function PresenceBeat({
 }): ReactElement {
   const entry = stage.byName.get(beat.name);
   const displayName = entry?.displayName ?? beat.name;
-  const color = entry?.color ?? "var(--color-accent)";
+  const color = entry?.color ?? "var(--agentchan-renderer-accent)";
 
   return (
     <section
@@ -440,7 +440,7 @@ function IllustrationBeat({
   const entry = stage.bySlug.get(beat.slug);
   const dir = entry?.dir ?? `characters/${beat.slug}`;
   const src = characterImageUrl(stage.baseUrl, dir, beat.key);
-  const color = entry?.color ?? "var(--color-accent)";
+  const color = entry?.color ?? "var(--agentchan-renderer-accent)";
   const displayName = entry?.displayName ?? beat.slug;
   const keyName = beat.key.replace(/^assets\//, "");
   return (
