@@ -19,6 +19,8 @@ import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/features/onboarding/index.js";
 import { ProjectReadmeModal } from "@/client/features/project/index.js";
+import { ErrorBoundary } from "@/client/shared/ui/index.js";
+import { PageErrorFallback } from "./PageErrorFallback.js";
 
 // Templates page is lazy-loaded to keep it out of the main bundle.
 const TemplatesPage = lazy(() =>
@@ -145,11 +147,19 @@ export function AppShell() {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         <Suspense fallback={<div className="flex-1" />}>
-          <PageContent
-            view={view}
-            agentPanelOpen={ui.agentPanelOpen}
-            onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
-          />
+          <ErrorBoundary
+            FallbackComponent={PageErrorFallback}
+            resetKeys={[view.kind, activeProjectSlug]}
+            onError={(error, info) => {
+              console.error("[ErrorBoundary] PageContent", error, info.componentStack);
+            }}
+          >
+            <PageContent
+              view={view}
+              agentPanelOpen={ui.agentPanelOpen}
+              onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
+            />
+          </ErrorBoundary>
         </Suspense>
       </div>
 

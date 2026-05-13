@@ -290,4 +290,16 @@ export const translations: Record<TranslationKey, string> = {
   "update.dismiss": "닫기",
   "update.currentVersion": "현재 버전",
   "update.upToDate": "최신 버전을 사용 중입니다",
+
+  // Error boundaries
+  "errorBoundary.fatalTitle": "agentchan에 예상치 못한 오류가 발생했습니다",
+  "errorBoundary.fatalDescription": "앱을 계속 실행할 수 없어 복구 화면을 표시했습니다. 새로고침하면 대부분의 경우 다시 사용할 수 있습니다. 같은 오류가 반복되면 개발자에게 문의해 주세요.",
+  "errorBoundary.areaTitle": "이 영역에 예상치 못한 오류가 발생했습니다",
+  "errorBoundary.areaDescription": "다른 영역은 계속 사용할 수 있습니다. 다시 시도해도 같은 문제가 반복되면 개발자에게 문의해 주세요.",
+  "errorBoundary.panelTitle": "예상치 못한 오류",
+  "errorBoundary.panelDescription": "다시 시도해 주세요. 같은 문제가 반복되면 개발자에게 문의해 주세요.",
+  "errorBoundary.editModeTitle": "Project editor에 예상치 못한 오류가 발생했습니다",
+  "errorBoundary.retry": "다시 시도",
+  "errorBoundary.reload": "새로고침",
+  "errorBoundary.details": "오류 상세",
 };

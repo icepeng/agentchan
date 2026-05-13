@@ -288,6 +288,18 @@ export const translations = {
   "update.dismiss": "Dismiss",
   "update.currentVersion": "Current version",
   "update.upToDate": "You're on the latest version",
+
+  // Error boundaries
+  "errorBoundary.fatalTitle": "agentchan hit an unexpected error",
+  "errorBoundary.fatalDescription": "The app cannot continue, so this recovery screen is shown. Reloading usually fixes the problem. If the same error keeps happening, contact the developer.",
+  "errorBoundary.areaTitle": "This area hit an unexpected error",
+  "errorBoundary.areaDescription": "Other areas are still available. Try again, and contact the developer if the same problem keeps happening.",
+  "errorBoundary.panelTitle": "Unexpected error",
+  "errorBoundary.panelDescription": "Try again. If the same problem keeps happening, contact the developer.",
+  "errorBoundary.editModeTitle": "The Project editor hit an unexpected error",
+  "errorBoundary.retry": "Try again",
+  "errorBoundary.reload": "Reload",
+  "errorBoundary.details": "Error details",
 } as const satisfies Record<string, string>;
 
 export type TranslationKey = keyof typeof translations;

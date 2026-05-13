@@ -1,10 +1,24 @@
 import { useState, useRef, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
-import { useViewState } from "@/client/entities/view/index.js";
+import {
+  useViewState,
+  selectActiveProjectSlug,
+} from "@/client/entities/view/index.js";
+import { useRendererViewState } from "@/client/entities/renderer/index.js";
+import { useActiveSessionSelection } from "@/client/entities/session/index.js";
 import { EditModeToggle } from "@/client/entities/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
-import { RenderedView } from "@/client/features/project/index.js";
-import { AgentPanel, BottomInput } from "@/client/features/chat/index.js";
+import {
+  ProjectSurfaceErrorFallback,
+  RenderedView,
+} from "@/client/features/project/index.js";
+import {
+  AgentPanel,
+  AgentPanelErrorFallback,
+  BottomInput,
+} from "@/client/features/chat/index.js";
+import { EditModeErrorFallback } from "@/client/features/editor/EditModeErrorFallback.js";
+import { ErrorBoundary } from "@/client/shared/ui/index.js";
 import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
 
 const EditModePanel = lazy(() =>
@@ -24,6 +38,8 @@ interface ProjectPageProps {
 
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
   const viewState = useViewState();
+  const rendererView = useRendererViewState();
+  const sessionSelection = useActiveSessionSelection();
   const { t } = useI18n();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,6 +48,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   // ProjectPage is rendered by AppShell only when view.kind is "project", so
   // narrowing here is safe.
   if (viewState.view.kind !== "project") return null;
+  const activeProjectSlug = selectActiveProjectSlug(viewState);
   const isEdit = viewState.view.mode === "edit";
 
   const handlePanelResize = (delta: number) => {
@@ -57,12 +74,28 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
         {isEdit ? (
           // Edit mode: Tree + Editor | Chat Panel
           <Suspense fallback={<div className="flex-1" />}>
-            <EditModePanel />
+            <ErrorBoundary
+              FallbackComponent={EditModeErrorFallback}
+              resetKeys={[activeProjectSlug]}
+              onError={(error, info) => {
+                console.error("[ErrorBoundary] EditModePanel", error, info.componentStack);
+              }}
+            >
+              <EditModePanel />
+            </ErrorBoundary>
           </Suspense>
         ) : (
           // Chat mode: Rendered View
           <div className={`flex-1 flex flex-col min-w-0 transition-colors duration-300 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
-            <RenderedView />
+            <ErrorBoundary
+              FallbackComponent={ProjectSurfaceErrorFallback}
+              resetKeys={[activeProjectSlug, rendererView.digest]}
+              onError={(error, info) => {
+                console.error("[ErrorBoundary] RenderedView", error, info.componentStack);
+              }}
+            >
+              <RenderedView />
+            </ErrorBoundary>
           </div>
         )}
 
@@ -80,7 +113,15 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
             style={{ width: panelWidth }}
             className="flex-shrink-0 flex flex-col min-h-0 bg-base/40 transition-colors duration-300 hidden lg:flex"
           >
-            <AgentPanel />
+            <ErrorBoundary
+              FallbackComponent={AgentPanelErrorFallback}
+              resetKeys={[activeProjectSlug, sessionSelection.openSessionId]}
+              onError={(error, info) => {
+                console.error("[ErrorBoundary] AgentPanel", error, info.componentStack);
+              }}
+            >
+              <AgentPanel />
+            </ErrorBoundary>
             {isEdit && <BottomInput variant="embedded" />}
           </div>
         ) : (
