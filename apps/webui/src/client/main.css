@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  /* Depth layers — darkest to lightest */
-  --color-void: #050508;
-  --color-base: #0a0a10;
-  --color-surface: #111118;
-  --color-elevated: #1a1a24;
-  --color-raised: #222230;
+  /* Depth layers — lightest to darkest (light is default) */
+  --color-void: #f4f4f8;
+  --color-base: #eaeaf0;
+  --color-surface: #ffffff;
+  --color-elevated: #f0f0f5;
+  --color-raised: #e2e2ea;
 
   /* Accent */
-  --color-accent: #2dd4bf;
-  --color-warm: #fbbf24;
-  --color-danger: #ef4444;
+  --color-accent: #0d9488;
+  --color-warm: #b45309;
+  --color-danger: #dc2626;
 
   /* Foreground */
-  --color-fg: #e4e4e7;
-  --color-fg-2: #a1a1aa;
-  --color-fg-3: #8a8a94;
-  --color-fg-4: #6a6a75;
+  --color-fg: #1a1a2e;
+  --color-fg-2: #4a4a5e;
+  --color-fg-3: #6e6e82;
+  --color-fg-4: #8a8a9e;
 
   /* Edge — base color for subtle borders (used with opacity: border-edge/6) */
-  --color-edge: #ffffff;
+  --color-edge: #1a1a2e;
 
   /* Typography */
   --font-family-display: 'Pretendard Variable', 'Syne', system-ui, sans-serif;
@@ -66,27 +66,33 @@
   80%      { transform: translateX(2px); }
 }
 
-/* ── Light theme overrides ────────────────── */
+/* ── Color scheme default ────────────────── */
 
-[data-theme="light"] {
-  --color-void: #f4f4f8;
-  --color-base: #eaeaf0;
-  --color-surface: #ffffff;
-  --color-elevated: #f0f0f5;
-  --color-raised: #e2e2ea;
-
-  --color-accent: #0d9488;
-  --color-warm: #b45309;
-  --color-danger: #dc2626;
-
-  --color-fg: #1a1a2e;
-  --color-fg-2: #4a4a5e;
-  --color-fg-3: #6e6e82;
-  --color-fg-4: #8a8a9e;
-
-  --color-edge: #1a1a2e;
-
+:root {
   color-scheme: light;
+}
+
+/* ── Dark theme overrides ────────────────── */
+
+[data-theme="dark"] {
+  --color-void: #050508;
+  --color-base: #0a0a10;
+  --color-surface: #111118;
+  --color-elevated: #1a1a24;
+  --color-raised: #222230;
+
+  --color-accent: #2dd4bf;
+  --color-warm: #fbbf24;
+  --color-danger: #ef4444;
+
+  --color-fg: #e4e4e7;
+  --color-fg-2: #a1a1aa;
+  --color-fg-3: #8a8a94;
+  --color-fg-4: #6a6a75;
+
+  --color-edge: #ffffff;
+
+  color-scheme: dark;
 }
 
 /* ── Base ──────────────────────────────────── */
@@ -116,13 +122,6 @@ html, body, #root {
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-fg-3);
-}
-
-[data-theme="light"] ::-webkit-scrollbar-thumb {
-  background: var(--color-fg-4);
-}
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
   background: var(--color-fg-3);
 }
 

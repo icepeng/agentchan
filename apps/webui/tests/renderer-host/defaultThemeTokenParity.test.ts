@@ -34,9 +34,9 @@ describe("default theme token parity", () => {
     const hostCss = createHostShellService({ isDev: true }).hostThemeCss().css;
 
     const webDefaults = parseDeclarations(readBlock(mainCss, "@theme"));
-    const webLightOverrides = parseDeclarations(readBlock(mainCss, '[data-theme="light"]'));
-    const webDark = webDefaults;
-    const webLight = { ...webDefaults, ...webLightOverrides };
+    const webDarkOverrides = parseDeclarations(readBlock(mainCss, '[data-theme="dark"]'));
+    const webLight = webDefaults;
+    const webDark = { ...webDefaults, ...webDarkOverrides };
 
     const hostDark = parseDeclarations(readBlock(hostCss, '[data-theme="dark"]'));
     const hostLight = parseDeclarations(readBlock(hostCss, '[data-theme="light"]'));
