@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, type CSSProperties } from "react";
 import { Menu } from "lucide-react";
 import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
 import {
@@ -90,9 +90,17 @@ export function AppShell() {
       ? resolveThemeVars(rendererView.theme, userScheme)
       : null;
 
-  const rootStyle = resolvedTheme?.vars;
-  // data-theme는 forceScheme(palette 한쪽만 선언)일 때만 scope-local override.
+  // forceScheme(palette 한쪽만 선언)일 때만 scope-local override.
   // 이렇게 하면 Settings/Templates에 들어갔을 때 사용자 원래 모드로 자동 복귀한다.
+  // color-scheme도 같이 잠가야 native scrollbar/caret이 forced palette와 일치한다.
+  const rootStyle: CSSProperties | undefined = resolvedTheme
+    ? {
+        ...resolvedTheme.vars,
+        ...(resolvedTheme.forceScheme
+          ? { colorScheme: resolvedTheme.effectiveScheme }
+          : null),
+      }
+    : undefined;
   const dataThemeOverride =
     resolvedTheme?.forceScheme ? resolvedTheme.effectiveScheme : undefined;
 
