@@ -70,6 +70,7 @@ function evaluateTheme(
 
 function applySchemeAttribute(scheme: "light" | "dark"): void {
   document.documentElement.dataset.theme = scheme;
+  document.documentElement.style.colorScheme = scheme;
 }
 
 export interface IframeBootstrap {
