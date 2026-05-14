@@ -28,8 +28,6 @@
 
 - ADR, CONTEXT.md 편집 시 emoji 및 em dash(—)를 쓰지 않는다.
 - CONTEXT.md를 편집할 때 ADR 참조를 넣지 않는다.
-- For Korean documentation, avoid one-to-one translation of English sentence structures. Write the final Korean text as natural Korean technical documentation.
-- Do not preserve English clause order, passive constructions, or pronoun usage when they sound unnatural in Korean. Translationese is a quality bug.
 
 ## Browser Automation
 
