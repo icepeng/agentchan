@@ -5,12 +5,8 @@
   "type": "module",
   "sideEffects": ["**/*.css"],
   "scripts": {
-    "predev": "portless proxy start && portless alias agentchan 4100 --force",
-    "dev": "bun run --parallel dev:server dev:client",
-    "postdev": "portless alias --remove agentchan",
-    "dev:local": "bun run --parallel dev:server dev:client",
-    "dev:server": "bun --hot src/server/index.ts",
-    "dev:client": "bun --bun vite",
+    "dev": "portless",
+    "dev:start": "bun --hot src/server/dev-entry.ts",
     "build": "bun --bun vite build",
     "start": "bun run src/server/index.ts",
     "build:exe": "bun run scripts/build-exe.ts",
@@ -19,6 +15,10 @@
     "build:exe:win": "bun run scripts/build-exe.ts --target=bun-windows-x64",
     "typecheck": "tsgo --noEmit",
     "test": "bun test tests/"
+  },
+  "portless": {
+    "name": "agentchan",
+    "script": "dev:start"
   },
   "dependencies": {
     "@agentchan/creative-agent": "workspace:*",
@@ -50,6 +50,7 @@
     "swr": "^2.4.1"
   },
   "devDependencies": {
+    "@hono/node-server": "^2.0.2",
     "@tailwindcss/vite": "^4.2.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

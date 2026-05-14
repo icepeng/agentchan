@@ -8,7 +8,7 @@
 
 ## 주요 명령
 
-- `bun run dev` - Web UI dev server 실행. portless 기본 URL은 `https://agentchan.localhost`
+- `bun run dev` - Web UI dev server 실행 (단일 Bun 프로세스에 Vite middleware 임베드). portless로 라우팅되며 plain HTTP 기본, URL은 `http://agentchan.localhost` (linked worktree에서는 branch prefix 자동, 예: `http://fix-ui.agentchan.localhost`). portless 없이 띄우려면 `bun run dev:start`.
 - `bun run example-data:copy -- --force` - `example_data/`를 `apps/webui/data/` 런타임 데이터로 강제 반영
 - `bun run typecheck` - 타입 체크 (tsgo 기반). 주의: `npx tsc`는 사용하지 않는다.
 - `bun run test` - 기본 테스트.

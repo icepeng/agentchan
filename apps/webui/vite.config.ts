@@ -7,10 +7,6 @@ import {
   ensureVendorFixtures,
   VENDOR_SPECIFIERS,
 } from "@agentchan/renderer-vendor";
-import { resolveDevPorts } from "./scripts/dev-ports.js";
-
-const { serverPort, clientPort } = resolveDevPorts();
-const devServerTarget = `http://127.0.0.1:${serverPort}`;
 
 const VENDOR_DEV_DIR = path.resolve(__dirname, "public/vendor/dev");
 
@@ -140,20 +136,6 @@ export default defineConfig({
       "@lezer/highlight",
     ],
   },
-  server: {
-    watch: {
-      ignored: ["**/data/**", "**/example_data/**"],
-    },
-    host: "127.0.0.1",
-    port: clientPort,
-    proxy: {
-      "/api": devServerTarget,
-      "/renderer-shell.html": {
-        target: devServerTarget,
-        xfwd: true,
-      },
-      "/renderer-bootstrap.js": devServerTarget,
-      "/host-theme.css": devServerTarget,
-    },
-  },
+  // Dev server is mounted in middleware mode by apps/webui/src/server/dev-entry.ts.
+  // `vite build` doesn't read `server`, so we keep only build-time config here.
 });

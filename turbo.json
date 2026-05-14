@@ -8,11 +8,11 @@
     "test": {
       "dependsOn": ["^build"]
     },
-    "dev:server": {
+    "dev": {
       "cache": false,
       "persistent": true
     },
-    "dev:client": {
+    "dev:start": {
       "cache": false,
       "persistent": true
     }
