@@ -64,7 +64,7 @@ describe("renderer-shell routes", () => {
     expect(body).not.toContain("example.invalid");
   });
 
-  test("/renderer-shell.html honors trusted local dev proxy origin header", async () => {
+  test("/renderer-shell.html honors trusted local dev forwarded origin", async () => {
     const svc = createHostShellService({ isDev: true });
     const app = buildApp(svc);
     const res = await app.fetch(
@@ -72,7 +72,8 @@ describe("renderer-shell routes", () => {
         "https://internal/renderer-shell.html",
         {
           headers: {
-            "x-agentchan-dev-host-origin": "http://127.0.0.1:4102",
+            "x-forwarded-host": "127.0.0.1:4102",
+            "x-forwarded-proto": "http",
           },
         },
       ),
@@ -87,7 +88,7 @@ describe("renderer-shell routes", () => {
     );
   });
 
-  test("/renderer-shell.html honors trusted portless localhost origin header", async () => {
+  test("/renderer-shell.html honors trusted portless forwarded origin", async () => {
     const svc = createHostShellService({ isDev: true });
     const app = buildApp(svc);
     const res = await app.fetch(
@@ -95,7 +96,8 @@ describe("renderer-shell routes", () => {
         "https://internal/renderer-shell.html",
         {
           headers: {
-            "x-agentchan-dev-host-origin": "https://agentchan.localhost",
+            "x-forwarded-host": "agentchan.localhost",
+            "x-forwarded-proto": "https",
           },
         },
       ),
@@ -110,7 +112,7 @@ describe("renderer-shell routes", () => {
     );
   });
 
-  test("/renderer-shell.html rejects non-local dev proxy origin header", async () => {
+  test("/renderer-shell.html rejects non-local dev forwarded origin", async () => {
     const svc = createHostShellService({ isDev: true });
     const app = buildApp(svc);
     const res = await app.fetch(
@@ -118,7 +120,8 @@ describe("renderer-shell routes", () => {
         "https://internal/renderer-shell.html",
         {
           headers: {
-            "x-agentchan-dev-host-origin": "https://example.invalid",
+            "x-forwarded-host": "example.invalid",
+            "x-forwarded-proto": "https",
           },
         },
       ),

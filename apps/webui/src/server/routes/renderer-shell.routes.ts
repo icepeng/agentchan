@@ -61,24 +61,37 @@ function requestOrigin(c: Context<AppEnv>): string {
 }
 
 function shellHostOrigin(c: Context<AppEnv>): string {
-  const forwarded = trustedDevProxyOrigin(c);
+  const forwarded = trustedDevForwardedOrigin(c);
   if (forwarded) return forwarded;
   return requestOrigin(c);
 }
 
-function trustedDevProxyOrigin(c: Context<AppEnv>): string | null {
+function trustedDevForwardedOrigin(c: Context<AppEnv>): string | null {
   if (!isDev) return null;
-  const raw = c.req.header("x-agentchan-dev-host-origin");
-  if (!raw) return null;
+  const host = forwardedHeader(c, "x-forwarded-host");
+  if (!host) return null;
+  const protocol = forwardedProtocol(c) ?? new URL(c.req.url).protocol;
 
   try {
-    const url = new URL(raw);
+    const url = new URL(`${protocol}//${host}`);
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;
     if (!isLocalhost(url.hostname)) return null;
     return url.origin;
   } catch {
     return null;
   }
+}
+
+function forwardedProtocol(c: Context<AppEnv>): "http:" | "https:" | null {
+  const proto = forwardedHeader(c, "x-forwarded-proto");
+  if (proto === "http" || proto === "https") return `${proto}:`;
+  return null;
+}
+
+function forwardedHeader(c: Context<AppEnv>, name: string): string | null {
+  const raw = c.req.header(name);
+  const value = raw?.split(",")[0]?.trim();
+  return value || null;
 }
 
 function isLocalhost(hostname: string): boolean {
