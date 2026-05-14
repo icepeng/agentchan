@@ -10,7 +10,6 @@ import {
 import { resolveDevPorts } from "./scripts/dev-ports.js";
 
 const { serverPort, clientPort } = resolveDevPorts();
-const devClientOrigin = `http://127.0.0.1:${clientPort}`;
 const devServerTarget = `http://127.0.0.1:${serverPort}`;
 
 const VENDOR_DEV_DIR = path.resolve(__dirname, "public/vendor/dev");
@@ -60,6 +59,46 @@ function rendererVendorCors(): Plugin {
   };
 }
 
+function rendererShellDevProxyOrigin(): Plugin {
+  return {
+    name: "agentchan-renderer-shell-dev-proxy-origin",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url?.startsWith("/renderer-shell.html")) {
+          const origin = devRequestOrigin(req.headers);
+          if (origin) {
+            req.headers["x-agentchan-dev-host-origin"] = origin;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
+function devRequestOrigin(headers: Record<string, string | string[] | undefined>): string | null {
+  const host = firstHeader(headers["x-forwarded-host"]) ?? firstHeader(headers.host);
+  if (!host) return null;
+
+  const forwardedProto = firstHeader(headers["x-forwarded-proto"]);
+  const protocol = forwardedProto === "http" || forwardedProto === "https"
+    ? forwardedProto
+    : localDevHostUsesHttps(host)
+      ? "https"
+      : "http";
+  return `${protocol}://${host}`;
+}
+
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function localDevHostUsesHttps(host: string): boolean {
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+  return hostname.endsWith(".localhost");
+}
+
 /**
  * Injects a `<script type="importmap">` that resolves the renderer's baseline
  * vendor specifiers to the install-wide vendor fixtures emitted by
@@ -97,6 +136,7 @@ export default defineConfig({
   plugins: [
     rendererVendorDevPrep(),
     rendererVendorCors(),
+    rendererShellDevProxyOrigin(),
     rendererVendorImportmap(),
     react({
       babel: {
@@ -151,9 +191,6 @@ export default defineConfig({
       "/api": devServerTarget,
       "/renderer-shell.html": {
         target: devServerTarget,
-        headers: {
-          "x-agentchan-dev-host-origin": devClientOrigin,
-        },
       },
       "/renderer-bootstrap.js": devServerTarget,
       "/host-theme.css": devServerTarget,

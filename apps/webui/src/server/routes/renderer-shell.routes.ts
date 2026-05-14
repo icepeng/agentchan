@@ -84,6 +84,7 @@ function trustedDevProxyOrigin(c: Context<AppEnv>): string | null {
 function isLocalhost(hostname: string): boolean {
   return hostname === "127.0.0.1" ||
     hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
     hostname === "::1" ||
     hostname === "[::1]";
 }

@@ -87,6 +87,29 @@ describe("renderer-shell routes", () => {
     );
   });
 
+  test("/renderer-shell.html honors trusted portless localhost origin header", async () => {
+    const svc = createHostShellService({ isDev: true });
+    const app = buildApp(svc);
+    const res = await app.fetch(
+      new Request(
+        "https://internal/renderer-shell.html",
+        {
+          headers: {
+            "x-agentchan-dev-host-origin": "https://agentchan.localhost",
+          },
+        },
+      ),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain(
+      '<script type="module" src="https://agentchan.localhost/renderer-bootstrap.js"></script>',
+    );
+    expect(body).toContain(
+      '"react":"https://agentchan.localhost/vendor/dev/react.js"',
+    );
+  });
+
   test("/renderer-shell.html rejects non-local dev proxy origin header", async () => {
     const svc = createHostShellService({ isDev: true });
     const app = buildApp(svc);
