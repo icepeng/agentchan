@@ -15,7 +15,7 @@ import { VENDOR_SPECIFIERS } from "@agentchan/renderer-vendor";
  */
 
 export interface HostShellService {
-  shellHtml(): string;
+  shellHtml(hostOrigin: string): string;
   bootstrapJs(): Promise<{ js: string; digest: string }>;
   hostThemeCss(): { css: string; digest: string };
 }
@@ -84,8 +84,8 @@ export function createHostShellService(
   let theme: ThemeCache | null = null;
 
   return {
-    shellHtml(): string {
-      return renderShellHtml(options.isDev);
+    shellHtml(hostOrigin: string): string {
+      return renderShellHtml(options.isDev, hostOrigin);
     },
     async bootstrapJs() {
       if (!bootstrap) bootstrap = await buildBootstrapBundle();
@@ -118,11 +118,14 @@ function formatBlock(selector: string, vars: Record<string, string>): string {
   return `${selector} {\n${lines}\n}`;
 }
 
-function renderShellHtml(isDev: boolean): string {
+function renderShellHtml(isDev: boolean, hostOrigin: string): string {
   const vendorPrefix = isDev ? "/vendor/dev" : "/vendor/prod";
   const importmap: Record<string, string> = {};
   for (const spec of VENDOR_SPECIFIERS) {
-    importmap[spec.specifier] = `${vendorPrefix}/${spec.filename}`;
+    importmap[spec.specifier] = absoluteUrl(
+      hostOrigin,
+      `${vendorPrefix}/${spec.filename}`,
+    );
   }
   return `<!DOCTYPE html>
 <html lang="en">
@@ -130,7 +133,7 @@ function renderShellHtml(isDev: boolean): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>renderer</title>
-<link rel="stylesheet" href="/host-theme.css">
+<link rel="stylesheet" href="${absoluteUrl(hostOrigin, "/host-theme.css")}">
 <script type="importmap">${JSON.stringify({ imports: importmap })}</script>
 <style>
   *,*::before,*::after { box-sizing: border-box; }
@@ -151,13 +154,17 @@ function renderShellHtml(isDev: boolean): string {
   ::-webkit-scrollbar-thumb { background: var(--agentchan-default-fg-4); border-radius: 10px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--agentchan-default-fg-3); }
 </style>
-<script type="module" src="/renderer-bootstrap.js"></script>
+<script type="module" src="${absoluteUrl(hostOrigin, "/renderer-bootstrap.js")}"></script>
 </head>
 <body>
 <div id="renderer-root"></div>
 </body>
 </html>
 `;
+}
+
+function absoluteUrl(hostOrigin: string, path: string): string {
+  return new URL(path, hostOrigin).toString();
 }
 
 async function buildBootstrapBundle(): Promise<BootstrapCache> {

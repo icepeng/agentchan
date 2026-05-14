@@ -172,6 +172,7 @@ _Avoid_: exe build, binary
 
 - **Author**는 **Project**를 다시 **Template**으로 저장해 **Library**에 더할 수 있다.
 - **User**는 **Trusted template**에서만 **Project**를 만들 수 있다.
+- **Trusted template**은 **Project**의 시작점으로 써도 된다는 신뢰이며, **Renderer**를 runtime에 **Host**와 같은 권한으로 실행해도 된다는 뜻은 아니다.
 - 제품이 함께 제공하는 **Template**은 처음부터 **Trusted template**이다.
 - **Author**가 자기 **Project**를 **Template**으로 저장하면 그 **Template**은 자기 출처이므로 신뢰된 것으로 본다.
 - 한 **Project**는 하나의 **Project folder**로 보관된다.

@@ -95,8 +95,14 @@ app.onError((err, c) => {
   return c.json({ error: err.message }, 500);
 });
 
-// CORS for development (Vite dev server on different port)
-app.use("/api/*", cors());
+// Null-origin renderer iframe asset reads. General /api routes stay same-origin
+// because renderer capabilities cross into the host only through RPC.
+app.use("/api/projects/:slug/renderer.js", cors({ origin: "*" }));
+app.use("/api/projects/:slug/renderer.css", cors({ origin: "*" }));
+app.use("/api/projects/:slug/files/*", cors({ origin: "*" }));
+app.use("/renderer-bootstrap.js", cors({ origin: "*" }));
+app.use("/host-theme.css", cors({ origin: "*" }));
+app.use("/vendor/*", cors({ origin: "*" }));
 
 // DI middleware — inject services into Hono context. Applies to both /api/*
 // and the renderer-shell asset routes (/renderer-shell.html, /host-theme.css,

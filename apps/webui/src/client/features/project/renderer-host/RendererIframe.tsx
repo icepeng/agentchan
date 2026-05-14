@@ -81,7 +81,7 @@ export function RendererIframe({
         hostOrigin: window.location.origin,
         scheme: schemeRef.current,
       };
-      win.postMessage(init, window.location.origin, [channel.port2]);
+      win.postMessage(init, "*", [channel.port2]);
       const shell = attachRpc<RendererHostApi, RendererShellApi>(
         port,
         channelHandlers,
@@ -101,7 +101,9 @@ export function RendererIframe({
     };
   }, [slug, digest]);
 
-  const src = `${SHELL_PATH}?slug=${encodeURIComponent(slug)}&v=${encodeURIComponent(digest)}`;
+  const src =
+    `${SHELL_PATH}?slug=${encodeURIComponent(slug)}` +
+    `&v=${encodeURIComponent(digest)}`;
 
   return (
     <iframe
@@ -109,6 +111,7 @@ export function RendererIframe({
       key={`${slug}:${digest}`}
       title="renderer"
       src={src}
+      sandbox="allow-scripts"
       className={className ?? "w-full h-full border-0 block bg-transparent"}
     />
   );

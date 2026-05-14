@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../types.js";
+import { isDev } from "../paths.js";
 
 /**
  * Routes that serve the static iframe shell, host theme, and bootstrap
@@ -11,7 +12,7 @@ export function createRendererShellRoutes() {
   const app = new Hono<AppEnv>();
 
   app.get("/renderer-shell.html", (c) => {
-    const html = c.get("hostShellService").shellHtml();
+    const html = c.get("hostShellService").shellHtml(shellHostOrigin(c));
     c.header("Content-Type", "text/html; charset=utf-8");
     c.header("Cache-Control", "public, max-age=0, must-revalidate");
     return c.body(html);
@@ -53,4 +54,36 @@ function immutableAsset(
         : "public, max-age=0, must-revalidate",
   };
   return new Response(body, { headers });
+}
+
+function requestOrigin(c: Context<AppEnv>): string {
+  return new URL(c.req.url).origin;
+}
+
+function shellHostOrigin(c: Context<AppEnv>): string {
+  const forwarded = trustedDevProxyOrigin(c);
+  if (forwarded) return forwarded;
+  return requestOrigin(c);
+}
+
+function trustedDevProxyOrigin(c: Context<AppEnv>): string | null {
+  if (!isDev) return null;
+  const raw = c.req.header("x-agentchan-dev-host-origin");
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    if (!isLocalhost(url.hostname)) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function isLocalhost(hostname: string): boolean {
+  return hostname === "127.0.0.1" ||
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    hostname === "[::1]";
 }

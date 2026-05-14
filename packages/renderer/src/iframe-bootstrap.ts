@@ -3,8 +3,8 @@
 /**
  * iframe shell entry. Boots the renderer adapter inside the iframe document:
  *
- * 1. Reads `?slug=` and `?v=` query params and starts the bundle import in
- *    parallel with the host INIT handshake.
+ * 1. Reads `?slug=` and `?v=` query params, then waits for host INIT to learn
+ *    the host origin before loading host-absolute renderer assets.
  * 2. Validates the INIT postMessage origin, accepts the transferred
  *    MessagePort, and wires up the RPC channel.
  * 3. Buffers AgentEvent + push messages received before MOUNTED ack.
@@ -101,28 +101,28 @@ export function bootIframeShell(
     );
   }
 
-  // 1. Start the bundle import in parallel with the INIT handshake.
-  const bundleSrc = `/api/projects/${encodeURIComponent(slug)}/renderer.js${
-    version ? `?v=${encodeURIComponent(version)}` : ""
-  }`;
-  const cssHref = `/api/projects/${encodeURIComponent(slug)}/renderer.css${
-    version ? `?v=${encodeURIComponent(version)}` : ""
-  }`;
-  attachRendererStylesheet(cssHref);
-
-  const runtimePromise: Promise<ResolvedRuntime> = import(
-    /* @vite-ignore */ bundleSrc
-  ).then((mod: RendererModule) => {
-    if (!isRendererRuntime(mod.renderer)) {
-      throw new Error(
-        "[agentchan iframe-bootstrap] renderer module did not export a valid runtime",
-      );
-    }
-    return { runtime: mod.renderer };
-  });
+  let runtimePromise: Promise<ResolvedRuntime> | null = null;
+  const ensureRuntime = (hostOrigin: string): Promise<ResolvedRuntime> => {
+    if (runtimePromise) return runtimePromise;
+    const bundleSrc = rendererAssetUrl(hostOrigin, slug, "renderer.js", version);
+    const cssHref = rendererAssetUrl(hostOrigin, slug, "renderer.css", version);
+    attachRendererStylesheet(cssHref);
+    runtimePromise = import(
+      /* @vite-ignore */ bundleSrc
+    ).then((mod: RendererModule) => {
+      if (!isRendererRuntime(mod.renderer)) {
+        throw new Error(
+          "[agentchan iframe-bootstrap] renderer module did not export a valid runtime",
+        );
+      }
+      return { runtime: mod.renderer };
+    });
+    return runtimePromise;
+  };
 
   let mounted: MountState | null = null;
   let host: RendererHostApi | null = null;
+  let hostOrigin: string | null = null;
   let pendingHydrate: HydratePayload | null = null;
   type Pending =
     | { kind: "applyEvent"; event: AgentEvent }
@@ -145,10 +145,10 @@ export function bootIframeShell(
 
   const tryMount = async (): Promise<void> => {
     if (mounted) return;
-    if (!pendingHydrate || !host) return;
+    if (!pendingHydrate || !host || !hostOrigin) return;
     let resolved: ResolvedRuntime;
     try {
-      resolved = await runtimePromise;
+      resolved = await ensureRuntime(hostOrigin);
     } catch (err) {
       host.onError(errorMessage(err));
       return;
@@ -266,7 +266,11 @@ export function bootIframeShell(
     globalThis.removeEventListener("message", initListener);
 
     applySchemeAttribute(data.scheme);
+    hostOrigin = data.hostOrigin;
     host = attachRpc<RendererShellApi, RendererHostApi>(port, shell);
+    void ensureRuntime(hostOrigin).catch((err: unknown) => {
+      host?.onError(errorMessage(err));
+    });
     void tryMount();
   };
 
@@ -283,6 +287,18 @@ export function bootIframeShell(
     link.dataset.agentchanRendererStyle = "";
     document.head.appendChild(link);
   }
+}
+
+function rendererAssetUrl(
+  hostOrigin: string,
+  slug: string,
+  asset: "renderer.js" | "renderer.css",
+  version: string,
+): string {
+  const path = `/api/projects/${encodeURIComponent(slug)}/${asset}${
+    version ? `?v=${encodeURIComponent(version)}` : ""
+  }`;
+  return new URL(path, hostOrigin).toString();
 }
 
 function errorMessage(err: unknown): string {

@@ -33,11 +33,79 @@ describe("renderer-shell routes", () => {
     expect(res.headers.get("Content-Type")).toContain("text/html");
     const body = await res.text();
     expect(body).toContain('<script type="importmap">');
-    expect(body).toContain('<link rel="stylesheet" href="/host-theme.css">');
-    expect(body).toContain('<script type="module" src="/renderer-bootstrap.js"></script>');
+    expect(body).toContain(
+      '<link rel="stylesheet" href="https://h/host-theme.css">',
+    );
+    expect(body).toContain(
+      '<script type="module" src="https://h/renderer-bootstrap.js"></script>',
+    );
+    expect(body).toContain('"react":"https://h/vendor/dev/react.js"');
     expect(body).toContain('id="renderer-root"');
     expect(body).toContain("var(--agentchan-default-void)");
     expect(body).not.toContain("var(--color-void)");
+  });
+
+  test("/renderer-shell.html ignores caller-supplied hostOrigin query", async () => {
+    const svc = createHostShellService({ isDev: true });
+    const app = buildApp(svc);
+    const res = await app.fetch(
+      new Request(
+        "https://internal/renderer-shell.html?hostOrigin=https%3A%2F%2Fexample.invalid",
+      ),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain(
+      '<script type="module" src="https://internal/renderer-bootstrap.js"></script>',
+    );
+    expect(body).toContain(
+      '"react":"https://internal/vendor/dev/react.js"',
+    );
+    expect(body).not.toContain("example.invalid");
+  });
+
+  test("/renderer-shell.html honors trusted local dev proxy origin header", async () => {
+    const svc = createHostShellService({ isDev: true });
+    const app = buildApp(svc);
+    const res = await app.fetch(
+      new Request(
+        "https://internal/renderer-shell.html",
+        {
+          headers: {
+            "x-agentchan-dev-host-origin": "http://127.0.0.1:4102",
+          },
+        },
+      ),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain(
+      '<script type="module" src="http://127.0.0.1:4102/renderer-bootstrap.js"></script>',
+    );
+    expect(body).toContain(
+      '"react":"http://127.0.0.1:4102/vendor/dev/react.js"',
+    );
+  });
+
+  test("/renderer-shell.html rejects non-local dev proxy origin header", async () => {
+    const svc = createHostShellService({ isDev: true });
+    const app = buildApp(svc);
+    const res = await app.fetch(
+      new Request(
+        "https://internal/renderer-shell.html",
+        {
+          headers: {
+            "x-agentchan-dev-host-origin": "https://example.invalid",
+          },
+        },
+      ),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain(
+      '<script type="module" src="https://internal/renderer-bootstrap.js"></script>',
+    );
+    expect(body).not.toContain("example.invalid");
   });
 
   test("/host-theme.css emits both [data-theme] blocks with ETag + immutable cache when ?v= matches", async () => {

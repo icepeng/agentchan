@@ -10,6 +10,8 @@ import {
 import { resolveDevPorts } from "./scripts/dev-ports.js";
 
 const { serverPort, clientPort } = resolveDevPorts();
+const devClientOrigin = `http://127.0.0.1:${clientPort}`;
+const devServerTarget = `http://127.0.0.1:${serverPort}`;
 
 const VENDOR_DEV_DIR = path.resolve(__dirname, "public/vendor/dev");
 
@@ -39,6 +41,21 @@ function rendererVendorDevPrep(): Plugin {
           `[renderer-vendor] dev fixtures ${result.status} — rebuilt at ${VENDOR_DEV_DIR}`,
         );
       }
+    },
+  };
+}
+
+function rendererVendorCors(): Plugin {
+  return {
+    name: "agentchan-renderer-vendor-cors",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.startsWith("/vendor/")) {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+        }
+        next();
+      });
     },
   };
 }
@@ -79,6 +96,7 @@ function rendererVendorImportmap(): Plugin {
 export default defineConfig({
   plugins: [
     rendererVendorDevPrep(),
+    rendererVendorCors(),
     rendererVendorImportmap(),
     react({
       babel: {
@@ -130,10 +148,15 @@ export default defineConfig({
     host: "127.0.0.1",
     port: clientPort,
     proxy: {
-      "/api": `http://127.0.0.1:${serverPort}`,
-      "/renderer-shell.html": `http://127.0.0.1:${serverPort}`,
-      "/renderer-bootstrap.js": `http://127.0.0.1:${serverPort}`,
-      "/host-theme.css": `http://127.0.0.1:${serverPort}`,
+      "/api": devServerTarget,
+      "/renderer-shell.html": {
+        target: devServerTarget,
+        headers: {
+          "x-agentchan-dev-host-origin": devClientOrigin,
+        },
+      },
+      "/renderer-bootstrap.js": devServerTarget,
+      "/host-theme.css": devServerTarget,
     },
   },
 });
