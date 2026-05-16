@@ -53,6 +53,7 @@ const honoListener = getRequestListener(app.fetch);
 function isHonoPath(url: string): boolean {
   return (
     url.startsWith("/api/") ||
+    url.startsWith("/fonts/") ||
     url === "/renderer-shell.html" ||
     url === "/renderer-bootstrap.js" ||
     url === "/host-theme.css"
@@ -62,11 +63,11 @@ function isHonoPath(url: string): boolean {
 const handler = (req: IncomingMessage, res: ServerResponse): void => {
   const url = req.url ?? "";
   if (isHonoPath(url)) {
-    honoListener(req, res);
+    void honoListener(req, res);
     return;
   }
   vite.middlewares(req, res, () => {
-    honoListener(req, res);
+    void honoListener(req, res);
   });
 };
 

@@ -7,10 +7,13 @@ import { existsSync } from "node:fs";
 const devWebUIRoot = join(import.meta.dir, "../..");
 export const isDev = existsSync(join(devWebUIRoot, "vite.config.ts"));
 const exeDir = dirname(process.execPath);
+export const PUBLIC_DIR = isDev
+  ? join(devWebUIRoot, "public")
+  : join(exeDir, "public");
 
 export const CLIENT_DIR = isDev
   ? join(devWebUIRoot, "dist/client")
-  : join(exeDir, "public");
+  : PUBLIC_DIR;
 
 export const DATA_DIR = isDev
   ? join(devWebUIRoot, "data")

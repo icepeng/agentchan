@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { join } from "node:path";
 import { createAgentContext, type ResolvedAgentConfig } from "@agentchan/creative-agent";
-import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, isDev } from "./paths.js";
+import { CLIENT_DIR, DATA_DIR, PROJECTS_DIR, LIBRARY_DIR, PUBLIC_DIR, isDev } from "./paths.js";
 import type { AppEnv } from "./types.js";
 
 // --- Repositories ---
@@ -102,7 +102,9 @@ export async function buildApp(): Promise<Hono<AppEnv>> {
   app.use("/api/projects/:slug/files/*", cors({ origin: "*" }));
   app.use("/renderer-bootstrap.js", cors({ origin: "*" }));
   app.use("/host-theme.css", cors({ origin: "*" }));
+  app.use("/fonts/*", cors({ origin: "*" }));
   app.use("/vendor/*", cors({ origin: "*" }));
+  app.use("/fonts/*", serveStatic({ root: PUBLIC_DIR }));
 
   // DI middleware — inject services into Hono context.
   app.use("*", async (c, next) => {

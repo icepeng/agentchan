@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import type { AppEnv } from "../../src/server/types.js";
+import { buildApp as buildWebApp } from "../../src/server/app.js";
 import { createRendererShellRoutes } from "../../src/server/routes/renderer-shell.routes.js";
 import {
   createHostShellService,
@@ -35,6 +36,9 @@ describe("renderer-shell routes", () => {
     expect(body).toContain('<script type="importmap">');
     expect(body).toContain(
       '<link rel="stylesheet" href="https://h/host-theme.css">',
+    );
+    expect(body).toContain(
+      '<link rel="stylesheet" href="https://h/fonts/index.css">',
     );
     expect(body).toContain(
       '<script type="module" src="https://h/renderer-bootstrap.js"></script>',
@@ -185,5 +189,20 @@ describe("renderer-shell routes", () => {
     // alone wires up the INIT message listener.
     expect(body).toContain("bootIframeShell()");
     expect(res.headers.get("ETag")).toBeTruthy();
+  });
+
+  test("/fonts/index.css is served as a CORS-enabled shared asset", async () => {
+    const app = await buildWebApp();
+    const res = await app.fetch(new Request("https://h/fonts/index.css"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("text/css");
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+
+    const font = await app.fetch(
+      new Request("https://h/fonts/pretendard/PretendardVariable.woff2"),
+    );
+    expect(font.status).toBe(200);
+    expect(font.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect((await font.arrayBuffer()).byteLength).toBeGreaterThan(0);
   });
 });

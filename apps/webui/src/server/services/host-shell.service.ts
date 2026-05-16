@@ -134,6 +134,7 @@ function renderShellHtml(isDev: boolean, hostOrigin: string): string {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>renderer</title>
 <link rel="stylesheet" href="${absoluteUrl(hostOrigin, "/host-theme.css")}">
+<link rel="stylesheet" href="${absoluteUrl(hostOrigin, "/fonts/index.css")}">
 <script type="importmap">${JSON.stringify({ imports: importmap })}</script>
 <style>
   *,*::before,*::after { box-sizing: border-box; }

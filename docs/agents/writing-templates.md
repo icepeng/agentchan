@@ -52,6 +52,7 @@ import {
 - 한국어가 노출될 수 있는 UI는 기본 제공 `Pretendard Variable`을 1순위로 쓴다. OS에 설치된 `Noto Serif KR`, `Nanum Myeongjo` 같은 폰트가 있다고 가정하지 않는다.
 - 영문 전용 브랜드/라벨에는 앱이 제공하는 `Syne`, `Lexend`, `Fira Code`를 사용할 수 있다. 한국어가 섞일 가능성이 있으면 `Pretendard Variable`로 돌아온다.
 - 한국어 가능 영역에서는 italic, monospace, 과한 letter-spacing을 강조 수단으로 쓰지 않는다. weight, color/opacity, serif/sans 페어링, 따옴표, border-left, 여백으로 구분한다.
+- Template 전용 추가 font는 workspace `files/fonts/...` 아래에 둔다. Renderer에서는 `fileUrl(snapshot, "fonts/my-font.woff2")`로 host-absolute URL을 만들고 React 19 declarative `<style href="..." precedence="...">` 또는 `<link rel="stylesheet" href="..." precedence="...">` hoisting으로 iframe document head에 등록한다. 첫 paint 뒤 비동기로 붙는 `useEffect` + `FontFace` API 패턴은 피한다.
 
 ### Theme and CSS tokens
 
