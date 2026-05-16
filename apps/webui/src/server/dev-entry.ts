@@ -7,6 +7,7 @@ import {
 import { getRequestListener } from "@hono/node-server";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import { buildApp } from "./app.js";
+import { isHonoDevPath } from "./dev-routing.js";
 
 // Single dev process: node:http listens on the portless-assigned PORT, Hono
 // handles known paths, everything else routes through Vite's middleware chain
@@ -47,22 +48,9 @@ const vite = g.__agentchanVite;
 const app = await buildApp();
 const honoListener = getRequestListener(app.fetch);
 
-// Mirrors the proxy table that vite.config.ts used to carry. Everything else
-// falls through to Vite, which handles index.html (SPA fallback), module
-// transforms, /@vite/client, and public/ assets including /vendor/dev/*.
-function isHonoPath(url: string): boolean {
-  return (
-    url.startsWith("/api/") ||
-    url.startsWith("/fonts/") ||
-    url === "/renderer-shell.html" ||
-    url === "/renderer-bootstrap.js" ||
-    url === "/host-theme.css"
-  );
-}
-
 const handler = (req: IncomingMessage, res: ServerResponse): void => {
   const url = req.url ?? "";
-  if (isHonoPath(url)) {
+  if (isHonoDevPath(url)) {
     void honoListener(req, res);
     return;
   }
