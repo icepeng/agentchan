@@ -34,6 +34,7 @@ export type Phase =
   | "idle"
   | "mounting"
   | "transitioning"
+  | "theming"
   | "fading-in"
   | "showing"
   | "showing-error";
@@ -86,12 +87,18 @@ export type PresentationEvent =
       theme: RendererTheme | null;
     }
   | { type: "FADE_OUT_DONE"; generation: number }
+  | { type: "THEME_SETTLED"; generation: number }
   | { type: "FADE_IN_DONE"; generation: number };
 
-export type PresentationCommand = {
-  type: "emitTheme";
-  theme: RendererTheme | null;
-};
+export type PresentationCommand =
+  | {
+      type: "emitTheme";
+      theme: RendererTheme | null;
+    }
+  | {
+      type: "scheduleThemeSettled";
+      generation: number;
+    };
 
 export interface TransitionResult {
   state: PresentationState;
@@ -118,6 +125,7 @@ export type SlotVisualState =
 
 const FADE_IN = "transition-opacity duration-300 ease-out motion-reduce:duration-0";
 const FADE_OUT = "transition-opacity duration-300 ease-out motion-reduce:duration-0";
+export const PROJECT_THEME_TRANSITION_MS = 300;
 
 /**
  * Tailwind className for a slot wrapper based on its visual state. Both
@@ -167,6 +175,7 @@ export function selectSlots(state: PresentationState): RenderedSlot[] {
     switch (state.phase) {
       case "mounting":
       case "transitioning":
+      case "theming":
         visualState = "mounting";
         break;
       case "fading-in":
@@ -237,6 +246,33 @@ function promoteToFadingIn(
       themeIdentity: themeUpdate.identity,
     },
     commands: themeUpdate.emit,
+  };
+}
+
+function promoteAfterTransition(
+  state: PresentationState,
+  ackedCur: SlotState,
+  theme: RendererTheme | null,
+): TransitionResult {
+  const themeUpdate = freshTheme(state, theme);
+  if (themeUpdate.emit.length === 0) {
+    return promoteToFadingIn(state, ackedCur, theme);
+  }
+
+  const cur = { ...ackedCur, themeApplied: true };
+  return {
+    state: {
+      ...state,
+      phase: "theming",
+      prev: null,
+      cur,
+      fadeOutDone: false,
+      themeIdentity: themeUpdate.identity,
+    },
+    commands: [
+      ...themeUpdate.emit,
+      { type: "scheduleThemeSettled", generation: cur.generation },
+    ],
   };
 }
 
@@ -346,6 +382,20 @@ export function createPresentationMachine(): PresentationMachine {
           commands: [],
         };
       }
+      case "theming": {
+        return {
+          state: {
+            ...state,
+            generation,
+            phase: "transitioning",
+            requestedSlug: slug,
+            cur,
+            fadeOutDone: true,
+            visibleError: null,
+          },
+          commands: [],
+        };
+      }
     }
   }
 
@@ -400,8 +450,8 @@ export function createPresentationMachine(): PresentationMachine {
 
     if (state.phase === "transitioning") {
       if (state.fadeOutDone) {
-        // Both gates clear — drop prev, apply theme, fade in.
-        return promoteToFadingIn(state, ackedCur, event.theme);
+        // Both gates clear — drop prev, apply theme, then fade in.
+        return promoteAfterTransition(state, ackedCur, event.theme);
       }
       // FADE_OUT_DONE not yet — buffer ack + theme.
       return {
@@ -424,8 +474,8 @@ export function createPresentationMachine(): PresentationMachine {
     if (state.fadeOutDone) return noop(state);
 
     if (state.cur?.mountedAck) {
-      // Both gates clear — drop prev, apply buffered theme, fade in.
-      return promoteToFadingIn(state, state.cur, state.cur.bufferedTheme);
+      // Both gates clear — drop prev, apply buffered theme, then fade in.
+      return promoteAfterTransition(state, state.cur, state.cur.bufferedTheme);
     }
     // MOUNTED not yet — latch the gate, keep prev rendered.
     return {
@@ -444,6 +494,20 @@ export function createPresentationMachine(): PresentationMachine {
     }
     return {
       state: { ...state, phase: "showing" },
+      commands: [],
+    };
+  }
+
+  function onThemeSettled(
+    state: PresentationState,
+    event: Extract<PresentationEvent, { type: "THEME_SETTLED" }>,
+  ): TransitionResult {
+    if (state.phase !== "theming") return noop(state);
+    if (!state.cur || event.generation !== state.cur.generation) {
+      return noop(state);
+    }
+    return {
+      state: { ...state, phase: "fading-in" },
       commands: [],
     };
   }
@@ -513,7 +577,7 @@ export function createPresentationMachine(): PresentationMachine {
       };
     }
 
-    if (state.phase === "mounting" || state.phase === "transitioning") {
+    if (state.phase === "mounting" || state.phase === "transitioning" || state.phase === "theming") {
       // Buffer until gates pass — old theme stays visible meanwhile.
       if (state.cur.bufferedTheme === event.theme) return noop(state);
       return {
@@ -546,6 +610,8 @@ export function createPresentationMachine(): PresentationMachine {
         return onThemePushed(state, event);
       case "FADE_OUT_DONE":
         return onFadeOutDone(state, event);
+      case "THEME_SETTLED":
+        return onThemeSettled(state, event);
       case "FADE_IN_DONE":
         return onFadeInDone(state, event);
     }

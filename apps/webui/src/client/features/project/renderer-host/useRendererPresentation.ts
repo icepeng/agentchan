@@ -26,6 +26,7 @@ import type {
 } from "@agentchan/renderer/host";
 import {
   createPresentationMachine,
+  PROJECT_THEME_TRANSITION_MS,
   selectSlots,
   slotWrapperClassName,
   type PresentationCommand,
@@ -90,6 +91,9 @@ export function useRendererPresentation({
   const dispatchRef = useRef<(event: PresentationEvent) => void>(() => {});
   const lastHydratedKeyRef = useRef<string | null>(null);
   const lastFilesRef = useRef<readonly ProjectFile[] | null>(null);
+  const themeSettledTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(
+    new Set(),
+  );
 
   // Per-slot shells, keyed by slot generation. RendererIframe writes via
   // its `onShellReady` callback; reads pluck the active shell via
@@ -114,7 +118,26 @@ export function useRendererPresentation({
       case "emitTheme":
         onThemeRef.current(command.theme);
         return;
+      case "scheduleThemeSettled": {
+        const timer = setTimeout(() => {
+          themeSettledTimersRef.current.delete(timer);
+          dispatchRef.current({
+            type: "THEME_SETTLED",
+            generation: command.generation,
+          });
+        }, PROJECT_THEME_TRANSITION_MS);
+        themeSettledTimersRef.current.add(timer);
+        return;
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    const timers = themeSettledTimersRef.current;
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
+    };
   }, []);
 
   const dispatch = useCallback(

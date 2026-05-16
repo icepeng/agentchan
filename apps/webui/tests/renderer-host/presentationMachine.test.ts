@@ -360,7 +360,7 @@ describe("MOUNTED ack — initial mount", () => {
 });
 
 describe("MOUNTED ack — transitioning race gates", () => {
-  test("FADE_OUT_DONE first, MOUNTED second → fading-in on MOUNTED", () => {
+  test("FADE_OUT_DONE first, MOUNTED second → theme transition before fade-in", () => {
     const m = createPresentationMachine();
     const showing = driveToShowing(m, "alpha", makeTheme("red"));
     let state = m.transition(showing.state, {
@@ -384,24 +384,34 @@ describe("MOUNTED ack — transitioning race gates", () => {
     expect(fadeOut.state.prev?.slug).toBe("alpha"); // still rendered
     expect(fadeOut.commands).toEqual([]);
 
-    // MOUNTED arrives second, gates clear.
+    // MOUNTED arrives second, gates clear. Theme transition runs before fade-in.
     const mountedTheme = makeTheme("blue");
     const mounted = m.transition(fadeOut.state, {
       type: "MOUNTED",
       generation: fadeOut.state.cur!.generation,
       theme: mountedTheme,
     });
-    expect(mounted.state.phase).toBe("fading-in");
+    expect(mounted.state.phase).toBe("theming");
     expect(mounted.state.prev).toBeNull();
     expect(mounted.state.cur?.themeApplied).toBe(true);
-    expect(commandTypes(mounted.commands)).toEqual(["emitTheme"]);
+    expect(selectSlots(mounted.state)[0].visualState).toBe("mounting");
+    expect(commandTypes(mounted.commands)).toEqual([
+      "emitTheme",
+      "scheduleThemeSettled",
+    ]);
     expect(mounted.commands[0]).toEqual({
       type: "emitTheme",
       theme: mountedTheme,
     });
+
+    const settled = m.transition(mounted.state, {
+      type: "THEME_SETTLED",
+      generation: mounted.state.cur!.generation,
+    });
+    expect(settled.state.phase).toBe("fading-in");
   });
 
-  test("MOUNTED first, FADE_OUT_DONE second → fading-in on FADE_OUT_DONE", () => {
+  test("MOUNTED first, FADE_OUT_DONE second → theme transition before fade-in", () => {
     const m = createPresentationMachine();
     const showing = driveToShowing(m, "alpha", makeTheme("red"));
     let state = m.transition(showing.state, {
@@ -430,19 +440,29 @@ describe("MOUNTED ack — transitioning race gates", () => {
     // Old theme still applied — no command yet.
     expect(mounted.commands).toEqual([]);
 
-    // FADE_OUT_DONE arrives second, gates clear.
+    // FADE_OUT_DONE arrives second, gates clear. Theme transition runs before fade-in.
     const fadeOut = m.transition(mounted.state, {
       type: "FADE_OUT_DONE",
       generation: mounted.state.prev!.generation,
     });
-    expect(fadeOut.state.phase).toBe("fading-in");
+    expect(fadeOut.state.phase).toBe("theming");
     expect(fadeOut.state.prev).toBeNull();
     expect(fadeOut.state.cur?.themeApplied).toBe(true);
-    expect(commandTypes(fadeOut.commands)).toEqual(["emitTheme"]);
+    expect(selectSlots(fadeOut.state)[0].visualState).toBe("mounting");
+    expect(commandTypes(fadeOut.commands)).toEqual([
+      "emitTheme",
+      "scheduleThemeSettled",
+    ]);
     expect(fadeOut.commands[0]).toEqual({
       type: "emitTheme",
       theme: mountedTheme,
     });
+
+    const settled = m.transition(fadeOut.state, {
+      type: "THEME_SETTLED",
+      generation: fadeOut.state.cur!.generation,
+    });
+    expect(settled.state.phase).toBe("fading-in");
   });
 });
 
@@ -521,10 +541,19 @@ describe("A → B → C consecutive transition", () => {
       generation: state.cur!.generation,
       theme: gammaTheme,
     });
-    expect(final.state.phase).toBe("fading-in");
+    expect(final.state.phase).toBe("theming");
     expect(final.state.cur?.slug).toBe("gamma");
     expect(final.state.prev).toBeNull();
-    expect(final.commands).toEqual([{ type: "emitTheme", theme: gammaTheme }]);
+    expect(final.commands).toEqual([
+      { type: "emitTheme", theme: gammaTheme },
+      { type: "scheduleThemeSettled", generation: final.state.cur!.generation },
+    ]);
+
+    const settled = m.transition(final.state, {
+      type: "THEME_SETTLED",
+      generation: final.state.cur!.generation,
+    });
+    expect(settled.state.phase).toBe("fading-in");
   });
 
   test("MOUNTED arrival mid fade-out then re-request: stale ack discarded", () => {
@@ -759,6 +788,36 @@ describe("selectSlots", () => {
     expect(slots.length).toBe(1);
     expect(slots[0].role).toBe("cur");
     expect(slots[0].visualState).toBe("fading-in");
+  });
+
+  test("theming keeps cur mounted but visually hidden", () => {
+    const m = createPresentationMachine();
+    const showing = driveToShowing(m, "alpha", makeTheme("red"));
+    let state = m.transition(showing.state, {
+      type: "REQUEST_SLUG",
+      slug: "beta",
+    }).state;
+    state = m.transition(state, {
+      type: "DIGEST_READY",
+      slug: "beta",
+      digest: "x2",
+      snapshot: makeSnapshot("beta"),
+    }).state;
+    state = m.transition(state, {
+      type: "MOUNTED",
+      generation: state.cur!.generation,
+      theme: makeTheme("blue"),
+    }).state;
+    state = m.transition(state, {
+      type: "FADE_OUT_DONE",
+      generation: state.prev!.generation,
+    }).state;
+    expect(state.phase).toBe("theming");
+
+    const slots = selectSlots(state);
+    expect(slots.length).toBe(1);
+    expect(slots[0].role).toBe("cur");
+    expect(slots[0].visualState).toBe("mounting");
   });
 
   test("showing yields only cur with showing state", () => {
