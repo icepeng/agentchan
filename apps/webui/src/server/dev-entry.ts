@@ -7,6 +7,7 @@ import {
 import { getRequestListener } from "@hono/node-server";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import { buildApp } from "./app.js";
+import { createViteDevServerConfig } from "./dev-server-config.js";
 import { isHonoDevPath } from "./dev-routing.js";
 
 // Single dev process: node:http listens on the portless-assigned PORT, Hono
@@ -29,19 +30,24 @@ type DevGlobals = {
 const g = globalThis as unknown as DevGlobals;
 
 const port = Number(process.env.PORT ?? process.env.SERVER_PORT ?? 3000);
-// Derive HMR port from PORT so parallel worktrees (each gets a unique portless
-// PORT) don't collide on the default 24678.
-const hmrPort = port + 10000;
+
+if (!g.__agentchanHandler) {
+  g.__agentchanHandler = {
+    current: (_req, res) => {
+      res.statusCode = 503;
+      res.end("agentchan dev server is starting");
+    },
+  };
+}
+const handlerRef = g.__agentchanHandler;
+
+if (!g.__agentchanHttpServer) {
+  g.__agentchanHttpServer = createHttpServer((req, res) => handlerRef.current(req, res));
+}
+const httpServer = g.__agentchanHttpServer;
 
 if (!g.__agentchanVite) {
-  g.__agentchanVite = await createViteServer({
-    server: {
-      middlewareMode: true,
-      hmr: { port: hmrPort },
-      watch: { ignored: ["**/data/**", "**/example_data/**"] },
-    },
-    appType: "spa",
-  });
+  g.__agentchanVite = await createViteServer(createViteDevServerConfig(httpServer, port));
 }
 const vite = g.__agentchanVite;
 
@@ -61,14 +67,10 @@ const handler = (req: IncomingMessage, res: ServerResponse): void => {
 
 if (g.__agentchanHandler) {
   g.__agentchanHandler.current = handler;
-} else {
-  g.__agentchanHandler = { current: handler };
 }
-const handlerRef = g.__agentchanHandler;
 
-if (!g.__agentchanHttpServer) {
-  g.__agentchanHttpServer = createHttpServer((req, res) => handlerRef.current(req, res));
-  g.__agentchanHttpServer.listen(port, () => {
+if (!httpServer.listening) {
+  httpServer.listen(port, () => {
     console.log(`agentchan webui server running on http://localhost:${port}`);
   });
 }
