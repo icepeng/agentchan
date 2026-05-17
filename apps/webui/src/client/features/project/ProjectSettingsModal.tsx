@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Dialog } from "@/client/shared/ui/Dialog.js";
-import { Button, TextInput } from "@/client/shared/ui/index.js";
+import { Button, Dialog, TextInput } from "@/client/shared/ui/index.js";
 import { useProjects, useProjectMutations, type Project } from "@/client/entities/project/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 

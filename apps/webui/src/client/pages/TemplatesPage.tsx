@@ -27,8 +27,7 @@ import {
   type TemplateMeta,
 } from "@/client/entities/template/index.js";
 import { qk } from "@/client/shared/queryKeys.js";
-import { useProject } from "@/client/features/project/index.js";
-import { TrustTemplateDialog } from "@/client/features/project/TrustTemplateDialog.js";
+import { TrustTemplateDialog, useProject } from "@/client/features/project/index.js";
 import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
 import { ReadmeView, type ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import { BASE } from "@/client/shared/api.js";

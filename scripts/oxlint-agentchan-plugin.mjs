@@ -1,3 +1,53 @@
+const CLIENT_MARKERS = ["apps/webui/src/client/", "src/client/"];
+
+const FUTURE_SLICE_LAYERS = new Map([
+  ["shell", "slice"],
+  ["library", "slice"],
+  ["project", "slice"],
+  ["session", "slice"],
+  ["project-editor", "slice"],
+  ["renderer-host", "slice"],
+  ["provider", "slice"],
+  ["theme", "slice"],
+  ["onboarding", "slice"],
+  ["update", "slice"],
+  ["app-settings", "slice"],
+  ["design-system", "design-system"],
+  ["platform", "platform"],
+]);
+
+const FUTURE_SLICE_DAG = new Map([
+  ["shell", ["project", "library", "project-editor", "onboarding", "theme", "update", "app-settings"]],
+  ["project", ["session"]],
+  ["project-editor", ["session"]],
+  ["renderer-host", ["session"]],
+  ["library", ["project"]],
+  ["onboarding", ["provider", "library"]],
+  ["app-settings", ["provider", "theme", "update", "onboarding"]],
+]);
+
+const BASELINE_VIOLATIONS = new Set([
+  "entity-cross-import|entities/agent-state/aggregateUsage|entities/session/index|@/client/entities/session/index.js",
+  "entity-cross-import|entities/agent-state/agentState|entities/session/index|@/client/entities/session/index.js",
+  "feature-cross-import|features/chat/useStreaming|features/project/index|@/client/features/project/index.js",
+  "entity-cross-import|entities/ui/EditModeToggle|entities/view/index|@/client/entities/view/index.js",
+  "feature-cross-import|features/project/renderer-host/RenderedView|features/settings/index|@/client/features/settings/index.js",
+  "entity-cross-import|entities/session/useSessionSelection|entities/view/index|@/client/entities/view/index.js",
+  "entity-cross-import|entities/renderer/useRendererOutput|entities/agent-state/index|@/client/entities/agent-state/index.js",
+  "entity-cross-import|entities/renderer/useRendererOutput|entities/project/index|@/client/entities/project/index.js",
+  "entity-cross-import|entities/renderer/useRendererOutput|entities/view/index|@/client/entities/view/index.js",
+  "entity-cross-import|entities/agent-state/useSessionUsage|entities/view/index|@/client/entities/view/index.js",
+  "entity-cross-import|entities/agent-state/useSessionUsage|entities/session/index|@/client/entities/session/index.js",
+  "entity-cross-import|entities/agent-state/useContextUsage|entities/view/index|@/client/entities/view/index.js",
+  "entity-cross-import|entities/agent-state/useContextUsage|entities/session/index|@/client/entities/session/index.js",
+  "entity-cross-import|entities/agent-state/useAgentState|entities/view/index|@/client/entities/view/index.js",
+  "feature-cross-import|features/settings/ApiKeysTab|features/oauth/index|@/client/features/oauth/index.js",
+  "feature-cross-import|features/onboarding/useOnboarding|features/project/index|@/client/features/project/index.js",
+  "feature-cross-import|features/onboarding/OnboardingWizard|features/oauth/index|@/client/features/oauth/index.js",
+  "feature-cross-import|features/settings/AppearanceTab|features/update/index|@/client/features/update/index.js",
+  "feature-cross-import|features/settings/SettingsView|features/project/index|@/client/features/project/index.js",
+]);
+
 const noDirectLocalStorage = {
   meta: {
     type: "problem",
@@ -11,17 +61,13 @@ const noDirectLocalStorage = {
     schema: [],
   },
   create(context) {
-    const filename = context.filename ?? context.getFilename?.() ?? "";
-    const normalized = filename.replaceAll("\\", "/");
+    const sourcePath = getClientRelativePath(context.filename ?? context.getFilename?.() ?? "");
 
-    if (
-      !normalized.includes("apps/webui/src/client/") &&
-      !normalized.startsWith("src/client/")
-    ) {
+    if (sourcePath === null) {
       return {};
     }
 
-    if (normalized.endsWith("apps/webui/src/client/shared/storage.ts") || normalized.endsWith("src/client/shared/storage.ts")) {
+    if (sourcePath === "shared/storage") {
       return {};
     }
 
@@ -37,11 +83,366 @@ const noDirectLocalStorage = {
   },
 };
 
+const sliceBoundaryBaseline = createSliceBoundaryRule({
+  description: "report existing slice boundary violations as warnings",
+  include: shouldReportSliceBoundaryBaseline,
+});
+
+const sliceBoundaryNew = createSliceBoundaryRule({
+  description: "disallow new slice boundary violations",
+  include: shouldReportSliceBoundaryNew,
+});
+
+export function shouldReportSliceBoundaryBaseline(violation) {
+  return violation.level !== "error" && BASELINE_VIOLATIONS.has(violation.key);
+}
+
+export function shouldReportSliceBoundaryNew(violation) {
+  if (violation.level === "error") {
+    return true;
+  }
+  return !BASELINE_VIOLATIONS.has(violation.key);
+}
+
+function createSliceBoundaryRule({ description, include }) {
+  return {
+    meta: {
+      type: "problem",
+      docs: { description },
+      messages: {
+        sliceBoundary: "{{ message }}",
+      },
+      schema: [],
+    },
+    create(context) {
+      const sourcePath = getClientRelativePath(context.filename ?? context.getFilename?.() ?? "");
+
+      if (sourcePath === null) {
+        return {};
+      }
+
+      function checkImport(node, rawSpecifier) {
+        if (typeof rawSpecifier !== "string") {
+          return;
+        }
+
+        const violation = classifyClientImport(sourcePath, rawSpecifier);
+        if (violation === null || !include(violation)) {
+          return;
+        }
+
+        context.report({
+          node,
+          messageId: "sliceBoundary",
+          data: { message: violation.message },
+        });
+      }
+
+      return {
+        ExportAllDeclaration(node) {
+          checkImport(node.source, node.source?.value);
+        },
+        ExportNamedDeclaration(node) {
+          checkImport(node.source, node.source?.value);
+        },
+        ImportDeclaration(node) {
+          checkImport(node.source, node.source?.value);
+        },
+        ImportExpression(node) {
+          checkImport(node.source, node.source?.value);
+        },
+      };
+    },
+  };
+}
+
+export function classifyClientImport(sourcePath, specifier) {
+  const normalizedSource = normalizeClientPath(sourcePath);
+  const targetPath = resolveClientImport(normalizedSource, specifier);
+
+  if (targetPath === null) {
+    return null;
+  }
+
+  const sourceSlice = getSlice(normalizedSource);
+  const targetSlice = getSlice(targetPath);
+
+  if (targetSlice === null || sourceSlice?.id === targetSlice.id) {
+    return null;
+  }
+
+  const deepImportViolation = checkDeepImport({
+    sourcePath: normalizedSource,
+    targetPath,
+    targetSlice,
+    specifier,
+  });
+
+  if (deepImportViolation !== null) {
+    return deepImportViolation;
+  }
+
+  if (sourceSlice === null) {
+    return null;
+  }
+
+  if (sourceSlice.layer === "entity" && targetSlice.layer === "feature") {
+    return buildViolation({
+      code: "entity-to-feature",
+      level: "error",
+      sourcePath: normalizedSource,
+      targetPath,
+      specifier,
+      message: `Entity slice cannot import feature slice '${targetSlice.name}'. Move the dependency behind a lower-level interface or invert the dependency.`,
+    });
+  }
+
+  if (
+    (sourceSlice.layer === "design-system" || sourceSlice.layer === "platform") &&
+    isDomainSlice(targetSlice)
+  ) {
+    return buildViolation({
+      code: `${sourceSlice.layer}-to-slice`,
+      level: "baseline",
+      sourcePath: normalizedSource,
+      targetPath,
+      specifier,
+      message: `${sourceSlice.name} must stay domain-independent and cannot import slice '${targetSlice.name}'.`,
+    });
+  }
+
+  const dagViolation = checkFutureSliceDag({
+    sourceSlice,
+    targetSlice,
+    sourcePath: normalizedSource,
+    targetPath,
+    specifier,
+  });
+
+  if (dagViolation !== null) {
+    return dagViolation;
+  }
+
+  if (
+    (sourceSlice.layer === "entity" && targetSlice.layer === "entity") ||
+    (sourceSlice.layer === "feature" && targetSlice.layer === "feature")
+  ) {
+    return buildViolation({
+      code: `${sourceSlice.layer}-cross-import`,
+      level: "warn",
+      sourcePath: normalizedSource,
+      targetPath,
+      specifier,
+      message: `Transitional ${sourceSlice.layer} cross-import from '${sourceSlice.name}' to '${targetSlice.name}'. Keep it temporary and migrate through the PRD #192 slice surface.`,
+    });
+  }
+
+  return null;
+}
+
+export function getClientRelativePath(filename) {
+  const normalized = normalizeSlashes(filename);
+
+  for (const marker of CLIENT_MARKERS) {
+    const index = normalized.indexOf(marker);
+    if (index !== -1) {
+      return stripExtension(normalized.slice(index + marker.length));
+    }
+  }
+
+  return null;
+}
+
+function checkDeepImport({ sourcePath, targetPath, targetSlice, specifier }) {
+  if (!targetSlice.requiresIndexImport || targetPath === `${targetSlice.root}/index`) {
+    return null;
+  }
+
+  return buildViolation({
+    code: "deep-import",
+    level: "baseline",
+    sourcePath,
+    targetPath,
+    specifier,
+    message: `Import slice '${targetSlice.name}' through '${targetSlice.root}/index.js' instead of deep path '${targetPath}.js'.`,
+  });
+}
+
+function checkFutureSliceDag({ sourceSlice, targetSlice, sourcePath, targetPath, specifier }) {
+  if (!sourceSlice.future || !targetSlice.future || targetSlice.layer === "design-system" || targetSlice.layer === "platform") {
+    return null;
+  }
+
+  const allowedTargets = FUTURE_SLICE_DAG.get(sourceSlice.id) ?? [];
+  if (allowedTargets.includes(targetSlice.id)) {
+    return null;
+  }
+
+  return buildViolation({
+    code: "disallowed-slice-dependency",
+    level: "baseline",
+    sourcePath,
+    targetPath,
+    specifier,
+    message: `Slice '${sourceSlice.name}' cannot import slice '${targetSlice.name}' according to the PRD #192 slice DAG.`,
+  });
+}
+
+function buildViolation({ code, level, sourcePath, targetPath, specifier, message }) {
+  return {
+    code,
+    key: `${code}|${sourcePath}|${targetPath}|${specifier}`,
+    level,
+    message,
+    sourcePath,
+    specifier,
+    targetPath,
+  };
+}
+
+function isDomainSlice(slice) {
+  return slice.layer === "slice" || slice.layer === "feature" || slice.layer === "entity" || slice.layer === "app";
+}
+
+function getSlice(path) {
+  const parts = path.split("/");
+  const [root, name] = parts;
+
+  if (FUTURE_SLICE_LAYERS.has(root)) {
+    return {
+      future: true,
+      id: root,
+      layer: FUTURE_SLICE_LAYERS.get(root),
+      name: root,
+      requiresIndexImport: true,
+      root,
+    };
+  }
+
+  if (root === "features" && name) {
+    return {
+      future: false,
+      id: `feature:${name}`,
+      layer: "feature",
+      name,
+      requiresIndexImport: true,
+      root: `features/${name}`,
+    };
+  }
+
+  if (root === "entities" && name) {
+    return {
+      future: false,
+      id: `entity:${name}`,
+      layer: "entity",
+      name,
+      requiresIndexImport: true,
+      root: `entities/${name}`,
+    };
+  }
+
+  if (root === "app") {
+    return {
+      future: false,
+      id: "app",
+      layer: "app",
+      name: "app",
+      requiresIndexImport: true,
+      root: "app",
+    };
+  }
+
+  if (root === "shared" && name === "ui") {
+    return {
+      future: false,
+      id: "design-system",
+      layer: "design-system",
+      name: "design-system",
+      requiresIndexImport: true,
+      root: "shared/ui",
+    };
+  }
+
+  if (root === "shared") {
+    return {
+      future: false,
+      id: "platform",
+      layer: "platform",
+      name: "platform",
+      requiresIndexImport: false,
+      root: "shared",
+    };
+  }
+
+  if (root === "i18n") {
+    return {
+      future: false,
+      id: "platform",
+      layer: "platform",
+      name: "platform",
+      requiresIndexImport: true,
+      root: "i18n",
+    };
+  }
+
+  return null;
+}
+
+function resolveClientImport(sourcePath, specifier) {
+  const cleanSpecifier = specifier.split("?")[0].split("#")[0];
+
+  if (cleanSpecifier.startsWith("@/client/")) {
+    return normalizeClientPath(cleanSpecifier.slice("@/client/".length));
+  }
+
+  if (cleanSpecifier.startsWith("./") || cleanSpecifier.startsWith("../")) {
+    return normalizeClientPath(`${dirname(sourcePath)}/${cleanSpecifier}`);
+  }
+
+  return null;
+}
+
+function normalizeClientPath(path) {
+  return stripExtension(normalizeSegments(normalizeSlashes(path)));
+}
+
+function normalizeSlashes(path) {
+  return path.replaceAll("\\", "/");
+}
+
+function normalizeSegments(path) {
+  const output = [];
+
+  for (const segment of path.split("/")) {
+    if (segment === "" || segment === ".") {
+      continue;
+    }
+    if (segment === "..") {
+      output.pop();
+      continue;
+    }
+    output.push(segment);
+  }
+
+  return output.join("/");
+}
+
+function stripExtension(path) {
+  return path.replace(/\.(?:c|m)?(?:tsx?|jsx?)$/, "");
+}
+
+function dirname(path) {
+  const index = path.lastIndexOf("/");
+  return index === -1 ? "" : path.slice(0, index);
+}
+
 export default {
   meta: {
     name: "agentchan",
   },
   rules: {
     "no-direct-local-storage": noDirectLocalStorage,
+    "slice-boundary-baseline": sliceBoundaryBaseline,
+    "slice-boundary-new": sliceBoundaryNew,
   },
 };

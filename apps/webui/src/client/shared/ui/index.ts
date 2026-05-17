@@ -13,5 +13,6 @@ export { Indicator } from "./Indicator.js";
 export { TextInput } from "./TextInput.js";
 export { OptionCardGrid } from "./OptionCardGrid.js";
 export { ScrollArea } from "./ScrollArea.js";
+export { ResizeHandle } from "./ResizeHandle.js";
 export { CoverImage } from "./CoverImage.js";
 export { ErrorBoundary, type FallbackProps } from "./ErrorBoundary.js";

@@ -17,9 +17,8 @@ import {
   AgentPanelErrorFallback,
   BottomInput,
 } from "@/client/features/chat/index.js";
-import { EditModeErrorFallback } from "@/client/features/editor/EditModeErrorFallback.js";
-import { ErrorBoundary } from "@/client/shared/ui/index.js";
-import { ResizeHandle } from "@/client/shared/ui/ResizeHandle.js";
+import { EditModeErrorFallback } from "@/client/features/editor/index.js";
+import { ErrorBoundary, ResizeHandle } from "@/client/shared/ui/index.js";
 
 const EditModePanel = lazy(() =>
   import("@/client/features/editor/index.js").then((m) => ({

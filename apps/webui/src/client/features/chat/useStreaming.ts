@@ -34,7 +34,7 @@ import {
   isBackgroundStream,
   notifyBackgroundCompletion,
 } from "@/client/shared/notifications.js";
-import { useProject } from "@/client/features/project/useProject.js";
+import { useProject } from "@/client/features/project/index.js";
 
 function makeTempUserEntry(text: string, parentId: string | null): SessionMessageEntry {
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

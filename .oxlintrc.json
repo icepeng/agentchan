@@ -79,7 +79,9 @@
     {
       "files": ["apps/webui/src/client/**/*.{ts,tsx}"],
       "rules": {
-        "agentchan/no-direct-local-storage": "error"
+        "agentchan/no-direct-local-storage": "error",
+        "agentchan/slice-boundary-baseline": "warn",
+        "agentchan/slice-boundary-new": "error"
       }
     }
   ]

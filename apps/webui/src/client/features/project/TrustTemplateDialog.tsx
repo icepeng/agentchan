@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Dialog } from "@/client/shared/ui/Dialog.js";
-import { Button } from "@/client/shared/ui/index.js";
+import { Button, Dialog } from "@/client/shared/ui/index.js";
 import { useI18n } from "@/client/i18n/index.js";
 
 interface TrustTemplateDialogProps {
