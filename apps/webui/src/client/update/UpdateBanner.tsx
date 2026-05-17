@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Sparkles, X } from "lucide-react";
-import { useVersion } from "@/client/entities/update/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import { localStore } from "@/client/platform/index.js";
+import { useVersion } from "./useVersion.js";
 
 // Dismiss is per-version: acknowledging v1.2.3 hides the banner until v1.2.4 arrives.
 export function UpdateBanner() {
@@ -36,7 +36,7 @@ export function UpdateBanner() {
           <div className="text-xs font-medium text-fg leading-tight">
             {t("update.available")}
           </div>
-          <div className="text-[11px] text-fg-3 font-mono mt-0.5 truncate">
+          <div className="text-[11px] text-fg-3 mt-0.5 truncate">
             {t("update.versionLine", { current: status.current, latest: status.latest })}
           </div>
         </div>

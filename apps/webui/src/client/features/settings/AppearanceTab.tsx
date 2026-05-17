@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Globe } from "lucide-react";
 import { useI18n, type LanguagePreference } from "@/client/platform/index.js";
 import { OptionCardGrid, SectionHeader } from "@/client/design-system/index.js";
-import { AboutSection } from "@/client/features/update/index.js";
+import { AboutSection } from "@/client/update/index.js";
 import { NotificationsSection } from "./NotificationsSection.js";
 import { useTheme, useThemeOptions } from "./useTheme.js";
 

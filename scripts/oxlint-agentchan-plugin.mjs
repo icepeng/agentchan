@@ -43,7 +43,6 @@ const BASELINE_VIOLATIONS = new Set([
   "feature-cross-import|features/settings/ApiKeysTab|features/oauth/index|@/client/features/oauth/index.js",
   "feature-cross-import|features/onboarding/useOnboarding|features/project/index|@/client/features/project/index.js",
   "feature-cross-import|features/onboarding/OnboardingWizard|features/oauth/index|@/client/features/oauth/index.js",
-  "feature-cross-import|features/settings/AppearanceTab|features/update/index|@/client/features/update/index.js",
   "feature-cross-import|features/settings/SettingsView|features/project/index|@/client/features/project/index.js",
 ]);
 
