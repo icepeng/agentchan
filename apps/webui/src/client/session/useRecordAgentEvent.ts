@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import type { AgentEvent } from "@agentchan/creative-agent/browser";
-import type { AgentStateAction } from "@/client/entities/agent-state/index.js";
+import type { AgentStateAction } from "./stream/agentStreamStore.js";
 import { useAgentStreamDispatch } from "./stream/AgentStreamStoreContext.js";
 import { useAgentEventBus, type AgentEventBus } from "./stream/agentEventBus.js";
 

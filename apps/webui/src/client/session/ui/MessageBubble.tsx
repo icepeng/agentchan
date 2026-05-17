@@ -7,10 +7,10 @@ import type {
   Message,
   SessionMessageEntry,
   TextContent,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import { ScrollArea } from "@/client/design-system/index.js";
-import { formatTokens } from "@/client/shared/pricing.utils.js";
+import { formatTokens } from "@/client/session/usage/pricing.utils.js";
 import { UserAvatar, AgentAvatar } from "./Avatars.js";
 import { MessageContent } from "./MessageContent.js";
 

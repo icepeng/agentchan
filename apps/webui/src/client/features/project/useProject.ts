@@ -8,7 +8,7 @@ import {
   fetchSessions,
   pickDefaultCreativeSessionId,
   type AgentchanSessionInfo,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 import { closeProjectStream } from "@/client/session/index.js";
 import {
   useViewState,

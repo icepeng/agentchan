@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useLayoutEffect } from "react";
-import { segmentSentences } from "@/client/shared/sentenceSegmenter.js";
+import { segmentSentences } from "@/client/session/ui/sentenceSegmenter.js";
 
 export interface SentenceAnimationState {
   confirmedSentences: string[];

@@ -58,8 +58,8 @@ export {
   SessionSelectionProvider,
   useSessionSelectionState,
   useSessionSelectionDispatch,
-} from "./SessionSelectionContext.js";
+} from "../selection/SessionSelectionContext.js";
 export {
   useActiveSessionSelection,
   type ActiveSessionSelection,
-} from "./useSessionSelection.js";
+} from "../selection/useSessionSelection.js";

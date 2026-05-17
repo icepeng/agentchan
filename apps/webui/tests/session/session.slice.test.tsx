@@ -4,7 +4,6 @@ import {
   SessionProvider,
   useAgentEventSubscription,
   useAgentStream,
-  useSessionSelectionState,
   useProjectStreamStatuses,
   useStreamSettleCount,
 } from "@/client/session/index.js";
@@ -12,7 +11,6 @@ import {
 function ContextProbe() {
   useAgentStream(null);
   useProjectStreamStatuses();
-  useSessionSelectionState();
   return <span>ok</span>;
 }
 
@@ -65,7 +63,7 @@ describe("session slice public surface", () => {
     ).toContain("0:0");
   });
 
-  test("SessionProvider provides agent stream and session selection contexts", () => {
+  test("SessionProvider provides public session contexts", () => {
     expect(
       renderToString(
         <SessionProvider>

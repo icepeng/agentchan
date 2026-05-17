@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { useAgentState } from "@/client/entities/agent-state/index.js";
+import { useAgentStream } from "@/client/session/index.js";
 import { fetchWorkspaceFiles } from "@/client/entities/project/index.js";
 import { json } from "@/client/platform/index.js";
 import {
@@ -58,7 +58,7 @@ function absoluteBaseUrl(slug: string): string {
 export function useRendererOutput() {
   const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const rendererViewDispatch = useRendererViewDispatch();
-  const agentState = useAgentState();
+  const agentState = useAgentStream(activeProjectSlug);
   const activeProjectSlugRef = useRef(activeProjectSlug);
   const stateRef = useRef(agentState);
   const loadedRef = useRef<LoadedRenderer | null>(null);

@@ -6,7 +6,7 @@ import {
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
 import { useRendererViewState } from "@/client/entities/renderer/index.js";
-import { useActiveSessionSelection } from "@/client/entities/session/index.js";
+import { useSession } from "@/client/session/index.js";
 import { ErrorBoundary, useI18n } from "@/client/platform/index.js";
 import {
   ProjectSurfaceErrorFallback,
@@ -16,7 +16,7 @@ import {
   AgentPanel,
   AgentPanelErrorFallback,
   BottomInput,
-} from "@/client/features/chat/index.js";
+} from "@/client/session/ui/index.js";
 import { EditModeErrorFallback } from "@/client/project-editor/index.js";
 import { EditModeToggle, ResizeHandle } from "@/client/design-system/index.js";
 
@@ -39,7 +39,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   const viewState = useViewState();
   const viewDispatch = useViewDispatch();
   const rendererView = useRendererViewState();
-  const sessionSelection = useActiveSessionSelection();
+  const { activeSessionId } = useSession();
   const { t } = useI18n();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -117,7 +117,7 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
           >
             <ErrorBoundary
               FallbackComponent={AgentPanelErrorFallback}
-              resetKeys={[activeProjectSlug, sessionSelection.openSessionId]}
+              resetKeys={[activeProjectSlug, activeSessionId]}
               onError={(error, info) => {
                 console.error("[ErrorBoundary] AgentPanel", error, info.componentStack);
               }}

@@ -7,7 +7,7 @@ import {
   useSessionData,
   useActiveSessionSelection,
   selectBranch,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 
 /**
  * **Context usage** — single-entry token estimate of the next LLM call's

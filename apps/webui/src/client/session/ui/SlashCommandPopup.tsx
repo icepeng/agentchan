@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { SlashEntry } from "./commands.js";
-import { optionId } from "./useCommandPalette.js";
+import type { SlashEntry } from "../commands/commands.js";
+import { optionId } from "../commands/useCommandPalette.js";
 import { useI18n } from "@/client/platform/index.js";
 
 interface SlashCommandPopupProps {

@@ -27,18 +27,10 @@ const FUTURE_SLICE_DAG = new Map([
 ]);
 
 const BASELINE_VIOLATIONS = new Set([
-  "entity-cross-import|entities/agent-state/aggregateUsage|entities/session/index|@/client/entities/session/index.js",
-  "entity-cross-import|entities/agent-state/agentState|entities/session/index|@/client/entities/session/index.js",
-  "feature-cross-import|features/chat/useStreaming|features/project/index|@/client/features/project/index.js",
-  "entity-cross-import|entities/session/useSessionSelection|entities/view/index|@/client/entities/view/index.js",
-  "entity-cross-import|entities/renderer/useRendererOutput|entities/agent-state/index|@/client/entities/agent-state/index.js",
+  "deep-import|features/project/useProject|session/data/index|@/client/session/data/index.js",
+  "deep-import|pages/ProjectPage|session/ui/index|@/client/session/ui/index.js",
   "entity-cross-import|entities/renderer/useRendererOutput|entities/project/index|@/client/entities/project/index.js",
   "entity-cross-import|entities/renderer/useRendererOutput|entities/view/index|@/client/entities/view/index.js",
-  "entity-cross-import|entities/agent-state/useSessionUsage|entities/view/index|@/client/entities/view/index.js",
-  "entity-cross-import|entities/agent-state/useSessionUsage|entities/session/index|@/client/entities/session/index.js",
-  "entity-cross-import|entities/agent-state/useContextUsage|entities/view/index|@/client/entities/view/index.js",
-  "entity-cross-import|entities/agent-state/useContextUsage|entities/session/index|@/client/entities/session/index.js",
-  "entity-cross-import|entities/agent-state/useAgentState|entities/view/index|@/client/entities/view/index.js",
   "feature-cross-import|features/settings/ApiKeysTab|features/oauth/index|@/client/features/oauth/index.js",
   "feature-cross-import|features/settings/SettingsView|features/project/index|@/client/features/project/index.js",
 ]);

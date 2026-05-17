@@ -7,7 +7,7 @@ import type {
   AgentMessage,
   AgentState,
 } from "@agentchan/creative-agent/browser";
-import type { AssistantContentBlock } from "@/client/entities/session/index.js";
+import type { AssistantContentBlock } from "@/client/session/data/index.js";
 
 export type { AgentMessage, AgentState };
 export type { AssistantMessage, ToolResultMessage, UserMessage };

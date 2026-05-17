@@ -3,8 +3,8 @@ import { ArrowUp, ChevronsLeft } from "lucide-react";
 import {
   useSessionUsage,
   useContextUsage,
-} from "@/client/entities/agent-state/index.js";
-import { useActiveSessionSelection } from "@/client/entities/session/index.js";
+} from "@/client/session/stream/index.js";
+import { useActiveSessionSelection } from "@/client/session/data/index.js";
 import {
   notificationPermission,
   requestNotificationPermission,
@@ -17,11 +17,11 @@ import {
   useRendererActionState,
   useRendererActionDispatch,
 } from "@/client/entities/renderer/index.js";
-import { useStreaming } from "./useStreaming.js";
-import { useSession } from "./useSession.js";
-import { useSlashCommands } from "./useSlashCommands.js";
+import { useStreaming } from "../stream/useStreaming.js";
+import { useSession } from "../useSession.js";
+import { useSlashCommands } from "../commands/useSlashCommands.js";
 import { SlashCommandPopup } from "./SlashCommandPopup.js";
-import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
+import { formatCost, formatTokens } from "@/client/session/usage/pricing.utils.js";
 
 interface BottomInputProps {
   variant?: "standalone" | "embedded";

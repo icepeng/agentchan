@@ -6,9 +6,9 @@ import type { ReactNode } from "react";
 import {
   SessionProvider,
   useAgentStream,
-  useAgentStreamDispatch,
-  type AgentStateAction,
 } from "@/client/session/index.js";
+import { useAgentStreamDispatch } from "@/client/session/stream/AgentStreamStoreContext.js";
+import type { AgentStateAction } from "@/client/session/stream/agentStreamStore.js";
 
 function SessionWrapper({ children }: { children: ReactNode }) {
   return <SessionProvider>{children}</SessionProvider>;

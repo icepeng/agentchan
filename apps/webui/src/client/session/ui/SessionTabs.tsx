@@ -2,7 +2,7 @@ import { ChevronsRight, Plus, Settings, X } from "lucide-react";
 import {
   useSessions,
   useActiveSessionSelection,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 import {
   useViewState,
   useViewDispatch,
@@ -11,7 +11,7 @@ import {
 import { useUIDispatch } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import { EditModeToggle, ScrollArea } from "@/client/design-system/index.js";
-import { useSession } from "./useSession.js";
+import { useSession } from "../useSession.js";
 
 export function SessionTabs() {
   const selection = useActiveSessionSelection();

@@ -8,7 +8,7 @@ import {
   useSessionSelectionDispatch,
   type SessionData,
   type SessionMode,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 import {
   useViewState,
   useViewDispatch,
@@ -67,10 +67,10 @@ export function useSession() {
     [selection.openSessionId, slug],
   );
 
-  const setReplyTo = (entryId: string | null) => {
-    if (!slug) return;
+  const setReplyTo = useCallback((entryId: string | null) => {
+    if (!slug && entryId !== null) return;
     sessionSelectionDispatch({ type: "SET_REPLY_TO", entryId });
-  };
+  }, [sessionSelectionDispatch, slug]);
 
   const compact = async () => {
     if (!slug || !selection.openSessionId) return;

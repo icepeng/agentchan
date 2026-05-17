@@ -5,11 +5,9 @@ import {
 } from "@/client/entities/project/index.js";
 import {
   useAgentState,
-} from "@/client/entities/agent-state/index.js";
-import {
-  useAgentStreamDispatch,
-  useRecordAgentEvent,
-} from "@/client/session/index.js";
+} from "@/client/session/stream/index.js";
+import { useRecordAgentEvent } from "../useRecordAgentEvent.js";
+import { useAgentStreamDispatch } from "./AgentStreamStoreContext.js";
 import {
   useActiveSessionSelection,
   useSessionData,
@@ -24,7 +22,7 @@ import {
   type SessionEntry,
   type SessionMessageEntry,
   type SSECallbacks,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 import {
   useViewState,
   selectActiveProjectSlug,

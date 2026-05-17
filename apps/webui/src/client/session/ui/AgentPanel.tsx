@@ -4,7 +4,7 @@ import { Popover } from "@base-ui/react/popover";
 import {
   aggregateUsage,
   useAgentState,
-} from "@/client/entities/agent-state/index.js";
+} from "@/client/session/stream/index.js";
 import {
   useViewState,
   selectActiveProjectSlug,
@@ -14,14 +14,14 @@ import {
   useActiveSessionSelection,
   selectBranch,
   buildSiblingsByEntry,
-} from "@/client/entities/session/index.js";
-import type { SessionMessageEntry } from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
+import type { SessionMessageEntry } from "@/client/session/data/index.js";
 import { useI18n } from "@/client/platform/index.js";
-import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
+import { formatCost, formatTokens } from "@/client/session/usage/pricing.utils.js";
 import { ScrollArea } from "@/client/design-system/index.js";
 import { MessageActionsProvider } from "./MessageActionsContext.js";
-import { useSession } from "./useSession.js";
-import { useStreaming } from "./useStreaming.js";
+import { useSession } from "../useSession.js";
+import { useStreaming } from "../stream/useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
 import {
   AssistantTurnBubble,

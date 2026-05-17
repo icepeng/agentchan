@@ -6,11 +6,11 @@ import type {
   UserMessage,
   Usage,
 } from "@mariozechner/pi-ai";
-import type { SessionMessageEntry } from "@/client/entities/session/index.js";
+import type { SessionMessageEntry } from "@/client/session/data/index.js";
 import {
   aggregateUsage,
   EMPTY_AGGREGATED_USAGE,
-} from "@/client/entities/agent-state/aggregateUsage.js";
+} from "@/client/session/usage/aggregateUsage.js";
 
 function makeUsage(over: Partial<Usage> = {}): Usage {
   return {

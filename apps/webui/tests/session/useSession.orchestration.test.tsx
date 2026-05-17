@@ -52,7 +52,7 @@ mock.module("swr", () => ({
   }),
 }));
 
-mock.module("@/client/entities/session/session.api.js", () => ({
+mock.module("@/client/session/data/session.api.js", () => ({
   createSession: (_projectSlug: string, mode?: SessionMode) => {
     sequence.push("api:create");
     return Promise.resolve(sessionInfo(mode === "meta" ? "meta-new" : "creative-new", mode));

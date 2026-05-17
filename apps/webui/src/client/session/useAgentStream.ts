@@ -3,8 +3,8 @@ import {
   useViewState,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import type { AgentState } from "@/client/entities/agent-state/index.js";
-import { EMPTY_AGENT_STATE } from "@/client/entities/agent-state/index.js";
+import type { AgentState } from "@agentchan/creative-agent/browser";
+import { EMPTY_AGENT_STATE } from "@agentchan/creative-agent/browser";
 import { useAgentStreamStore } from "./stream/AgentStreamStoreContext.js";
 
 export function useAgentStream(projectSlug?: string | null): AgentState {

@@ -3,7 +3,7 @@ import type {
   CompactionEntry,
   SessionEntry,
   SessionMessageEntry,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 
 /**
  * Wire-format markers used by `creative-agent`'s skill-injection text. We

@@ -63,15 +63,15 @@ describe("slice boundary lint rule", () => {
     });
   });
 
-  test("keeps existing transitional cross-imports in the warning baseline", () => {
+  test("keeps existing transitional deep imports in the warning baseline", () => {
     const violation = classifyClientImport(
-      "features/chat/useStreaming",
-      "@/client/features/project/index.js",
+      "pages/ProjectPage",
+      "@/client/session/ui/index.js",
     );
 
     expect(violation).toMatchObject({
-      code: "feature-cross-import",
-      level: "warn",
+      code: "deep-import",
+      level: "baseline",
     });
     expect(shouldReportSliceBoundaryBaseline(violation!)).toBe(true);
     expect(shouldReportSliceBoundaryNew(violation!)).toBe(false);

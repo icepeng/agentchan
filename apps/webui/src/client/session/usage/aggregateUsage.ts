@@ -1,5 +1,5 @@
 import type { Message } from "@mariozechner/pi-ai";
-import type { SessionMessageEntry } from "@/client/entities/session/index.js";
+import type { SessionMessageEntry } from "@/client/session/data/index.js";
 
 /**
  * Token + cost totals over a set of assistant **Session entry**s. Shared

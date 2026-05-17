@@ -3,7 +3,7 @@ import {
   useViewState,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { useAgentState } from "@/client/entities/agent-state/index.js";
+import { useAgentStream } from "@/client/session/index.js";
 import {
   useRendererOutput,
   useRendererViewState,
@@ -22,7 +22,7 @@ export function RenderedView() {
   const activeProjectSlug = selectActiveProjectSlug(useViewState());
   const rendererView = useRendererViewState();
   const rendererViewDispatch = useRendererViewDispatch();
-  const state = useAgentState();
+  const state = useAgentStream(activeProjectSlug);
   const { refresh } = useRendererOutput();
   const actionDispatch = useRendererActionDispatch();
   const { resolved: scheme } = useTheme();

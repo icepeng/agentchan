@@ -1,5 +1,5 @@
-import type { AssistantContentBlock } from "@/client/entities/session/index.js";
-import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
+import type { AssistantContentBlock } from "@/client/session/data/index.js";
+import { parseInlineMarkdown } from "@/client/session/ui/inlineMarkdown.js";
 import { ToolCallDisplay } from "./ToolCallDisplay.js";
 
 /**

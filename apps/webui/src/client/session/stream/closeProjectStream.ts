@@ -1,4 +1,4 @@
-import { abortRegisteredProjectStream } from "@/client/entities/session/index.js";
+import { abortRegisteredProjectStream } from "@/client/session/data/index.js";
 import type { AgentStreamStore } from "./agentStreamStore.js";
 
 type ProjectStreamCloser = (slug: string) => void;

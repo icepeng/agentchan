@@ -5,9 +5,9 @@ import {
 } from "@agentchan/creative-agent/browser";
 import {
   closeProjectStream,
-  registerAbortController,
   type AgentState,
 } from "@/client/session/index.js";
+import { registerAbortController } from "@/client/session/data/index.js";
 import { recordAgentEvent } from "@/client/session/useRecordAgentEvent.js";
 import { createAgentEventBus } from "@/client/session/stream/agentEventBus.js";
 import { registerAgentStreamStore } from "@/client/session/stream/closeProjectStream.js";

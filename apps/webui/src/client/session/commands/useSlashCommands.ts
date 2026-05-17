@@ -1,9 +1,9 @@
 import { useConfigMutations } from "@/client/entities/config/index.js";
-import { useSkills } from "@/client/entities/skill/index.js";
+import { useSkills } from "@/client/session/skill/index.js";
 import {
   useSessions,
   useActiveSessionSelection,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 import {
   useViewState,
   useViewDispatch,
@@ -11,8 +11,8 @@ import {
 } from "@/client/entities/view/index.js";
 import { useUIDispatch } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
-import { useSession } from "./useSession.js";
-import { useStreaming } from "./useStreaming.js";
+import { useSession } from "../useSession.js";
+import { useStreaming } from "../stream/useStreaming.js";
 import { buildSlashEntries, LOCAL_COMMAND_DEFS, type SlashEntry, type SkillSlashCommand } from "./commands.js";
 import { useCommandPalette } from "./useCommandPalette.js";
 

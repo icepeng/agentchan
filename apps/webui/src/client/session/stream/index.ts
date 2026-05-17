@@ -20,15 +20,15 @@ export {
   aggregateUsage,
   EMPTY_AGGREGATED_USAGE,
   type AggregatedUsage,
-} from "./aggregateUsage.js";
-export { useSessionUsage } from "./useSessionUsage.js";
+} from "../usage/aggregateUsage.js";
+export { useSessionUsage } from "../usage/useSessionUsage.js";
 export {
   publishAgentEvent,
   subscribeAgentEvents,
   type AgentEventListener,
-} from "./agentEventBus.js";
+} from "./legacyAgentEventBus.js";
 export {
   useContextUsage,
   EMPTY_CONTEXT_USAGE,
   type ContextUsage,
-} from "./useContextUsage.js";
+} from "../usage/useContextUsage.js";

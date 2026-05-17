@@ -4,7 +4,7 @@ import {
   selectActiveSessionId,
 } from "@/client/entities/view/index.js";
 import { useProjects } from "@/client/entities/project/index.js";
-import { useSessionSelectionDispatch } from "@/client/entities/session/index.js";
+import { useSession } from "@/client/session/index.js";
 import { useProject } from "@/client/features/project/index.js";
 import { localStore } from "@/client/platform/index.js";
 
@@ -12,7 +12,7 @@ import { AppShell } from "@/client/app/index.js";
 
 export function App() {
   const view = useViewState();
-  const sessionSelectionDispatch = useSessionSelectionDispatch();
+  const { setReplyTo } = useSession();
   const { data: projects } = useProjects();
   const { selectProject } = useProject();
   const decidedRef = useRef(false);
@@ -38,8 +38,8 @@ export function App() {
   // session-internal concept, not view-determining (ADR-0009).
   const activeSessionId = selectActiveSessionId(view);
   useEffect(() => {
-    sessionSelectionDispatch({ type: "SET_REPLY_TO", entryId: null });
-  }, [activeSessionId, sessionSelectionDispatch]);
+    setReplyTo(null);
+  }, [activeSessionId, setReplyTo]);
 
   return <AppShell />;
 }

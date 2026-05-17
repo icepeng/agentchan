@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { parseInlineMarkdown } from "./inlineMarkdown.js";
 
 export interface ReadmeDoc {
   frontmatter: { name?: string; description?: string };
@@ -255,4 +254,53 @@ function parseBlockMarkdown(source: string): ReactNode {
         );
     }
   });
+}
+
+const INLINE_RE =
+  /(`[^`]+`)|(\*\*(?:[^*]|\*(?!\*))+\*\*)|(\*(?:[^*])+?\*)|(~~(?:[^~]|~(?!~))+~~)/g;
+
+function parseInlineMarkdown(text: string): ReactNode {
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let key = 0;
+
+  for (const match of text.matchAll(INLINE_RE)) {
+    const idx = match.index;
+    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx));
+
+    const raw = match[0];
+    if (match[1]) {
+      parts.push(
+        <code
+          key={key++}
+          className="font-mono bg-elevated/50 px-1 rounded text-[0.9em]"
+        >
+          {raw.slice(1, -1)}
+        </code>,
+      );
+    } else if (match[2]) {
+      parts.push(
+        <strong key={key++} className="font-semibold">
+          {parseInlineMarkdown(raw.slice(2, -2))}
+        </strong>,
+      );
+    } else if (match[3]) {
+      parts.push(
+        <em key={key++} className="italic">
+          {parseInlineMarkdown(raw.slice(1, -1))}
+        </em>,
+      );
+    } else if (match[4]) {
+      parts.push(
+        <del key={key++} className="line-through opacity-60">
+          {parseInlineMarkdown(raw.slice(2, -2))}
+        </del>,
+      );
+    }
+
+    lastIndex = idx + raw.length;
+  }
+
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length === 0 ? text : parts.length === 1 ? parts[0] : parts;
 }

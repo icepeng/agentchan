@@ -28,7 +28,7 @@ import {
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
 import { isImagePath, type EditorAPI } from "./editor.types.js";
-import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
+import { estimateTokens, formatTokens } from "@agentchan/estimate-tokens";
 import { useLatestRef } from "@/client/platform/index.js";
 
 const TOKEN_DEBOUNCE_MS = 300;

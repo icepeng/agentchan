@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { AgentEvent } from "@/client/entities/session/index.js";
+import type { AgentEvent } from "@agentchan/creative-agent/browser";
 import { useLatestRef } from "@/client/platform/index.js";
 import { useAgentEventBus } from "./stream/agentEventBus.js";
 

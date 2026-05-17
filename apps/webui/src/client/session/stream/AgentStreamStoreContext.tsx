@@ -9,10 +9,10 @@ import {
 } from "react";
 import {
   useAgentStateDispatch,
-  type AgentStateAction,
-} from "@/client/entities/agent-state/index.js";
+} from "@/client/session/stream/index.js";
 import {
   createAgentStreamStore,
+  type AgentStateAction,
   type AgentStreamStore,
 } from "./agentStreamStore.js";
 import { registerAgentStreamCloser } from "./closeProjectStream.js";

@@ -6,7 +6,7 @@ import {
   useSessionData,
   useActiveSessionSelection,
   selectMessageEntries,
-} from "@/client/entities/session/index.js";
+} from "@/client/session/data/index.js";
 import {
   aggregateUsage,
   EMPTY_AGGREGATED_USAGE,
