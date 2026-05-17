@@ -12,7 +12,7 @@ import {
   type RendererActions,
   type RendererTheme,
 } from "@/client/entities/renderer/index.js";
-import { useTheme } from "@/client/features/settings/index.js";
+import { useTheme } from "@/client/theme/index.js";
 import { RendererIframe } from "./RendererIframe.js";
 import { useRendererPresentation } from "./useRendererPresentation.js";
 

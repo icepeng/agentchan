@@ -53,12 +53,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTheme(r);
   }, []);
 
-  // Apply theme to DOM whenever resolved theme changes
   useEffect(() => {
     applyTheme(resolved);
   }, [resolved]);
 
-  // Listen for system theme changes
   useEffect(() => {
     if (preference !== "system") return;
     const mq = window.matchMedia(MEDIA_QUERY);

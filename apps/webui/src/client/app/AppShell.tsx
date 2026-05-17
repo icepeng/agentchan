@@ -17,7 +17,7 @@ import {
   useRendererViewState,
   resolveThemeVars,
 } from "@/client/entities/renderer/index.js";
-import { useTheme } from "@/client/features/settings/index.js";
+import { useTheme } from "@/client/theme/index.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";

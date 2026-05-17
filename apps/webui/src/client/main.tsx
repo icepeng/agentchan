@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
-import { ThemeProvider } from "@/client/features/settings/index.js";
+import { ThemeProvider } from "@/client/theme/index.js";
 import { ErrorBoundary, I18nProvider } from "@/client/platform/index.js";
 import { AppProviders, RootErrorFallback } from "@/client/app/index.js";
 import "./main.css";
