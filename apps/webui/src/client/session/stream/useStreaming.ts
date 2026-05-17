@@ -3,9 +3,7 @@ import { mutate as globalMutate } from "swr";
 import {
   useProjects,
 } from "@/client/entities/project/index.js";
-import {
-  useAgentState,
-} from "@/client/session/stream/index.js";
+import { useAgentStream } from "../useAgentStream.js";
 import { useRecordAgentEvent } from "../useRecordAgentEvent.js";
 import { useAgentStreamDispatch } from "./AgentStreamStoreContext.js";
 import {
@@ -61,7 +59,7 @@ export function useStreaming() {
   const { selectProject } = useProject();
 
   const activeSlug = selectActiveProjectSlug(view);
-  const activeState = useAgentState(activeSlug);
+  const activeState = useAgentStream(activeSlug);
 
   const { data: activeSessionData } = useSessionData(
     activeSlug,

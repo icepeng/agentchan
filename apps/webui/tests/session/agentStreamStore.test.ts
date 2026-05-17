@@ -110,15 +110,15 @@ describe("agent stream store", () => {
     const store = createAgentStreamStore();
 
     store.dispatch({ type: "STOP", projectSlug: "a" });
-    expect(store.getStateFor("a").settleSeq).toBe(0);
+    expect(store.getSettleSeq("a")).toBe(0);
 
     store.dispatch({ type: "START", projectSlug: "a" });
     store.dispatch({ type: "STOP", projectSlug: "a" });
-    expect(store.getStateFor("a").settleSeq).toBe(1);
+    expect(store.getSettleSeq("a")).toBe(1);
 
     store.dispatch({ type: "START", projectSlug: "a" });
     store.dispatch({ type: "ERROR", projectSlug: "a", message: "boom" });
-    expect(store.getStateFor("a").settleSeq).toBe(2);
+    expect(store.getSettleSeq("a")).toBe(2);
 
     store.dispatch({ type: "START", projectSlug: "a" });
     store.dispatch({
@@ -126,7 +126,7 @@ describe("agent stream store", () => {
       projectSlug: "a",
       event: { type: "agent_end" } satisfies AgentEvent,
     });
-    expect(store.getStateFor("a").settleSeq).toBe(3);
+    expect(store.getSettleSeq("a")).toBe(3);
   });
 
   test("settleSeq is isolated per slug and CLOSE settles only that slug", () => {
@@ -135,12 +135,12 @@ describe("agent stream store", () => {
     store.dispatch({ type: "START", projectSlug: "b" });
     store.dispatch({ type: "STOP", projectSlug: "a" });
 
-    expect(store.getStateFor("a").settleSeq).toBe(1);
-    expect(store.getStateFor("b").settleSeq).toBe(0);
+    expect(store.getSettleSeq("a")).toBe(1);
+    expect(store.getSettleSeq("b")).toBe(0);
 
     store.dispatch({ type: "START", projectSlug: "a" });
     store.dispatch({ type: "CLOSE", projectSlug: "a" });
-    expect(store.getStateFor("a").settleSeq).toBe(2);
+    expect(store.getSettleSeq("a")).toBe(2);
     expect(store.getStateFor("a").isStreaming).toBe(false);
     expect(store.getStateFor("b").isStreaming).toBe(true);
   });
@@ -153,8 +153,18 @@ describe("agent stream store", () => {
     store.dispatch({ type: "STOP", projectSlug: "a" });
     store.dispatch({ type: "HYDRATE", projectSlug: "a", messages });
 
-    expect(store.getStateFor("a").settleSeq).toBe(1);
+    expect(store.getSettleSeq("a")).toBe(1);
     expect(store.getStateFor("a").messages).toEqual(messages);
+  });
+
+  test("getStateFor returns canonical AgentState without internal settleSeq", () => {
+    const store = createAgentStreamStore();
+
+    store.dispatch({ type: "START", projectSlug: "a" });
+    store.dispatch({ type: "STOP", projectSlug: "a" });
+
+    expect("settleSeq" in store.getStateFor("a")).toBe(false);
+    expect(store.getSettleSeq("a")).toBe(1);
   });
 
   test("closeProjectStream aborts and dispatches CLOSE idempotently", async () => {
@@ -174,7 +184,7 @@ describe("agent stream store", () => {
       await closeProjectStream("a");
 
       expect(aborts).toBe(1);
-      expect(store.getStateFor("a").settleSeq).toBe(1);
+      expect(store.getSettleSeq("a")).toBe(1);
       expect(store.getStateFor("a").isStreaming).toBe(false);
     } finally {
       unregister();

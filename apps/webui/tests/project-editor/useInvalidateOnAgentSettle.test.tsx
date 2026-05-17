@@ -47,12 +47,12 @@ const { useAgentStreamDispatch } = await import(
 const { useInvalidateOnAgentSettle } = await import(
   "@/client/project-editor/useInvalidateOnAgentSettle.js"
 );
-import type { AgentStateAction } from "@/client/session/stream/agentStreamStore.js";
+import type { AgentStreamAction } from "@/client/session/stream/agentStreamStore.js";
 import type { EditorAction } from "@/client/project-editor/editor.types.js";
 import type { ViewAction } from "@/client/entities/view/index.js";
 
 interface Controls {
-  streamDispatch: Dispatch<AgentStateAction> | null;
+  streamDispatch: Dispatch<AgentStreamAction> | null;
   editorDispatch: Dispatch<EditorAction> | null;
   viewDispatch: Dispatch<ViewAction> | null;
 }

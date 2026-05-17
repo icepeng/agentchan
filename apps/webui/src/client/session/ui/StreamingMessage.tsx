@@ -1,4 +1,5 @@
-import { useAgentState, selectCurrentTurnBlocks } from "@/client/session/stream/index.js";
+import { useAgentStream } from "../useAgentStream.js";
+import { getCurrentTurnBlocks } from "../stream/agentState.js";
 import { useI18n } from "@/client/platform/index.js";
 import { parseInlineMarkdown } from "@/client/session/ui/inlineMarkdown.js";
 import { BubbleWrap } from "./MessageBubble.js";
@@ -16,7 +17,7 @@ function Sentence({ text, animating }: { text: string; animating: boolean }) {
 
 /**
  * 스트리밍 중 in-flight 어시스턴트 버블. 현재 턴의 완료된 assistant 메시지
- * content + in-flight streamingMessage.content를 `selectCurrentTurnBlocks`로
+ * content + in-flight streamingMessage.content를 getCurrentTurnBlocks로
  * 병합해 `MessageContent`로 그린다. 완료 후 `AssistantTurnBubble`이 그리는
  * 순서와 동일한 path를 공유한다.
  *
@@ -24,11 +25,11 @@ function Sentence({ text, animating }: { text: string; animating: boolean }) {
  * sentence animation을 적용한다. 그 외 블록은 `MessageContent` 통합 경로로.
  */
 export function StreamingMessage({ variant = "compact" }: { variant?: "compact" | "wide" }) {
-  const state = useAgentState();
+  const state = useAgentStream();
   const { t } = useI18n();
 
   const isWide = variant === "wide";
-  const content = selectCurrentTurnBlocks(state);
+  const content = getCurrentTurnBlocks(state);
   const lastBlock = content.length > 0 ? content[content.length - 1] : null;
   const liveText = lastBlock?.type === "text" ? lastBlock.text : "";
 

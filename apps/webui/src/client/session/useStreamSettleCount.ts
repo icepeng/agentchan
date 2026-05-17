@@ -5,7 +5,7 @@ export function useStreamSettleCount(slug: string | null): number {
   const store = useAgentStreamStore();
   return useSyncExternalStore(
     (listener) => (slug ? store.subscribe(listener, slug) : () => {}),
-    () => store.getStateFor(slug).settleSeq,
+    () => store.getSettleSeq(slug),
     () => 0,
   );
 }

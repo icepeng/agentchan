@@ -8,29 +8,17 @@ import {
   type ReactNode,
 } from "react";
 import {
-  useAgentStateDispatch,
-} from "@/client/session/stream/index.js";
-import {
   createAgentStreamStore,
-  type AgentStateAction,
+  type AgentStreamAction,
   type AgentStreamStore,
 } from "./agentStreamStore.js";
-import { registerAgentStreamCloser } from "./closeProjectStream.js";
+import { registerAgentStreamStore } from "./closeProjectStream.js";
 
 const AgentStreamStoreContext = createContext<AgentStreamStore | null>(null);
 
 export function AgentStreamStoreProvider({ children }: { children: ReactNode }) {
   const [store] = useState(() => createAgentStreamStore());
-  const reducerDispatch = useAgentStateDispatch();
-  useEffect(
-    () =>
-      registerAgentStreamCloser((slug) => {
-        const action = { type: "CLOSE", projectSlug: slug } as const;
-        reducerDispatch(action);
-        store.dispatch(action);
-      }),
-    [reducerDispatch, store],
-  );
+  useEffect(() => registerAgentStreamStore(store), [store]);
   return (
     <AgentStreamStoreContext.Provider value={store}>
       {children}
@@ -44,14 +32,12 @@ export function useAgentStreamStore(): AgentStreamStore {
   return store;
 }
 
-export function useAgentStreamDispatch(): Dispatch<AgentStateAction> {
-  const reducerDispatch = useAgentStateDispatch();
+export function useAgentStreamDispatch(): Dispatch<AgentStreamAction> {
   const store = useAgentStreamStore();
   return useCallback(
     (action) => {
-      reducerDispatch(action);
       store.dispatch(action);
     },
-    [reducerDispatch, store],
+    [store],
   );
 }

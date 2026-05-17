@@ -1,10 +1,7 @@
 import { useEffect, useRef } from "react";
 import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
-import {
-  aggregateUsage,
-  useAgentState,
-} from "@/client/session/stream/index.js";
+import { aggregateUsage } from "@/client/session/usage/aggregateUsage.js";
 import {
   useViewState,
   selectActiveProjectSlug,
@@ -20,6 +17,7 @@ import { useI18n } from "@/client/platform/index.js";
 import { formatCost, formatTokens } from "@/client/session/usage/pricing.utils.js";
 import { ScrollArea } from "@/client/design-system/index.js";
 import { MessageActionsProvider } from "./MessageActionsContext.js";
+import { useAgentStream } from "../useAgentStream.js";
 import { useSession } from "../useSession.js";
 import { useStreaming } from "../stream/useStreaming.js";
 import { SessionTabs } from "./SessionTabs.js";
@@ -110,8 +108,8 @@ function ModelInfoPopover({ entries }: { entries: SessionMessageEntry[] }) {
 
 export function AgentPanel() {
   const selection = useActiveSessionSelection();
-  const state = useAgentState();
   const activeProjectSlug = selectActiveProjectSlug(useViewState());
+  const state = useAgentStream(activeProjectSlug);
   const { data: sessionData } = useSessionData(
     activeProjectSlug,
     selection.openSessionId,

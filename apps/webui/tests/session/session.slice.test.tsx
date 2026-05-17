@@ -7,6 +7,7 @@ import {
   useProjectStreamStatuses,
   useStreamSettleCount,
 } from "@/client/session/index.js";
+import * as sessionSurface from "@/client/session/index.js";
 
 function ContextProbe() {
   useAgentStream(null);
@@ -33,6 +34,18 @@ function StreamSurfaceProbe() {
 }
 
 describe("session slice public surface", () => {
+  test("exports only the public session runtime APIs", () => {
+    expect(Object.keys(sessionSurface).sort()).toEqual([
+      "SessionProvider",
+      "closeProjectStream",
+      "useAgentEventSubscription",
+      "useAgentStream",
+      "useProjectStreamStatuses",
+      "useSession",
+      "useStreamSettleCount",
+    ]);
+  });
+
   test("useAgentStream returns idle state when no project is active", () => {
     expect(
       renderToString(

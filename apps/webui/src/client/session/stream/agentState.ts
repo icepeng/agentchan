@@ -11,7 +11,6 @@ import type { AssistantContentBlock } from "@/client/session/data/index.js";
 
 export type { AgentMessage, AgentState };
 export type { AssistantMessage, ToolResultMessage, UserMessage };
-export { EMPTY_AGENT_STATE } from "@agentchan/creative-agent/browser";
 
 /**
  * Reconstruct the in-flight assistant turn's content blocks. Walks back from
@@ -19,7 +18,7 @@ export { EMPTY_AGENT_STATE } from "@agentchan/creative-agent/browser";
  * appends the streaming message's blocks. Without the prefix, completed
  * sub-steps of a multi-step turn would flicker out during the next stream.
  */
-export function selectCurrentTurnBlocks(state: AgentState): AssistantContentBlock[] {
+export function getCurrentTurnBlocks(state: AgentState): AssistantContentBlock[] {
   const lastUserIdx = state.messages.findLastIndex((m) => m.role === "user");
   const turnMessages = state.messages.slice(lastUserIdx + 1);
   const blocks = turnMessages.flatMap((m) =>

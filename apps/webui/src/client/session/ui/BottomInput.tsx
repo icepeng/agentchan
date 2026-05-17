@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp, ChevronsLeft } from "lucide-react";
-import {
-  useSessionUsage,
-  useContextUsage,
-} from "@/client/session/stream/index.js";
+import { useSessionUsage } from "@/client/session/usage/useSessionUsage.js";
+import { useContextUsage } from "@/client/session/usage/useContextUsage.js";
 import { useActiveSessionSelection } from "@/client/session/data/index.js";
 import {
   notificationPermission,

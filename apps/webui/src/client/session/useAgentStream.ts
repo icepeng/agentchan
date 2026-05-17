@@ -4,8 +4,13 @@ import {
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
 import type { AgentState } from "@agentchan/creative-agent/browser";
-import { EMPTY_AGENT_STATE } from "@agentchan/creative-agent/browser";
 import { useAgentStreamStore } from "./stream/AgentStreamStoreContext.js";
+
+const IDLE_AGENT_STATE: AgentState = {
+  messages: [],
+  isStreaming: false,
+  pendingToolCalls: new Set(),
+};
 
 export function useAgentStream(projectSlug?: string | null): AgentState {
   const activeProjectSlug = selectActiveProjectSlug(useViewState());
@@ -14,6 +19,6 @@ export function useAgentStream(projectSlug?: string | null): AgentState {
   return useSyncExternalStore(
     (listener) => (slug ? store.subscribe(listener, slug) : () => {}),
     () => store.getStateFor(slug),
-    () => EMPTY_AGENT_STATE,
+    () => IDLE_AGENT_STATE,
   );
 }

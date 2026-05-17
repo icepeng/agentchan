@@ -1,6 +1,5 @@
 import {
   applyAgentEvent,
-  EMPTY_AGENT_STATE,
   type AgentEvent,
   type AgentMessage,
   type AgentState,
@@ -11,7 +10,7 @@ export type ProjectStreamStatus =
   | { kind: "streaming" }
   | { kind: "error"; message: string };
 
-export type AgentStateAction =
+export type AgentStreamAction =
   | { type: "HYDRATE"; projectSlug: string; messages: ReadonlyArray<AgentMessage> }
   | { type: "START"; projectSlug: string }
   | { type: "STOP"; projectSlug: string }
@@ -19,19 +18,29 @@ export type AgentStateAction =
   | { type: "ERROR"; projectSlug: string; message: string }
   | { type: "CLOSE"; projectSlug: string };
 
-type AgentStateMap = ReadonlyMap<string, AgentState>;
+type AgentStateMap = ReadonlyMap<string, AgentStreamSlot>;
 type Listener = () => void;
-type StreamAgentState = AgentState & { readonly settleSeq: number };
+type AgentStreamSlot = {
+  readonly state: AgentState;
+  readonly settleSeq: number;
+};
 
-const EMPTY_STREAM_AGENT_STATE: StreamAgentState = {
-  ...EMPTY_AGENT_STATE,
+const IDLE_AGENT_STATE: AgentState = {
+  messages: [],
+  isStreaming: false,
+  pendingToolCalls: new Set(),
+};
+
+const IDLE_AGENT_STREAM_SLOT: AgentStreamSlot = {
+  state: IDLE_AGENT_STATE,
   settleSeq: 0,
 };
 
 export interface AgentStreamStore {
-  dispatch(action: AgentStateAction): void;
+  dispatch(action: AgentStreamAction): void;
   subscribe(listener: Listener, slug?: string | null): () => void;
-  getStateFor(slug: string | null | undefined): StreamAgentState;
+  getStateFor(slug: string | null | undefined): AgentState;
+  getSettleSeq(slug: string | null | undefined): number;
   getStatuses(): ReadonlyMap<string, ProjectStreamStatus>;
 }
 
@@ -41,14 +50,8 @@ export function toProjectStreamStatus(state: AgentState): ProjectStreamStatus {
   return { kind: "idle" };
 }
 
-function toStreamAgentState(state: AgentState): StreamAgentState {
-  return "settleSeq" in state
-    ? state as StreamAgentState
-    : { ...state, settleSeq: 0 };
-}
-
-function getSlot(map: AgentStateMap, slug: string): StreamAgentState {
-  return map.get(slug) ? toStreamAgentState(map.get(slug)!) : EMPTY_STREAM_AGENT_STATE;
+function getSlot(map: AgentStateMap, slug: string): AgentStreamSlot {
+  return map.get(slug) ?? IDLE_AGENT_STREAM_SLOT;
 }
 
 function sameStatus(a: ProjectStreamStatus, b: ProjectStreamStatus): boolean {
@@ -57,53 +60,56 @@ function sameStatus(a: ProjectStreamStatus, b: ProjectStreamStatus): boolean {
   return b.kind === "error" && a.message === b.message;
 }
 
-function withSettleSeq(current: StreamAgentState, next: AgentState): StreamAgentState {
-  const settleSeq = current.isStreaming && !next.isStreaming
+function withSettleSeq(current: AgentStreamSlot, next: AgentState): AgentStreamSlot {
+  const settleSeq = current.state.isStreaming && !next.isStreaming
     ? current.settleSeq + 1
     : current.settleSeq;
-  return "settleSeq" in next && next.settleSeq === settleSeq
-    ? next as StreamAgentState
-    : { ...next, settleSeq };
+  return next === current.state && settleSeq === current.settleSeq
+    ? current
+    : { state: next, settleSeq };
 }
 
-function reduceSlot(current: StreamAgentState, action: AgentStateAction): StreamAgentState {
+function reduceSlot(current: AgentStreamSlot, action: AgentStreamAction): AgentStreamSlot {
   switch (action.type) {
     case "HYDRATE":
-      if (current.isStreaming) return current;
-      return { ...EMPTY_AGENT_STATE, messages: action.messages, settleSeq: current.settleSeq };
-    case "START":
+      if (current.state.isStreaming) return current;
       return {
-        ...current,
+        state: { ...IDLE_AGENT_STATE, messages: action.messages },
+        settleSeq: current.settleSeq,
+      };
+    case "START":
+      return withSettleSeq(current, {
+        ...current.state,
         isStreaming: true,
         streamingMessage: undefined,
         errorMessage: undefined,
-      };
+      });
     case "STOP":
       return withSettleSeq(current, {
-        ...current,
+        ...current.state,
         isStreaming: false,
         streamingMessage: undefined,
       });
     case "AGENT_EVENT":
-      return withSettleSeq(current, applyAgentEvent(current, action.event));
+      return withSettleSeq(current, applyAgentEvent(current.state, action.event));
     case "ERROR":
       return withSettleSeq(current, {
-        ...current,
+        ...current.state,
         isStreaming: false,
         streamingMessage: undefined,
         errorMessage: action.message,
       });
     case "CLOSE":
       if (
-        !current.isStreaming &&
-        !current.streamingMessage &&
-        !current.errorMessage &&
-        current.messages.length === 0 &&
-        current.pendingToolCalls.size === 0
+        !current.state.isStreaming &&
+        !current.state.streamingMessage &&
+        !current.state.errorMessage &&
+        current.state.messages.length === 0 &&
+        current.state.pendingToolCalls.size === 0
       ) {
         return current;
       }
-      return withSettleSeq(current, EMPTY_STREAM_AGENT_STATE);
+      return withSettleSeq(current, IDLE_AGENT_STATE);
   }
 }
 
@@ -121,11 +127,11 @@ export function createAgentStreamStore(): AgentStreamStore {
     for (const listener of statusListeners) listener();
   };
 
-  const dispatch = (action: AgentStateAction) => {
+  const dispatch = (action: AgentStreamAction) => {
     const slug = action.projectSlug;
     const current = getSlot(state, slug);
     const beforeStatus = state.has(slug)
-      ? toProjectStreamStatus(current)
+      ? toProjectStreamStatus(current.state)
       : undefined;
     const nextSlot = reduceSlot(current, action);
 
@@ -135,7 +141,7 @@ export function createAgentStreamStore(): AgentStreamStore {
     next.set(slug, nextSlot);
     state = next;
 
-    const afterStatus = toProjectStreamStatus(nextSlot);
+    const afterStatus = toProjectStreamStatus(nextSlot.state);
     const statusChanged =
       !beforeStatus || !sameStatus(beforeStatus, afterStatus);
     if (statusChanged) statusesCache = null;
@@ -163,20 +169,25 @@ export function createAgentStreamStore(): AgentStreamStore {
     };
   };
 
-  const getStateFor = (slug: string | null | undefined): StreamAgentState => {
-    if (!slug) return EMPTY_STREAM_AGENT_STATE;
-    return getSlot(state, slug);
+  const getStateFor = (slug: string | null | undefined): AgentState => {
+    if (!slug) return IDLE_AGENT_STATE;
+    return getSlot(state, slug).state;
+  };
+
+  const getSettleSeq = (slug: string | null | undefined): number => {
+    if (!slug) return 0;
+    return getSlot(state, slug).settleSeq;
   };
 
   const getStatuses = () => {
     if (statusesCache) return statusesCache;
     const next = new Map<string, ProjectStreamStatus>();
     for (const [slug, slot] of state) {
-      next.set(slug, toProjectStreamStatus(slot));
+      next.set(slug, toProjectStreamStatus(slot.state));
     }
     statusesCache = next;
     return statusesCache;
   };
 
-  return { dispatch, subscribe, getStateFor, getStatuses };
+  return { dispatch, subscribe, getStateFor, getSettleSeq, getStatuses };
 }
