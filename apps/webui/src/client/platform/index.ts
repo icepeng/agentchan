@@ -12,6 +12,7 @@ export type { NotificationPreference, NotifyOpts } from "./notifications.js";
 export { qk, matchesSlug } from "./queryKeys.js";
 export type { QueryKey } from "./queryKeys.js";
 export { localStore } from "./storage.js";
+export { useLatestRef } from "@/client/shared/useLatestRef.js";
 export { SwrRoot } from "./swr.js";
 export { ErrorBoundary } from "./ErrorBoundary.js";
 export type { FallbackProps } from "./ErrorBoundary.js";

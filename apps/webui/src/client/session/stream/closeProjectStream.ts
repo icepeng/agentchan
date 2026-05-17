@@ -1,4 +1,4 @@
-import { abortProjectStream } from "@/client/entities/session/index.js";
+import { abortRegisteredProjectStream } from "@/client/entities/session/index.js";
 import type { AgentStreamStore } from "./agentStreamStore.js";
 
 type ProjectStreamCloser = (slug: string) => void;
@@ -19,6 +19,6 @@ export function registerAgentStreamStore(store: AgentStreamStore): () => void {
 }
 
 export async function closeProjectStream(slug: string): Promise<void> {
-  abortProjectStream(slug);
+  abortRegisteredProjectStream(slug);
   for (const close of closers) close(slug);
 }

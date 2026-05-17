@@ -17,17 +17,12 @@ export type {
   UserMessage,
 } from "@/client/entities/agent-state/index.js";
 export {
-  EMPTY_AGENT_STATE,
   selectCurrentTurnBlocks,
   AgentStateProvider,
-  useAgentStateMap,
-  useAgentStateDispatch,
   useAgentState,
   aggregateUsage,
   EMPTY_AGGREGATED_USAGE,
   useSessionUsage,
-  publishAgentEvent,
-  subscribeAgentEvents,
   useContextUsage,
   EMPTY_CONTEXT_USAGE,
 } from "@/client/entities/agent-state/index.js";
@@ -72,7 +67,6 @@ export {
   compactSession,
   registerAbortController,
   clearAbortController,
-  abortProjectStream,
   selectBranch,
   selectSiblings,
   buildSiblingsByEntry,

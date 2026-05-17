@@ -29,7 +29,7 @@ import {
 } from "@/client/entities/view/index.js";
 import { isImagePath, type EditorAPI } from "@/client/entities/editor/index.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
-import { useLatestRef } from "@/client/shared/useLatestRef.js";
+import { useLatestRef } from "@/client/platform/index.js";
 
 const TOKEN_DEBOUNCE_MS = 300;
 

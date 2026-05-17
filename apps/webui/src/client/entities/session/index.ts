@@ -35,7 +35,7 @@ export { insertEntries, replaceTempEntry } from "./entry.utils.js";
 export {
   fetchSession, fetchSessions, createSession, deleteSession,
   renameSession, sendMessage, regenerateResponse, compactSession,
-  registerAbortController, clearAbortController, abortProjectStream,
+  registerAbortController, clearAbortController, abortRegisteredProjectStream,
 } from "./session.api.js";
 export type {
   CompactResponse,

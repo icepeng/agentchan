@@ -5,7 +5,8 @@ import { UnsavedDialog } from "./UnsavedDialog.js";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog.js";
 import { ResizeHandle } from "@/client/design-system/index.js";
 import type { EditorAPI } from "@/client/entities/editor/index.js";
-import { useEditMode } from "./useEditMode.js";
+import { useInvalidateOnAgentSettle } from "./useInvalidateOnAgentSettle.js";
+import { useProjectEditor } from "./useProjectEditor.js";
 
 const DEFAULT_TREE_WIDTH = 200;
 const MIN_TREE_WIDTH = 140;
@@ -13,6 +14,7 @@ const MAX_TREE_WIDTH = 400;
 
 export function EditModePanel() {
   const editorApiRef = useRef<EditorAPI | null>(null);
+  useInvalidateOnAgentSettle();
   const {
     treeEntries,
     selectedPath,
@@ -37,7 +39,7 @@ export function EditModePanel() {
     renameEntry,
     createFileInDir,
     createDirInDir,
-  } = useEditMode(editorApiRef);
+  } = useProjectEditor(editorApiRef);
 
   const [treeWidth, setTreeWidth] = useState(DEFAULT_TREE_WIDTH);
   const dragStartRef = useRef(0);

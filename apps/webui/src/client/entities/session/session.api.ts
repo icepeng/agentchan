@@ -144,7 +144,7 @@ export function clearAbortController(projectSlug: string, controller: AbortContr
   }
 }
 
-export function abortProjectStream(projectSlug: string): void {
+export function abortRegisteredProjectStream(projectSlug: string): void {
   const controller = abortControllers.get(projectSlug);
   if (controller) {
     controller.abort();

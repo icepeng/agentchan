@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentEvent, AgentMessage } from "@agentchan/creative-agent/browser";
 import {
-  EMPTY_AGENT_STATE,
+  type AgentEvent,
+  type AgentMessage,
+} from "@agentchan/creative-agent/browser";
+import {
   closeProjectStream,
   registerAbortController,
-  subscribeAgentEvents,
   type AgentState,
 } from "@/client/session/index.js";
 import { recordAgentEvent } from "@/client/session/useRecordAgentEvent.js";
@@ -15,8 +16,14 @@ import {
   toProjectStreamStatus,
 } from "@/client/session/stream/agentStreamStore.js";
 
+const IDLE_AGENT_STATE: AgentState = {
+  messages: [],
+  isStreaming: false,
+  pendingToolCalls: new Set(),
+};
+
 function state(overrides: Partial<AgentState>): AgentState {
-  return { ...EMPTY_AGENT_STATE, ...overrides };
+  return { ...IDLE_AGENT_STATE, ...overrides };
 }
 
 describe("session stream status", () => {
@@ -27,7 +34,7 @@ describe("session stream status", () => {
     expect(toProjectStreamStatus(state({ isStreaming: true }))).toEqual({
       kind: "streaming",
     });
-    expect(toProjectStreamStatus(EMPTY_AGENT_STATE)).toEqual({ kind: "idle" });
+    expect(toProjectStreamStatus(IDLE_AGENT_STATE)).toEqual({ kind: "idle" });
   });
 });
 
@@ -174,11 +181,11 @@ describe("agent stream store", () => {
     }
   });
 
-  test("recordAgentEvent updates store and preserves legacy event bus publishing", () => {
+  test("recordAgentEvent updates store and publishes through the provided bus", () => {
     const store = createAgentStreamStore();
     const bus = createAgentEventBus();
     const seen: string[] = [];
-    const unsubscribe = subscribeAgentEvents((slug) => {
+    const unsubscribe = bus.subscribe((slug) => {
       seen.push(slug);
     });
 

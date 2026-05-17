@@ -1,27 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import { renderToString } from "react-dom/server";
 import {
-  EMPTY_AGENT_STATE,
-  publishAgentEvent,
-  subscribeAgentEvents,
   SessionProvider,
   useAgentEventSubscription,
-  useAgentStateMap,
   useAgentStream,
-  useProjectStreamStatuses,
   useSessionSelectionState,
+  useProjectStreamStatuses,
   useStreamSettleCount,
 } from "@/client/session/index.js";
 
 function ContextProbe() {
-  useAgentStateMap();
+  useAgentStream(null);
+  useProjectStreamStatuses();
   useSessionSelectionState();
   return <span>ok</span>;
 }
 
 function AgentStreamProbe() {
   const state = useAgentStream(null);
-  return <span>{state === EMPTY_AGENT_STATE ? "idle" : "active"}</span>;
+  return <span>{state.isStreaming ? "active" : "idle"}</span>;
 }
 
 function SubscriptionProbe() {
@@ -46,22 +43,6 @@ describe("session slice public surface", () => {
         </SessionProvider>,
       ),
     ).toContain("idle");
-  });
-
-  test("re-exported agent event bus publishes events by slug", () => {
-    const received: string[] = [];
-    const unsubscribe = subscribeAgentEvents((slug) => {
-      received.push(slug);
-    });
-
-    try {
-      publishAgentEvent("project-a", { type: "agent_start" });
-      publishAgentEvent("project-b", { type: "agent_end" });
-    } finally {
-      unsubscribe();
-    }
-
-    expect(received).toEqual(["project-a", "project-b"]);
   });
 
   test("useAgentEventSubscription can be mounted with no active project", () => {

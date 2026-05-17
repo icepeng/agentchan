@@ -8,10 +8,10 @@ import {
   type TransitionEvent,
 } from "react";
 import {
-  subscribeAgentEvents,
-  useAgentState,
+  useAgentEventSubscription,
+  useAgentStream,
   type AgentState,
-} from "@/client/entities/agent-state/index.js";
+} from "@/client/session/index.js";
 import {
   validateTheme,
   type RendererActions,
@@ -86,7 +86,7 @@ export function useRendererPresentation({
   const stateRef = useRef(state);
   const actionsRef = useRef(actions);
   const onThemeRef = useRef(onTheme);
-  const agentStateForSlug = useAgentState(activeProjectSlug);
+  const agentStateForSlug = useAgentStream(activeProjectSlug);
   const agentStateRef = useRef(agentStateForSlug);
   const dispatchRef = useRef<(event: PresentationEvent) => void>(() => {});
   const lastHydratedKeyRef = useRef<string | null>(null);
@@ -222,15 +222,10 @@ export function useRendererPresentation({
     curShell.pushFiles(snapshot.files);
   }, [curShell, curSlug, snapshot, state.phase]);
 
-  // Subscribe to AgentEvent fan-out and forward to the cur iframe-side reducer.
   // Iframe buffers pre-MOUNTED events, so we wire as soon as the shell exists.
-  useEffect(() => {
-    if (!curShell || curSlug === null) return;
-    return subscribeAgentEvents((eventSlug, event) => {
-      if (eventSlug !== curSlug) return;
-      curShell.applyEvent(event);
-    });
-  }, [curShell, curSlug]);
+  useAgentEventSubscription(curShell ? curSlug : null, (event) => {
+    curShell?.applyEvent(event);
+  });
 
   // Per-slot shell setter. Map identity changes on every write to keep React
   // state semantics; deletes drop the entry.

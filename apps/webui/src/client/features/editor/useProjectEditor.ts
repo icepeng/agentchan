@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { useSWRConfig } from "swr";
 import {
   useViewState,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { useAgentState } from "@/client/entities/agent-state/index.js";
 import {
   useEditorState,
   useEditorDispatch,
@@ -13,21 +11,18 @@ import {
   readProjectFile,
   type EditorAPI,
 } from "@/client/entities/editor/index.js";
-import { qk } from "@/client/platform/index.js";
-import { useLatestRef } from "@/client/shared/useLatestRef.js";
+import { useLatestRef } from "@/client/platform/index.js";
 
-export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
+export function useProjectEditor(editorApiRef: RefObject<EditorAPI | null>) {
   const viewState = useViewState();
-  const state = useAgentState();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
-  const { mutate } = useSWRConfig();
 
   const slug = selectActiveProjectSlug(viewState);
   const view = viewState.view;
   const isEdit = view.kind === "project" && view.mode === "edit";
 
-  // Tree only loads while the editor is open — no point pulling on every
+  // Tree only loads while the Project editor is open — no point pulling on every
   // project switch when the user is just chatting.
   const { data: treeData } = useProjectTree(isEdit ? slug : null);
   const treeEntries = treeData?.entries ?? [];
@@ -44,9 +39,7 @@ export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
   const dirty = editor.dirty;
   const baseline = editor.originalContent;
 
-  const wasStreaming = useRef(false);
   const selectedPathRef = useLatestRef(editor.selectedPath);
-  const dirtyRef = useLatestRef(dirty);
 
   // Last-write-wins: if a newer selection supersedes an in-flight fetch,
   // drop the stale payload rather than flashing old content into the new slot.
@@ -55,25 +48,6 @@ export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {
   const [pendingPath, setPendingPath] = useState<string | null>(null);
   const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null);
   const [deleteConfirmDir, setDeleteConfirmDir] = useState<string | null>(null);
-
-  // Refetch tree + active file when an agent stream finishes — it may have
-  // edited files behind our back.
-  useEffect(() => {
-    if (state.isStreaming) {
-      wasStreaming.current = true;
-      return;
-    }
-    if (!wasStreaming.current) return;
-    wasStreaming.current = false;
-    if (!isEdit || !slug) return;
-    void mutate(qk.projectTree(slug));
-    const path = selectedPathRef.current;
-    if (!path || dirtyRef.current) return;
-    void (async () => {
-      const { content } = await readProjectFile(slug, path);
-      editorDispatch({ type: "EXTERNAL_REFRESH", path, content });
-    })();
-  }, [state.isStreaming, isEdit, slug, mutate, selectedPathRef, dirtyRef, editorDispatch]);
 
   useEffect(() => {
     // Cross-project contamination guard: an in-flight fetch from the
