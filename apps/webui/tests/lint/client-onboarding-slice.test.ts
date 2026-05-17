@@ -10,7 +10,8 @@ describe("onboarding slice", () => {
     const source = readFileSync(indexPath, "utf8");
 
     expect(source).toContain("OnboardingWizard");
-    expect(source).toContain("useOnboarding");
+    expect(source).toContain("useOnboardingWizard");
+    expect(source).toContain("useOnboardingStatus");
   });
 
   test("does not keep the old features/onboarding slice", () => {

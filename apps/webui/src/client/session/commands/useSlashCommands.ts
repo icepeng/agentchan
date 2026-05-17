@@ -1,4 +1,4 @@
-import { useConfigMutations } from "@/client/entities/config/index.js";
+import { useProviderMutations } from "@/client/provider/index.js";
 import { useSkills } from "@/client/session/skill/index.js";
 import {
   useSessions,
@@ -17,7 +17,7 @@ import { buildSlashEntries, LOCAL_COMMAND_DEFS, type SlashEntry, type SkillSlash
 import { useCommandPalette } from "./useCommandPalette.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
-  const { update: updateConfig } = useConfigMutations();
+  const { update: updateConfig } = useProviderMutations();
   const selection = useActiveSessionSelection();
   const viewState = useViewState();
   const view = viewState.view;

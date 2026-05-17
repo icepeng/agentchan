@@ -100,6 +100,15 @@ describe("slice boundary lint rule", () => {
     });
   });
 
+  test("allows provider consumers recorded during Phase 3 grilling", () => {
+    expect(
+      classifyClientImport("shell/Sidebar", "@/client/provider/index.js"),
+    ).toBeNull();
+    expect(
+      classifyClientImport("session/ui/BottomInput", "@/client/provider/index.js"),
+    ).toBeNull();
+  });
+
   test("extracts client-relative paths from repo filenames", () => {
     expect(
       getClientRelativePath(

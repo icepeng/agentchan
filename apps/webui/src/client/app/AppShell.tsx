@@ -22,7 +22,6 @@ import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/onboarding/index.js";
-import { OAuthProviderCard } from "@/client/features/oauth/index.js";
 import { ProjectReadmeModal, useProject } from "@/client/features/project/index.js";
 import { PageErrorFallback } from "./PageErrorFallback.js";
 
@@ -31,16 +30,24 @@ const TemplatesPage = lazy(() =>
   import("@/client/pages/TemplatesPage.js").then((m) => ({ default: m.TemplatesPage })),
 );
 
-function PageContent({ view, agentPanelOpen, onToggleAgentPanel }: {
+function PageContent({
+  view,
+  agentPanelOpen,
+  onToggleAgentPanel,
+  settingsCanGoBack,
+  onSettingsBack,
+}: {
   view: View;
   agentPanelOpen: boolean;
   onToggleAgentPanel: () => void;
+  settingsCanGoBack: boolean;
+  onSettingsBack: () => void;
 }) {
   switch (view.kind) {
     case "templates":
       return <TemplatesPage />;
     case "settings":
-      return <AppSettingsPage />;
+      return <AppSettingsPage canGoBack={settingsCanGoBack} onBack={onSettingsBack} />;
     case "project":
       return <ProjectPage agentPanelOpen={agentPanelOpen} onToggleAgentPanel={onToggleAgentPanel} />;
   }
@@ -53,12 +60,16 @@ export function AppShell() {
   const viewDispatch = useViewDispatch();
   const rendererView = useRendererViewState();
   const { resolved: userScheme } = useTheme();
-  const { createProject } = useProject();
+  const { createProject, projects, selectProject } = useProject();
   const { t } = useI18n();
 
   const view = viewState.view;
   const activeProjectSlug = selectActiveProjectSlug(viewState);
   const openTemplates = () => viewDispatch({ type: "OPEN_TEMPLATES" });
+  const settingsBackSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
+  const handleSettingsBack = () => {
+    if (settingsBackSlug) void selectProject(settingsBackSlug);
+  };
 
   // Ctrl+E / Cmd+E to toggle edit mode (project view only).
   useEffect(() => {
@@ -164,6 +175,8 @@ export function AppShell() {
               view={view}
               agentPanelOpen={ui.agentPanelOpen}
               onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
+              settingsCanGoBack={settingsBackSlug !== null}
+              onSettingsBack={handleSettingsBack}
             />
           </ErrorBoundary>
         </Suspense>
@@ -172,7 +185,6 @@ export function AppShell() {
       <OnboardingWizard
         createProject={createProject}
         openTemplates={openTemplates}
-        OAuthProviderCard={OAuthProviderCard}
       />
       <ProjectReadmeModal />
     </div>

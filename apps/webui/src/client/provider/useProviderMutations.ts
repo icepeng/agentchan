@@ -1,61 +1,22 @@
-import useSWR, { useSWRConfig } from "swr";
-import type { ProviderInfo, CustomProviderDef } from "@agentchan/creative-agent/browser";
+import { useSWRConfig } from "swr";
+import type { CustomProviderDef } from "@agentchan/creative-agent/browser";
 import { qk } from "@/client/platform/index.js";
 import {
   updateConfig as apiUpdateConfig,
+} from "./active-model/config.api.js";
+import {
   saveCustomProvider as apiSaveCustomProvider,
   deleteCustomProvider as apiDeleteCustomProvider,
+} from "./catalog/catalog.api.js";
+import {
   updateApiKey as apiUpdateApiKey,
   deleteApiKey as apiDeleteApiKey,
   logoutOAuth as apiLogoutOAuth,
   loginOAuthStream as apiLoginOAuthStream,
-  completeOnboarding as apiCompleteOnboarding,
-  type ConfigResponse,
-  type ApiKeyStatus,
-  type OAuthStatus,
   type LoginOAuthCallbacks,
-} from "./config.api.js";
+} from "./credentials/credentials.api.js";
 
-export function useConfig() {
-  return useSWR<ConfigResponse>(qk.config());
-}
-
-export function useProviders() {
-  return useSWR<ProviderInfo[]>(qk.providers());
-}
-
-/**
- * Resolve the ProviderInfo + ModelInfo objects pointed to by the active config.
- * Returns `undefined` for either piece while the SWR caches are still loading
- * or when the saved id no longer exists in the catalog (deleted custom provider,
- * model removed from ALLOWED_MODELS, etc.).
- */
-export function useCurrentModel() {
-  const { data: config } = useConfig();
-  const { data: providers = [] } = useProviders();
-  const provider = providers.find((p) => p.name === config?.provider);
-  const model = provider?.models.find((m) => m.id === config?.model);
-  return { provider, model };
-}
-
-export function useApiKeys() {
-  return useSWR<ApiKeyStatus>(qk.apiKeys());
-}
-
-export function useOauthStatus(provider: string | null) {
-  return useSWR<OAuthStatus>(provider ? qk.oauthStatus(provider) : null);
-}
-
-export function useOnboarding() {
-  return useSWR<{ completed: boolean }>(qk.onboarding());
-}
-
-/**
- * Mutation bundle. `update` and `saveCustomProvider/deleteCustomProvider`
- * touch both `config` (effective model can shift) and `providers` (catalog
- * recomputed) so every mutation here invalidates both keys.
- */
-export function useConfigMutations() {
+export function useProviderMutations() {
   const { mutate } = useSWRConfig();
 
   const update = async (payload: Parameters<typeof apiUpdateConfig>[0]) => {
@@ -100,7 +61,6 @@ export function useConfigMutations() {
   };
 
   const loginOAuth = async (provider: string, callbacks: LoginOAuthCallbacks) => {
-    // Wrap onDone so it invalidates oauthStatus + providers after success.
     const wrapped: LoginOAuthCallbacks = {
       ...callbacks,
       onDone: async (status) => {
@@ -112,12 +72,6 @@ export function useConfigMutations() {
     return apiLoginOAuthStream(provider, wrapped);
   };
 
-  const completeOnboarding = async () => {
-    const next = await apiCompleteOnboarding();
-    await mutate(qk.onboarding(), next, { revalidate: false });
-    return next;
-  };
-
   return {
     update,
     saveCustomProvider,
@@ -126,6 +80,5 @@ export function useConfigMutations() {
     deleteApiKey,
     logoutOAuth,
     loginOAuth,
-    completeOnboarding,
   };
 }

@@ -17,13 +17,14 @@ const FUTURE_SLICE_LAYERS = new Map([
 ]);
 
 const FUTURE_SLICE_DAG = new Map([
-  ["shell", ["project", "library", "project-editor", "onboarding", "theme", "update", "app-settings"]],
+  ["shell", ["project", "library", "project-editor", "provider", "onboarding", "theme", "update", "app-settings"]],
   ["project", ["session"]],
   ["project-editor", ["session"]],
   ["renderer-host", ["session"]],
   ["library", ["project"]],
   ["onboarding", ["provider", "library"]],
   ["app-settings", ["provider", "theme", "update", "onboarding"]],
+  ["session", ["provider"]],
 ]);
 
 const BASELINE_VIOLATIONS = new Set([
@@ -31,8 +32,6 @@ const BASELINE_VIOLATIONS = new Set([
   "deep-import|pages/ProjectPage|session/ui/index|@/client/session/ui/index.js",
   "entity-cross-import|entities/renderer/useRendererOutput|entities/project/index|@/client/entities/project/index.js",
   "entity-cross-import|entities/renderer/useRendererOutput|entities/view/index|@/client/entities/view/index.js",
-  "feature-cross-import|features/settings/ApiKeysTab|features/oauth/index|@/client/features/oauth/index.js",
-  "feature-cross-import|features/settings/SettingsView|features/project/index|@/client/features/project/index.js",
 ]);
 
 const noDirectLocalStorage = {

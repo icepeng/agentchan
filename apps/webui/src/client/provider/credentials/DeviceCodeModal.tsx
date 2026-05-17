@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, Button } from "@/client/design-system/index.js";
-import { useClipboard } from "@/client/shared/useClipboard.js";
-import { useI18n } from "@/client/platform/index.js";
-import { useConfigMutations } from "@/client/entities/config/index.js";
-import type { OAuthAuthInfo } from "@/client/entities/config/index.js";
+import { useClipboard, useI18n } from "@/client/platform/index.js";
+import { useProviderMutations } from "../useProviderMutations.js";
+import type { OAuthAuthInfo } from "./credentials.api.js";
 
 export function DeviceCodeModal({
   providerName,
@@ -15,7 +14,7 @@ export function DeviceCodeModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const { loginOAuth } = useConfigMutations();
+  const { loginOAuth } = useProviderMutations();
   const [authInfo, setAuthInfo] = useState<OAuthAuthInfo | null>(null);
   const [progress, setProgress] = useState<string>("");
   const [error, setError] = useState<string>("");

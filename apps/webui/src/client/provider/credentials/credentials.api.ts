@@ -1,55 +1,4 @@
-import { json, parseSSEStream, BASE } from "@/client/platform/index.js";
-import type { ProviderInfo, ThinkingLevel, CustomProviderDef } from "@agentchan/creative-agent/browser";
-
-export interface ConfigResponse {
-  provider: string;
-  model: string;
-  temperature?: number;
-  maxTokens?: number;
-  contextWindow?: number;
-  thinkingLevel: ThinkingLevel;
-}
-
-export function fetchConfig(): Promise<ConfigResponse> {
-  return json("/config");
-}
-
-export function updateConfig(config: {
-  provider?: string;
-  model?: string;
-  temperature?: number | null;
-  maxTokens?: number | null;
-  contextWindow?: number | null;
-  thinkingLevel?: ThinkingLevel | null;
-}): Promise<ConfigResponse> {
-  return json("/config", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config),
-  });
-}
-
-export function fetchProviders(): Promise<ProviderInfo[]> {
-  return json("/config/providers");
-}
-
-// --- Custom Providers ---
-
-export function saveCustomProvider(provider: CustomProviderDef): Promise<CustomProviderDef[]> {
-  return json("/config/custom-providers", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(provider),
-  });
-}
-
-export function deleteCustomProvider(name: string): Promise<CustomProviderDef[]> {
-  return json(`/config/custom-providers/${encodeURIComponent(name)}`, {
-    method: "DELETE",
-  });
-}
-
-// --- API Keys ---
+import { BASE, json, parseSSEStream } from "@/client/platform/index.js";
 
 export interface ApiKeyStatus {
   [provider: string]: string;
@@ -73,8 +22,6 @@ export function deleteApiKey(provider: string): Promise<ApiKeyStatus> {
   });
 }
 
-// --- OAuth ---
-
 export interface OAuthStatus {
   signedIn: boolean;
   expiresAt?: number;
@@ -86,16 +33,16 @@ export interface OAuthAuthInfo {
   instructions?: string;
 }
 
+export function fetchOAuthStatus(provider: string): Promise<OAuthStatus> {
+  return json(`/config/oauth/${encodeURIComponent(provider)}`);
+}
+
 export interface LoginOAuthCallbacks {
   onAuth: (info: OAuthAuthInfo) => void;
   onProgress?: (message: string) => void;
   onDone: (status: OAuthStatus) => void | Promise<void>;
   onError: (message: string) => void;
   signal?: AbortSignal;
-}
-
-export function fetchOAuthStatus(provider: string): Promise<OAuthStatus> {
-  return json(`/config/oauth/${encodeURIComponent(provider)}`);
 }
 
 export function logoutOAuth(provider: string): Promise<OAuthStatus> {
@@ -138,14 +85,4 @@ export async function loginOAuthStream(
         return;
     }
   });
-}
-
-// --- Onboarding ---
-
-export function fetchOnboardingStatus(): Promise<{ completed: boolean }> {
-  return json("/config/onboarding");
-}
-
-export function completeOnboarding(): Promise<{ completed: boolean }> {
-  return json("/config/onboarding", { method: "PUT" });
 }

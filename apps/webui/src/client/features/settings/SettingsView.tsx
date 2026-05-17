@@ -5,7 +5,6 @@ import {
   useViewDispatch,
 } from "@/client/entities/view/index.js";
 import { useI18n, type LanguagePreference } from "@/client/platform/index.js";
-import { useProject } from "@/client/features/project/index.js";
 import {
   IconButton,
   OptionCardGrid,
@@ -15,16 +14,21 @@ import {
 } from "@/client/design-system/index.js";
 import { AboutSection } from "@/client/update/index.js";
 import { AppearanceTab } from "@/client/theme/index.js";
-import { ApiKeysTab } from "./ApiKeysTab.js";
+import { ApiKeysTab } from "@/client/provider/index.js";
 import { NotificationsSection } from "./NotificationsSection.js";
 
 type SettingsTab = "appearance" | "api-keys";
 
-export function SettingsView() {
+export function SettingsView({
+  canGoBack,
+  onBack,
+}: {
+  canGoBack: boolean;
+  onBack: () => void;
+}) {
   const view = useViewState().view;
   const viewDispatch = useViewDispatch();
   const { t } = useI18n();
-  const { projects, selectProject, activeProjectSlug } = useProject();
 
   // SettingsView is rendered by AppShell only when view.kind === "settings".
   if (view.kind !== "settings") return null;
@@ -35,17 +39,11 @@ export function SettingsView() {
     "api-keys": t("globalSettings.apiKeys"),
   };
 
-  const fallbackSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
-  const canGoBack = fallbackSlug !== null;
-  const handleBack = () => {
-    if (fallbackSlug) void selectProject(fallbackSlug);
-  };
-
   return (
     <div className="flex flex-col h-full bg-void">
       <div className="flex items-center gap-4 px-6 py-4 border-b border-edge/6 bg-base/60">
         {canGoBack && (
-          <IconButton onClick={handleBack} title={t("settings.back")}>
+          <IconButton onClick={onBack} title={t("settings.back")}>
             <ArrowLeft size={16} strokeWidth={2} />
           </IconButton>
         )}

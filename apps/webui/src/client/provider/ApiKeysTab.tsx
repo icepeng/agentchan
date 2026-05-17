@@ -1,17 +1,17 @@
 import { useState } from "react";
 import {
   useApiKeys,
-  useConfig,
-  useConfigMutations,
+  useActiveModel,
   useProviders,
-} from "@/client/entities/config/index.js";
+} from "./useProviderQueries.js";
+import { useProviderMutations } from "./useProviderMutations.js";
 import { useI18n } from "@/client/platform/index.js";
 import { Badge, Button, FormField, Indicator, SectionHeader, Select } from "@/client/design-system/index.js";
-import { OAuthProviderCard } from "@/client/features/oauth/index.js";
-import { ProviderForm, type ProviderFormData } from "./ProviderForm.js";
+import { OAuthProviderCard } from "./credentials/OAuthProviderCard.js";
+import { ProviderForm, type ProviderFormData } from "./catalog/ProviderForm.js";
 
 export function ApiKeysTab() {
-  const { data: config } = useConfig();
+  const { config } = useActiveModel();
   const { data: providers = [] } = useProviders();
   const { data: keys = {} } = useApiKeys();
   const {
@@ -20,7 +20,7 @@ export function ApiKeysTab() {
     deleteApiKey: mutateDeleteApiKey,
     saveCustomProvider: mutateSaveCustomProvider,
     deleteCustomProvider: mutateDeleteCustomProvider,
-  } = useConfigMutations();
+  } = useProviderMutations();
   const { t } = useI18n();
 
   const [inputs, setInputs] = useState<Record<string, string>>({});

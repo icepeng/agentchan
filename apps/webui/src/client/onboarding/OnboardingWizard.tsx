@@ -1,16 +1,16 @@
-import { useState, type ComponentType } from "react";
+import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useI18n } from "@/client/platform/index.js";
 import { Dialog, Button, Badge, Indicator, Select } from "@/client/design-system/index.js";
 import { BASE } from "@/client/platform/index.js";
 import { useTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
-import type { ProviderInfo } from "@/client/entities/config/index.js";
+import { OAuthProviderCard, type ProviderInfo } from "@/client/provider/index.js";
 import {
-  useOnboarding,
+  useOnboardingWizard,
   type CreateProjectForOnboarding,
   type OnboardingStep,
   ONBOARDING_STEP_COUNT,
-} from "./useOnboarding.js";
+} from "./useOnboardingWizard.js";
 
 const STEPS: OnboardingStep[] = [0, 1, 2];
 
@@ -19,21 +19,14 @@ const STEPS: OnboardingStep[] = [0, 1, 2];
 // template renames don't break the wizard.
 const FEATURED_SLUGS: readonly string[] = ["last-vow", "tides-of-moonhaven"];
 
-type OAuthProviderCardComponent = ComponentType<{
-  providerName: string;
-  onChange?: (active: boolean) => void | Promise<void>;
-}>;
-
 export function OnboardingWizard({
   createProject,
   openTemplates,
-  OAuthProviderCard,
 }: {
   createProject: CreateProjectForOnboarding;
   openTemplates: () => void;
-  OAuthProviderCard: OAuthProviderCardComponent;
 }) {
-  const ob = useOnboarding({ createProject, openTemplates });
+  const ob = useOnboardingWizard({ createProject, openTemplates });
   const { t } = useI18n();
 
   if (!ob.ready || !ob.wizardOpen) return null;
@@ -72,7 +65,6 @@ export function OnboardingWizard({
             apiKeys={ob.apiKeys}
             saving={ob.saving}
             hasAnyCredentials={ob.hasAnyCredentials}
-            OAuthProviderCard={OAuthProviderCard}
             onSaveKey={ob.saveApiKey}
             onOAuthActiveChange={ob.handleOAuthActiveChange}
             onContinue={ob.advance}
@@ -153,7 +145,6 @@ function ApiKeyStep({
   apiKeys,
   saving,
   hasAnyCredentials,
-  OAuthProviderCard,
   onSaveKey,
   onOAuthActiveChange,
   onContinue,
@@ -163,7 +154,6 @@ function ApiKeyStep({
   apiKeys: Record<string, string>;
   saving: boolean;
   hasAnyCredentials: boolean;
-  OAuthProviderCard: OAuthProviderCardComponent;
   onSaveKey: (provider: string, key: string) => Promise<void>;
   onOAuthActiveChange: (provider: string, active: boolean) => void;
   onContinue: () => void;

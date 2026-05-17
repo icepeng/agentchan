@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import {
-  useConfig,
+  useActiveModel,
   useProviders,
-  useCurrentModel,
-  useConfigMutations,
-  DEFAULT_CONTEXT_WINDOW,
+} from "../useProviderQueries.js";
+import { useProviderMutations } from "../useProviderMutations.js";
+import {
   DEFAULT_MAX_TOKENS,
-} from "@/client/entities/config/index.js";
-import type { ThinkingLevel } from "@/client/entities/config/index.js";
+  resolveContextWindow,
+} from "./resolveContextWindow.js";
+import type { ThinkingLevel } from "@agentchan/creative-agent/browser";
 import { useI18n } from "@/client/platform/index.js";
 import { Badge, CollapsiblePanel, Select, FormField, SegmentedControl, TextInput } from "@/client/design-system/index.js";
 
@@ -20,10 +21,10 @@ const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
 ];
 
 export function ModelBar() {
-  const { data: config } = useConfig();
+  const active = useActiveModel();
+  const { config, providerInfo: currentProvider, modelInfo: currentModel } = active;
   const { data: providers = [] } = useProviders();
-  const { provider: currentProvider, model: currentModel } = useCurrentModel();
-  const { update } = useConfigMutations();
+  const { update } = useProviderMutations();
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [tempInput, setTempInput] = useState(config?.temperature?.toString() ?? "");
@@ -203,7 +204,7 @@ export function ModelBar() {
               onChange={(e) => setContextWindowInput(e.target.value)}
               onBlur={handleContextWindowSubmit}
               onKeyDown={(e) => e.key === "Enter" && handleContextWindowSubmit()}
-              placeholder={String(currentModel?.contextWindow ?? DEFAULT_CONTEXT_WINDOW)}
+              placeholder={String(resolveContextWindow(active))}
             />
           </FormField>
 

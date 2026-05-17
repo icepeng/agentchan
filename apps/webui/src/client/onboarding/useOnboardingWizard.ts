@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import {
   useProviders,
   useApiKeys,
-  useOnboarding as useOnboardingStatus,
-  useConfigMutations,
-} from "@/client/entities/config/index.js";
+  useProviderMutations,
+} from "@/client/provider/index.js";
+import { qk } from "@/client/platform/index.js";
+import { useSWRConfig } from "swr";
+import { completeOnboarding as apiCompleteOnboarding } from "./onboarding.api.js";
+import { useOnboardingStatus } from "./useOnboardingStatus.js";
 
 export type OnboardingStep = 0 | 1 | 2;
 export const ONBOARDING_STEP_COUNT = 3;
@@ -14,7 +17,7 @@ export type CreateProjectForOnboarding = (
   fromTemplate?: string,
 ) => Promise<unknown>;
 
-export function useOnboarding({
+export function useOnboardingWizard({
   createProject,
   openTemplates,
 }: {
@@ -24,11 +27,11 @@ export function useOnboarding({
   const { data: providers = [] } = useProviders();
   const { data: apiKeys = {} } = useApiKeys();
   const { data: status } = useOnboardingStatus();
+  const { mutate } = useSWRConfig();
   const {
     update,
     updateApiKey: mutateApiKey,
-    completeOnboarding: mutateCompleteOnboarding,
-  } = useConfigMutations();
+  } = useProviderMutations();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>(0);
   const [oauthSignedIn, setOauthSignedIn] = useState<Record<string, boolean>>({});
@@ -68,7 +71,8 @@ export function useOnboarding({
   // All dismiss paths land on Templates — avoids the "empty main" failure mode
   // that STRATEGY.md §2-6 flags as an onboarding-to-activation hole.
   const dismiss = async () => {
-    await mutateCompleteOnboarding();
+    const next = await apiCompleteOnboarding();
+    await mutate(qk.onboarding(), next, { revalidate: false });
     setWizardOpen(false);
     openTemplates();
   };
@@ -80,7 +84,8 @@ export function useOnboarding({
       // createProject opens the new project view as part of useProject's
       // orchestration; no separate navigation is required here.
       await createProject(name, slug);
-      await mutateCompleteOnboarding();
+      const next = await apiCompleteOnboarding();
+      await mutate(qk.onboarding(), next, { revalidate: false });
       setWizardOpen(false);
     } finally {
       setCreatingSlug(null);

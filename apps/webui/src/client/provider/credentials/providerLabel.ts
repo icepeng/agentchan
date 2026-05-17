@@ -1,4 +1,4 @@
-import type { OAuthStatus } from "@/client/entities/config/index.js";
+import type { OAuthStatus } from "./credentials.api.js";
 
 const PROVIDER_LABELS: Record<string, string> = {
   "github-copilot": "GitHub Copilot",

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Indicator } from "@/client/design-system/index.js";
 import { useI18n } from "@/client/platform/index.js";
-import { useOauthStatus, useConfigMutations } from "@/client/entities/config/index.js";
+import { useOauthStatus } from "../useProviderQueries.js";
+import { useProviderMutations } from "../useProviderMutations.js";
 import { DeviceCodeModal } from "./DeviceCodeModal.js";
 import { providerLabel, formatExpires, isOAuthActive } from "./providerLabel.js";
 
@@ -14,7 +15,7 @@ export function OAuthProviderCard({
 }) {
   const { t } = useI18n();
   const { data: status } = useOauthStatus(providerName);
-  const { logoutOAuth } = useConfigMutations();
+  const { logoutOAuth } = useProviderMutations();
   const [modalOpen, setModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const label = providerLabel(providerName);

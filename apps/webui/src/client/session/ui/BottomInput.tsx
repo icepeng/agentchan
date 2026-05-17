@@ -8,7 +8,7 @@ import {
   requestNotificationPermission,
 } from "@/client/platform/index.js";
 import { localStore } from "@/client/platform/index.js";
-import { useConfig, useCurrentModel, DEFAULT_CONTEXT_WINDOW } from "@/client/entities/config/index.js";
+import { resolveContextWindow, useActiveModel } from "@/client/provider/index.js";
 import { useUIState, useUIDispatch } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import {
@@ -29,8 +29,8 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const selection = useActiveSessionSelection();
   const sessionUsage = useSessionUsage();
   const contextUsage = useContextUsage();
-  const { data: config } = useConfig();
-  const { model: currentModel } = useCurrentModel();
+  const activeModel = useActiveModel();
+  const { config } = activeModel;
   const ui = useUIState();
   const uiDispatch = useUIDispatch();
   const { t } = useI18n();
@@ -43,7 +43,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const slash = useSlashCommands(text, setText);
 
   const contextTokens = contextUsage.contextTokens;
-  const contextWindow = config?.contextWindow ?? currentModel?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+  const contextWindow = resolveContextWindow(activeModel);
   const contextPercent = contextTokens > 0
     ? Math.round((contextTokens / contextWindow) * 100)
     : null;
