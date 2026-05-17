@@ -4,15 +4,12 @@ import {
   useProjectMutations,
 } from "@/client/entities/project/index.js";
 import {
-  useAgentStateDispatch,
-} from "@/client/entities/agent-state/index.js";
-import {
-  abortProjectStream,
   fetchSession,
   fetchSessions,
   pickDefaultCreativeSessionId,
   type AgentchanSessionInfo,
 } from "@/client/entities/session/index.js";
+import { closeProjectStream } from "@/client/session/index.js";
 import {
   useViewState,
   useViewDispatch,
@@ -35,7 +32,6 @@ function resolveSessionToOpen(
 export function useProject() {
   const view = useViewState();
   const viewDispatch = useViewDispatch();
-  const agentDispatch = useAgentStateDispatch();
   const { mutate } = useSWRConfig();
 
   const { data: projects = [] } = useProjects();
@@ -106,9 +102,8 @@ export function useProject() {
 
   const deleteProject = async (slug: string) => {
     // Abort any in-flight stream so pi-agent-core cancels the LLM request and
-    // drop the stream slot so stale completion events can't resurrect it.
-    abortProjectStream(slug);
-    agentDispatch({ type: "CLOSE", projectSlug: slug });
+    // settle the stream state before the project disappears from the UI.
+    await closeProjectStream(slug);
 
     await deleteProjectMutation(slug);
 

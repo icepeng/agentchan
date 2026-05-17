@@ -1,5 +1,13 @@
 export { SessionProvider } from "./SessionProvider.js";
 export { useAgentEventSubscription } from "./useAgentEventSubscription.js";
+export { useAgentStream } from "./useAgentStream.js";
+export { useProjectStreamStatuses } from "./useProjectStreamStatuses.js";
+export { useStreamSettleCount } from "./useStreamSettleCount.js";
+export { closeProjectStream } from "./stream/closeProjectStream.js";
+export { useAgentStreamDispatch } from "./stream/AgentStreamStoreContext.js";
+export { useSession } from "./useSession.js";
+export { useRecordAgentEvent } from "./useRecordAgentEvent.js";
+export type { ProjectStreamStatus } from "./stream/agentStreamStore.js";
 
 export type {
   AgentMessage,
@@ -15,7 +23,6 @@ export {
   useAgentStateMap,
   useAgentStateDispatch,
   useAgentState,
-  useAgentState as useAgentStream,
   aggregateUsage,
   EMPTY_AGGREGATED_USAGE,
   useSessionUsage,

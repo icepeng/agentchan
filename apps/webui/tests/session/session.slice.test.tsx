@@ -8,7 +8,9 @@ import {
   useAgentEventSubscription,
   useAgentStateMap,
   useAgentStream,
+  useProjectStreamStatuses,
   useSessionSelectionState,
+  useStreamSettleCount,
 } from "@/client/session/index.js";
 
 function ContextProbe() {
@@ -27,6 +29,12 @@ function SubscriptionProbe() {
     throw new Error("inactive subscription should not receive events");
   });
   return <span>subscribed</span>;
+}
+
+function StreamSurfaceProbe() {
+  const statuses = useProjectStreamStatuses();
+  const settleCount = useStreamSettleCount(null);
+  return <span>{`${statuses.size}:${settleCount}`}</span>;
 }
 
 describe("session slice public surface", () => {
@@ -64,6 +72,16 @@ describe("session slice public surface", () => {
         </SessionProvider>,
       ),
     ).toContain("subscribed");
+  });
+
+  test("project stream status and settle hooks mount from public surface", () => {
+    expect(
+      renderToString(
+        <SessionProvider>
+          <StreamSurfaceProbe />
+        </SessionProvider>,
+      ),
+    ).toContain("0:0");
   });
 
   test("SessionProvider provides agent stream and session selection contexts", () => {

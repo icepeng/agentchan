@@ -4,10 +4,12 @@ import {
   useProjects,
 } from "@/client/entities/project/index.js";
 import {
-  publishAgentEvent,
   useAgentState,
-  useAgentStateDispatch,
 } from "@/client/entities/agent-state/index.js";
+import {
+  useAgentStreamDispatch,
+  useRecordAgentEvent,
+} from "@/client/session/index.js";
 import {
   useActiveSessionSelection,
   useSessionData,
@@ -54,7 +56,8 @@ function makeTempUserEntry(text: string, parentId: string | null): SessionMessag
 export function useStreaming() {
   const view = useViewState();
   const { data: projects } = useProjects();
-  const agentDispatch = useAgentStateDispatch();
+  const agentDispatch = useAgentStreamDispatch();
+  const recordAgentEvent = useRecordAgentEvent();
   const activeSelection = useActiveSessionSelection();
   const { t } = useI18n();
   const { selectProject } = useProject();
@@ -169,8 +172,7 @@ export function useStreaming() {
           );
         },
         onAgentEvent: (event) => {
-          agentDispatch({ type: "AGENT_EVENT", projectSlug, event });
-          publishAgentEvent(projectSlug, event);
+          recordAgentEvent(projectSlug, event);
         },
         onDone: () => {
           void globalMutate(qk.sessions(projectSlug));
@@ -184,7 +186,7 @@ export function useStreaming() {
         },
       };
     },
-    [agentDispatch],
+    [agentDispatch, recordAgentEvent],
   );
 
   const send = useCallback(
