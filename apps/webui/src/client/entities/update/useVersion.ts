@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { qk } from "@/client/shared/queryKeys.js";
+import { qk } from "@/client/platform/index.js";
 import type { UpdateStatus } from "./update.types.js";
 
 /**

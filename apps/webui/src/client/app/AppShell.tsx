@@ -1,6 +1,12 @@
 import { Suspense, lazy, useEffect, type CSSProperties } from "react";
 import { Menu } from "lucide-react";
-import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import {
+  ErrorBoundary,
+  markSeen,
+  useI18n,
+  useUIDispatch,
+  useUIState,
+} from "@/client/platform/index.js";
 import {
   useViewState,
   useViewDispatch,
@@ -12,14 +18,11 @@ import {
   resolveThemeVars,
 } from "@/client/entities/renderer/index.js";
 import { useTheme } from "@/client/features/settings/index.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { markSeen } from "@/client/shared/notifications.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/features/onboarding/index.js";
 import { ProjectReadmeModal } from "@/client/features/project/index.js";
-import { ErrorBoundary } from "@/client/shared/ui/index.js";
 import { PageErrorFallback } from "./PageErrorFallback.js";
 
 // Templates page is lazy-loaded to keep it out of the main bundle.

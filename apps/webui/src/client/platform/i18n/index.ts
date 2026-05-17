@@ -10,7 +10,7 @@ import {
 } from "react";
 import { translations as en, type TranslationKey } from "./en.js";
 import { translations as ko } from "./ko.js";
-import { localStore } from "@/client/shared/storage.js";
+import { localStore } from "../storage.js";
 
 export type LanguagePreference = "system" | "en" | "ko";
 export type ResolvedLanguage = "en" | "ko";

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button, Dialog, TextInput } from "@/client/shared/ui/index.js";
+import { Button, Dialog, TextInput } from "@/client/design-system/index.js";
 import { useProjects, useProjectMutations, type Project } from "@/client/entities/project/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 
 interface ProjectSettingsModalProps {
   slug: string | null;

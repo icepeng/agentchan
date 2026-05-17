@@ -6,7 +6,7 @@ import {
 import { useProjects } from "@/client/entities/project/index.js";
 import { useSessionSelectionDispatch } from "@/client/entities/session/index.js";
 import { useProject } from "@/client/features/project/index.js";
-import { localStore } from "@/client/shared/storage.js";
+import { localStore } from "@/client/platform/index.js";
 
 import { AppShell } from "@/client/app/index.js";
 

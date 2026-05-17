@@ -7,11 +7,11 @@ import {
   Check,
   Minus,
 } from "lucide-react";
-import { Dialog, Button, TextInput, FormField } from "@/client/shared/ui/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { Dialog, Button, TextInput, FormField } from "@/client/design-system/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import { fetchProjectTree, readProjectFile, isImagePath, buildTree, FileIcon, type TreeEntry, type TreeNode } from "@/client/entities/editor/index.js";
 import { saveProjectAsTemplate } from "@/client/entities/template/index.js";
-import { BASE } from "@/client/shared/api.js";
+import { BASE } from "@/client/platform/index.js";
 
 function collectFilePaths(node: TreeNode): string[] {
   if (node.type === "file") return [node.path];

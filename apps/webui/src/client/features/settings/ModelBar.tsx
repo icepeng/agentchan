@@ -9,8 +9,8 @@ import {
   DEFAULT_MAX_TOKENS,
 } from "@/client/entities/config/index.js";
 import type { ThinkingLevel } from "@/client/entities/config/index.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { Badge, CollapsiblePanel, Select, FormField, SegmentedControl, TextInput } from "@/client/shared/ui/index.js";
+import { useI18n } from "@/client/platform/index.js";
+import { Badge, CollapsiblePanel, Select, FormField, SegmentedControl, TextInput } from "@/client/design-system/index.js";
 
 const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
   { value: "off", label: "off" },

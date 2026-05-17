@@ -1,5 +1,5 @@
 import type { ToolCall } from "@mariozechner/pi-ai";
-import { Indicator, ScrollArea } from "@/client/shared/ui/index.js";
+import { Indicator, ScrollArea } from "@/client/design-system/index.js";
 
 const SUMMARY_CLASS =
   "px-3 py-2 flex items-center gap-2 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden";

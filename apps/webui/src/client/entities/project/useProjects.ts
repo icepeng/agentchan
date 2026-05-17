@@ -1,6 +1,6 @@
 import useSWR, { useSWRConfig } from "swr";
 import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
-import { qk, matchesSlug } from "@/client/shared/queryKeys.js";
+import { qk, matchesSlug } from "@/client/platform/index.js";
 import {
   fetchWorkspaceFiles,
   createProject as apiCreate,

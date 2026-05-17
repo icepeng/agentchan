@@ -16,9 +16,9 @@ import {
   buildSiblingsByEntry,
 } from "@/client/entities/session/index.js";
 import type { SessionMessageEntry } from "@/client/entities/session/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import { formatCost, formatTokens } from "@/client/shared/pricing.utils.js";
-import { ScrollArea } from "@/client/shared/ui/index.js";
+import { ScrollArea } from "@/client/design-system/index.js";
 import { MessageActionsProvider } from "./MessageActionsContext.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";

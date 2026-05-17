@@ -30,7 +30,6 @@ const BASELINE_VIOLATIONS = new Set([
   "entity-cross-import|entities/agent-state/aggregateUsage|entities/session/index|@/client/entities/session/index.js",
   "entity-cross-import|entities/agent-state/agentState|entities/session/index|@/client/entities/session/index.js",
   "feature-cross-import|features/chat/useStreaming|features/project/index|@/client/features/project/index.js",
-  "entity-cross-import|entities/ui/EditModeToggle|entities/view/index|@/client/entities/view/index.js",
   "feature-cross-import|features/project/renderer-host/RenderedView|features/settings/index|@/client/features/settings/index.js",
   "entity-cross-import|entities/session/useSessionSelection|entities/view/index|@/client/entities/view/index.js",
   "entity-cross-import|entities/renderer/useRendererOutput|entities/agent-state/index|@/client/entities/agent-state/index.js",
@@ -56,7 +55,7 @@ const noDirectLocalStorage = {
     },
     messages: {
       directLocalStorage:
-        "Do not use `localStorage` directly. Import `localStore` from `@/client/shared/storage.js` and register the key there.",
+        "Do not use `localStorage` directly. Import `localStore` from `@/client/platform/index.js` and register the key there.",
     },
     schema: [],
   },
@@ -67,7 +66,7 @@ const noDirectLocalStorage = {
       return {};
     }
 
-    if (sourcePath === "shared/storage") {
+    if (sourcePath === "platform/storage") {
       return {};
     }
 
@@ -349,17 +348,6 @@ function getSlice(path) {
       name: "app",
       requiresIndexImport: true,
       root: "app",
-    };
-  }
-
-  if (root === "shared" && name === "ui") {
-    return {
-      future: false,
-      id: "design-system",
-      layer: "design-system",
-      name: "design-system",
-      requiresIndexImport: true,
-      root: "shared/ui",
     };
   }
 

@@ -5,16 +5,18 @@ import {
 } from "@/client/entities/session/index.js";
 import {
   useViewState,
+  useViewDispatch,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { useUIDispatch, EditModeToggle } from "@/client/entities/ui/index.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { ScrollArea } from "@/client/shared/ui/index.js";
+import { useUIDispatch } from "@/client/platform/index.js";
+import { useI18n } from "@/client/platform/index.js";
+import { EditModeToggle, ScrollArea } from "@/client/design-system/index.js";
 import { useSession } from "./useSession.js";
 
 export function SessionTabs() {
   const selection = useActiveSessionSelection();
   const view = useViewState();
+  const viewDispatch = useViewDispatch();
   const activeProjectSlug = selectActiveProjectSlug(view);
   const { data: sessions = [] } = useSessions(activeProjectSlug);
   const uiDispatch = useUIDispatch();
@@ -72,7 +74,19 @@ export function SessionTabs() {
         </button>
       </ScrollArea>
 
-      <EditModeToggle />
+      {view.view.kind === "project" && (
+        <EditModeToggle
+          isEdit={view.view.mode === "edit"}
+          switchToChatLabel={t("editMode.switchToChat")}
+          switchToEditLabel={t("editMode.switchToEdit")}
+          onToggle={() =>
+            viewDispatch({
+              type: "SET_VIEW_MODE",
+              mode: view.view.kind === "project" && view.view.mode === "edit" ? "chat" : "edit",
+            })
+          }
+        />
+      )}
       <button
         onClick={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
         className="flex-shrink-0 px-2 py-1.5 text-fg-3 hover:text-fg-2 transition-colors"

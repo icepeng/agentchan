@@ -4,7 +4,7 @@ import type {
   SessionEntry,
   SessionMode,
 } from "@agentchan/creative-agent/browser";
-import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
+import { json, parseSSEStream, BASE } from "@/client/platform/index.js";
 
 export type { AgentEvent };
 

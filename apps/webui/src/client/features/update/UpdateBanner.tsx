@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { useVersion } from "@/client/entities/update/index.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { localStore } from "@/client/shared/storage.js";
+import { useI18n } from "@/client/platform/index.js";
+import { localStore } from "@/client/platform/index.js";
 
 // Dismiss is per-version: acknowledging v1.2.3 hides the banner until v1.2.4 arrives.
 export function UpdateBanner() {

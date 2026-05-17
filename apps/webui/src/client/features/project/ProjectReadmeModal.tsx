@@ -1,8 +1,8 @@
 import { X } from "lucide-react";
-import { Dialog, IconButton, ScrollArea } from "@/client/shared/ui/index.js";
+import { Dialog, IconButton, ScrollArea } from "@/client/design-system/index.js";
 import { ReadmeView } from "@/client/shared/ReadmeView.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
+import { useI18n } from "@/client/platform/index.js";
+import { useUIState, useUIDispatch } from "@/client/platform/index.js";
 import { useProject } from "./useProject.js";
 import { useProjectReadme } from "@/client/entities/project/index.js";
 

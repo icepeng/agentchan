@@ -28,12 +28,12 @@ import {
   selectActiveProjectSlug,
   selectActiveSessionId,
 } from "@/client/entities/view/index.js";
-import { qk } from "@/client/shared/queryKeys.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { qk } from "@/client/platform/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import {
   isBackgroundStream,
   notifyBackgroundCompletion,
-} from "@/client/shared/notifications.js";
+} from "@/client/platform/index.js";
 import { useProject } from "@/client/features/project/index.js";
 
 function makeTempUserEntry(text: string, parentId: string | null): SessionMessageEntry {

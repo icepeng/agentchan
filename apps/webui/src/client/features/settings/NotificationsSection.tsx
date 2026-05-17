@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import {
   notificationPermission,
   requestNotificationPermission,
   type NotificationPreference,
-} from "@/client/shared/notifications.js";
-import { localStore } from "@/client/shared/storage.js";
+} from "@/client/platform/index.js";
+import { localStore } from "@/client/platform/index.js";
 
 export function NotificationsSection() {
   const { t } = useI18n();

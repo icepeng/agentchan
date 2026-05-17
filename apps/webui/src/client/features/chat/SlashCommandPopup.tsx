@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { SlashEntry } from "./commands.js";
 import { optionId } from "./useCommandPalette.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 
 interface SlashCommandPopupProps {
   listboxId: string;

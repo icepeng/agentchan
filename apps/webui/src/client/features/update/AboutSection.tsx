@@ -1,6 +1,6 @@
 import { Sparkles, CheckCircle2 } from "lucide-react";
 import { useVersion } from "@/client/entities/update/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 
 export function AboutSection() {
   const { data: status } = useVersion();

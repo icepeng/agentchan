@@ -9,8 +9,8 @@ import {
   useViewDispatch,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { useUIDispatch } from "@/client/entities/ui/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useUIDispatch } from "@/client/platform/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import { useSession } from "./useSession.js";
 import { useStreaming } from "./useStreaming.js";
 import { buildSlashEntries, LOCAL_COMMAND_DEFS, type SlashEntry, type SkillSlashCommand } from "./commands.js";

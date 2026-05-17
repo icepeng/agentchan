@@ -7,8 +7,8 @@ import {
   type ReactNode,
 } from "react";
 import { createElement } from "react";
-import { useI18n } from "@/client/i18n/index.js";
-import { localStore } from "@/client/shared/storage.js";
+import { useI18n } from "@/client/platform/index.js";
+import { localStore } from "@/client/platform/index.js";
 
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";

@@ -1,6 +1,6 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
-import { useI18n } from "@/client/i18n/index.js";
-import type { FallbackProps } from "@/client/shared/ui/index.js";
+import { useI18n } from "@/client/platform/index.js";
+import type { FallbackProps } from "@/client/platform/index.js";
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.stack ?? error.message : String(error);

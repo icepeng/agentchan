@@ -8,11 +8,11 @@ import { useActiveSessionSelection } from "@/client/entities/session/index.js";
 import {
   notificationPermission,
   requestNotificationPermission,
-} from "@/client/shared/notifications.js";
-import { localStore } from "@/client/shared/storage.js";
+} from "@/client/platform/index.js";
+import { localStore } from "@/client/platform/index.js";
 import { useConfig, useCurrentModel, DEFAULT_CONTEXT_WINDOW } from "@/client/entities/config/index.js";
-import { useUIState, useUIDispatch } from "@/client/entities/ui/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useUIState, useUIDispatch } from "@/client/platform/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import {
   useRendererActionState,
   useRendererActionDispatch,

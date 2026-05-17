@@ -1,6 +1,6 @@
 import useSWR, { useSWRConfig } from "swr";
 import type { ProviderInfo, CustomProviderDef } from "@agentchan/creative-agent/browser";
-import { qk } from "@/client/shared/queryKeys.js";
+import { qk } from "@/client/platform/index.js";
 import {
   updateConfig as apiUpdateConfig,
   saveCustomProvider as apiSaveCustomProvider,

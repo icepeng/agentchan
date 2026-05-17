@@ -1,6 +1,6 @@
 import { FORMAT_OPTIONS, type CustomApiFormat } from "@/client/entities/config/index.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { Button, FormField, Select, TextInput } from "@/client/shared/ui/index.js";
+import { useI18n } from "@/client/platform/index.js";
+import { Button, FormField, Select, TextInput } from "@/client/design-system/index.js";
 
 export type ProviderFormData = {
   mode: "add" | "edit";

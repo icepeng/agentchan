@@ -1,5 +1,5 @@
 import { useAgentState, selectCurrentTurnBlocks } from "@/client/entities/agent-state/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import { parseInlineMarkdown } from "@/client/shared/inlineMarkdown.js";
 import { BubbleWrap } from "./MessageBubble.js";
 import { AgentAvatar } from "./Avatars.js";

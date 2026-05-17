@@ -13,7 +13,7 @@ import {
   readProjectFile,
   type EditorAPI,
 } from "@/client/entities/editor/index.js";
-import { qk } from "@/client/shared/queryKeys.js";
+import { qk } from "@/client/platform/index.js";
 import { useLatestRef } from "@/client/shared/useLatestRef.js";
 
 export function useEditMode(editorApiRef: RefObject<EditorAPI | null>) {

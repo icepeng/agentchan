@@ -1,4 +1,4 @@
-import { json, parseSSEStream, BASE } from "@/client/shared/api.js";
+import { json, parseSSEStream, BASE } from "@/client/platform/index.js";
 import type { ProviderInfo, ThinkingLevel, CustomProviderDef } from "@agentchan/creative-agent/browser";
 
 export interface ConfigResponse {

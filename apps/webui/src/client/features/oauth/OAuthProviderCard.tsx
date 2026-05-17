@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Badge, Button, Indicator } from "@/client/shared/ui/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { Badge, Button, Indicator } from "@/client/design-system/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import { useOauthStatus, useConfigMutations } from "@/client/entities/config/index.js";
 import { DeviceCodeModal } from "./DeviceCodeModal.js";
 import { providerLabel, formatExpires, isOAuthActive } from "./providerLabel.js";

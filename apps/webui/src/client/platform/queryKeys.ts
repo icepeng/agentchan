@@ -2,7 +2,7 @@
  * Single source of truth for SWR cache keys.
  *
  * Convention: tuple form `[entity, ...params] as const`. The first slot
- * (`key[0]`) is the entity discriminator — `shared/swr.ts::buildRoute`
+ * (`key[0]`) is the entity discriminator used by `platform/swr.ts::buildRoute`
  * dispatches on it. Keys here and routes there must stay in lockstep.
  *
  * Use the factory rather than inlining tuples — it keeps key shape

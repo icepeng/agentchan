@@ -2,12 +2,12 @@ import { useState, useRef, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import {
   useViewState,
+  useViewDispatch,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
 import { useRendererViewState } from "@/client/entities/renderer/index.js";
 import { useActiveSessionSelection } from "@/client/entities/session/index.js";
-import { EditModeToggle } from "@/client/entities/ui/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { ErrorBoundary, useI18n } from "@/client/platform/index.js";
 import {
   ProjectSurfaceErrorFallback,
   RenderedView,
@@ -18,7 +18,7 @@ import {
   BottomInput,
 } from "@/client/features/chat/index.js";
 import { EditModeErrorFallback } from "@/client/features/editor/index.js";
-import { ErrorBoundary, ResizeHandle } from "@/client/shared/ui/index.js";
+import { EditModeToggle, ResizeHandle } from "@/client/design-system/index.js";
 
 const EditModePanel = lazy(() =>
   import("@/client/features/editor/index.js").then((m) => ({
@@ -37,6 +37,7 @@ interface ProjectPageProps {
 
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
   const viewState = useViewState();
+  const viewDispatch = useViewDispatch();
   const rendererView = useRendererViewState();
   const sessionSelection = useActiveSessionSelection();
   const { t } = useI18n();
@@ -49,6 +50,8 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   if (viewState.view.kind !== "project") return null;
   const activeProjectSlug = selectActiveProjectSlug(viewState);
   const isEdit = viewState.view.mode === "edit";
+  const switchToChatLabel = t("editMode.switchToChat");
+  const switchToEditLabel = t("editMode.switchToEdit");
 
   const handlePanelResize = (delta: number) => {
     const container = containerRef.current;
@@ -125,7 +128,12 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
           </div>
         ) : (
           <div className="hidden lg:flex flex-shrink-0 w-8 flex-col items-center border-l border-edge/6 bg-base/20 transition-colors duration-300">
-            <EditModeToggle />
+            <EditModeToggle
+              isEdit={isEdit}
+              switchToChatLabel={switchToChatLabel}
+              switchToEditLabel={switchToEditLabel}
+              onToggle={() => viewDispatch({ type: "SET_VIEW_MODE", mode: isEdit ? "chat" : "edit" })}
+            />
             <div className="flex-1" />
             <button
               onClick={onToggleAgentPanel}

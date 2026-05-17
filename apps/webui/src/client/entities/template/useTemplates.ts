@@ -1,6 +1,6 @@
 import useSWR, { useSWRConfig } from "swr";
 import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
-import { qk } from "@/client/shared/queryKeys.js";
+import { qk } from "@/client/platform/index.js";
 import {
   saveTemplateOrder as apiSaveOrder,
   saveProjectAsTemplate as apiSaveAsTemplate,

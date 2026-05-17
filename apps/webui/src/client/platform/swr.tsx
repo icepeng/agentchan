@@ -1,12 +1,12 @@
 import { SWRConfig, type SWRConfiguration } from "swr";
 import type { ReactNode } from "react";
-import { json } from "@/client/shared/api.js";
-import type { QueryKey } from "@/client/shared/queryKeys.js";
+import { json } from "./api.js";
+import type { QueryKey } from "./queryKeys.js";
 
 const enc = (v: unknown) => encodeURIComponent(String(v));
 
 /**
- * Tuple-key → URL mapping. Centralized so cache keys (`shared/queryKeys.ts`)
+ * Tuple-key -> URL mapping. Centralized so cache keys (`platform/queryKeys.ts`)
  * and HTTP routes never drift. Adding a new query: register the key in
  * `queryKeys.ts`, then add the corresponding case here.
  *

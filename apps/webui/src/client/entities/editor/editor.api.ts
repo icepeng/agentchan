@@ -1,4 +1,4 @@
-import { json } from "@/client/shared/api.js";
+import { json } from "@/client/platform/index.js";
 import type { TreeEntry } from "./editor.types.js";
 
 export function fetchProjectTree(slug: string): Promise<{ entries: TreeEntry[] }> {

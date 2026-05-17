@@ -3,9 +3,9 @@ import {
   useViewState,
   useViewDispatch,
 } from "@/client/entities/view/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import { useProject } from "@/client/features/project/index.js";
-import { IconButton, ScrollArea, TabBar } from "@/client/shared/ui/index.js";
+import { IconButton, ScrollArea, TabBar } from "@/client/design-system/index.js";
 import { ApiKeysTab } from "./ApiKeysTab.js";
 import { AppearanceTab } from "./AppearanceTab.js";
 

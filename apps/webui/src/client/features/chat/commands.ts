@@ -1,6 +1,6 @@
 import commandScore from "command-score";
 import type { SkillMetadata, SkillEnvironment } from "@/client/entities/skill/index.js";
-import type { TFunction, TranslationKey } from "@/client/i18n/index.js";
+import type { TFunction, TranslationKey } from "@/client/platform/index.js";
 
 export interface LocalSlashCommand {
   kind: "local";

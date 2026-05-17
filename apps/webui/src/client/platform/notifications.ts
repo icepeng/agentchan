@@ -5,7 +5,7 @@
  * Falls back silently when the API is unavailable or permission is denied —
  * UI indicators (tab title badge, project-tab dot) handle that case.
  *
- * Preference persistence lives in `shared/storage.ts` (`localStore.notifications`).
+ * Preference persistence lives in `platform/storage.ts` (`localStore.notifications`).
  */
 
 import { localStore } from "./storage.js";

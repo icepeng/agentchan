@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useI18n } from "@/client/i18n/index.js";
+import { useI18n } from "@/client/platform/index.js";
 import {
   saveTemplateOrder,
   useTemplates,
@@ -26,11 +26,11 @@ import {
   useTemplateReadme,
   type TemplateMeta,
 } from "@/client/entities/template/index.js";
-import { qk } from "@/client/shared/queryKeys.js";
+import { qk } from "@/client/platform/index.js";
 import { TrustTemplateDialog, useProject } from "@/client/features/project/index.js";
-import { IconButton, ScrollArea } from "@/client/shared/ui/index.js";
+import { IconButton, ScrollArea } from "@/client/design-system/index.js";
 import { ReadmeView, type ReadmeDoc } from "@/client/shared/ReadmeView.js";
-import { BASE } from "@/client/shared/api.js";
+import { BASE } from "@/client/platform/index.js";
 
 /** Two-digit order index ("01", "02", …) used in the left rail and separator. */
 function orderNumber(i: number): string {

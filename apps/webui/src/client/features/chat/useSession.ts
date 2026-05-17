@@ -17,7 +17,7 @@ import {
   useViewDispatch,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { qk } from "@/client/shared/queryKeys.js";
+import { qk } from "@/client/platform/index.js";
 
 export function useSession() {
   const view = useViewState();

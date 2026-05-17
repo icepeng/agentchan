@@ -1,4 +1,4 @@
-import { json } from "@/client/shared/api.js";
+import { json } from "@/client/platform/index.js";
 import type { UpdateStatus } from "./update.types.js";
 
 export function fetchUpdateStatus(force = false): Promise<UpdateStatus> {

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useI18n } from "@/client/i18n/index.js";
-import { Dialog, Button, Badge, Indicator, Select } from "@/client/shared/ui/index.js";
-import { BASE } from "@/client/shared/api.js";
+import { useI18n } from "@/client/platform/index.js";
+import { Dialog, Button, Badge, Indicator, Select } from "@/client/design-system/index.js";
+import { BASE } from "@/client/platform/index.js";
 import { useTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import type { ProviderInfo } from "@/client/entities/config/index.js";
 import { OAuthProviderCard } from "@/client/features/oauth/index.js";

@@ -1,5 +1,5 @@
 import useSWR, { useSWRConfig } from "swr";
-import { qk } from "@/client/shared/queryKeys.js";
+import { qk } from "@/client/platform/index.js";
 import {
   createSession as apiCreate,
   deleteSession as apiDelete,

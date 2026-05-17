@@ -18,8 +18,8 @@ import {
   useViewDispatch,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { qk } from "@/client/shared/queryKeys.js";
-import { localStore } from "@/client/shared/storage.js";
+import { qk } from "@/client/platform/index.js";
+import { localStore } from "@/client/platform/index.js";
 
 /** Remembered session wins if still in the list; otherwise fall back to the default creative. */
 function resolveSessionToOpen(

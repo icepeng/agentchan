@@ -8,8 +8,8 @@ import {
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { buildTree, FileIcon, type TreeNode } from "@/client/entities/editor/index.js";
 import type { TreeEntry } from "@/client/entities/editor/index.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { ScrollArea } from "@/client/shared/ui/index.js";
+import { useI18n } from "@/client/platform/index.js";
+import { ScrollArea } from "@/client/design-system/index.js";
 
 const MENU_POPUP_CLASS =
   "bg-elevated border border-edge/8 rounded-lg shadow-lg shadow-void/50 py-1 z-50";

@@ -5,8 +5,8 @@ import {
   useConfigMutations,
   useProviders,
 } from "@/client/entities/config/index.js";
-import { useI18n } from "@/client/i18n/index.js";
-import { Badge, Button, FormField, Indicator, SectionHeader, Select } from "@/client/shared/ui/index.js";
+import { useI18n } from "@/client/platform/index.js";
+import { Badge, Button, FormField, Indicator, SectionHeader, Select } from "@/client/design-system/index.js";
 import { OAuthProviderCard } from "@/client/features/oauth/index.js";
 import { ProviderForm, type ProviderFormData } from "./ProviderForm.js";
 

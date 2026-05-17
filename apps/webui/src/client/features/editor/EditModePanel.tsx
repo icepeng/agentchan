@@ -3,7 +3,7 @@ import { FileTree } from "./FileTree.js";
 import { FileEditor } from "./FileEditor.js";
 import { UnsavedDialog } from "./UnsavedDialog.js";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog.js";
-import { ResizeHandle } from "@/client/shared/ui/index.js";
+import { ResizeHandle } from "@/client/design-system/index.js";
 import type { EditorAPI } from "@/client/entities/editor/index.js";
 import { useEditMode } from "./useEditMode.js";
 

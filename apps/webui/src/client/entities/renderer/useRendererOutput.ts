@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useAgentState } from "@/client/entities/agent-state/index.js";
 import { fetchWorkspaceFiles } from "@/client/entities/project/index.js";
-import { json } from "@/client/shared/api.js";
+import { json } from "@/client/platform/index.js";
 import {
   useViewState,
   selectActiveProjectSlug,

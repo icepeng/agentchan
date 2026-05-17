@@ -1,5 +1,5 @@
-import { Button, Dialog } from "@/client/shared/ui/index.js";
-import { useI18n } from "@/client/i18n/index.js";
+import { Button, Dialog } from "@/client/design-system/index.js";
+import { useI18n } from "@/client/platform/index.js";
 
 interface DeleteConfirmDialogProps {
   path: string | null;

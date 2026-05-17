@@ -1,4 +1,4 @@
-import { json } from "@/client/shared/api.js";
+import { json } from "@/client/platform/index.js";
 import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import type { Project, ProjectFile } from "./project.types.js";
 
