@@ -45,7 +45,7 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
 const EditorStateContext = createContext<EditorState>(initialState);
 const EditorDispatchContext = createContext<Dispatch<EditorAction>>(() => {});
 
-export function EditorProvider({ children }: { children: ReactNode }) {
+export function ProjectEditorProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(editorReducer, initialState);
   return (
     <EditorStateContext value={state}>

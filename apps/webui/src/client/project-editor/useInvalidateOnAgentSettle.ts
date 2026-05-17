@@ -5,10 +5,10 @@ import {
   useViewState,
 } from "@/client/entities/view/index.js";
 import {
-  readProjectFile,
   useEditorDispatch,
   useEditorState,
-} from "@/client/entities/editor/index.js";
+} from "./EditorContext.js";
+import { readProjectFile } from "./editor.api.js";
 import { qk, useLatestRef } from "@/client/platform/index.js";
 import { useStreamSettleCount } from "@/client/session/index.js";
 

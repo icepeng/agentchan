@@ -6,8 +6,8 @@ import {
   FolderClosed,
 } from "lucide-react";
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { buildTree, FileIcon, type TreeNode } from "@/client/entities/editor/index.js";
-import type { TreeEntry } from "@/client/entities/editor/index.js";
+import { buildTree, FileIcon, type TreeNode } from "./file-tree.utils.js";
+import type { TreeEntry } from "./editor.types.js";
 import { useI18n } from "@/client/platform/index.js";
 import { ScrollArea } from "@/client/design-system/index.js";
 

@@ -27,7 +27,7 @@ import {
   useViewState,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { isImagePath, type EditorAPI } from "@/client/entities/editor/index.js";
+import { isImagePath, type EditorAPI } from "./editor.types.js";
 import { estimateTokens, formatTokens } from "@/client/shared/pricing.utils.js";
 import { useLatestRef } from "@/client/platform/index.js";
 

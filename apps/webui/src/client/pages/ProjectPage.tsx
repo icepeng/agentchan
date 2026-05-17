@@ -17,12 +17,12 @@ import {
   AgentPanelErrorFallback,
   BottomInput,
 } from "@/client/features/chat/index.js";
-import { EditModeErrorFallback } from "@/client/features/editor/index.js";
+import { EditModeErrorFallback } from "@/client/project-editor/index.js";
 import { EditModeToggle, ResizeHandle } from "@/client/design-system/index.js";
 
-const EditModePanel = lazy(() =>
-  import("@/client/features/editor/index.js").then((m) => ({
-    default: m.EditModePanel,
+const ProjectEditor = lazy(() =>
+  import("@/client/project-editor/index.js").then((m) => ({
+    default: m.ProjectEditor,
   })),
 );
 
@@ -80,10 +80,10 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
               FallbackComponent={EditModeErrorFallback}
               resetKeys={[activeProjectSlug]}
               onError={(error, info) => {
-                console.error("[ErrorBoundary] EditModePanel", error, info.componentStack);
+                console.error("[ErrorBoundary] ProjectEditor", error, info.componentStack);
               }}
             >
-              <EditModePanel />
+              <ProjectEditor />
             </ErrorBoundary>
           </Suspense>
         ) : (

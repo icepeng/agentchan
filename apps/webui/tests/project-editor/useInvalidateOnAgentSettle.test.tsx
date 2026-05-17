@@ -36,14 +36,16 @@ mock.module("swr", () => ({
 const { act, cleanup, render, waitFor } = await import("@testing-library/react");
 const { qk } = await import("@/client/platform/index.js");
 const { ViewProvider, useViewDispatch } = await import("@/client/entities/view/index.js");
-const { EditorProvider } = await import("@/client/entities/editor/index.js");
-const { useEditorDispatch } = await import("@/client/entities/editor/index.js");
+const { ProjectEditorProvider } = await import("@/client/project-editor/index.js");
+const { useEditorDispatch } = await import(
+  "@/client/project-editor/EditorContext.js"
+);
 const { SessionProvider, useAgentStreamDispatch } = await import("@/client/session/index.js");
 const { useInvalidateOnAgentSettle } = await import(
-  "@/client/features/editor/useInvalidateOnAgentSettle.js"
+  "@/client/project-editor/useInvalidateOnAgentSettle.js"
 );
 import type { AgentStateAction } from "@/client/session/index.js";
-import type { EditorAction } from "@/client/entities/editor/index.js";
+import type { EditorAction } from "@/client/project-editor/editor.types.js";
 import type { ViewAction } from "@/client/entities/view/index.js";
 
 interface Controls {
@@ -56,7 +58,7 @@ function Providers({ children }: { children: ReactNode }) {
   return (
     <ViewProvider>
       <SessionProvider>
-        <EditorProvider>{children}</EditorProvider>
+        <ProjectEditorProvider>{children}</ProjectEditorProvider>
       </SessionProvider>
     </ViewProvider>
   );

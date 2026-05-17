@@ -6,11 +6,15 @@ import {
 import {
   useEditorState,
   useEditorDispatch,
+} from "./EditorContext.js";
+import {
   useProjectTree,
   useEditorMutations,
+} from "./useEditor.js";
+import {
   readProjectFile,
-  type EditorAPI,
-} from "@/client/entities/editor/index.js";
+} from "./editor.api.js";
+import type { EditorAPI } from "./editor.types.js";
 import { useLatestRef } from "@/client/platform/index.js";
 
 export function useProjectEditor(editorApiRef: RefObject<EditorAPI | null>) {

@@ -4,7 +4,7 @@ import { FileEditor } from "./FileEditor.js";
 import { UnsavedDialog } from "./UnsavedDialog.js";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog.js";
 import { ResizeHandle } from "@/client/design-system/index.js";
-import type { EditorAPI } from "@/client/entities/editor/index.js";
+import type { EditorAPI } from "./editor.types.js";
 import { useInvalidateOnAgentSettle } from "./useInvalidateOnAgentSettle.js";
 import { useProjectEditor } from "./useProjectEditor.js";
 
@@ -12,7 +12,7 @@ const DEFAULT_TREE_WIDTH = 200;
 const MIN_TREE_WIDTH = 140;
 const MAX_TREE_WIDTH = 400;
 
-export function EditModePanel() {
+export function ProjectEditor() {
   const editorApiRef = useRef<EditorAPI | null>(null);
   useInvalidateOnAgentSettle();
   const {

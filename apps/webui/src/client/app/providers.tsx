@@ -7,7 +7,7 @@ import {
   RendererViewProvider,
   RendererActionProvider,
 } from "@/client/entities/renderer/index.js";
-import { EditorProvider } from "@/client/entities/editor/index.js";
+import { ProjectEditorProvider } from "@/client/project-editor/index.js";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
@@ -17,9 +17,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <SessionProvider>
             <RendererViewProvider>
               <RendererActionProvider>
-                <EditorProvider>
+                <ProjectEditorProvider>
                   {children}
-                </EditorProvider>
+                </ProjectEditorProvider>
               </RendererActionProvider>
             </RendererViewProvider>
           </SessionProvider>

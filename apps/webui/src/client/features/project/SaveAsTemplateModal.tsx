@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Dialog, Button, TextInput, FormField } from "@/client/design-system/index.js";
 import { useI18n } from "@/client/platform/index.js";
-import { fetchProjectTree, readProjectFile, isImagePath, buildTree, FileIcon, type TreeEntry, type TreeNode } from "@/client/entities/editor/index.js";
+import { fetchProjectTree, readProjectFile, isImagePath, buildTree, FileIcon, type TreeEntry, type TreeNode } from "@/client/project-editor/index.js";
 import { saveProjectAsTemplate } from "@/client/entities/template/index.js";
 import { BASE } from "@/client/platform/index.js";
 
