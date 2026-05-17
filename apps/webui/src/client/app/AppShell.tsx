@@ -21,8 +21,9 @@ import { useTheme } from "@/client/features/settings/index.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
-import { OnboardingWizard } from "@/client/features/onboarding/index.js";
-import { ProjectReadmeModal } from "@/client/features/project/index.js";
+import { OnboardingWizard } from "@/client/onboarding/index.js";
+import { OAuthProviderCard } from "@/client/features/oauth/index.js";
+import { ProjectReadmeModal, useProject } from "@/client/features/project/index.js";
 import { PageErrorFallback } from "./PageErrorFallback.js";
 
 // Templates page is lazy-loaded to keep it out of the main bundle.
@@ -52,10 +53,12 @@ export function AppShell() {
   const viewDispatch = useViewDispatch();
   const rendererView = useRendererViewState();
   const { resolved: userScheme } = useTheme();
+  const { createProject } = useProject();
   const { t } = useI18n();
 
   const view = viewState.view;
   const activeProjectSlug = selectActiveProjectSlug(viewState);
+  const openTemplates = () => viewDispatch({ type: "OPEN_TEMPLATES" });
 
   // Ctrl+E / Cmd+E to toggle edit mode (project view only).
   useEffect(() => {
@@ -166,7 +169,11 @@ export function AppShell() {
         </Suspense>
       </div>
 
-      <OnboardingWizard />
+      <OnboardingWizard
+        createProject={createProject}
+        openTemplates={openTemplates}
+        OAuthProviderCard={OAuthProviderCard}
+      />
       <ProjectReadmeModal />
     </div>
   );

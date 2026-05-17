@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useI18n } from "@/client/platform/index.js";
 import { Dialog, Button, Badge, Indicator, Select } from "@/client/design-system/index.js";
 import { BASE } from "@/client/platform/index.js";
 import { useTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
 import type { ProviderInfo } from "@/client/entities/config/index.js";
-import { OAuthProviderCard } from "@/client/features/oauth/index.js";
 import {
   useOnboarding,
+  type CreateProjectForOnboarding,
   type OnboardingStep,
   ONBOARDING_STEP_COUNT,
 } from "./useOnboarding.js";
@@ -19,8 +19,21 @@ const STEPS: OnboardingStep[] = [0, 1, 2];
 // template renames don't break the wizard.
 const FEATURED_SLUGS: readonly string[] = ["last-vow", "tides-of-moonhaven"];
 
-export function OnboardingWizard() {
-  const ob = useOnboarding();
+type OAuthProviderCardComponent = ComponentType<{
+  providerName: string;
+  onChange?: (active: boolean) => void | Promise<void>;
+}>;
+
+export function OnboardingWizard({
+  createProject,
+  openTemplates,
+  OAuthProviderCard,
+}: {
+  createProject: CreateProjectForOnboarding;
+  openTemplates: () => void;
+  OAuthProviderCard: OAuthProviderCardComponent;
+}) {
+  const ob = useOnboarding({ createProject, openTemplates });
   const { t } = useI18n();
 
   if (!ob.ready || !ob.wizardOpen) return null;
@@ -59,6 +72,7 @@ export function OnboardingWizard() {
             apiKeys={ob.apiKeys}
             saving={ob.saving}
             hasAnyCredentials={ob.hasAnyCredentials}
+            OAuthProviderCard={OAuthProviderCard}
             onSaveKey={ob.saveApiKey}
             onOAuthActiveChange={ob.handleOAuthActiveChange}
             onContinue={ob.advance}
@@ -139,6 +153,7 @@ function ApiKeyStep({
   apiKeys,
   saving,
   hasAnyCredentials,
+  OAuthProviderCard,
   onSaveKey,
   onOAuthActiveChange,
   onContinue,
@@ -148,6 +163,7 @@ function ApiKeyStep({
   apiKeys: Record<string, string>;
   saving: boolean;
   hasAnyCredentials: boolean;
+  OAuthProviderCard: OAuthProviderCardComponent;
   onSaveKey: (provider: string, key: string) => Promise<void>;
   onOAuthActiveChange: (provider: string, active: boolean) => void;
   onContinue: () => void;

@@ -41,8 +41,6 @@ const BASELINE_VIOLATIONS = new Set([
   "entity-cross-import|entities/agent-state/useContextUsage|entities/session/index|@/client/entities/session/index.js",
   "entity-cross-import|entities/agent-state/useAgentState|entities/view/index|@/client/entities/view/index.js",
   "feature-cross-import|features/settings/ApiKeysTab|features/oauth/index|@/client/features/oauth/index.js",
-  "feature-cross-import|features/onboarding/useOnboarding|features/project/index|@/client/features/project/index.js",
-  "feature-cross-import|features/onboarding/OnboardingWizard|features/oauth/index|@/client/features/oauth/index.js",
   "feature-cross-import|features/settings/SettingsView|features/project/index|@/client/features/project/index.js",
 ]);
 

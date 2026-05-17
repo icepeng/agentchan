@@ -5,13 +5,22 @@ import {
   useOnboarding as useOnboardingStatus,
   useConfigMutations,
 } from "@/client/entities/config/index.js";
-import { useViewDispatch } from "@/client/entities/view/index.js";
-import { useProject } from "@/client/features/project/index.js";
 
 export type OnboardingStep = 0 | 1 | 2;
 export const ONBOARDING_STEP_COUNT = 3;
 
-export function useOnboarding() {
+export type CreateProjectForOnboarding = (
+  name: string,
+  fromTemplate?: string,
+) => Promise<unknown>;
+
+export function useOnboarding({
+  createProject,
+  openTemplates,
+}: {
+  createProject: CreateProjectForOnboarding;
+  openTemplates: () => void;
+}) {
   const { data: providers = [] } = useProviders();
   const { data: apiKeys = {} } = useApiKeys();
   const { data: status } = useOnboardingStatus();
@@ -20,8 +29,6 @@ export function useOnboarding() {
     updateApiKey: mutateApiKey,
     completeOnboarding: mutateCompleteOnboarding,
   } = useConfigMutations();
-  const viewDispatch = useViewDispatch();
-  const { createProject } = useProject();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>(0);
   const [oauthSignedIn, setOauthSignedIn] = useState<Record<string, boolean>>({});
@@ -63,7 +70,7 @@ export function useOnboarding() {
   const dismiss = async () => {
     await mutateCompleteOnboarding();
     setWizardOpen(false);
-    viewDispatch({ type: "OPEN_TEMPLATES" });
+    openTemplates();
   };
 
   const startWithTemplate = async (slug: string, name: string) => {
