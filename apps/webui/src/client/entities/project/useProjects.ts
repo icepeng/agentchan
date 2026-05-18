@@ -1,5 +1,4 @@
 import useSWR, { useSWRConfig } from "swr";
-import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
 import { qk, matchesSlug } from "@/client/platform/index.js";
 import {
   fetchWorkspaceFiles,
@@ -8,7 +7,7 @@ import {
   deleteProject as apiDelete,
   duplicateProject as apiDuplicate,
 } from "./project.api.js";
-import type { Project, ProjectFile } from "./project.types.js";
+import type { Project, ProjectFile, ReadmeDoc } from "./project.types.js";
 
 export function useProjects() {
   return useSWR<Project[]>(qk.projects());

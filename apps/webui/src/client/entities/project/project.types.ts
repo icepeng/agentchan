@@ -10,3 +10,8 @@ export interface Project {
 }
 
 export type { ProjectFile };
+
+export interface ReadmeDoc {
+  frontmatter: { name?: string; description?: string };
+  body: string;
+}

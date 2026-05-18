@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
-import { Dialog, IconButton, ScrollArea } from "@/client/design-system/index.js";
-import { ReadmeView } from "@/client/shared/ReadmeView.js";
+import { Dialog, IconButton, MarkdownBody, ScrollArea } from "@/client/design-system/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import { useUIState, useUIDispatch } from "@/client/platform/index.js";
 import { useProject } from "./useProject.js";
@@ -46,11 +45,19 @@ export function ProjectReadmeModal() {
         {isLoading ? (
           <div className="text-fg-4 text-sm">{t("templates.loading")}</div>
         ) : hasContent ? (
-          <ReadmeView
-            doc={doc}
-            variant="compact"
-            fallbackName={activeProject?.name}
-          />
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-fg text-balance">
+              {doc.frontmatter.name ?? activeProject?.name ?? ""}
+            </h1>
+            {doc.frontmatter.description && (
+              <p className="mt-2 text-sm text-fg-2 leading-relaxed text-pretty">
+                {doc.frontmatter.description}
+              </p>
+            )}
+            <div className="mt-5">
+              <MarkdownBody source={doc.body} />
+            </div>
+          </div>
         ) : (
           <div className="text-fg-4 text-sm">{t("templates.noReadme")}</div>
         )}

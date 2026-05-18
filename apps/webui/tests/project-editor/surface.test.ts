@@ -7,8 +7,13 @@ describe("project-editor public surface", () => {
 
     expect(surface).toHaveProperty("ProjectEditor");
     expect(surface).toHaveProperty("ProjectEditorProvider");
+    expect(surface).toHaveProperty("ProjectFilePicker");
     expect(surface).toHaveProperty("useProjectEditor");
     expect(surface).not.toHaveProperty("useInvalidateOnAgentSettle");
+    expect(surface).not.toHaveProperty("fetchProjectTree");
+    expect(surface).not.toHaveProperty("readProjectFile");
+    expect(surface).not.toHaveProperty("buildTree");
+    expect(surface).not.toHaveProperty("FileIcon");
   });
 
   test("owns the migrated editor files without legacy feature/entity folders", () => {

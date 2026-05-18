@@ -1,6 +1,5 @@
 import { json, BASE } from "@/client/platform/index.js";
-import type { ReadmeDoc } from "@/client/shared/ReadmeView.js";
-import type { TemplateMeta } from "./template.types.js";
+import type { ReadmeDoc, TemplateMeta } from "./template.types.js";
 
 export function fetchTemplates(): Promise<TemplateMeta[]> {
   return json("/templates");

@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { useI18n } from "@/client/platform/index.js";
 import { Dialog, Button, Badge, Indicator, Select } from "@/client/design-system/index.js";
 import { BASE } from "@/client/platform/index.js";
-import { useTemplates, type TemplateMeta } from "@/client/entities/template/index.js";
+import { useTemplates, type TemplateMeta } from "@/client/library/index.js";
 import { OAuthProviderCard, type ProviderInfo } from "@/client/provider/index.js";
 import {
   useOnboardingWizard,

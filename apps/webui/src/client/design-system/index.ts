@@ -10,6 +10,7 @@ export { SegmentedControl } from "./SegmentedControl.js";
 export { Switch } from "./Switch.js";
 export { IconButton } from "./IconButton.js";
 export { Indicator } from "./Indicator.js";
+export { MarkdownBody } from "./MarkdownBody.js";
 export { TextInput } from "./TextInput.js";
 export { OptionCardGrid } from "./OptionCardGrid.js";
 export { ScrollArea } from "./ScrollArea.js";

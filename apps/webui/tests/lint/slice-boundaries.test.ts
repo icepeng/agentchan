@@ -100,6 +100,21 @@ describe("slice boundary lint rule", () => {
     });
   });
 
+  test("uses the Phase 4 project to library dependency direction", () => {
+    expect(
+      classifyClientImport("project/useCreateProjectFromTemplate", "@/client/library/index.js"),
+    ).toBeNull();
+    expect(
+      classifyClientImport("project/SaveAsTemplateModal", "@/client/project-editor/index.js"),
+    ).toBeNull();
+    expect(
+      classifyClientImport("library/LibraryPage", "@/client/project/index.js"),
+    ).toMatchObject({
+      code: "disallowed-slice-dependency",
+      level: "baseline",
+    });
+  });
+
   test("allows provider consumers recorded during Phase 3 grilling", () => {
     expect(
       classifyClientImport("shell/Sidebar", "@/client/provider/index.js"),

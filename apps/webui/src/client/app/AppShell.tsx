@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, type CSSProperties } from "react";
+import { Suspense, lazy, useEffect, type CSSProperties, type ReactNode } from "react";
 import { Menu } from "lucide-react";
 import {
   ErrorBoundary,
@@ -22,12 +22,16 @@ import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
 import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
 import { OnboardingWizard } from "@/client/onboarding/index.js";
-import { ProjectReadmeModal, useProject } from "@/client/features/project/index.js";
+import {
+  ProjectReadmeModal,
+  useCreateProjectFromTemplate,
+  useProject,
+} from "@/client/features/project/index.js";
 import { PageErrorFallback } from "./PageErrorFallback.js";
 
-// Templates page is lazy-loaded to keep it out of the main bundle.
-const TemplatesPage = lazy(() =>
-  import("@/client/pages/TemplatesPage.js").then((m) => ({ default: m.TemplatesPage })),
+// Library page is lazy-loaded to keep it out of the main bundle.
+const LibraryPage = lazy(() =>
+  import("@/client/library/index.js").then((m) => ({ default: m.LibraryPage })),
 );
 
 function PageContent({
@@ -36,16 +40,31 @@ function PageContent({
   onToggleAgentPanel,
   settingsCanGoBack,
   onSettingsBack,
+  libraryCanGoBack,
+  onLibraryBack,
+  createFromTemplate,
+  trustDialog,
 }: {
   view: View;
   agentPanelOpen: boolean;
   onToggleAgentPanel: () => void;
   settingsCanGoBack: boolean;
   onSettingsBack: () => void;
+  libraryCanGoBack: boolean;
+  onLibraryBack: () => void;
+  createFromTemplate: (projectName: string, templateSlug: string) => Promise<unknown>;
+  trustDialog: ReactNode;
 }) {
   switch (view.kind) {
     case "templates":
-      return <TemplatesPage />;
+      return (
+        <LibraryPage
+          canGoBack={libraryCanGoBack}
+          onBack={onLibraryBack}
+          createFromTemplate={createFromTemplate}
+          trustDialog={trustDialog}
+        />
+      );
     case "settings":
       return <AppSettingsPage canGoBack={settingsCanGoBack} onBack={onSettingsBack} />;
     case "project":
@@ -61,6 +80,7 @@ export function AppShell() {
   const rendererView = useRendererViewState();
   const { resolved: userScheme } = useTheme();
   const { createProject, projects, selectProject } = useProject();
+  const { createFromTemplate, trustDialog } = useCreateProjectFromTemplate();
   const { t } = useI18n();
 
   const view = viewState.view;
@@ -177,6 +197,10 @@ export function AppShell() {
               onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
               settingsCanGoBack={settingsBackSlug !== null}
               onSettingsBack={handleSettingsBack}
+              libraryCanGoBack={settingsBackSlug !== null}
+              onLibraryBack={handleSettingsBack}
+              createFromTemplate={createFromTemplate}
+              trustDialog={trustDialog}
             />
           </ErrorBoundary>
         </Suspense>

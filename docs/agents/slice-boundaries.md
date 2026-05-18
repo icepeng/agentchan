@@ -16,10 +16,9 @@ PRD #192의 목표 DAG는 다음과 같다.
 
 ```text
 shell -> project, library, project-editor, provider, onboarding, theme, update, app-settings
-project -> session
+project -> session, library, project-editor
 project-editor -> session
 renderer-host -> session
-library -> project
 onboarding -> provider, library
 app-settings -> provider, theme, update, onboarding
 session -> provider
