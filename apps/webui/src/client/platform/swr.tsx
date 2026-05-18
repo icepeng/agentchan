@@ -18,7 +18,6 @@ function buildRoute(entity: string, args: unknown[]): string {
     // projects
     case "projects":        return "/projects";
     case "projectReadme":   return `/projects/${enc(args[0])}/readme`;
-    case "workspaceFiles":  return `/projects/${enc(args[0])}/workspace/files`;
     case "rendererBundle":  return `/projects/${enc(args[0])}/renderer-bundle`;
     // sessions
     case "sessions":        return `/projects/${enc(args[0])}/sessions`;

@@ -3,7 +3,7 @@ import { Dialog, IconButton, MarkdownBody, ScrollArea } from "@/client/design-sy
 import { useI18n } from "@/client/platform/index.js";
 import { useUIState, useUIDispatch } from "@/client/platform/index.js";
 import { useProject } from "./useProject.js";
-import { useProjectReadme } from "@/client/entities/project/index.js";
+import { useProjectReadme } from "./useProjects.js";
 
 /**
  * In-project README viewer invoked by the `/readme` slash command. Pure client

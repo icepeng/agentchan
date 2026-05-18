@@ -5,6 +5,7 @@ import {
   useAgentEventSubscription,
   useAgentStream,
   useProjectStreamStatuses,
+  useSessionInputDispatch,
   useStreamSettleCount,
 } from "@/client/session/index.js";
 import * as sessionSurface from "@/client/session/index.js";
@@ -33,6 +34,11 @@ function StreamSurfaceProbe() {
   return <span>{`${statuses.size}:${settleCount}`}</span>;
 }
 
+function SessionInputProbe() {
+  const dispatch = useSessionInputDispatch();
+  return <span>{typeof dispatch}</span>;
+}
+
 describe("session slice public surface", () => {
   test("exports only the public session runtime APIs", () => {
     expect(Object.keys(sessionSurface).sort()).toEqual([
@@ -42,6 +48,7 @@ describe("session slice public surface", () => {
       "useAgentStream",
       "useProjectStreamStatuses",
       "useSession",
+      "useSessionInputDispatch",
       "useStreamSettleCount",
     ]);
   });
@@ -84,5 +91,16 @@ describe("session slice public surface", () => {
         </SessionProvider>,
       ),
     ).toContain("ok");
+  });
+
+  test("SessionProvider exposes only a dispatch hook for session input intents", () => {
+    expect(
+      renderToString(
+        <SessionProvider>
+          <SessionInputProbe />
+        </SessionProvider>,
+      ),
+    ).toContain("function");
+    expect(sessionSurface).not.toHaveProperty("useSessionInputState");
   });
 });

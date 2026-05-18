@@ -2,21 +2,16 @@ import { useSWRConfig } from "swr";
 import {
   useProjects,
   useProjectMutations,
-} from "@/client/entities/project/index.js";
-import {
-  fetchSession,
-  fetchSessions,
-  pickDefaultCreativeSessionId,
-  type AgentchanSessionInfo,
-} from "@/client/session/data/index.js";
+} from "./useProjects.js";
 import { closeProjectStream } from "@/client/session/index.js";
 import {
   useViewState,
   useViewDispatch,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { qk } from "@/client/platform/index.js";
+import { json, qk } from "@/client/platform/index.js";
 import { localStore } from "@/client/platform/index.js";
+import type { AgentchanSessionInfo } from "@agentchan/creative-agent/browser";
 
 /** Remembered session wins if still in the list; otherwise fall back to the default creative. */
 function resolveSessionToOpen(
@@ -27,6 +22,20 @@ function resolveSessionToOpen(
     return rememberedSessionId;
   }
   return pickDefaultCreativeSessionId(sessions);
+}
+
+function fetchSessions(projectSlug: string): Promise<AgentchanSessionInfo[]> {
+  return json(`/projects/${encodeURIComponent(projectSlug)}/sessions`);
+}
+
+function fetchSession(projectSlug: string, id: string): Promise<unknown> {
+  return json(`/projects/${encodeURIComponent(projectSlug)}/sessions/${encodeURIComponent(id)}`);
+}
+
+function pickDefaultCreativeSessionId(
+  sessions: ReadonlyArray<AgentchanSessionInfo>,
+): string | null {
+  return sessions.find((session) => session.mode === "creative")?.id ?? null;
 }
 
 export function useProject() {

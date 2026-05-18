@@ -2,7 +2,7 @@ import type {
   RendererTheme,
   RendererThemeTokens,
 } from "@agentchan/renderer/host";
-import type { ResolvedThemeVars } from "./renderer.types.js";
+import type { ResolvedThemeVars } from "./types.js";
 
 /**
  * Renderer-owned Project theme: Renderer가 Project chat surface 한정으로 Host가

@@ -7,7 +7,7 @@ import {
   useTemplates,
 } from "@/client/library/index.js";
 import { qk } from "@/client/platform/index.js";
-import type { Project } from "@/client/entities/project/index.js";
+import type { Project } from "./project.types.js";
 import type { TemplateMeta } from "@/client/library/index.js";
 import { useProject } from "./useProject.js";
 

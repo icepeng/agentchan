@@ -12,7 +12,6 @@ export const qk = {
   // --- Projects ---
   projects:        ()                          => ["projects"] as const,
   projectReadme:   (slug: string)              => ["projectReadme", slug] as const,
-  workspaceFiles:  (slug: string)              => ["workspaceFiles", slug] as const,
 
   // --- Sessions ---
   sessions:        (slug: string)              => ["sessions", slug] as const,

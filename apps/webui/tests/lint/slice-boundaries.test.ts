@@ -11,7 +11,7 @@ describe("slice boundary lint rule", () => {
   test("allows same-slice internal imports", () => {
     expect(
       classifyClientImport(
-        "features/project/ProjectTabs",
+        "project/ProjectTabs",
         "./ProjectSettingsModal.js",
       ),
     ).toBeNull();
@@ -20,13 +20,13 @@ describe("slice boundary lint rule", () => {
   test("requires external slice imports to go through index", () => {
     expect(
       classifyClientImport(
-        "pages/TemplatesPage",
-        "@/client/features/project/TrustTemplateDialog.js",
+        "pages/ProjectPage",
+        "@/client/renderer-host/presentationMachine.js",
       ),
     ).toMatchObject({
       code: "deep-import",
       level: "baseline",
-      targetPath: "features/project/TrustTemplateDialog",
+      targetPath: "renderer-host/presentationMachine",
     });
   });
 
@@ -34,7 +34,7 @@ describe("slice boundary lint rule", () => {
     expect(
       classifyClientImport(
         "pages/ProjectPage",
-        "@/client/features/project/index.js",
+        "@/client/project/index.js",
       ),
     ).toBeNull();
   });
@@ -54,8 +54,8 @@ describe("slice boundary lint rule", () => {
   test("warns on transitional entity cross-imports", () => {
     expect(
       classifyClientImport(
-        "entities/renderer/useRendererOutput",
-        "@/client/entities/project/index.js",
+        "entities/view/ViewContext",
+        "@/client/entities/ui/index.js",
       ),
     ).toMatchObject({
       code: "entity-cross-import",
@@ -113,6 +113,37 @@ describe("slice boundary lint rule", () => {
       code: "disallowed-slice-dependency",
       level: "baseline",
     });
+  });
+
+  test("allows the Phase 5 renderer-host to session input seam through public index", () => {
+    expect(
+      classifyClientImport("renderer-host/RenderedView", "@/client/session/index.js"),
+    ).toBeNull();
+    expect(
+      classifyClientImport("renderer-host/RenderedView", "@/client/theme/index.js"),
+    ).toMatchObject({
+      code: "disallowed-slice-dependency",
+      level: "baseline",
+    });
+  });
+
+  test("allows the Phase 5 session read-only project list edge", () => {
+    expect(
+      classifyClientImport("session/stream/useStreaming", "@/client/project/index.js"),
+    ).toBeNull();
+  });
+
+  test("keeps Phase 5 project and renderer-host baseline clean", () => {
+    expect(
+      shouldReportSliceBoundaryBaseline(
+        classifyClientImport("project/useProject", "@/client/session/data/index.js")!,
+      ),
+    ).toBe(false);
+    expect(
+      shouldReportSliceBoundaryBaseline(
+        classifyClientImport("entities/renderer/useRendererOutput", "@/client/entities/project/index.js")!,
+      ),
+    ).toBe(false);
   });
 
   test("allows provider consumers recorded during Phase 3 grilling", () => {

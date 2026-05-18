@@ -1,31 +1,35 @@
 import { useCallback, useEffect, useMemo } from "react";
-import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
 import { useAgentStream } from "@/client/session/index.js";
 import {
-  useRendererOutput,
   useRendererViewState,
   useRendererViewDispatch,
-  useRendererActionDispatch,
-  type RendererActions,
-  type RendererTheme,
-} from "@/client/entities/renderer/index.js";
-import { useTheme } from "@/client/theme/index.js";
+} from "./RendererViewContext.js";
+import { useRendererOutput } from "./useRendererOutput.js";
+import type {
+  RendererAction,
+  RendererActions,
+  RendererTheme,
+} from "./types.js";
 import { RendererIframe } from "./RendererIframe.js";
 import { useRendererPresentation } from "./useRendererPresentation.js";
 
 const PROJECT_FILES_CHANGED = "agentchan:project-files-changed";
 
-export function RenderedView() {
-  const activeProjectSlug = selectActiveProjectSlug(useViewState());
+interface RenderedViewProps {
+  slug: string | null;
+  scheme: "light" | "dark";
+  onRendererAction: (action: RendererAction) => void;
+}
+
+export function RenderedView({
+  slug,
+  scheme,
+  onRendererAction,
+}: RenderedViewProps) {
   const rendererView = useRendererViewState();
   const rendererViewDispatch = useRendererViewDispatch();
-  const state = useAgentStream(activeProjectSlug);
-  const { refresh } = useRendererOutput();
-  const actionDispatch = useRendererActionDispatch();
-  const { resolved: scheme } = useTheme();
+  const state = useAgentStream(slug);
+  const { refresh } = useRendererOutput(slug);
 
   const onTheme = useCallback(
     (theme: RendererTheme | null) =>
@@ -36,39 +40,39 @@ export function RenderedView() {
   const actions: RendererActions = useMemo(
     () => ({
       send(text) {
-        actionDispatch({ type: "SET_ACTION", action: { type: "send", text } });
+        onRendererAction({ type: "send", text });
       },
       fill(text) {
-        actionDispatch({ type: "SET_ACTION", action: { type: "fill", text } });
+        onRendererAction({ type: "fill", text });
       },
     }),
-    [actionDispatch],
+    [onRendererAction],
   );
 
   useEffect(() => {
     void refresh();
-  }, [activeProjectSlug, refresh]);
+  }, [slug, refresh]);
 
   useEffect(() => {
     const handleFilesChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ slug?: string }>).detail;
-      if (detail?.slug === activeProjectSlug) {
+      if (detail?.slug === slug) {
         void refresh();
       }
     };
     window.addEventListener(PROJECT_FILES_CHANGED, handleFilesChanged);
     return () => window.removeEventListener(PROJECT_FILES_CHANGED, handleFilesChanged);
-  }, [activeProjectSlug, refresh]);
+  }, [slug, refresh]);
 
   useEffect(() => {
-    if (!state.isStreaming && activeProjectSlug) {
+    if (!state.isStreaming && slug) {
       void refresh();
     }
-  }, [state.isStreaming, activeProjectSlug, refresh]);
+  }, [state.isStreaming, slug, refresh]);
 
   const presentation = useRendererPresentation({
     actions,
-    activeProjectSlug,
+    activeProjectSlug: slug,
     digest: rendererView.digest,
     snapshot: rendererView.snapshot,
     error: rendererView.error,

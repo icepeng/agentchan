@@ -3,7 +3,7 @@ import { useUIDispatch } from "@/client/platform/index.js";
 import { useViewState, useViewDispatch } from "@/client/entities/view/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import { IconButton, ScrollArea } from "@/client/design-system/index.js";
-import { ProjectTabs, useProject } from "@/client/features/project/index.js";
+import { ProjectTabs, useProject } from "@/client/project/index.js";
 import { ModelBar } from "@/client/provider/index.js";
 import { UpdateBanner } from "@/client/update/index.js";
 import { localStore } from "@/client/platform/index.js";

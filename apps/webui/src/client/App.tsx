@@ -3,9 +3,9 @@ import {
   useViewState,
   selectActiveSessionId,
 } from "@/client/entities/view/index.js";
-import { useProjects } from "@/client/entities/project/index.js";
+import { useProjects } from "@/client/project/index.js";
 import { useSession } from "@/client/session/index.js";
-import { useProject } from "@/client/features/project/index.js";
+import { useProject } from "@/client/project/index.js";
 import { localStore } from "@/client/platform/index.js";
 
 import { AppShell } from "@/client/app/index.js";

@@ -23,14 +23,11 @@ const FUTURE_SLICE_DAG = new Map([
   ["renderer-host", ["session"]],
   ["onboarding", ["provider", "library"]],
   ["app-settings", ["provider", "theme", "update", "onboarding"]],
-  ["session", ["provider"]],
+  ["session", ["provider", "project"]],
 ]);
 
 const BASELINE_VIOLATIONS = new Set([
-  "deep-import|features/project/useProject|session/data/index|@/client/session/data/index.js",
   "deep-import|pages/ProjectPage|session/ui/index|@/client/session/ui/index.js",
-  "entity-cross-import|entities/renderer/useRendererOutput|entities/project/index|@/client/entities/project/index.js",
-  "entity-cross-import|entities/renderer/useRendererOutput|entities/view/index|@/client/entities/view/index.js",
 ]);
 
 const noDirectLocalStorage = {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { mutate as globalMutate } from "swr";
 import {
   useProjects,
-} from "@/client/entities/project/index.js";
+} from "@/client/project/index.js";
 import { useAgentStream } from "../useAgentStream.js";
 import { useRecordAgentEvent } from "../useRecordAgentEvent.js";
 import { useAgentStreamDispatch } from "./AgentStreamStoreContext.js";
@@ -12,10 +12,14 @@ import {
   insertEntries,
   replaceTempEntry,
   selectBranchMessages,
+  fetchSession,
+  fetchSessions,
+  pickDefaultCreativeSessionId,
   sendMessage,
   regenerateResponse,
   registerAbortController,
   clearAbortController,
+  type AgentchanSessionInfo,
   type SessionData,
   type SessionEntry,
   type SessionMessageEntry,
@@ -23,16 +27,16 @@ import {
 } from "@/client/session/data/index.js";
 import {
   useViewState,
+  useViewDispatch,
   selectActiveProjectSlug,
   selectActiveSessionId,
 } from "@/client/entities/view/index.js";
-import { qk } from "@/client/platform/index.js";
+import { localStore, qk } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import {
   isBackgroundStream,
   notifyBackgroundCompletion,
 } from "@/client/platform/index.js";
-import { useProject } from "@/client/features/project/index.js";
 
 function makeTempUserEntry(text: string, parentId: string | null): SessionMessageEntry {
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -49,14 +53,24 @@ function makeTempUserEntry(text: string, parentId: string | null): SessionMessag
   };
 }
 
+function resolveSessionToOpen(
+  sessions: AgentchanSessionInfo[],
+  rememberedSessionId: string | null,
+): string | null {
+  if (rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)) {
+    return rememberedSessionId;
+  }
+  return pickDefaultCreativeSessionId(sessions);
+}
+
 export function useStreaming() {
   const view = useViewState();
   const { data: projects } = useProjects();
+  const viewDispatch = useViewDispatch();
   const agentDispatch = useAgentStreamDispatch();
   const recordAgentEvent = useRecordAgentEvent();
   const activeSelection = useActiveSessionSelection();
   const { t } = useI18n();
-  const { selectProject } = useProject();
 
   const activeSlug = selectActiveProjectSlug(view);
   const activeState = useAgentStream(activeSlug);
@@ -72,7 +86,7 @@ export function useStreaming() {
   const activeSelectionRef = useRef(activeSelection);
   const activeSessionDataRef = useRef(activeSessionData);
   const tRef = useRef(t);
-  const selectProjectRef = useRef(selectProject);
+  const viewDispatchRef = useRef(viewDispatch);
   useEffect(() => {
     viewRef.current = view;
     projectsRef.current = projects;
@@ -80,8 +94,33 @@ export function useStreaming() {
     activeSelectionRef.current = activeSelection;
     activeSessionDataRef.current = activeSessionData;
     tRef.current = t;
-    selectProjectRef.current = selectProject;
+    viewDispatchRef.current = viewDispatch;
   });
+
+  const selectProjectFromNotification = useCallback(async (projectSlug: string) => {
+    const currentView = viewRef.current;
+    if (selectActiveProjectSlug(currentView) === projectSlug) return;
+
+    localStore.lastProject.write(projectSlug);
+    const rememberedSessionId = currentView.sessionMemory.get(projectSlug) ?? null;
+    const sessions = await globalMutate(
+      qk.sessions(projectSlug),
+      fetchSessions(projectSlug),
+    );
+
+    if (rememberedSessionId) {
+      await globalMutate(
+        qk.session(projectSlug, rememberedSessionId),
+        fetchSession(projectSlug, rememberedSessionId),
+      );
+    }
+
+    viewDispatchRef.current({
+      type: "OPEN_PROJECT",
+      slug: projectSlug,
+      session: resolveSessionToOpen(sessions ?? [], rememberedSessionId),
+    });
+  }, []);
 
   // Hydrate AgentState whenever the underlying session/branch changes.
   // Reducer guards HYDRATE while streaming, so events stay authoritative.
@@ -130,9 +169,7 @@ export function useStreaming() {
             kind === "done" ? "notifications.sessionCompleteBody" : "notifications.sessionErrorBody",
           ),
           onClick: () => {
-            if (selectActiveProjectSlug(viewRef.current) !== projectSlug) {
-              void selectProjectRef.current(projectSlug);
-            }
+            void selectProjectFromNotification(projectSlug);
           },
         });
       };
@@ -182,7 +219,7 @@ export function useStreaming() {
         },
       };
     },
-    [agentDispatch, recordAgentEvent],
+    [agentDispatch, recordAgentEvent, selectProjectFromNotification],
   );
 
   const send = useCallback(

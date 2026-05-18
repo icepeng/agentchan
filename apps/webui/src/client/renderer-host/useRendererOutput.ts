@@ -1,14 +1,9 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import { useAgentStream } from "@/client/session/index.js";
-import { fetchWorkspaceFiles } from "@/client/entities/project/index.js";
 import { json } from "@/client/platform/index.js";
-import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import type { RendererSnapshot } from "@agentchan/renderer/host";
-import type { ProjectFile } from "./renderer.types.js";
+import type { ProjectFile } from "@agentchan/creative-agent/browser";
 
 interface LoadedRenderer {
   slug: string;
@@ -49,14 +44,17 @@ function fetchRendererMeta(slug: string): Promise<RendererMeta> {
   });
 }
 
+function fetchWorkspaceFiles(projectSlug: string): Promise<{ files: ProjectFile[] }> {
+  return json(`/projects/${encodeURIComponent(projectSlug)}/workspace/files`);
+}
+
 function absoluteBaseUrl(slug: string): string {
   const origin =
     typeof window !== "undefined" ? window.location.origin : "";
   return `${origin}/api/projects/${encodeURIComponent(slug)}`;
 }
 
-export function useRendererOutput() {
-  const activeProjectSlug = selectActiveProjectSlug(useViewState());
+export function useRendererOutput(activeProjectSlug: string | null) {
   const rendererViewDispatch = useRendererViewDispatch();
   const agentState = useAgentStream(activeProjectSlug);
   const activeProjectSlugRef = useRef(activeProjectSlug);

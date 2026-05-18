@@ -5,13 +5,18 @@ import {
   useViewDispatch,
   selectActiveProjectSlug,
 } from "@/client/entities/view/index.js";
-import { useRendererViewState } from "@/client/entities/renderer/index.js";
-import { useSession } from "@/client/session/index.js";
-import { ErrorBoundary, useI18n } from "@/client/platform/index.js";
 import {
-  ProjectSurfaceErrorFallback,
+  useSession,
+  useSessionInputDispatch,
+  type SessionInputIntent,
+} from "@/client/session/index.js";
+import { ErrorBoundary, useI18n } from "@/client/platform/index.js";
+import { ProjectSurfaceErrorFallback } from "@/client/project/index.js";
+import {
   RenderedView,
-} from "@/client/features/project/index.js";
+  type RendererAction,
+} from "@/client/renderer-host/index.js";
+import { useTheme } from "@/client/theme/index.js";
 import {
   AgentPanel,
   AgentPanelErrorFallback,
@@ -38,8 +43,9 @@ interface ProjectPageProps {
 export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
   const viewState = useViewState();
   const viewDispatch = useViewDispatch();
-  const rendererView = useRendererViewState();
   const { activeSessionId } = useSession();
+  const dispatchSessionInput = useSessionInputDispatch();
+  const { resolved: userScheme } = useTheme();
   const { t } = useI18n();
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +58,14 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
   const isEdit = viewState.view.mode === "edit";
   const switchToChatLabel = t("editMode.switchToChat");
   const switchToEditLabel = t("editMode.switchToEdit");
+
+  const handleRendererAction = (action: RendererAction) => {
+    const intent: SessionInputIntent =
+      action.type === "send"
+        ? { type: "submit", text: action.text }
+        : { type: "fill", text: action.text };
+    dispatchSessionInput(intent);
+  };
 
   const handlePanelResize = (delta: number) => {
     const container = containerRef.current;
@@ -91,12 +105,16 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
           <div className={`flex-1 flex flex-col min-w-0 transition-colors duration-300 ${agentPanelOpen ? "" : "border-r border-edge/6"}`}>
             <ErrorBoundary
               FallbackComponent={ProjectSurfaceErrorFallback}
-              resetKeys={[activeProjectSlug, rendererView.digest]}
+              resetKeys={[activeProjectSlug]}
               onError={(error, info) => {
                 console.error("[ErrorBoundary] RenderedView", error, info.componentStack);
               }}
             >
-              <RenderedView />
+              <RenderedView
+                slug={activeProjectSlug}
+                scheme={userScheme}
+                onRendererAction={handleRendererAction}
+              />
             </ErrorBoundary>
           </div>
         )}

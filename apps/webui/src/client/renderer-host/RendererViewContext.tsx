@@ -1,10 +1,4 @@
-import {
-  createContext,
-  use,
-  useReducer,
-  type ReactNode,
-  type Dispatch,
-} from "react";
+import { useSyncExternalStore, type Dispatch } from "react";
 import type {
   RendererSnapshot,
   RendererTheme,
@@ -61,24 +55,33 @@ const initialState: RendererViewState = {
   error: null,
 };
 
-const StateContext = createContext<RendererViewState>(initialState);
-const DispatchContext = createContext<Dispatch<RendererViewAction>>(() => {});
+const listeners = new Set<() => void>();
+let currentState = initialState;
 
-export function RendererViewProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
-  return (
-    <StateContext.Provider value={state}>
-      <DispatchContext.Provider value={dispatch}>
-        {children}
-      </DispatchContext.Provider>
-    </StateContext.Provider>
-  );
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
-export function useRendererViewState() {
-  return use(StateContext);
+const dispatch: Dispatch<RendererViewAction> = (action) => {
+  const next = reducer(currentState, action);
+  if (next === currentState) return;
+  currentState = next;
+  for (const listener of listeners) listener();
+};
+
+function getSnapshot() {
+  return currentState;
+}
+
+export function useRendererViewState(): RendererViewState {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 export function useRendererViewDispatch() {
-  return use(DispatchContext);
+  return dispatch;
+}
+
+export function useProjectTheme(): RendererTheme | null {
+  return useRendererViewState().theme;
 }

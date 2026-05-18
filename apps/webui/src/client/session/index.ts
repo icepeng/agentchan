@@ -5,5 +5,7 @@ export { useProjectStreamStatuses } from "./useProjectStreamStatuses.js";
 export { useStreamSettleCount } from "./useStreamSettleCount.js";
 export { closeProjectStream } from "./stream/closeProjectStream.js";
 export { useSession } from "./useSession.js";
+export { useSessionInputDispatch } from "./SessionInputContext.js";
 export type { ProjectStreamStatus } from "./stream/agentStreamStore.js";
+export type { SessionInputIntent } from "./SessionInputContext.js";
 export type { AgentState } from "@agentchan/creative-agent/browser";

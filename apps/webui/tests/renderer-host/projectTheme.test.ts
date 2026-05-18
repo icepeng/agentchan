@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   resolveThemeVars,
   validateTheme,
-} from "../../src/client/entities/renderer/index.js";
+} from "../../src/client/renderer-host/projectTheme.js";
 
 const COMPLETE_LIGHT = {
   void: "#ffffff",

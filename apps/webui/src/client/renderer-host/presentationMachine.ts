@@ -2,7 +2,7 @@ import {
   themeIdentity,
   type RendererSnapshot,
   type RendererTheme,
-} from "@/client/entities/renderer/index.js";
+} from "@agentchan/renderer/host";
 
 /*
  * Renderer presentation machine — framework-agnostic pure reducer.

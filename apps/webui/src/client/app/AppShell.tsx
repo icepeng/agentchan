@@ -14,9 +14,9 @@ import {
   type View,
 } from "@/client/entities/view/index.js";
 import {
-  useRendererViewState,
+  useProjectTheme,
   resolveThemeVars,
-} from "@/client/entities/renderer/index.js";
+} from "@/client/renderer-host/index.js";
 import { useTheme } from "@/client/theme/index.js";
 import { Sidebar } from "./Sidebar.js";
 import { ProjectPage } from "@/client/pages/ProjectPage.js";
@@ -26,7 +26,7 @@ import {
   ProjectReadmeModal,
   useCreateProjectFromTemplate,
   useProject,
-} from "@/client/features/project/index.js";
+} from "@/client/project/index.js";
 import { PageErrorFallback } from "./PageErrorFallback.js";
 
 // Library page is lazy-loaded to keep it out of the main bundle.
@@ -77,7 +77,7 @@ export function AppShell() {
   const uiDispatch = useUIDispatch();
   const viewState = useViewState();
   const viewDispatch = useViewDispatch();
-  const rendererView = useRendererViewState();
+  const projectTheme = useProjectTheme();
   const { resolved: userScheme } = useTheme();
   const { createProject, projects, selectProject } = useProject();
   const { createFromTemplate, trustDialog } = useCreateProjectFromTemplate();
@@ -120,13 +120,13 @@ export function AppShell() {
   // Renderer-owned theme is active only on the project page in chat mode.
   // Edit mode / Settings / Templates stay neutral on the base Obsidian Teal palette.
   const themeActive =
-    rendererView.theme !== null &&
+    projectTheme !== null &&
     view.kind === "project" &&
     view.mode === "chat";
 
   const resolvedTheme =
-    themeActive && rendererView.theme
-      ? resolveThemeVars(rendererView.theme, userScheme)
+    themeActive && projectTheme
+      ? resolveThemeVars(projectTheme, userScheme)
       : null;
 
   // forceScheme(palette 한쪽만 선언)일 때만 scope-local override.

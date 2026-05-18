@@ -1,5 +1,5 @@
 import { json } from "@/client/platform/index.js";
-import type { Project, ProjectFile, ReadmeDoc } from "./project.types.js";
+import type { Project, ReadmeDoc } from "./project.types.js";
 
 // --- Project CRUD ---
 
@@ -36,12 +36,6 @@ export function duplicateProject(sourceSlug: string, name: string): Promise<Proj
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
-}
-
-// --- Client-side Rendering ---
-
-export function fetchWorkspaceFiles(projectSlug: string): Promise<{ files: ProjectFile[] }> {
-  return json(`/projects/${encodeURIComponent(projectSlug)}/workspace/files`);
 }
 
 export function fetchProjectReadme(slug: string): Promise<ReadmeDoc> {

@@ -12,9 +12,9 @@ import { resolveContextWindow, useActiveModel } from "@/client/provider/index.js
 import { useUIState, useUIDispatch } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import {
-  useRendererActionState,
-  useRendererActionDispatch,
-} from "@/client/entities/renderer/index.js";
+  useSessionInputClear,
+  useSessionInputState,
+} from "../SessionInputContext.js";
 import { useStreaming } from "../stream/useStreaming.js";
 import { useSession } from "../useSession.js";
 import { useSlashCommands } from "../commands/useSlashCommands.js";
@@ -36,8 +36,8 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const { t } = useI18n();
   const { send, isStreaming } = useStreaming();
   const { create } = useSession();
-  const rendererAction = useRendererActionState();
-  const rendererActionDispatch = useRendererActionDispatch();
+  const sessionInput = useSessionInputState();
+  const clearSessionInput = useSessionInputClear();
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const slash = useSlashCommands(text, setText);
@@ -62,26 +62,26 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
     textareaRef.current?.focus();
   }, [selection.openSessionId]);
 
-  // Handle renderer actions (send / fill)
+  // Handle renderer-originated input intents (submit / fill)
   useEffect(() => {
-    const action = rendererAction.pending;
-    if (!action) return;
-    rendererActionDispatch({ type: "CLEAR" });
+    const intent = sessionInput.pending;
+    if (!intent) return;
+    clearSessionInput();
 
-    if (action.type === "fill") {
+    if (intent.type === "fill") {
       // oxlint-disable-next-line react-hooks-js/set-state-in-effect -- renderer action은 외부 시스템 이벤트 처리
-      setText(action.text);
+      setText(intent.text);
       textareaRef.current?.focus();
-    } else if (action.type === "send") {
+    } else if (intent.type === "submit") {
       if (!selection.openSessionId) {
         void create().then((sess) => {
-          if (sess) void send(action.text, sess.id);
+          if (sess) void send(intent.text, sess.id);
         });
       } else {
-        void send(action.text);
+        void send(intent.text);
       }
     }
-  }, [rendererAction.pending, rendererActionDispatch, selection.openSessionId, create, send]);
+  }, [sessionInput.pending, clearSessionInput, selection.openSessionId, create, send]);
 
   const handleSubmit = async () => {
     const trimmed = text.trim();

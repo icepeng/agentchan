@@ -1,13 +1,12 @@
 import useSWR, { useSWRConfig } from "swr";
 import { qk, matchesSlug } from "@/client/platform/index.js";
 import {
-  fetchWorkspaceFiles,
   createProject as apiCreate,
   updateProject as apiUpdate,
   deleteProject as apiDelete,
   duplicateProject as apiDuplicate,
 } from "./project.api.js";
-import type { Project, ProjectFile, ReadmeDoc } from "./project.types.js";
+import type { Project, ReadmeDoc } from "./project.types.js";
 
 export function useProjects() {
   return useSWR<Project[]>(qk.projects());
@@ -15,13 +14,6 @@ export function useProjects() {
 
 export function useProjectReadme(slug: string | null) {
   return useSWR<ReadmeDoc>(slug ? qk.projectReadme(slug) : null);
-}
-
-export function useWorkspaceFiles(slug: string | null) {
-  return useSWR<{ files: ProjectFile[] }>(
-    slug ? qk.workspaceFiles(slug) : null,
-    () => fetchWorkspaceFiles(slug as string),
-  );
 }
 
 /**

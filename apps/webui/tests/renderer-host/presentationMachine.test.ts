@@ -7,11 +7,11 @@ import {
   type PresentationEvent,
   type PresentationMachine,
   type PresentationState,
-} from "../../src/client/features/project/renderer-host/presentationMachine.js";
+} from "../../src/client/renderer-host/presentationMachine.js";
 import type {
   RendererSnapshot,
   RendererTheme,
-} from "../../src/client/entities/renderer/index.js";
+} from "../../src/client/renderer-host/types.js";
 
 // --- Fixtures ---------------------------------------------------------------
 

@@ -21,7 +21,7 @@ project-editor -> session
 renderer-host -> session
 onboarding -> provider, library
 app-settings -> provider, theme, update, onboarding
-session -> provider
+session -> provider, project
 
 모든 슬라이스 -> design-system, platform
 design-system -> 없음
@@ -29,6 +29,16 @@ platform -> 없음
 ```
 
 이 목록에 없는 slice 간 import는 금지한다.
+
+Phase 5 기준으로 비자명 cross-slice seam은 다음만 허용한다.
+
+- `project -> session.closeProjectStream`
+- `project-editor -> session.useStreamSettleCount`
+- `renderer-host -> session.useAgentStream`
+- `renderer-host -> session.useAgentEventSubscription`
+- `renderer-host -> session.useSessionInputDispatch`
+
+단순 read-only data edge로 `session -> project.useProjects`도 허용한다.
 
 ## Phase 0 Baseline
 

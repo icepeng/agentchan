@@ -12,12 +12,12 @@ import {
   useAgentStream,
   type AgentState,
 } from "@/client/session/index.js";
-import {
-  validateTheme,
-  type RendererActions,
-  type RendererSnapshot,
-  type RendererTheme,
-} from "@/client/entities/renderer/index.js";
+import { validateTheme } from "./projectTheme.js";
+import type {
+  RendererActions,
+  RendererSnapshot,
+  RendererTheme,
+} from "./types.js";
 import type {
   HydratePayload,
   ProjectFile,
