@@ -35,7 +35,8 @@ mock.module("swr", () => ({
 
 const { act, cleanup, render, waitFor } = await import("@testing-library/react");
 const { qk } = await import("@/client/platform/index.js");
-const { ViewProvider, useViewDispatch } = await import("@/client/entities/view/index.js");
+const { ViewProvider } = await import("@/client/shell/view/ViewContext.js");
+const { useView } = await import("@/client/shell/index.js");
 const { ProjectEditorProvider } = await import("@/client/project-editor/index.js");
 const { useEditorDispatch } = await import(
   "@/client/project-editor/EditorContext.js"
@@ -49,7 +50,7 @@ const { useInvalidateOnAgentSettle } = await import(
 );
 import type { AgentStreamAction } from "@/client/session/stream/agentStreamStore.js";
 import type { EditorAction } from "@/client/project-editor/editor.types.js";
-import type { ViewAction } from "@/client/entities/view/index.js";
+import type { ViewAction } from "@/client/shell/index.js";
 
 interface Controls {
   streamDispatch: Dispatch<AgentStreamAction> | null;
@@ -60,17 +61,40 @@ interface Controls {
 function Providers({ children }: { children: ReactNode }) {
   return (
     <ViewProvider>
-      <SessionProvider>
+      <SessionWithView>
         <ProjectEditorProvider>{children}</ProjectEditorProvider>
-      </SessionProvider>
+      </SessionWithView>
     </ViewProvider>
+  );
+}
+
+function SessionWithView({ children }: { children: ReactNode }) {
+  const view = useView();
+  return (
+    <SessionProvider
+      slug={view.activeProjectSlug}
+      sessionId={view.activeSessionId}
+      viewMode={view.view.kind === "project" ? view.view.mode : null}
+      onOpenSession={(sessionId) => view.dispatch({ type: "OPEN_SESSION", sessionId })}
+      onRequestProjectActivation={(slug) => view.dispatch({ type: "OPEN_PROJECT", slug })}
+      onRequestProjectReadme={() => view.dispatch({ type: "OPEN_PROJECT_README" })}
+      onToggleViewMode={() => {
+        if (view.view.kind !== "project") return;
+        view.dispatch({
+          type: "SET_VIEW_MODE",
+          mode: view.view.mode === "edit" ? "chat" : "edit",
+        });
+      }}
+    >
+      {children}
+    </SessionProvider>
   );
 }
 
 function HookProbe({ controls }: { controls: Controls }) {
   controls.streamDispatch = useAgentStreamDispatch();
   controls.editorDispatch = useEditorDispatch();
-  controls.viewDispatch = useViewDispatch();
+  controls.viewDispatch = useView().dispatch;
   useInvalidateOnAgentSettle();
   return null;
 }

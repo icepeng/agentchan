@@ -17,6 +17,8 @@ let compactSessionError: Error | null = null;
 function projectView(session: string | null) {
   return {
     view: { kind: "project" as const, slug: "alpha", session, mode: "chat" as const },
+    sidebarOpen: true,
+    readmeOpen: false,
     sessionMemory: new Map<string, string>(),
   };
 }
@@ -81,27 +83,28 @@ mock.module("@/client/session/data/session.api.js", () => ({
   abortRegisteredProjectStream: () => {},
 }));
 
-mock.module("@/client/entities/view/index.js", () => ({
-  useViewState: () => viewState,
-  useViewDispatch: () => (action: { type: string; sessionId?: string | null }) => {
-    sequence.push(`view:${action.type}`);
-    if (action.type === "OPEN_SESSION") {
-      viewState = projectView(action.sessionId ?? null);
-    }
-  },
-  selectActiveProjectSlug: (state: typeof viewState) =>
-    state.view.kind === "project" ? state.view.slug : null,
-  selectActiveSessionId: (state: typeof viewState) =>
-    state.view.kind === "project" ? state.view.session : null,
-}));
-
 const { act, renderHook } = await import("@testing-library/react");
 const { SessionProvider, useAgentStream, useSession } = await import(
   "@/client/session/index.js"
 );
 
 function SessionWrapper({ children }: { children: ReactNode }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider
+      slug={viewState.view.slug}
+      sessionId={viewState.view.session}
+      viewMode={viewState.view.mode}
+      onOpenSession={(sessionId) => {
+        sequence.push("view:OPEN_SESSION");
+        viewState = projectView(sessionId);
+      }}
+      onRequestProjectActivation={() => {}}
+      onRequestProjectReadme={() => {}}
+      onToggleViewMode={() => {}}
+    >
+      {children}
+    </SessionProvider>
+  );
 }
 
 beforeEach(() => {

@@ -10,6 +10,16 @@ import {
 } from "@/client/session/index.js";
 import * as sessionSurface from "@/client/session/index.js";
 
+const sessionProviderProps = {
+  slug: null,
+  sessionId: null,
+  viewMode: null,
+  onOpenSession: () => {},
+  onRequestProjectActivation: () => {},
+  onRequestProjectReadme: () => {},
+  onToggleViewMode: () => {},
+};
+
 function ContextProbe() {
   useAgentStream(null);
   useProjectStreamStatuses();
@@ -45,6 +55,7 @@ describe("session slice public surface", () => {
       "SessionProvider",
       "closeProjectStream",
       "useAgentEventSubscription",
+      "useAgentPanel",
       "useAgentStream",
       "useProjectStreamStatuses",
       "useSession",
@@ -56,7 +67,7 @@ describe("session slice public surface", () => {
   test("useAgentStream returns idle state when no project is active", () => {
     expect(
       renderToString(
-        <SessionProvider>
+        <SessionProvider {...sessionProviderProps}>
           <AgentStreamProbe />
         </SessionProvider>,
       ),
@@ -66,7 +77,7 @@ describe("session slice public surface", () => {
   test("useAgentEventSubscription can be mounted with no active project", () => {
     expect(
       renderToString(
-        <SessionProvider>
+        <SessionProvider {...sessionProviderProps}>
           <SubscriptionProbe />
         </SessionProvider>,
       ),
@@ -76,7 +87,7 @@ describe("session slice public surface", () => {
   test("project stream status and settle hooks mount from public surface", () => {
     expect(
       renderToString(
-        <SessionProvider>
+        <SessionProvider {...sessionProviderProps}>
           <StreamSurfaceProbe />
         </SessionProvider>,
       ),
@@ -86,7 +97,7 @@ describe("session slice public surface", () => {
   test("SessionProvider provides public session contexts", () => {
     expect(
       renderToString(
-        <SessionProvider>
+        <SessionProvider {...sessionProviderProps}>
           <ContextProbe />
         </SessionProvider>,
       ),
@@ -96,7 +107,7 @@ describe("session slice public surface", () => {
   test("SessionProvider exposes only a dispatch hook for session input intents", () => {
     expect(
       renderToString(
-        <SessionProvider>
+        <SessionProvider {...sessionProviderProps}>
           <SessionInputProbe />
         </SessionProvider>,
       ),

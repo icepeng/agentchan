@@ -20,9 +20,16 @@ export type ViewKind = View["kind"];
 
 export interface ViewState {
   view: View;
+  sidebarOpen: boolean;
+  readmeOpen: boolean;
   /** slug → last opened sessionId. View mode is intentionally not memoized. */
   sessionMemory: ReadonlyMap<string, string>;
 }
+
+export type ChromeUIAction =
+  | { type: "TOGGLE_SIDEBAR" }
+  | { type: "OPEN_PROJECT_README" }
+  | { type: "CLOSE_PROJECT_README" };
 
 export type ViewAction =
   | { type: "OPEN_TEMPLATES" }
@@ -30,10 +37,16 @@ export type ViewAction =
   | { type: "OPEN_PROJECT"; slug: string; session?: string | null }
   | { type: "OPEN_SESSION"; sessionId: string | null }
   | { type: "SET_VIEW_MODE"; mode: ViewMode }
-  | { type: "FORGET_PROJECT"; slug: string };
+  | { type: "FORGET_PROJECT"; slug: string }
+  | ChromeUIAction;
 
 export function initialViewState(): ViewState {
-  return { view: { kind: "templates" }, sessionMemory: new Map() };
+  return {
+    view: { kind: "templates" },
+    sidebarOpen: true,
+    readmeOpen: false,
+    sessionMemory: new Map(),
+  };
 }
 
 type SessionMemory = ReadonlyMap<string, string>;
@@ -72,6 +85,7 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
           ? action.session
           : (state.sessionMemory.get(action.slug) ?? null);
       return {
+        ...state,
         view: { kind: "project", slug: action.slug, session, mode: "chat" },
         sessionMemory: rememberSession(state.sessionMemory, action.slug, session),
       };
@@ -81,6 +95,7 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
       if (state.view.kind !== "project") return state;
       if (state.view.session === action.sessionId) return state;
       return {
+        ...state,
         view: { ...state.view, session: action.sessionId },
         sessionMemory: rememberSession(state.sessionMemory, state.view.slug, action.sessionId),
       };
@@ -98,10 +113,22 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
       const nextMemory = forgetSession(state.sessionMemory, action.slug);
       if (!isActive && nextMemory === state.sessionMemory) return state;
       return {
+        ...state,
         view: isActive ? { kind: "templates" } : state.view,
         sessionMemory: nextMemory,
       };
     }
+
+    case "TOGGLE_SIDEBAR":
+      return { ...state, sidebarOpen: !state.sidebarOpen };
+
+    case "OPEN_PROJECT_README":
+      if (state.readmeOpen) return state;
+      return { ...state, readmeOpen: true };
+
+    case "CLOSE_PROJECT_README":
+      if (!state.readmeOpen) return state;
+      return { ...state, readmeOpen: false };
 
     default:
       return state;

@@ -15,13 +15,13 @@
 PRD #192의 목표 DAG는 다음과 같다.
 
 ```text
-shell -> project, library, project-editor, provider, onboarding, theme, update, app-settings
-project -> session, library, project-editor
-project-editor -> session
+shell -> project, library, project-editor, renderer-host, session, provider, onboarding, theme, update, app-settings
+project -> shell, session, library, project-editor
+project-editor -> shell, session
 renderer-host -> session
 onboarding -> provider, library
 app-settings -> provider, theme, update, onboarding
-session -> provider, project
+session -> provider
 
 모든 슬라이스 -> design-system, platform
 design-system -> 없음
@@ -38,7 +38,9 @@ Phase 5 기준으로 비자명 cross-slice seam은 다음만 허용한다.
 - `renderer-host -> session.useAgentEventSubscription`
 - `renderer-host -> session.useSessionInputDispatch`
 
-단순 read-only data edge로 `session -> project.useProjects`도 허용한다.
+Phase 8 기준으로 `session -> project.useProjects` read-only edge는 제거되었다. 알림 click의 Project 활성화는 `SessionProvider`가 주입받은 callback을 통해 shell로 되돌린다.
+
+`app-settings/`는 settings page chrome만 소유한다. `provider/`, `theme/`, `update/`에서 settings tab/section component를 합성할 수 있지만, 해당 slice의 내부 hook이나 mutation API를 직접 사용하지 않는다. 허용된 합성 surface는 `ApiKeysTab`, `AppearanceTab`, `AboutSection`이다.
 
 ## Phase 0 Baseline
 

@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
 import { mutate as globalMutate } from "swr";
-import {
-  useProjects,
-} from "@/client/project/index.js";
 import { useAgentStream } from "../useAgentStream.js";
 import { useRecordAgentEvent } from "../useRecordAgentEvent.js";
 import { useAgentStreamDispatch } from "./AgentStreamStoreContext.js";
@@ -12,31 +9,22 @@ import {
   insertEntries,
   replaceTempEntry,
   selectBranchMessages,
-  fetchSession,
-  fetchSessions,
-  pickDefaultCreativeSessionId,
   sendMessage,
   regenerateResponse,
   registerAbortController,
   clearAbortController,
-  type AgentchanSessionInfo,
   type SessionData,
   type SessionEntry,
   type SessionMessageEntry,
   type SSECallbacks,
 } from "@/client/session/data/index.js";
-import {
-  useViewState,
-  useViewDispatch,
-  selectActiveProjectSlug,
-  selectActiveSessionId,
-} from "@/client/entities/view/index.js";
-import { localStore, qk } from "@/client/platform/index.js";
+import { qk } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import {
   isBackgroundStream,
   notifyBackgroundCompletion,
 } from "@/client/platform/index.js";
+import { useSessionRoot } from "../SessionRootContext.js";
 
 function makeTempUserEntry(text: string, parentId: string | null): SessionMessageEntry {
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -53,26 +41,14 @@ function makeTempUserEntry(text: string, parentId: string | null): SessionMessag
   };
 }
 
-function resolveSessionToOpen(
-  sessions: AgentchanSessionInfo[],
-  rememberedSessionId: string | null,
-): string | null {
-  if (rememberedSessionId && sessions.some((s) => s.id === rememberedSessionId)) {
-    return rememberedSessionId;
-  }
-  return pickDefaultCreativeSessionId(sessions);
-}
-
 export function useStreaming() {
-  const view = useViewState();
-  const { data: projects } = useProjects();
-  const viewDispatch = useViewDispatch();
+  const root = useSessionRoot();
   const agentDispatch = useAgentStreamDispatch();
   const recordAgentEvent = useRecordAgentEvent();
   const activeSelection = useActiveSessionSelection();
   const { t } = useI18n();
 
-  const activeSlug = selectActiveProjectSlug(view);
+  const activeSlug = root.slug;
   const activeState = useAgentStream(activeSlug);
 
   const { data: activeSessionData } = useSessionData(
@@ -80,46 +56,22 @@ export function useStreaming() {
     activeSelection.openSessionId,
   );
 
-  const viewRef = useRef(view);
-  const projectsRef = useRef(projects);
+  const rootRef = useRef(root);
   const activeStateRef = useRef(activeState);
   const activeSelectionRef = useRef(activeSelection);
   const activeSessionDataRef = useRef(activeSessionData);
   const tRef = useRef(t);
-  const viewDispatchRef = useRef(viewDispatch);
   useEffect(() => {
-    viewRef.current = view;
-    projectsRef.current = projects;
+    rootRef.current = root;
     activeStateRef.current = activeState;
     activeSelectionRef.current = activeSelection;
     activeSessionDataRef.current = activeSessionData;
     tRef.current = t;
-    viewDispatchRef.current = viewDispatch;
   });
 
   const selectProjectFromNotification = useCallback(async (projectSlug: string) => {
-    const currentView = viewRef.current;
-    if (selectActiveProjectSlug(currentView) === projectSlug) return;
-
-    localStore.lastProject.write(projectSlug);
-    const rememberedSessionId = currentView.sessionMemory.get(projectSlug) ?? null;
-    const sessions = await globalMutate(
-      qk.sessions(projectSlug),
-      fetchSessions(projectSlug),
-    );
-
-    if (rememberedSessionId) {
-      await globalMutate(
-        qk.session(projectSlug, rememberedSessionId),
-        fetchSession(projectSlug, rememberedSessionId),
-      );
-    }
-
-    viewDispatchRef.current({
-      type: "OPEN_PROJECT",
-      slug: projectSlug,
-      session: resolveSessionToOpen(sessions ?? [], rememberedSessionId),
-    });
+    if (rootRef.current.slug === projectSlug) return;
+    rootRef.current.onRequestProjectActivation(projectSlug);
   }, []);
 
   // Hydrate AgentState whenever the underlying session/branch changes.
@@ -149,11 +101,9 @@ export function useStreaming() {
         kind: "done" | "error",
         errorMessage?: string,
       ) => {
-        const v = viewRef.current;
-        const activeSlugNow = selectActiveProjectSlug(v);
-        const activeSessionIdNow = selectActiveSessionId(v);
-        const projectName =
-          projectsRef.current?.find((pr) => pr.slug === projectSlug)?.name ?? projectSlug;
+        const activeSlugNow = rootRef.current.slug;
+        const activeSessionIdNow = rootRef.current.sessionId;
+        const projectName = projectSlug;
         if (!isBackgroundStream(projectSlug, sessionId, activeSlugNow, activeSessionIdNow)) return;
         notifyBackgroundCompletion({
           projectSlug,
@@ -224,8 +174,7 @@ export function useStreaming() {
 
   const send = useCallback(
     async (text: string, sessionId?: string) => {
-      const v = viewRef.current;
-      const projectSlug = selectActiveProjectSlug(v);
+      const projectSlug = rootRef.current.slug;
       if (!projectSlug) return;
       const selection = activeSelectionRef.current;
       const sid = sessionId ?? selection.openSessionId;
@@ -281,8 +230,7 @@ export function useStreaming() {
   );
 
   const regenerate = async (entryId: string) => {
-    const v = viewRef.current;
-    const projectSlug = selectActiveProjectSlug(v);
+    const projectSlug = rootRef.current.slug;
     if (!projectSlug) return;
     const selection = activeSelectionRef.current;
     if (!selection.openSessionId) return;

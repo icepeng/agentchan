@@ -1,9 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App.js";
 import { ThemeProvider } from "@/client/theme/index.js";
-import { ErrorBoundary, I18nProvider } from "@/client/platform/index.js";
-import { AppProviders, RootErrorFallback } from "@/client/app/index.js";
+import {
+  ErrorBoundary,
+  I18nProvider,
+  RootErrorFallback,
+  SwrRoot,
+} from "@/client/platform/index.js";
+import { AppShell } from "@/client/shell/index.js";
 import "./main.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -16,9 +20,9 @@ createRoot(document.getElementById("root")!).render(
         }}
       >
         <ThemeProvider>
-          <AppProviders>
-            <App />
-          </AppProviders>
+          <SwrRoot>
+            <AppShell />
+          </SwrRoot>
         </ThemeProvider>
       </ErrorBoundary>
     </I18nProvider>

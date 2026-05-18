@@ -1,6 +1,6 @@
 import { AlertOctagon, RefreshCw } from "lucide-react";
-import type { FallbackProps } from "@/client/platform/index.js";
-import { useI18n } from "@/client/platform/index.js";
+import type { FallbackProps } from "./ErrorBoundary.js";
+import { useI18n } from "./i18n/index.js";
 
 export function RootErrorFallback({ error }: FallbackProps) {
   const { t } = useI18n();

@@ -1,17 +1,15 @@
 import { BookOpen, PanelLeftClose, Settings } from "lucide-react";
-import { useUIDispatch } from "@/client/platform/index.js";
-import { useViewState, useViewDispatch } from "@/client/entities/view/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import { IconButton, ScrollArea } from "@/client/design-system/index.js";
 import { ProjectTabs, useProject } from "@/client/project/index.js";
 import { ModelBar } from "@/client/provider/index.js";
 import { UpdateBanner } from "@/client/update/index.js";
 import { localStore } from "@/client/platform/index.js";
+import { useView } from "./useView.js";
 
 export function Sidebar() {
-  const view = useViewState().view;
-  const viewDispatch = useViewDispatch();
-  const uiDispatch = useUIDispatch();
+  const viewState = useView();
+  const view = viewState.view;
   const { projects, selectProject } = useProject();
   const { t } = useI18n();
 
@@ -25,7 +23,7 @@ export function Sidebar() {
     if (target) {
       void selectProject(target.slug);
     } else {
-      viewDispatch({ type: "OPEN_TEMPLATES" });
+      viewState.dispatch({ type: "OPEN_TEMPLATES" });
     }
   };
 
@@ -44,13 +42,13 @@ export function Sidebar() {
         <div className="flex items-center gap-0.5">
           <IconButton
             active={view.kind === "settings"}
-            onClick={() => viewDispatch({ type: "OPEN_SETTINGS" })}
+            onClick={() => viewState.dispatch({ type: "OPEN_SETTINGS" })}
             title={t("globalSettings.title")}
           >
             <Settings size={15} strokeWidth={1.8} />
           </IconButton>
           <IconButton
-            onClick={() => uiDispatch({ type: "TOGGLE_SIDEBAR" })}
+            onClick={() => viewState.dispatch({ type: "TOGGLE_SIDEBAR" })}
             title={t("ui.sidebar.collapse")}
           >
             <PanelLeftClose size={15} strokeWidth={1.8} />
@@ -61,7 +59,7 @@ export function Sidebar() {
       {/* Templates */}
       <div className="px-2 border-t border-edge/6 pt-2 pb-1">
         <button
-          onClick={() => viewDispatch({ type: "OPEN_TEMPLATES" })}
+          onClick={() => viewState.dispatch({ type: "OPEN_TEMPLATES" })}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-left transition-all duration-150 ${
             view.kind === "templates"
               ? "bg-elevated text-accent"

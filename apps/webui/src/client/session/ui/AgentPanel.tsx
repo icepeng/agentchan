@@ -3,10 +3,6 @@ import { CornerUpLeft } from "lucide-react";
 import { Popover } from "@base-ui/react/popover";
 import { aggregateUsage } from "@/client/session/usage/aggregateUsage.js";
 import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
-import {
   useSessionData,
   useActiveSessionSelection,
   selectBranch,
@@ -20,6 +16,7 @@ import { MessageActionsProvider } from "./MessageActionsContext.js";
 import { useAgentStream } from "../useAgentStream.js";
 import { useSession } from "../useSession.js";
 import { useStreaming } from "../stream/useStreaming.js";
+import { useSessionRoot } from "../SessionRootContext.js";
 import { SessionTabs } from "./SessionTabs.js";
 import {
   AssistantTurnBubble,
@@ -108,7 +105,7 @@ function ModelInfoPopover({ entries }: { entries: SessionMessageEntry[] }) {
 
 export function AgentPanel() {
   const selection = useActiveSessionSelection();
-  const activeProjectSlug = selectActiveProjectSlug(useViewState());
+  const { slug: activeProjectSlug } = useSessionRoot();
   const state = useAgentStream(activeProjectSlug);
   const { data: sessionData } = useSessionData(
     activeProjectSlug,

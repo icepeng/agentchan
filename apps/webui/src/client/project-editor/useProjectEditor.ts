@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
+import { useView } from "@/client/shell/index.js";
 import {
   useEditorState,
   useEditorDispatch,
@@ -18,11 +15,11 @@ import type { EditorAPI } from "./editor.types.js";
 import { useLatestRef } from "@/client/platform/index.js";
 
 export function useProjectEditor(editorApiRef: RefObject<EditorAPI | null>) {
-  const viewState = useViewState();
+  const viewState = useView();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
 
-  const slug = selectActiveProjectSlug(viewState);
+  const slug = viewState.activeProjectSlug;
   const view = viewState.view;
   const isEdit = view.kind === "project" && view.mode === "edit";
 

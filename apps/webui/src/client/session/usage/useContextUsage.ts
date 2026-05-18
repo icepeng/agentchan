@@ -1,13 +1,10 @@
 import type { Message } from "@mariozechner/pi-ai";
 import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
-import {
   useSessionData,
   useActiveSessionSelection,
   selectBranch,
 } from "@/client/session/data/index.js";
+import { useSessionRoot } from "../SessionRootContext.js";
 
 /**
  * **Context usage** — single-entry token estimate of the next LLM call's
@@ -22,7 +19,7 @@ export interface ContextUsage {
 export const EMPTY_CONTEXT_USAGE: ContextUsage = { contextTokens: 0 };
 
 export function useContextUsage(): ContextUsage {
-  const activeProjectSlug = selectActiveProjectSlug(useViewState());
+  const { slug: activeProjectSlug } = useSessionRoot();
   const { openSessionId } = useActiveSessionSelection();
   const { data } = useSessionData(activeProjectSlug, openSessionId);
   if (!data) return EMPTY_CONTEXT_USAGE;

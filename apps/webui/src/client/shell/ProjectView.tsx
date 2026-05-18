@@ -1,11 +1,7 @@
 import { useState, useRef, Suspense, lazy } from "react";
 import { ChevronsLeft } from "lucide-react";
 import {
-  useViewState,
-  useViewDispatch,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
-import {
+  useAgentPanel,
   useSession,
   useSessionInputDispatch,
   type SessionInputIntent,
@@ -24,6 +20,7 @@ import {
 } from "@/client/session/ui/index.js";
 import { EditModeErrorFallback } from "@/client/project-editor/index.js";
 import { EditModeToggle, ResizeHandle } from "@/client/design-system/index.js";
+import { useView } from "./useView.js";
 
 const ProjectEditor = lazy(() =>
   import("@/client/project-editor/index.js").then((m) => ({
@@ -35,14 +32,9 @@ const DEFAULT_PANEL_WIDTH = 420;
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_RATIO = 0.6;
 
-interface ProjectPageProps {
-  agentPanelOpen: boolean;
-  onToggleAgentPanel: () => void;
-}
-
-export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageProps) {
-  const viewState = useViewState();
-  const viewDispatch = useViewDispatch();
+export function ProjectView() {
+  const viewState = useView();
+  const { agentPanelOpen, toggleAgentPanel } = useAgentPanel();
   const { activeSessionId } = useSession();
   const dispatchSessionInput = useSessionInputDispatch();
   const { resolved: userScheme } = useTheme();
@@ -53,8 +45,8 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
 
   // ProjectPage is rendered by AppShell only when view.kind is "project", so
   // narrowing here is safe.
-  if (viewState.view.kind !== "project") return null;
-  const activeProjectSlug = selectActiveProjectSlug(viewState);
+  if (viewState.view.kind !== "project" || !viewState.activeProjectSlug) return null;
+  const activeProjectSlug = viewState.activeProjectSlug;
   const isEdit = viewState.view.mode === "edit";
   const switchToChatLabel = t("editMode.switchToChat");
   const switchToEditLabel = t("editMode.switchToEdit");
@@ -150,11 +142,11 @@ export function ProjectPage({ agentPanelOpen, onToggleAgentPanel }: ProjectPageP
               isEdit={isEdit}
               switchToChatLabel={switchToChatLabel}
               switchToEditLabel={switchToEditLabel}
-              onToggle={() => viewDispatch({ type: "SET_VIEW_MODE", mode: isEdit ? "chat" : "edit" })}
+              onToggle={() => viewState.dispatch({ type: "SET_VIEW_MODE", mode: isEdit ? "chat" : "edit" })}
             />
             <div className="flex-1" />
             <button
-              onClick={onToggleAgentPanel}
+              onClick={toggleAgentPanel}
               className="p-2 text-fg-3 hover:text-accent hover:bg-accent/8 transition-all duration-200 cursor-pointer group"
               title={t("empty.openAgentPanel")}
             >

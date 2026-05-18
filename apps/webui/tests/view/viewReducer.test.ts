@@ -3,7 +3,7 @@ import {
   viewReducer,
   initialViewState,
   type ViewState,
-} from "@/client/entities/view/viewReducer.js";
+} from "@/client/shell/view/viewReducer.js";
 
 describe("viewReducer", () => {
   test("OPEN_PROJECT with no remembered session yields null session and chat mode", () => {
@@ -131,5 +131,15 @@ describe("viewReducer", () => {
       session: null,
       mode: "chat",
     });
+  });
+
+  test("chrome actions live with view state", () => {
+    let state = initialViewState();
+    state = viewReducer(state, { type: "TOGGLE_SIDEBAR" });
+    expect(state.sidebarOpen).toBe(false);
+    state = viewReducer(state, { type: "OPEN_PROJECT_README" });
+    expect(state.readmeOpen).toBe(true);
+    state = viewReducer(state, { type: "CLOSE_PROJECT_README" });
+    expect(state.readmeOpen).toBe(false);
   });
 });

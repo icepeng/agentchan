@@ -1,7 +1,4 @@
-import {
-  useViewState,
-  selectActiveSessionId,
-} from "@/client/entities/view/index.js";
+import { useSessionRoot } from "../SessionRootContext.js";
 import { useSessionSelectionState } from "./SessionSelectionContext.js";
 
 export interface ActiveSessionSelection {
@@ -16,10 +13,10 @@ export interface ActiveSessionSelection {
  * session-internal.
  */
 export function useActiveSessionSelection(): ActiveSessionSelection {
-  const view = useViewState();
+  const { sessionId } = useSessionRoot();
   const { replyToEntryId } = useSessionSelectionState();
   return {
-    openSessionId: selectActiveSessionId(view),
+    openSessionId: sessionId,
     replyToEntryId,
   };
 }

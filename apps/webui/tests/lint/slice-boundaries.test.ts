@@ -20,7 +20,7 @@ describe("slice boundary lint rule", () => {
   test("requires external slice imports to go through index", () => {
     expect(
       classifyClientImport(
-        "pages/ProjectPage",
+        "shell/ProjectView",
         "@/client/renderer-host/presentationMachine.js",
       ),
     ).toMatchObject({
@@ -33,7 +33,7 @@ describe("slice boundary lint rule", () => {
   test("allows external slice imports through index", () => {
     expect(
       classifyClientImport(
-        "pages/ProjectPage",
+        "shell/ProjectView",
         "@/client/project/index.js",
       ),
     ).toBeNull();
@@ -65,7 +65,7 @@ describe("slice boundary lint rule", () => {
 
   test("keeps existing transitional deep imports in the warning baseline", () => {
     const violation = classifyClientImport(
-      "pages/ProjectPage",
+      "shell/ProjectView",
       "@/client/session/ui/index.js",
     );
 
@@ -127,10 +127,13 @@ describe("slice boundary lint rule", () => {
     });
   });
 
-  test("allows the Phase 5 session read-only project list edge", () => {
+  test("blocks the former Phase 5 session read-only project list edge after inversion", () => {
     expect(
       classifyClientImport("session/stream/useStreaming", "@/client/project/index.js"),
-    ).toBeNull();
+    ).toMatchObject({
+      code: "disallowed-slice-dependency",
+      level: "baseline",
+    });
   });
 
   test("keeps Phase 5 project and renderer-host baseline clean", () => {
@@ -153,6 +156,35 @@ describe("slice boundary lint rule", () => {
     expect(
       classifyClientImport("session/ui/BottomInput", "@/client/provider/index.js"),
     ).toBeNull();
+  });
+
+  test("keeps app-settings as a composition-only settings container", () => {
+    expect(
+      classifyClientImport("app-settings/SettingsView", "@/client/provider/index.js", ["ApiKeysTab"]),
+    ).toBeNull();
+    expect(
+      classifyClientImport("app-settings/SettingsView", "@/client/theme/index.js", ["AppearanceTab"]),
+    ).toBeNull();
+    expect(
+      classifyClientImport("app-settings/SettingsView", "@/client/update/index.js", ["AboutSection"]),
+    ).toBeNull();
+    expect(
+      classifyClientImport("app-settings/SettingsView", "@/client/provider/index.js", ["useProviderMutations"]),
+    ).toMatchObject({
+      code: "app-settings-composition-only",
+      level: "baseline",
+    });
+  });
+
+  test("does not baseline shell root fallback deep imports", () => {
+    const violation = classifyClientImport("main", "@/client/shell/RootErrorFallback.js");
+
+    expect(violation).toMatchObject({
+      code: "deep-import",
+      level: "baseline",
+    });
+    expect(shouldReportSliceBoundaryBaseline(violation!)).toBe(false);
+    expect(shouldReportSliceBoundaryNew(violation!)).toBe(true);
   });
 
   test("extracts client-relative paths from repo filenames", () => {

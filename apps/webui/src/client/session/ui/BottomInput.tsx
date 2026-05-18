@@ -9,7 +9,6 @@ import {
 } from "@/client/platform/index.js";
 import { localStore } from "@/client/platform/index.js";
 import { resolveContextWindow, useActiveModel } from "@/client/provider/index.js";
-import { useUIState, useUIDispatch } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import {
   useSessionInputClear,
@@ -17,6 +16,7 @@ import {
 } from "../SessionInputContext.js";
 import { useStreaming } from "../stream/useStreaming.js";
 import { useSession } from "../useSession.js";
+import { useAgentPanel } from "../SessionRootContext.js";
 import { useSlashCommands } from "../commands/useSlashCommands.js";
 import { SlashCommandPopup } from "./SlashCommandPopup.js";
 import { formatCost, formatTokens } from "@/client/session/usage/pricing.utils.js";
@@ -31,8 +31,7 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
   const contextUsage = useContextUsage();
   const activeModel = useActiveModel();
   const { config } = activeModel;
-  const ui = useUIState();
-  const uiDispatch = useUIDispatch();
+  const { agentPanelOpen, toggleAgentPanel } = useAgentPanel();
   const { t } = useI18n();
   const { send, isStreaming } = useStreaming();
   const { create } = useSession();
@@ -131,9 +130,9 @@ export function BottomInput({ variant = "standalone" }: BottomInputProps) {
         )}
         <div className="relative flex items-end gap-2 bg-surface rounded-2xl border border-edge/8 input-glow transition-all duration-200">
           {/* Agent panel toggle (when collapsed, standalone only) */}
-          {variant === "standalone" && !ui.agentPanelOpen && (
+          {variant === "standalone" && !agentPanelOpen && (
             <button
-              onClick={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
+              onClick={toggleAgentPanel}
               className="m-1.5 p-2 rounded-lg text-fg-3 hover:text-accent hover:bg-accent/8 transition-all"
               title={t("empty.showAgentPanel")}
             >

@@ -23,10 +23,7 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { useI18n } from "@/client/platform/index.js";
-import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
+import { useView } from "@/client/shell/index.js";
 import { isImagePath, type EditorAPI } from "./editor.types.js";
 import { estimateTokens, formatTokens } from "@agentchan/estimate-tokens";
 import { useLatestRef } from "@/client/platform/index.js";
@@ -245,7 +242,7 @@ interface FileEditorProps {
 
 export function FileEditor({ path, baseline, dirty, onMarkDirty, onSave, editorRef }: FileEditorProps) {
   const { t } = useI18n();
-  const activeProjectSlug = selectActiveProjectSlug(useViewState());
+  const activeProjectSlug = useView().activeProjectSlug;
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onMarkDirtyRef = useLatestRef(onMarkDirty);

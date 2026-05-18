@@ -1,9 +1,6 @@
 import { useSyncExternalStore } from "react";
-import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
 import type { AgentState } from "@agentchan/creative-agent/browser";
+import { useSessionRoot } from "./SessionRootContext.js";
 import { useAgentStreamStore } from "./stream/AgentStreamStoreContext.js";
 
 const IDLE_AGENT_STATE: AgentState = {
@@ -13,7 +10,7 @@ const IDLE_AGENT_STATE: AgentState = {
 };
 
 export function useAgentStream(projectSlug?: string | null): AgentState {
-  const activeProjectSlug = selectActiveProjectSlug(useViewState());
+  const { slug: activeProjectSlug } = useSessionRoot();
   const slug = projectSlug ?? activeProjectSlug;
   const store = useAgentStreamStore();
   return useSyncExternalStore(

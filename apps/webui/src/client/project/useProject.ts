@@ -4,11 +4,7 @@ import {
   useProjectMutations,
 } from "./useProjects.js";
 import { closeProjectStream } from "@/client/session/index.js";
-import {
-  useViewState,
-  useViewDispatch,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
+import { useView } from "@/client/shell/index.js";
 import { json, qk } from "@/client/platform/index.js";
 import { localStore } from "@/client/platform/index.js";
 import type { AgentchanSessionInfo } from "@agentchan/creative-agent/browser";
@@ -39,8 +35,7 @@ function pickDefaultCreativeSessionId(
 }
 
 export function useProject() {
-  const view = useViewState();
-  const viewDispatch = useViewDispatch();
+  const view = useView();
   const { mutate } = useSWRConfig();
 
   const { data: projects = [] } = useProjects();
@@ -51,7 +46,7 @@ export function useProject() {
     duplicate: duplicateProjectMutation,
   } = useProjectMutations();
 
-  const activeProjectSlug = selectActiveProjectSlug(view);
+  const activeProjectSlug = view.activeProjectSlug;
 
   const fetchSessionsFor = async (slug: string): Promise<AgentchanSessionInfo[]> => {
     // Pass the fetch promise as the data argument so SWR's mutate awaits it
@@ -65,14 +60,14 @@ export function useProject() {
   };
 
   const openProject = (slug: string, session?: string | null) => {
-    viewDispatch({ type: "OPEN_PROJECT", slug, session });
+    view.dispatch({ type: "OPEN_PROJECT", slug, session });
   };
 
   const selectProject = async (slug: string) => {
     if (activeProjectSlug === slug) return;
 
     localStore.lastProject.write(slug);
-    const rememberedSessionId = view.sessionMemory.get(slug) ?? null;
+    const rememberedSessionId = view.getRememberedSession(slug);
 
     // Sessions list + remembered detail fetch in parallel. The detail fetch
     // is speculative (we don't yet know the remembered id is valid); if the
@@ -120,7 +115,7 @@ export function useProject() {
       const fallback = projects.find((p) => p.slug !== slug);
       if (fallback) {
         localStore.lastProject.write(fallback.slug);
-        const rememberedSessionId = view.sessionMemory.get(fallback.slug) ?? null;
+        const rememberedSessionId = view.getRememberedSession(fallback.slug);
         const sessions = await fetchSessionsFor(fallback.slug);
         openProject(fallback.slug, resolveSessionToOpen(sessions, rememberedSessionId));
       }
@@ -128,7 +123,7 @@ export function useProject() {
       // entity-state CLEAR (the presentation machine fades the layer out).
     }
     // Always drop the deleted slug's session memory.
-    viewDispatch({ type: "FORGET_PROJECT", slug });
+    view.dispatch({ type: "FORGET_PROJECT", slug });
   };
 
   const loadProjects = async () => {

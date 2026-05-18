@@ -1,7 +1,6 @@
 import { X } from "lucide-react";
 import { Dialog, IconButton, MarkdownBody, ScrollArea } from "@/client/design-system/index.js";
 import { useI18n } from "@/client/platform/index.js";
-import { useUIState, useUIDispatch } from "@/client/platform/index.js";
 import { useProject } from "./useProject.js";
 import { useProjectReadme } from "./useProjects.js";
 
@@ -9,23 +8,28 @@ import { useProjectReadme } from "./useProjects.js";
  * In-project README viewer invoked by the `/readme` slash command. Pure client
  * widget — no agent round-trip, no session noise.
  */
-export function ProjectReadmeModal() {
+export function ProjectReadmeModal({
+  open,
+  onClose,
+  activeProjectSlug,
+}: {
+  open: boolean;
+  onClose: () => void;
+  activeProjectSlug: string | null;
+}) {
   const { t } = useI18n();
-  const ui = useUIState();
-  const uiDispatch = useUIDispatch();
-  const { activeProjectSlug, projects } = useProject();
+  const { projects } = useProject();
 
   // Only fetch once the modal is open; otherwise every project switch would
   // eagerly pull a README the user may never view.
-  const slug = ui.readmeOpen ? activeProjectSlug : null;
+  const slug = open ? activeProjectSlug : null;
   const { data: doc, isLoading } = useProjectReadme(slug);
   const activeProject = projects.find((p) => p.slug === activeProjectSlug) ?? null;
 
-  const handleClose = () => uiDispatch({ type: "CLOSE_README" });
   const hasContent = doc && (doc.frontmatter.name || doc.body.trim());
 
   return (
-    <Dialog open={ui.readmeOpen} onOpenChange={(open) => { if (!open) handleClose(); }} size="lg">
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }} size="lg">
       <div className="flex items-center justify-between gap-3 px-6 py-3 border-b border-edge/6">
         <div className="flex items-baseline gap-3 min-w-0">
           <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-fg-4">
@@ -37,7 +41,7 @@ export function ProjectReadmeModal() {
             </span>
           )}
         </div>
-        <IconButton onClick={handleClose} title={t("readme.close")}>
+        <IconButton onClick={onClose} title={t("readme.close")}>
           <X size={14} strokeWidth={2} />
         </IconButton>
       </div>

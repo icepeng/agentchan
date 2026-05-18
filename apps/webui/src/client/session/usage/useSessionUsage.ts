@@ -1,12 +1,9 @@
 import {
-  useViewState,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
-import {
   useSessionData,
   useActiveSessionSelection,
   selectMessageEntries,
 } from "@/client/session/data/index.js";
+import { useSessionRoot } from "../SessionRootContext.js";
 import {
   aggregateUsage,
   EMPTY_AGGREGATED_USAGE,
@@ -20,7 +17,7 @@ import {
  * calls were already billed.
  */
 export function useSessionUsage(): AggregatedUsage {
-  const activeProjectSlug = selectActiveProjectSlug(useViewState());
+  const { slug: activeProjectSlug } = useSessionRoot();
   const { openSessionId } = useActiveSessionSelection();
   const { data } = useSessionData(activeProjectSlug, openSessionId);
   if (!data) return EMPTY_AGGREGATED_USAGE;

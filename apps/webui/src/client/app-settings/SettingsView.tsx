@@ -1,9 +1,5 @@
 import type { ReactNode } from "react";
 import { ArrowLeft, Globe } from "lucide-react";
-import {
-  useViewState,
-  useViewDispatch,
-} from "@/client/entities/view/index.js";
 import { useI18n, type LanguagePreference } from "@/client/platform/index.js";
 import {
   IconButton,
@@ -20,19 +16,17 @@ import { NotificationsSection } from "./NotificationsSection.js";
 type SettingsTab = "appearance" | "api-keys";
 
 export function SettingsView({
+  tab,
   canGoBack,
   onBack,
+  onTabChange,
 }: {
+  tab: SettingsTab;
   canGoBack: boolean;
   onBack: () => void;
+  onTabChange?: (tab: SettingsTab) => void;
 }) {
-  const view = useViewState().view;
-  const viewDispatch = useViewDispatch();
   const { t } = useI18n();
-
-  // SettingsView is rendered by AppShell only when view.kind === "settings".
-  if (view.kind !== "settings") return null;
-  const tab: SettingsTab = view.tab;
 
   const tabLabels: Record<SettingsTab, string> = {
     appearance: t("globalSettings.appearance"),
@@ -54,7 +48,7 @@ export function SettingsView({
             { key: "api-keys", label: tabLabels["api-keys"] },
           ]}
           active={tab}
-          onChange={(next) => viewDispatch({ type: "OPEN_SETTINGS", tab: next })}
+          onChange={(next) => onTabChange?.(next)}
           className="ml-4"
         />
       </div>

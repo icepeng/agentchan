@@ -4,28 +4,20 @@ import {
   useSessions,
   useActiveSessionSelection,
 } from "@/client/session/data/index.js";
-import {
-  useViewState,
-  useViewDispatch,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
-import { useUIDispatch } from "@/client/platform/index.js";
 import { useI18n } from "@/client/platform/index.js";
 import { useSession } from "../useSession.js";
 import { useStreaming } from "../stream/useStreaming.js";
+import { useSessionRoot } from "../SessionRootContext.js";
 import { buildSlashEntries, LOCAL_COMMAND_DEFS, type SlashEntry, type SkillSlashCommand } from "./commands.js";
 import { useCommandPalette } from "./useCommandPalette.js";
 
 export function useSlashCommands(text: string, setText: (s: string) => void) {
   const { update: updateConfig } = useProviderMutations();
   const selection = useActiveSessionSelection();
-  const viewState = useViewState();
-  const view = viewState.view;
-  const viewDispatch = useViewDispatch();
-  const activeProjectSlug = selectActiveProjectSlug(viewState);
+  const root = useSessionRoot();
+  const activeProjectSlug = root.slug;
   const { data: skills = [] } = useSkills(activeProjectSlug);
   const { data: sessions = [] } = useSessions(activeProjectSlug);
-  const uiDispatch = useUIDispatch();
   const { create, compact } = useSession();
   const { send } = useStreaming();
   const { t } = useI18n();
@@ -41,15 +33,10 @@ export function useSlashCommands(text: string, setText: (s: string) => void) {
         await compact();
         break;
       case "edit":
-        if (view.kind === "project") {
-          viewDispatch({
-            type: "SET_VIEW_MODE",
-            mode: view.mode === "edit" ? "chat" : "edit",
-          });
-        }
+        root.onToggleViewMode();
         break;
       case "readme":
-        uiDispatch({ type: "OPEN_README" });
+        root.onRequestProjectReadme();
         break;
       case "model": {
         await updateConfig({ model: arg });

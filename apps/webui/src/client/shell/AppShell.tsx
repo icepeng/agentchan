@@ -1,33 +1,32 @@
-import { Suspense, lazy, useEffect, type CSSProperties, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { Menu } from "lucide-react";
 import {
   ErrorBoundary,
+  localStore,
   markSeen,
   useI18n,
-  useUIDispatch,
-  useUIState,
 } from "@/client/platform/index.js";
-import {
-  useViewState,
-  useViewDispatch,
-  selectActiveProjectSlug,
-  type View,
-} from "@/client/entities/view/index.js";
+import { SessionProvider } from "@/client/session/index.js";
+import { ProjectEditorProvider } from "@/client/project-editor/index.js";
 import {
   useProjectTheme,
   resolveThemeVars,
 } from "@/client/renderer-host/index.js";
 import { useTheme } from "@/client/theme/index.js";
 import { Sidebar } from "./Sidebar.js";
-import { ProjectPage } from "@/client/pages/ProjectPage.js";
-import { AppSettingsPage } from "@/client/pages/AppSettingsPage.js";
+import { ProjectView } from "./ProjectView.js";
+import { SettingsView } from "@/client/app-settings/index.js";
 import { OnboardingWizard } from "@/client/onboarding/index.js";
 import {
   ProjectReadmeModal,
   useCreateProjectFromTemplate,
   useProject,
+  useProjects,
 } from "@/client/project/index.js";
 import { PageErrorFallback } from "./PageErrorFallback.js";
+import { useView } from "./useView.js";
+import { ViewProvider } from "./view/ViewContext.js";
+import type { View } from "./view/viewReducer.js";
 
 // Library page is lazy-loaded to keep it out of the main bundle.
 const LibraryPage = lazy(() =>
@@ -36,20 +35,18 @@ const LibraryPage = lazy(() =>
 
 function PageContent({
   view,
-  agentPanelOpen,
-  onToggleAgentPanel,
   settingsCanGoBack,
   onSettingsBack,
+  onSettingsTabChange,
   libraryCanGoBack,
   onLibraryBack,
   createFromTemplate,
   trustDialog,
 }: {
   view: View;
-  agentPanelOpen: boolean;
-  onToggleAgentPanel: () => void;
   settingsCanGoBack: boolean;
   onSettingsBack: () => void;
+  onSettingsTabChange: (tab: "appearance" | "api-keys") => void;
   libraryCanGoBack: boolean;
   onLibraryBack: () => void;
   createFromTemplate: (projectName: string, templateSlug: string) => Promise<unknown>;
@@ -66,17 +63,45 @@ function PageContent({
         />
       );
     case "settings":
-      return <AppSettingsPage canGoBack={settingsCanGoBack} onBack={onSettingsBack} />;
+      return (
+        <SettingsView
+          tab={view.tab}
+          canGoBack={settingsCanGoBack}
+          onBack={onSettingsBack}
+          onTabChange={onSettingsTabChange}
+        />
+      );
     case "project":
-      return <ProjectPage agentPanelOpen={agentPanelOpen} onToggleAgentPanel={onToggleAgentPanel} />;
+      return <ProjectView />;
   }
 }
 
 export function AppShell() {
-  const ui = useUIState();
-  const uiDispatch = useUIDispatch();
-  const viewState = useViewState();
-  const viewDispatch = useViewDispatch();
+  return (
+    <ViewProvider>
+      <AppShellWithView />
+    </ViewProvider>
+  );
+}
+
+function useLastProjectBootstrap(selectProject: (slug: string) => Promise<unknown>) {
+  const { data: projects } = useProjects();
+  const decidedRef = useRef(false);
+
+  useEffect(() => {
+    if (decidedRef.current || !projects) return;
+    decidedRef.current = true;
+
+    const lastSlug = localStore.lastProject.read();
+    const defaultProject = (lastSlug && projects.find((p) => p.slug === lastSlug)) ?? projects[0];
+    if (!defaultProject) return;
+
+    void selectProject(defaultProject.slug);
+  }, [projects, selectProject]);
+}
+
+function AppShellWithView() {
+  const viewState = useView();
   const projectTheme = useProjectTheme();
   const { resolved: userScheme } = useTheme();
   const { createProject, projects, selectProject } = useProject();
@@ -84,27 +109,32 @@ export function AppShell() {
   const { t } = useI18n();
 
   const view = viewState.view;
-  const activeProjectSlug = selectActiveProjectSlug(viewState);
-  const openTemplates = () => viewDispatch({ type: "OPEN_TEMPLATES" });
+  const activeProjectSlug = viewState.activeProjectSlug;
+  useLastProjectBootstrap(selectProject);
+  const openTemplates = () => viewState.dispatch({ type: "OPEN_TEMPLATES" });
   const settingsBackSlug = activeProjectSlug ?? projects[0]?.slug ?? null;
   const handleSettingsBack = () => {
     if (settingsBackSlug) void selectProject(settingsBackSlug);
   };
+  const toggleViewMode = useCallback(() => {
+    if (view.kind !== "project") return;
+    viewState.dispatch({
+      type: "SET_VIEW_MODE",
+      mode: view.mode === "edit" ? "chat" : "edit",
+    });
+  }, [view, viewState]);
 
   // Ctrl+E / Cmd+E to toggle edit mode (project view only).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "e" && view.kind === "project") {
         e.preventDefault();
-        viewDispatch({
-          type: "SET_VIEW_MODE",
-          mode: view.mode === "edit" ? "chat" : "edit",
-        });
+        toggleViewMode();
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [view, viewDispatch]);
+  }, [view, toggleViewMode]);
 
   // Clear tab title badge for the currently-viewed project.
   // Runs on: project switch, visibility change (user returns to tab).
@@ -151,9 +181,9 @@ export function AppShell() {
     >
       {/* Sidebar expand toggle — visible only when sidebar is collapsed */}
       <button
-        onClick={() => uiDispatch({ type: "TOGGLE_SIDEBAR" })}
+        onClick={() => viewState.dispatch({ type: "TOGGLE_SIDEBAR" })}
         className={`fixed top-3 left-3 z-50 p-2 rounded-lg bg-elevated border border-edge/6 hover:border-edge/12 transition-all duration-150 ${
-          ui.sidebarOpen ? "hidden" : "block"
+          viewState.sidebarOpen ? "hidden" : "block"
         }`}
         title={t("ui.sidebar.expand")}
         aria-label={t("ui.sidebar.expand")}
@@ -165,7 +195,7 @@ export function AppShell() {
           Sidebar itself owns w-72; this wrapper only animates the opening. */}
       <div
         className={`fixed inset-y-0 left-0 z-40 w-72 transform lg:relative lg:z-auto lg:flex-shrink-0 lg:overflow-hidden transition-[transform,width] duration-300 ease-out ${
-          ui.sidebarOpen
+          viewState.sidebarOpen
             ? "translate-x-0 lg:w-72"
             : "-translate-x-full lg:w-0"
         }`}
@@ -174,10 +204,10 @@ export function AppShell() {
       </div>
 
       {/* Mobile backdrop when sidebar is open */}
-      {ui.sidebarOpen && (
+      {viewState.sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-void/80 backdrop-blur-sm lg:hidden"
-          onClick={() => uiDispatch({ type: "TOGGLE_SIDEBAR" })}
+          onClick={() => viewState.dispatch({ type: "TOGGLE_SIDEBAR" })}
         />
       )}
 
@@ -191,17 +221,28 @@ export function AppShell() {
               console.error("[ErrorBoundary] PageContent", error, info.componentStack);
             }}
           >
-            <PageContent
-              view={view}
-              agentPanelOpen={ui.agentPanelOpen}
-              onToggleAgentPanel={() => uiDispatch({ type: "TOGGLE_AGENT_PANEL" })}
-              settingsCanGoBack={settingsBackSlug !== null}
-              onSettingsBack={handleSettingsBack}
-              libraryCanGoBack={settingsBackSlug !== null}
-              onLibraryBack={handleSettingsBack}
-              createFromTemplate={createFromTemplate}
-              trustDialog={trustDialog}
-            />
+            <SessionProvider
+              slug={viewState.activeProjectSlug}
+              sessionId={viewState.activeSessionId}
+              viewMode={view.kind === "project" ? view.mode : null}
+              onOpenSession={(sessionId) => viewState.dispatch({ type: "OPEN_SESSION", sessionId })}
+              onRequestProjectActivation={(slug) => { void selectProject(slug); }}
+              onRequestProjectReadme={() => viewState.dispatch({ type: "OPEN_PROJECT_README" })}
+              onToggleViewMode={toggleViewMode}
+            >
+              <ProjectEditorProvider>
+                <PageContent
+                  view={view}
+                  settingsCanGoBack={settingsBackSlug !== null}
+                  onSettingsBack={handleSettingsBack}
+                  onSettingsTabChange={(tab) => viewState.dispatch({ type: "OPEN_SETTINGS", tab })}
+                  libraryCanGoBack={settingsBackSlug !== null}
+                  onLibraryBack={handleSettingsBack}
+                  createFromTemplate={createFromTemplate}
+                  trustDialog={trustDialog}
+                />
+              </ProjectEditorProvider>
+            </SessionProvider>
           </ErrorBoundary>
         </Suspense>
       </div>
@@ -210,7 +251,11 @@ export function AppShell() {
         createProject={createProject}
         openTemplates={openTemplates}
       />
-      <ProjectReadmeModal />
+      <ProjectReadmeModal
+        open={viewState.readmeOpen}
+        onClose={() => viewState.dispatch({ type: "CLOSE_PROJECT_README" })}
+        activeProjectSlug={viewState.activeProjectSlug}
+      />
     </div>
   );
 }

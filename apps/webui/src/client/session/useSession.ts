@@ -9,21 +9,16 @@ import {
   type SessionData,
   type SessionMode,
 } from "@/client/session/data/index.js";
-import {
-  useViewState,
-  useViewDispatch,
-  selectActiveProjectSlug,
-} from "@/client/entities/view/index.js";
 import { qk } from "@/client/platform/index.js";
 import { useAgentStreamDispatch } from "./stream/AgentStreamStoreContext.js";
+import { useSessionRoot } from "./SessionRootContext.js";
 
 export function useSession() {
-  const view = useViewState();
-  const viewDispatch = useViewDispatch();
+  const root = useSessionRoot();
   const selection = useActiveSessionSelection();
   const sessionSelectionDispatch = useSessionSelectionDispatch();
   const agentDispatch = useAgentStreamDispatch();
-  const slug = selectActiveProjectSlug(view);
+  const slug = root.slug;
   const mutations = useSessionMutations(slug);
   const { mutate } = useSWRConfig();
   const { data: sessionData } = useSessionData(slug, selection.openSessionId);
@@ -31,13 +26,13 @@ export function useSession() {
   const create = useCallback(async (mode?: SessionMode) => {
     if (!slug) return;
     const info = await mutations.create(mode);
-    viewDispatch({ type: "OPEN_SESSION", sessionId: info.id });
+    root.onOpenSession(info.id);
     return info;
-  }, [slug, mutations, viewDispatch]);
+  }, [slug, mutations, root]);
 
   const load = (id: string) => {
     if (!slug) return;
-    viewDispatch({ type: "OPEN_SESSION", sessionId: id });
+    root.onOpenSession(id);
   };
 
   const remove = async (id: string) => {
@@ -45,7 +40,7 @@ export function useSession() {
     const sessions = await mutations.remove(id);
     if (selection.openSessionId === id) {
       const next = pickDefaultCreativeSessionId(sessions);
-      viewDispatch({ type: "OPEN_SESSION", sessionId: next });
+      root.onOpenSession(next);
     }
   };
 

@@ -17,17 +17,23 @@ const FUTURE_SLICE_LAYERS = new Map([
 ]);
 
 const FUTURE_SLICE_DAG = new Map([
-  ["shell", ["project", "library", "project-editor", "provider", "onboarding", "theme", "update", "app-settings"]],
-  ["project", ["session", "library", "project-editor"]],
-  ["project-editor", ["session"]],
+  ["shell", ["project", "library", "project-editor", "renderer-host", "session", "provider", "onboarding", "theme", "update", "app-settings"]],
+  ["project", ["shell", "session", "library", "project-editor"]],
+  ["project-editor", ["shell", "session"]],
   ["renderer-host", ["session"]],
   ["onboarding", ["provider", "library"]],
   ["app-settings", ["provider", "theme", "update", "onboarding"]],
-  ["session", ["provider", "project"]],
+  ["session", ["provider"]],
 ]);
 
 const BASELINE_VIOLATIONS = new Set([
-  "deep-import|pages/ProjectPage|session/ui/index|@/client/session/ui/index.js",
+  "deep-import|shell/ProjectView|session/ui/index|@/client/session/ui/index.js",
+]);
+
+const APP_SETTINGS_COMPOSITION_IMPORTS = new Map([
+  ["provider", new Set(["ApiKeysTab"])],
+  ["theme", new Set(["AppearanceTab"])],
+  ["update", new Set(["AboutSection"])],
 ]);
 
 const noDirectLocalStorage = {
@@ -103,12 +109,12 @@ function createSliceBoundaryRule({ description, include }) {
         return {};
       }
 
-      function checkImport(node, rawSpecifier) {
+      function checkImport(node, rawSpecifier, importedNames = []) {
         if (typeof rawSpecifier !== "string") {
           return;
         }
 
-        const violation = classifyClientImport(sourcePath, rawSpecifier);
+        const violation = classifyClientImport(sourcePath, rawSpecifier, importedNames);
         if (violation === null || !include(violation)) {
           return;
         }
@@ -128,7 +134,7 @@ function createSliceBoundaryRule({ description, include }) {
           checkImport(node.source, node.source?.value);
         },
         ImportDeclaration(node) {
-          checkImport(node.source, node.source?.value);
+          checkImport(node.source, node.source?.value, importedNamesFromSpecifiers(node.specifiers));
         },
         ImportExpression(node) {
           checkImport(node.source, node.source?.value);
@@ -138,7 +144,7 @@ function createSliceBoundaryRule({ description, include }) {
   };
 }
 
-export function classifyClientImport(sourcePath, specifier) {
+export function classifyClientImport(sourcePath, specifier, importedNames = []) {
   const normalizedSource = normalizeClientPath(sourcePath);
   const targetPath = resolveClientImport(normalizedSource, specifier);
 
@@ -205,6 +211,19 @@ export function classifyClientImport(sourcePath, specifier) {
     return dagViolation;
   }
 
+  const appSettingsViolation = checkAppSettingsCompositionOnly({
+    sourceSlice,
+    targetSlice,
+    sourcePath: normalizedSource,
+    targetPath,
+    specifier,
+    importedNames,
+  });
+
+  if (appSettingsViolation !== null) {
+    return appSettingsViolation;
+  }
+
   if (
     (sourceSlice.layer === "entity" && targetSlice.layer === "entity") ||
     (sourceSlice.layer === "feature" && targetSlice.layer === "feature")
@@ -220,6 +239,42 @@ export function classifyClientImport(sourcePath, specifier) {
   }
 
   return null;
+}
+
+function checkAppSettingsCompositionOnly({
+  sourceSlice,
+  targetSlice,
+  sourcePath,
+  targetPath,
+  specifier,
+  importedNames,
+}) {
+  if (sourceSlice?.id !== "app-settings") return null;
+  const allowed = APP_SETTINGS_COMPOSITION_IMPORTS.get(targetSlice.id);
+  if (!allowed) return null;
+  if (importedNames.length > 0 && importedNames.every((name) => allowed.has(name))) {
+    return null;
+  }
+
+  return buildViolation({
+    code: "app-settings-composition-only",
+    level: "baseline",
+    sourcePath,
+    targetPath,
+    specifier,
+    message: `app-settings may compose '${targetSlice.name}' settings components only; import one of ${Array.from(allowed).join(", ")} from the slice index.`,
+  });
+}
+
+function importedNamesFromSpecifiers(specifiers) {
+  return specifiers.map((specifier) => {
+    if (specifier.type === "ImportSpecifier") {
+      return specifier.imported?.name ?? specifier.imported?.value ?? "";
+    }
+    if (specifier.type === "ImportDefaultSpecifier") return "default";
+    if (specifier.type === "ImportNamespaceSpecifier") return "*";
+    return "";
+  }).filter(Boolean);
 }
 
 export function getClientRelativePath(filename) {

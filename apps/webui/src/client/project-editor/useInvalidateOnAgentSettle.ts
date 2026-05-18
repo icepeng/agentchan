@@ -1,9 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSWRConfig } from "swr";
-import {
-  selectActiveProjectSlug,
-  useViewState,
-} from "@/client/entities/view/index.js";
+import { useView } from "@/client/shell/index.js";
 import {
   useEditorDispatch,
   useEditorState,
@@ -18,12 +15,12 @@ interface LastSeenSettle {
 }
 
 export function useInvalidateOnAgentSettle(): void {
-  const viewState = useViewState();
+  const viewState = useView();
   const editor = useEditorState();
   const editorDispatch = useEditorDispatch();
   const { mutate } = useSWRConfig();
 
-  const slug = selectActiveProjectSlug(viewState);
+  const slug = viewState.activeProjectSlug;
   const view = viewState.view;
   const isEdit = view.kind === "project" && view.mode === "edit";
   const settleCount = useStreamSettleCount(isEdit ? slug : null);

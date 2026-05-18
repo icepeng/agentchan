@@ -17,8 +17,7 @@ export { useLatestRef } from "@/client/shared/useLatestRef.js";
 export { SwrRoot } from "./swr.js";
 export { ErrorBoundary } from "./ErrorBoundary.js";
 export type { FallbackProps } from "./ErrorBoundary.js";
-export { UIProvider, useUIState, useUIDispatch } from "./UIContext.js";
-export type { UIState, UIAction } from "./UIContext.js";
+export { RootErrorFallback } from "./RootErrorFallback.js";
 export { I18nProvider, useI18n } from "./i18n/index.js";
 export type {
   LanguagePreference,
