@@ -13,7 +13,7 @@ export { qk, matchesSlug } from "./queryKeys.js";
 export type { QueryKey } from "./queryKeys.js";
 export { localStore } from "./storage.js";
 export { useClipboard } from "./useClipboard.js";
-export { useLatestRef } from "@/client/shared/useLatestRef.js";
+export { useLatestRef } from "./useLatestRef.js";
 export { SwrRoot } from "./swr.js";
 export { ErrorBoundary } from "./ErrorBoundary.js";
 export type { FallbackProps } from "./ErrorBoundary.js";

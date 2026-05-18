@@ -4,6 +4,9 @@ import {
   useAgentPanel,
   useSession,
   useSessionInputDispatch,
+  AgentPanel,
+  AgentPanelErrorFallback,
+  BottomInput,
   type SessionInputIntent,
 } from "@/client/session/index.js";
 import { ErrorBoundary, useI18n } from "@/client/platform/index.js";
@@ -13,11 +16,6 @@ import {
   type RendererAction,
 } from "@/client/renderer-host/index.js";
 import { useTheme } from "@/client/theme/index.js";
-import {
-  AgentPanel,
-  AgentPanelErrorFallback,
-  BottomInput,
-} from "@/client/session/ui/index.js";
 import { EditModeErrorFallback } from "@/client/project-editor/index.js";
 import { EditModeToggle, ResizeHandle } from "@/client/design-system/index.js";
 import { useView } from "./useView.js";

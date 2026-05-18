@@ -26,10 +26,6 @@ const FUTURE_SLICE_DAG = new Map([
   ["session", ["provider"]],
 ]);
 
-const BASELINE_VIOLATIONS = new Set([
-  "deep-import|shell/ProjectView|session/ui/index|@/client/session/ui/index.js",
-]);
-
 const APP_SETTINGS_COMPOSITION_IMPORTS = new Map([
   ["provider", new Set(["ApiKeysTab"])],
   ["theme", new Set(["AppearanceTab"])],
@@ -72,7 +68,7 @@ const noDirectLocalStorage = {
 };
 
 const sliceBoundaryBaseline = createSliceBoundaryRule({
-  description: "report existing slice boundary violations as warnings",
+  description: "legacy baseline rule disabled after Phase 9",
   include: shouldReportSliceBoundaryBaseline,
 });
 
@@ -82,14 +78,11 @@ const sliceBoundaryNew = createSliceBoundaryRule({
 });
 
 export function shouldReportSliceBoundaryBaseline(violation) {
-  return violation.level !== "error" && BASELINE_VIOLATIONS.has(violation.key);
+  return false;
 }
 
 export function shouldReportSliceBoundaryNew(violation) {
-  if (violation.level === "error") {
-    return true;
-  }
-  return !BASELINE_VIOLATIONS.has(violation.key);
+  return violation.level === "error";
 }
 
 function createSliceBoundaryRule({ description, include }) {
@@ -152,6 +145,17 @@ export function classifyClientImport(sourcePath, specifier, importedNames = []) 
     return null;
   }
 
+  if (targetPath.split("/")[0] === "shared") {
+    return buildViolation({
+      code: "legacy-shared-import",
+      level: "error",
+      sourcePath: normalizedSource,
+      targetPath,
+      specifier,
+      message: "Import platform utilities through 'platform/index.js' instead of the legacy 'shared' root.",
+    });
+  }
+
   const sourceSlice = getSlice(normalizedSource);
   const targetSlice = getSlice(targetPath);
 
@@ -185,13 +189,24 @@ export function classifyClientImport(sourcePath, specifier, importedNames = []) 
     });
   }
 
+  if (sourceSlice.layer === "feature" && targetSlice.layer === "entity") {
+    return buildViolation({
+      code: "feature-to-entity",
+      level: "error",
+      sourcePath: normalizedSource,
+      targetPath,
+      specifier,
+      message: `Feature slice cannot import entity slice '${targetSlice.name}'. Migrate both sides behind the PRD #192 vertical slice surface.`,
+    });
+  }
+
   if (
     (sourceSlice.layer === "design-system" || sourceSlice.layer === "platform") &&
     isDomainSlice(targetSlice)
   ) {
     return buildViolation({
       code: `${sourceSlice.layer}-to-slice`,
-      level: "baseline",
+      level: "error",
       sourcePath: normalizedSource,
       targetPath,
       specifier,
@@ -230,7 +245,7 @@ export function classifyClientImport(sourcePath, specifier, importedNames = []) 
   ) {
     return buildViolation({
       code: `${sourceSlice.layer}-cross-import`,
-      level: "warn",
+      level: "error",
       sourcePath: normalizedSource,
       targetPath,
       specifier,
@@ -258,7 +273,7 @@ function checkAppSettingsCompositionOnly({
 
   return buildViolation({
     code: "app-settings-composition-only",
-    level: "baseline",
+    level: "error",
     sourcePath,
     targetPath,
     specifier,
@@ -297,7 +312,7 @@ function checkDeepImport({ sourcePath, targetPath, targetSlice, specifier }) {
 
   return buildViolation({
     code: "deep-import",
-    level: "baseline",
+    level: "error",
     sourcePath,
     targetPath,
     specifier,
@@ -317,7 +332,7 @@ function checkFutureSliceDag({ sourceSlice, targetSlice, sourcePath, targetPath,
 
   return buildViolation({
     code: "disallowed-slice-dependency",
-    level: "baseline",
+    level: "error",
     sourcePath,
     targetPath,
     specifier,

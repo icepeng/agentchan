@@ -50,8 +50,11 @@ function SessionInputProbe() {
 }
 
 describe("session slice public surface", () => {
-  test("exports only the public session runtime APIs", () => {
+  test("exports only the public session runtime and shell-composed UI APIs", () => {
     expect(Object.keys(sessionSurface).sort()).toEqual([
+      "AgentPanel",
+      "AgentPanelErrorFallback",
+      "BottomInput",
       "SessionProvider",
       "closeProjectStream",
       "useAgentEventSubscription",

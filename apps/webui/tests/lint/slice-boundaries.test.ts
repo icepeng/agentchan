@@ -17,7 +17,7 @@ describe("slice boundary lint rule", () => {
     ).toBeNull();
   });
 
-  test("requires external slice imports to go through index", () => {
+  test("requires external slice imports to go through index as errors", () => {
     expect(
       classifyClientImport(
         "shell/ProjectView",
@@ -25,7 +25,7 @@ describe("slice boundary lint rule", () => {
       ),
     ).toMatchObject({
       code: "deep-import",
-      level: "baseline",
+      level: "error",
       targetPath: "renderer-host/presentationMachine",
     });
   });
@@ -37,6 +37,18 @@ describe("slice boundary lint rule", () => {
         "@/client/project/index.js",
       ),
     ).toBeNull();
+  });
+
+  test("blocks legacy shared root imports", () => {
+    expect(
+      classifyClientImport(
+        "session/useAgentEventSubscription",
+        "@/client/shared/useLatestRef.js",
+      ),
+    ).toMatchObject({
+      code: "legacy-shared-import",
+      level: "error",
+    });
   });
 
   test("treats entity to feature imports as immediate errors", () => {
@@ -51,7 +63,19 @@ describe("slice boundary lint rule", () => {
     });
   });
 
-  test("warns on transitional entity cross-imports", () => {
+  test("treats feature to entity imports as immediate errors", () => {
+    expect(
+      classifyClientImport(
+        "features/project/useProject",
+        "@/client/entities/project/index.js",
+      ),
+    ).toMatchObject({
+      code: "feature-to-entity",
+      level: "error",
+    });
+  });
+
+  test("treats transitional entity cross-imports as errors", () => {
     expect(
       classifyClientImport(
         "entities/view/ViewContext",
@@ -59,11 +83,11 @@ describe("slice boundary lint rule", () => {
       ),
     ).toMatchObject({
       code: "entity-cross-import",
-      level: "warn",
+      level: "error",
     });
   });
 
-  test("keeps existing transitional deep imports in the warning baseline", () => {
+  test("reports former baseline deep imports as errors", () => {
     const violation = classifyClientImport(
       "shell/ProjectView",
       "@/client/session/ui/index.js",
@@ -71,13 +95,13 @@ describe("slice boundary lint rule", () => {
 
     expect(violation).toMatchObject({
       code: "deep-import",
-      level: "baseline",
+      level: "error",
     });
-    expect(shouldReportSliceBoundaryBaseline(violation!)).toBe(true);
-    expect(shouldReportSliceBoundaryNew(violation!)).toBe(false);
+    expect(shouldReportSliceBoundaryBaseline(violation!)).toBe(false);
+    expect(shouldReportSliceBoundaryNew(violation!)).toBe(true);
   });
 
-  test("blocks new transitional cross-imports outside the warning baseline", () => {
+  test("blocks transitional cross-imports as errors", () => {
     const violation = classifyClientImport(
       "features/new-feature/useNewFeature",
       "@/client/features/project/index.js",
@@ -85,7 +109,7 @@ describe("slice boundary lint rule", () => {
 
     expect(violation).toMatchObject({
       code: "feature-cross-import",
-      level: "warn",
+      level: "error",
     });
     expect(shouldReportSliceBoundaryBaseline(violation!)).toBe(false);
     expect(shouldReportSliceBoundaryNew(violation!)).toBe(true);
@@ -96,7 +120,7 @@ describe("slice boundary lint rule", () => {
       classifyClientImport("provider/useProvider", "@/client/session/index.js"),
     ).toMatchObject({
       code: "disallowed-slice-dependency",
-      level: "baseline",
+      level: "error",
     });
   });
 
@@ -111,7 +135,7 @@ describe("slice boundary lint rule", () => {
       classifyClientImport("library/LibraryPage", "@/client/project/index.js"),
     ).toMatchObject({
       code: "disallowed-slice-dependency",
-      level: "baseline",
+      level: "error",
     });
   });
 
@@ -123,7 +147,7 @@ describe("slice boundary lint rule", () => {
       classifyClientImport("renderer-host/RenderedView", "@/client/theme/index.js"),
     ).toMatchObject({
       code: "disallowed-slice-dependency",
-      level: "baseline",
+      level: "error",
     });
   });
 
@@ -132,11 +156,11 @@ describe("slice boundary lint rule", () => {
       classifyClientImport("session/stream/useStreaming", "@/client/project/index.js"),
     ).toMatchObject({
       code: "disallowed-slice-dependency",
-      level: "baseline",
+      level: "error",
     });
   });
 
-  test("keeps Phase 5 project and renderer-host baseline clean", () => {
+  test("does not put Phase 5 project and renderer-host imports in a baseline", () => {
     expect(
       shouldReportSliceBoundaryBaseline(
         classifyClientImport("project/useProject", "@/client/session/data/index.js")!,
@@ -172,7 +196,7 @@ describe("slice boundary lint rule", () => {
       classifyClientImport("app-settings/SettingsView", "@/client/provider/index.js", ["useProviderMutations"]),
     ).toMatchObject({
       code: "app-settings-composition-only",
-      level: "baseline",
+      level: "error",
     });
   });
 
@@ -181,7 +205,7 @@ describe("slice boundary lint rule", () => {
 
     expect(violation).toMatchObject({
       code: "deep-import",
-      level: "baseline",
+      level: "error",
     });
     expect(shouldReportSliceBoundaryBaseline(violation!)).toBe(false);
     expect(shouldReportSliceBoundaryNew(violation!)).toBe(true);

@@ -32,6 +32,7 @@ describe("client infra slices", () => {
 
     expect(await exists(designSystemIndex)).toBe(true);
     expect(await exists(platformIndex)).toBe(true);
+    expect(await exists(join(clientRoot, "shared"))).toBe(false);
     expect(await exists(join(clientRoot, "shared/blockMarkdown.tsx"))).toBe(false);
 
     const designSystemBarrel = await readFile(designSystemIndex, "utf8");
