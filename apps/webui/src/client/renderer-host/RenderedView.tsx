@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { useAgentStream } from "@/client/session/index.js";
+import { useAgentStream } from "@/client/creative-agent/index.js";
 import {
   useRendererViewState,
   useRendererViewDispatch,

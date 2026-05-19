@@ -42,7 +42,7 @@ describe("slice boundary lint rule", () => {
   test("blocks legacy shared root imports", () => {
     expect(
       classifyClientImport(
-        "session/useAgentEventSubscription",
+        "creative-agent/useAgentEventSubscription",
         "@/client/shared/useLatestRef.js",
       ),
     ).toMatchObject({
@@ -90,7 +90,7 @@ describe("slice boundary lint rule", () => {
   test("reports former baseline deep imports as errors", () => {
     const violation = classifyClientImport(
       "shell/ProjectView",
-      "@/client/session/ui/index.js",
+      "@/client/creative-agent/ui/index.js",
     );
 
     expect(violation).toMatchObject({
@@ -117,7 +117,7 @@ describe("slice boundary lint rule", () => {
 
   test("enforces the target slice DAG", () => {
     expect(
-      classifyClientImport("provider/useProvider", "@/client/session/index.js"),
+      classifyClientImport("provider/useProvider", "@/client/creative-agent/index.js"),
     ).toMatchObject({
       code: "disallowed-slice-dependency",
       level: "error",
@@ -139,9 +139,9 @@ describe("slice boundary lint rule", () => {
     });
   });
 
-  test("allows the Phase 5 renderer-host to session input seam through public index", () => {
+  test("allows the renderer-host to creative-agent input seam through public index", () => {
     expect(
-      classifyClientImport("renderer-host/RenderedView", "@/client/session/index.js"),
+      classifyClientImport("renderer-host/RenderedView", "@/client/creative-agent/index.js"),
     ).toBeNull();
     expect(
       classifyClientImport("renderer-host/RenderedView", "@/client/theme/index.js"),
@@ -151,9 +151,9 @@ describe("slice boundary lint rule", () => {
     });
   });
 
-  test("blocks the former Phase 5 session read-only project list edge after inversion", () => {
+  test("blocks the former creative-agent read-only project list edge after inversion", () => {
     expect(
-      classifyClientImport("session/stream/useStreaming", "@/client/project/index.js"),
+      classifyClientImport("creative-agent/stream/useStreaming", "@/client/project/index.js"),
     ).toMatchObject({
       code: "disallowed-slice-dependency",
       level: "error",
@@ -163,7 +163,7 @@ describe("slice boundary lint rule", () => {
   test("does not put Phase 5 project and renderer-host imports in a baseline", () => {
     expect(
       shouldReportSliceBoundaryBaseline(
-        classifyClientImport("project/useProject", "@/client/session/data/index.js")!,
+        classifyClientImport("project/useProject", "@/client/creative-agent/session/index.js")!,
       ),
     ).toBe(false);
     expect(
@@ -178,7 +178,7 @@ describe("slice boundary lint rule", () => {
       classifyClientImport("shell/Sidebar", "@/client/provider/index.js"),
     ).toBeNull();
     expect(
-      classifyClientImport("session/ui/BottomInput", "@/client/provider/index.js"),
+      classifyClientImport("creative-agent/ui/BottomInput", "@/client/provider/index.js"),
     ).toBeNull();
   });
 

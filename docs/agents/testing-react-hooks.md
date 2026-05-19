@@ -18,7 +18,7 @@ import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import "../setup/happydom.js";
 import "../setup/testing-library.js";
-import { SessionProvider, useAgentStream } from "@/client/session/index.js";
+import { SessionProvider, useAgentStream } from "@/client/creative-agent/index.js";
 
 function Wrapper({ children }: { children: ReactNode }) {
   return <SessionProvider>{children}</SessionProvider>;

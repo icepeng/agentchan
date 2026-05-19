@@ -11,7 +11,7 @@ import {
   useAgentEventSubscription,
   useAgentStream,
   type AgentState,
-} from "@/client/session/index.js";
+} from "@/client/creative-agent/index.js";
 import { validateTheme } from "./projectTheme.js";
 import type {
   RendererActions,

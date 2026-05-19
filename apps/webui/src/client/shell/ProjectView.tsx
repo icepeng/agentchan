@@ -8,7 +8,7 @@ import {
   AgentPanelErrorFallback,
   BottomInput,
   type SessionInputIntent,
-} from "@/client/session/index.js";
+} from "@/client/creative-agent/index.js";
 import { ErrorBoundary, useI18n } from "@/client/platform/index.js";
 import { ProjectSurfaceErrorFallback } from "@/client/project/index.js";
 import {

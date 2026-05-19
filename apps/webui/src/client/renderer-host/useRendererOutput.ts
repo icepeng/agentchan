@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { useAgentStream } from "@/client/session/index.js";
+import { useAgentStream } from "@/client/creative-agent/index.js";
 import { json } from "@/client/platform/index.js";
 import { useRendererViewDispatch } from "./RendererViewContext.js";
 import type { RendererSnapshot } from "@agentchan/renderer/host";

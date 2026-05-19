@@ -41,14 +41,14 @@ const { ProjectEditorProvider } = await import("@/client/project-editor/index.js
 const { useEditorDispatch } = await import(
   "@/client/project-editor/EditorContext.js"
 );
-const { SessionProvider } = await import("@/client/session/index.js");
+const { SessionProvider } = await import("@/client/creative-agent/index.js");
 const { useAgentStreamDispatch } = await import(
-  "@/client/session/stream/AgentStreamStoreContext.js"
+  "@/client/creative-agent/stream/AgentStreamStoreContext.js"
 );
 const { useInvalidateOnAgentSettle } = await import(
   "@/client/project-editor/useInvalidateOnAgentSettle.js"
 );
-import type { AgentStreamAction } from "@/client/session/stream/agentStreamStore.js";
+import type { AgentStreamAction } from "@/client/creative-agent/stream/agentStreamStore.js";
 import type { EditorAction } from "@/client/project-editor/editor.types.js";
 import type { ViewAction } from "@/client/shell/index.js";
 

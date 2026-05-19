@@ -3,7 +3,7 @@ export const translations = {
   "sidebar.templates": "Templates",
   "sidebar.projects": "Projects",
   "sidebar.projectSettings": "Project settings",
-  "sidebar.streamingIndicator": "Streaming…",
+  "sidebar.agentRunIndicator": "Agent run in progress",
 
   // Provider / Model
   "provider.label": "Provider",

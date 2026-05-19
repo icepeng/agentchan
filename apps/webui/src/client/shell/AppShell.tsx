@@ -6,7 +6,7 @@ import {
   markSeen,
   useI18n,
 } from "@/client/platform/index.js";
-import { SessionProvider } from "@/client/session/index.js";
+import { SessionProvider } from "@/client/creative-agent/index.js";
 import { ProjectEditorProvider } from "@/client/project-editor/index.js";
 import {
   useProjectTheme,

@@ -3,7 +3,7 @@ import {
   useProjects,
   useProjectMutations,
 } from "./useProjects.js";
-import { closeProjectStream } from "@/client/session/index.js";
+import { cancelAgentRun } from "@/client/creative-agent/index.js";
 import { useView } from "@/client/shell/index.js";
 import { json, qk } from "@/client/platform/index.js";
 import { localStore } from "@/client/platform/index.js";
@@ -105,9 +105,9 @@ export function useProject() {
   };
 
   const deleteProject = async (slug: string) => {
-    // Abort any in-flight stream so pi-agent-core cancels the LLM request and
-    // settle the stream state before the project disappears from the UI.
-    await closeProjectStream(slug);
+    // Abort any in-flight Agent run so pi-agent-core cancels the LLM request and
+    // settle the Agent run state before the project disappears from the UI.
+    await cancelAgentRun(slug);
 
     await deleteProjectMutation(slug);
 

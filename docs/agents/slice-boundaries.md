@@ -11,7 +11,7 @@
 | `shell` | Host chrome, project/settings/library 화면 합성 |
 | `library` | Library, Template, Trusted template |
 | `project` | Project lifecycle, project tabs, project settings |
-| `session` | Session, Branch, Compaction, Creative agent 실행, 채팅 surface |
+| `creative-agent` | Session, Branch, Compaction, Creative agent 실행, 채팅 surface |
 | `project-editor` | Project editor, file tree, file IO |
 | `renderer-host` | Host 측 Renderer iframe seam |
 | `provider` | Provider, API key, OAuth, Active model |
@@ -35,13 +35,13 @@
 허용되는 slice 간 import는 다음뿐이다.
 
 ```text
-shell -> project, library, project-editor, renderer-host, session, provider, onboarding, theme, update, app-settings
-project -> shell, session, library, project-editor
-project-editor -> shell, session
-renderer-host -> session
+shell -> project, library, project-editor, renderer-host, creative-agent, provider, onboarding, theme, update, app-settings
+project -> shell, creative-agent, library, project-editor
+project-editor -> shell, creative-agent
+renderer-host -> creative-agent
 onboarding -> provider, library
 app-settings -> provider, theme, update, onboarding
-session -> provider
+creative-agent -> provider
 
 모든 슬라이스 -> design-system, platform
 design-system -> 없음
@@ -52,13 +52,13 @@ platform -> 없음
 
 현재 허용되는 비자명 cross-slice seam은 다음이다.
 
-- `project -> session.closeProjectStream`
-- `project-editor -> session.useStreamSettleCount`
-- `renderer-host -> session.useAgentStream`
-- `renderer-host -> session.useAgentEventSubscription`
-- `renderer-host -> session.useSessionInputDispatch`
+- `project -> creative-agent.cancelAgentRun`
+- `project-editor -> creative-agent.useAgentRunSettleCount`
+- `renderer-host -> creative-agent.useAgentStream`
+- `renderer-host -> creative-agent.useAgentEventSubscription`
+- `renderer-host -> creative-agent.useSessionInputDispatch`
 
-Phase 8 기준으로 `session -> project.useProjects` read-only edge는 제거되었다. 알림 click의 Project 활성화는 `SessionProvider`가 주입받은 callback을 통해 shell로 되돌린다.
+Phase 8 기준으로 `creative-agent -> project.useProjects` read-only edge는 제거되었다. 알림 click의 Project 활성화는 `SessionProvider`가 주입받은 callback을 통해 shell로 되돌린다.
 
 `app-settings/`는 settings page chrome만 소유한다. `provider/`, `theme/`, `update/`에서 settings tab/section component를 합성할 수 있지만, 해당 slice의 내부 hook이나 mutation API를 직접 사용하지 않는다. 허용된 합성 surface는 `ApiKeysTab`, `AppearanceTab`, `AboutSection`이다.
 

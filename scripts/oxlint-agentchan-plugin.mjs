@@ -4,7 +4,7 @@ const FUTURE_SLICE_LAYERS = new Map([
   ["shell", "slice"],
   ["library", "slice"],
   ["project", "slice"],
-  ["session", "slice"],
+  ["creative-agent", "slice"],
   ["project-editor", "slice"],
   ["renderer-host", "slice"],
   ["provider", "slice"],
@@ -17,13 +17,13 @@ const FUTURE_SLICE_LAYERS = new Map([
 ]);
 
 const FUTURE_SLICE_DAG = new Map([
-  ["shell", ["project", "library", "project-editor", "renderer-host", "session", "provider", "onboarding", "theme", "update", "app-settings"]],
-  ["project", ["shell", "session", "library", "project-editor"]],
-  ["project-editor", ["shell", "session"]],
-  ["renderer-host", ["session"]],
+  ["shell", ["project", "library", "project-editor", "renderer-host", "creative-agent", "provider", "onboarding", "theme", "update", "app-settings"]],
+  ["project", ["shell", "creative-agent", "library", "project-editor"]],
+  ["project-editor", ["shell", "creative-agent"]],
+  ["renderer-host", ["creative-agent"]],
   ["onboarding", ["provider", "library"]],
   ["app-settings", ["provider", "theme", "update", "onboarding"]],
-  ["session", ["provider"]],
+  ["creative-agent", ["provider"]],
 ]);
 
 const APP_SETTINGS_COMPOSITION_IMPORTS = new Map([

@@ -7,7 +7,7 @@ import {
 } from "./EditorContext.js";
 import { readProjectFile } from "./editor.api.js";
 import { qk, useLatestRef } from "@/client/platform/index.js";
-import { useStreamSettleCount } from "@/client/session/index.js";
+import { useAgentRunSettleCount } from "@/client/creative-agent/index.js";
 
 interface LastSeenSettle {
   slug: string | null;
@@ -23,7 +23,7 @@ export function useInvalidateOnAgentSettle(): void {
   const slug = viewState.activeProjectSlug;
   const view = viewState.view;
   const isEdit = view.kind === "project" && view.mode === "edit";
-  const settleCount = useStreamSettleCount(isEdit ? slug : null);
+  const settleCount = useAgentRunSettleCount(isEdit ? slug : null);
 
   const selectedPathRef = useLatestRef(editor.selectedPath);
   const dirtyRef = useLatestRef(editor.dirty);

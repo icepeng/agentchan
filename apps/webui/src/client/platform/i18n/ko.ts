@@ -5,7 +5,7 @@ export const translations: Record<TranslationKey, string> = {
   "sidebar.templates": "템플릿",
   "sidebar.projects": "프로젝트",
   "sidebar.projectSettings": "프로젝트 설정",
-  "sidebar.streamingIndicator": "생성 중…",
+  "sidebar.agentRunIndicator": "Creative agent 실행 중",
 
   // Provider / Model
   "provider.label": "프로바이더",
