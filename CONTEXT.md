@@ -134,11 +134,18 @@ _Avoid_: workspace, repo, directory
 **User**가 **Project**의 내용을 직접 고치는 편집 표면.
 _Avoid_: edit mode, file editor, workspace editor
 
-### Sessions
+### Sessions and runs
 
 **Session**:
-**Project** 안에서 **User**와 **Creative agent**가 이어가는 하나의 대화 흐름.
+**Project**에서 **User**와 **Creative agent**가 주고받은 입력과 응답을
+append-only로 보존하는 대화 기록.
 _Avoid_: chat, conversation, thread
+
+**Agent run**:
+**Creative agent**가 한 **Project**에서 한 번 실행되어 응답을 만들어내는 단위.
+시작, 진행, 완료, 취소, 오류의 lifecycle을 가지며, 결과는 **Session**에
+새 entry로 append된다.
+_Avoid_: stream, request, generation
 
 **Branch**:
 **Session**에서 한 지점부터 다른 가능성으로 이어지는 진행.
@@ -146,6 +153,7 @@ _Avoid_: thread, fork, alternate chat
 
 **Compaction**:
 긴 **Session**을 계속 이어가기 위해 이전 대화를 요약해 context를 줄이는 일.
+요약 자체는 한 번의 **Agent run**으로 수행된다.
 _Avoid_: archive, deletion, memory
 
 **Creative session**:
@@ -206,6 +214,9 @@ _Avoid_: exe build, binary
 - 한 **Project**는 여러 **Session**을 가질 수 있다.
 - **Session**은 **Project content**와 다르다. 대화 기록은 놀이의 진행 기록이고, content는 놀이의 재료나 결과다.
 - 한 **Session**은 여러 **Branch**를 가질 수 있다.
+- 한 번의 **Creative agent** 실행이 하나의 **Agent run**이다. **Agent run**은 한 **Project**의 한 **Session**(의 한 leaf entry)을 대상으로 한다.
+- 한 시점에 한 **Project**당 진행 중인 **Agent run**은 최대 하나다.
+- **Agent run**의 결과는 끝났을 때 **Session**에 append되며, **Agent run** 자체는 별도로 보존되지 않는다.
 - **User**는 같은 장면이나 선택에서 다른 **Branch**로 창작 놀이를 이어갈 수 있다.
 - **Branch**는 **Project content**를 자동으로 복제하지 않는다. 필요한 변경은 대화나 파일 편집으로 **Project content**에 반영된다.
 - **Session**이 **Context window**에 가까워지면 **Compaction**이 필요할 수 있다.
